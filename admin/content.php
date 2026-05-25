@@ -1,0 +1,384 @@
+<?php
+require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
+require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
+require_once __DIR__ . '/_layout.php';
+mp_require_login();
+
+function mp_content_status_label(string $status): string
+{
+    return match ($status) {
+        'published' => 'Published',
+        'trash' => 'Trash',
+        'review' => 'Review',
+        default => 'Draft',
+    };
+}
+
+function mp_content_selected_items(): array
+{
+    $selected = $_POST['selected'] ?? [];
+    if (!is_array($selected)) {
+        return [];
+    }
+    $items = [];
+    foreach ($selected as $value) {
+        $parts = explode('|', (string)$value, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+        if ($parts[0] === 'trash') {
+            $id = (int)$parts[1];
+            if ($id > 0) {
+                $items[] = ['type' => 'trash', 'id' => $id];
+            }
+            continue;
+        }
+        $type = $parts[0] === 'published' ? 'published' : 'draft';
+        $file = basename($parts[1]);
+        if ($file !== '') {
+            $items[] = ['type' => $type, 'file' => $file];
+        }
+    }
+    return $items;
+}
+
+$status = $_GET['status'] ?? 'all';
+$status = in_array($status, ['all', 'draft', 'published', 'review', 'trash'], true) ? $status : 'all';
+if ($status === 'review' && function_exists('mp_current_user_has_standard_user_role') && mp_current_user_has_standard_user_role()) {
+    $status = 'draft';
+}
+$statusRedirect = $status !== 'all' ? '?status=' . rawurlencode($status) : '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    mp_verify_csrf();
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(240);
+    }
+    $bulkAction = (string)($_POST['bulk_action'] ?? '');
+    $allowedBulkActions = ['publish', 'unpublish', 'trash', 'restore', 'delete_permanent'];
+    $selected = mp_content_selected_items();
+    $done = 0;
+    $failed = 0;
+
+    if (!in_array($bulkAction, $allowedBulkActions, true)) {
+        mp_flash('Nothing changed. Choose a bulk action first.', 'info');
+        mp_redirect(mp_admin_url('content.php' . $statusRedirect));
+    }
+
+    foreach ($selected as $item) {
+        try {
+            if ($bulkAction === 'publish' && $item['type'] === 'draft') {
+                mp_require_content_file_access('drafts', $item['file'], 'publish_content');
+                mp_publish_file($item['file']);
+                $done++;
+            } elseif ($bulkAction === 'unpublish' && $item['type'] === 'published') {
+                mp_require_content_file_access('published', $item['file'], 'publish_content');
+                mp_unpublish_file($item['file']);
+                $done++;
+            } elseif ($bulkAction === 'trash' && in_array($item['type'], ['draft', 'published'], true)) {
+                mp_require_content_file_access($item['type'] === 'published' ? 'published' : 'drafts', $item['file'], 'edit_content');
+                mp_delete_content_file($item['type'], $item['file']);
+                if ($item['type'] === 'published') {
+                }
+                $done++;
+            } elseif ($bulkAction === 'restore' && $item['type'] === 'trash') {
+                mp_require_trash_item_access((int)$item['id']);
+                $restored = mp_restore_trash_item((int)$item['id']);
+                if (($restored['restored_status'] ?? '') === 'published') {
+                }
+                $done++;
+            } elseif ($bulkAction === 'delete_permanent' && $item['type'] === 'trash') {
+                mp_require_trash_item_access((int)$item['id']);
+                mp_delete_trash_item_permanently((int)$item['id']);
+                $done++;
+            }
+        } catch (Throwable $e) {
+            $failed++;
+        }
+    }
+
+
+    if ($done > 0) {
+        $label = match ($bulkAction) {
+            'publish' => 'published',
+            'unpublish' => 'moved to drafts',
+            'trash' => 'moved to Trash',
+            'restore' => 'restored',
+            'delete_permanent' => 'permanently deleted',
+            default => 'updated',
+        };
+        $message = 'Bulk action complete. ' . $done . ' post' . ($done === 1 ? '' : 's') . ' ' . $label . '.';
+        if ($failed > 0) {
+            $message .= ' ' . $failed . ' selected item' . ($failed === 1 ? '' : 's') . ' could not be changed.';
+        }
+        mp_flash($message, $failed > 0 ? 'warning' : 'success');
+    } else {
+        mp_flash('Nothing changed. Select stream posts first, then choose a bulk action.', $failed > 0 ? 'warning' : 'info');
+    }
+    mp_redirect(mp_admin_url('content.php' . $statusRedirect));
+}
+$q = trim((string)($_GET['q'] ?? ''));
+$sort = (string)($_GET['sort'] ?? 'date_desc');
+$sort = in_array($sort, ['date_desc', 'date_asc'], true) ? $sort : 'date_desc';
+
+$drafts = mp_filter_stream_posts(mp_list_content_records('drafts'));
+$published = mp_filter_stream_posts(mp_list_content_records('published'));
+$trash = function_exists('mp_list_trash_items') ? mp_filter_stream_posts(mp_list_trash_items()) : [];
+
+$allItems = [];
+foreach ($drafts as $item) {
+    $item['content_status'] = 'draft';
+    if (function_exists('mp_review_status_for_file')) {
+        $item['review_status'] = mp_review_status_for_file('drafts', (string)($item['filename'] ?? ''));
+    }
+    $allItems[] = $item;
+}
+foreach ($published as $item) {
+    $item['content_status'] = 'published';
+    $allItems[] = $item;
+}
+if ($status === 'trash') {
+    $allItems = $trash;
+}
+if (function_exists('mp_filter_content_items_for_current_user')) {
+    $drafts = mp_filter_content_items_for_current_user($drafts);
+    $published = mp_filter_content_items_for_current_user($published);
+    $trash = mp_filter_content_items_for_current_user($trash);
+    $allItems = mp_filter_content_items_for_current_user($allItems);
+}
+$reviewCount = 0;
+foreach ($allItems as $reviewCandidate) {
+    if ((string)($reviewCandidate['content_status'] ?? '') === 'draft' && (string)($reviewCandidate['review_status'] ?? '') === 'pending') {
+        $reviewCount++;
+    }
+}
+
+$items = array_filter($allItems, function ($item) use ($status, $q) {
+    $itemStatus = (string)($item['content_status'] ?? 'draft');
+    if ($status === 'review') {
+        if ($itemStatus !== 'draft' || (string)($item['review_status'] ?? '') !== 'pending') {
+            return false;
+        }
+    } elseif ($status !== 'all' && $itemStatus !== $status) {
+        return false;
+    }
+    if ($q !== '') {
+        $haystack = strtolower(implode(' ', [
+            (string)($item['title'] ?? ''),
+            (string)($item['description'] ?? ''),
+            (string)($item['body'] ?? ''),
+            (string)($item['slug'] ?? ''),
+        ]));
+        if (!str_contains($haystack, strtolower($q))) {
+            return false;
+        }
+    }
+    return true;
+});
+
+$items = array_values($items);
+if ($status === 'trash') {
+    usort($items, function ($a, $b) use ($sort) {
+        $left = (string)($a['deleted_at'] ?? $a['date'] ?? '');
+        $right = (string)($b['deleted_at'] ?? $b['date'] ?? '');
+        return $sort === 'date_asc' ? strcmp($left, $right) : strcmp($right, $left);
+    });
+} else {
+    $items = mp_sort_stream_posts($items);
+    if ($sort === 'date_asc') {
+        $items = array_reverse($items);
+    }
+}
+$dateSortNext = $sort === 'date_desc' ? 'date_asc' : 'date_desc';
+$dateSortSymbol = $sort === 'date_desc' ? '↓' : '↑';
+$dateSortUrl = mp_admin_url('content.php' . mp_query_string([
+    'status' => $status !== 'all' ? $status : '',
+    'q' => $q,
+    'sort' => $dateSortNext,
+]));
+$title = match ($status) {
+    'draft' => 'Draft Stream Posts',
+    'published' => 'Published Stream Posts',
+    'review' => 'Review Queue',
+    'trash' => 'Trash',
+    default => 'Stream Posts',
+};
+$actions = [
+    ['label' => 'New Stream Post', 'href' => mp_admin_url('new.php'), 'style' => 'primary'],
+    ['label' => 'Revisions', 'href' => mp_admin_url('revisions.php'), 'style' => 'secondary'],
+];
+$canEmptyTrash = !mp_current_user_has_standard_user_role();
+mp_admin_header($title, $actions);
+?>
+<nav class="content-filter" aria-label="Stream post status filters">
+  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
+  <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('content.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
+  <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('content.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
+  <?php if (!mp_current_user_has_standard_user_role()): ?><a class="<?= $status === 'review' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('content.php?status=review'), ENT_QUOTES, 'UTF-8') ?>">Review Queue <span><?= (int)$reviewCount ?></span></a><?php endif; ?>
+  <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
+</nav>
+
+<?php if ($status === 'review'): ?>
+  <section class="panel page-intro-panel">
+    <p class="eyebrow">Pending Review</p>
+    <h2>Approve submitted stream posts.</h2>
+    <p class="meta">When users cannot publish directly, their posts wait here for an admin to review before they appear on the public stream.</p>
+  </section>
+<?php endif; ?>
+
+<?php if ($status === 'trash' && $trash && $canEmptyTrash): ?>
+  <form method="post" action="<?= htmlspecialchars(mp_admin_url('delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="trash-empty-form">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="empty_trash" value="1">
+    <button type="submit" class="danger">Empty Trash</button>
+  </form>
+<?php endif; ?>
+
+<section class="panel content-list-panel">
+  <form class="content-search-form" method="get">
+    <input type="hidden" name="status" value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="sort" value="<?= htmlspecialchars($sort, ENT_QUOTES, 'UTF-8') ?>">
+    <label class="sr-only" for="content_q">Search stream posts</label>
+    <input id="content_q" type="search" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>" placeholder="Search stream posts">
+    <button type="submit">Search</button>
+    <?php if ($q !== ''): ?>
+      <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url('content.php' . mp_query_string(['status' => $status !== 'all' ? $status : ''])), ENT_QUOTES, 'UTF-8') ?>">Clear</a>
+    <?php endif; ?>
+  </form>
+
+  <?php if (!$items): ?>
+    <div class="empty-state">
+      <h2>No stream posts found.</h2>
+      <p><?= $status === 'trash' ? 'Trash is empty.' : 'Create your first stream post from the front-page composer or the admin editor.' ?></p>
+      <?php if ($status !== 'trash'): ?><a class="primary-button" href="<?= htmlspecialchars(mp_admin_url('new.php'), ENT_QUOTES, 'UTF-8') ?>">New Stream Post</a><?php endif; ?>
+    </div>
+  <?php else: ?>
+    <form id="bulk-content-form" method="post" class="bulk-content-form">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <div class="bulk-actions-row">
+        <select name="bulk_action" aria-label="Bulk action">
+          <option value="">Bulk actions</option>
+          <?php if ($status === 'trash'): ?>
+            <option value="restore">Restore selected</option>
+            <option value="delete_permanent">Delete selected permanently</option>
+          <?php else: ?>
+            <option value="publish">Publish selected drafts</option>
+            <option value="unpublish">Move selected published posts to drafts</option>
+            <option value="trash">Move selected to Trash</option>
+          <?php endif; ?>
+        </select>
+        <button type="submit">Apply</button>
+        <span class="meta"><?= count($items) ?> post<?= count($items) === 1 ? '' : 's' ?> shown</span>
+      </div>
+    </form>
+
+    <table class="admin-table content-table">
+      <thead>
+        <tr>
+          <th class="check-column"><label class="select-all-label"><input type="checkbox" data-select-all aria-label="Select all stream posts"> <span>Select</span></label></th>
+          <th>Post</th>
+          <th>Status</th>
+          <th>Review</th>
+          <th>Media</th>
+          <th><?= $status === 'trash' ? 'Deleted' : 'Storage' ?></th>
+          <th><a class="sort-link <?= $sort === 'date_desc' || $sort === 'date_asc' ? 'active' : '' ?>" href="<?= htmlspecialchars($dateSortUrl, ENT_QUOTES, 'UTF-8') ?>">Date <span><?= htmlspecialchars($dateSortSymbol, ENT_QUOTES, 'UTF-8') ?></span></a></th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($items as $item): ?>
+        <?php
+          $itemStatus = (string)($item['content_status'] ?? 'draft');
+          $itemType = $itemStatus === 'published' ? 'published' : ($itemStatus === 'trash' ? 'trash' : 'draft');
+          $file = (string)($item['filename'] ?? '');
+          $storageStatus = $itemStatus === 'trash' ? ['label' => 'In Trash', 'class' => 'trash'] : ['label' => (($item['content_storage'] ?? '') === 'legacy-markdown' ? 'Legacy Markdown' : 'Database'), 'class' => (($item['content_storage'] ?? '') === 'legacy-markdown' ? 'warning' : 'generated')];
+          $reviewBadge = ($itemStatus === 'draft' && function_exists('mp_post_review_badge_for_file')) ? mp_post_review_badge_for_file('drafts', $file) : ['status' => '', 'label' => 'Not submitted', 'class' => 'none'];
+          $canPublishItem = $itemStatus !== 'trash' && function_exists('mp_current_user_can') && function_exists('mp_content_subject_for_file') ? mp_current_user_can('publish_content', mp_content_subject_for_file($itemStatus === 'published' ? 'published' : 'drafts', $file, $item)) : false;
+          $itemTitle = trim((string)($item['title'] ?? ''));
+          if ($itemTitle === '' || str_starts_with(strtolower($itemTitle), 'stream ')) {
+              $itemTitle = mp_stream_admin_title_from_body((string)($item['body'] ?? ''), (string)($item['stream_created_at'] ?? $item['date'] ?? ''));
+          }
+          $itemPreview = mp_stream_preview_text($item, 140);
+          $hasMedia = trim((string)($item['featured_media'] ?? $item['front_matter']['featured_media'] ?? '')) !== '';
+          $displayDate = mp_stream_display_date($item);
+        ?>
+        <tr class="content-row content-type-stream">
+          <td class="check-column"><input type="checkbox" form="bulk-content-form" name="selected[]" value="<?= htmlspecialchars($itemType . '|' . ($itemType === 'trash' ? (int)$item['trash_id'] : $file), ENT_QUOTES, 'UTF-8') ?>" aria-label="Select <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?>"></td>
+          <td class="title-column">
+            <?php if ($itemStatus === 'trash'): ?>
+              <strong><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></strong>
+              <?php if ($itemPreview !== '' || $hasMedia): ?><p class="content-preview"><?= htmlspecialchars($itemPreview, ENT_QUOTES, 'UTF-8') ?><?php if ($hasMedia): ?> <span class="media-indicator">Media attached</span><?php endif; ?></p><?php endif; ?>
+              <div class="row-actions">
+                <form method="post" action="<?= htmlspecialchars(mp_admin_url('restore.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="trash_id" value="<?= (int)$item['trash_id'] ?>">
+                  <button type="submit" class="link-button">Restore</button>
+                </form>
+                <span>|</span>
+                <form method="post" action="<?= htmlspecialchars(mp_admin_url('delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="trash_id" value="<?= (int)$item['trash_id'] ?>">
+                  <button type="submit" class="link-button danger-link">Delete Permanently</button>
+                </form>
+              </div>
+              <p class="meta">Original: <?= htmlspecialchars(ucfirst((string)($item['original_status'] ?? 'draft')), ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars((string)($item['original_filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+            <?php else: ?>
+              <strong><a href="<?= htmlspecialchars(mp_admin_url('edit.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></a></strong>
+              <?php if ($itemPreview !== '' || $hasMedia): ?><p class="content-preview"><?= htmlspecialchars($itemPreview, ENT_QUOTES, 'UTF-8') ?><?php if ($hasMedia): ?> <span class="media-indicator">Media attached</span><?php endif; ?></p><?php endif; ?>
+              <div class="row-actions">
+                <a href="<?= htmlspecialchars(mp_admin_url('edit.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <span>|</span>
+                <a href="<?= htmlspecialchars(mp_admin_url('quick-edit.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Quick Edit</a>
+                <span>|</span>
+                <a href="<?= htmlspecialchars(mp_admin_url('preview.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Preview</a>
+                <span>|</span>
+                <a href="<?= htmlspecialchars(mp_admin_url('revisions.php?slug=' . urlencode((string)$item['slug'])), ENT_QUOTES, 'UTF-8') ?>">Revisions</a>
+                <?php if ($itemStatus === 'published'): ?>
+                  <span>|</span>
+                  <a href="<?= htmlspecialchars(mp_stream_url_for_post($item), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View</a>
+                  <?php if ($canPublishItem): ?>
+                    <span>|</span>
+                    <form method="post" action="<?= htmlspecialchars(mp_admin_url('unpublish.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                      <button type="submit" class="link-button">Move to Drafts</button>
+                    </form>
+                  <?php endif; ?>
+                <?php else: ?>
+                  <span>|</span>
+                  <?php if ($canPublishItem): ?>
+                    <form method="post" action="<?= htmlspecialchars(mp_admin_url('publish.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="return" value="content">
+                      <button type="submit" class="link-button">Publish</button>
+                    </form>
+                  <?php else: ?>
+                    <form method="post" action="<?= htmlspecialchars(mp_admin_url('submit-review.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                      <button type="submit" class="link-button">Submit for Review</button>
+                    </form>
+                  <?php endif; ?>
+                <?php endif; ?>
+                <span>|</span>
+                <form method="post" action="<?= htmlspecialchars(mp_admin_url('delete.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="type" value="<?= htmlspecialchars($itemType, ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                  <button type="submit" class="link-button danger-link">Trash</button>
+                </form>
+              </div>
+            <?php endif; ?>
+          </td>
+          <td><span class="status-pill <?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(mp_content_status_label($itemStatus), ENT_QUOTES, 'UTF-8') ?></span></td>
+          <td><?= $itemStatus === 'draft' ? '<span class="status-pill review-' . htmlspecialchars((string)$reviewBadge['class'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$reviewBadge['label'], ENT_QUOTES, 'UTF-8') . '</span>' : '<span class="meta">' . ($itemStatus === 'published' ? 'Approved' : 'None') . '</span>' ?></td>
+          <td><?= $hasMedia ? '<span class="media-indicator">Attached</span>' : '<span class="meta">None</span>' ?></td>
+          <td><?php if ($itemStatus === 'trash'): ?><?= htmlspecialchars((string)($item['deleted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?><?php else: ?><span class="static-pill <?= htmlspecialchars((string)$storageStatus['class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$storageStatus['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?></td>
+          <td><?= htmlspecialchars($displayDate, ENT_QUOTES, 'UTF-8') ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</section>
+<?php mp_admin_footer(); ?>

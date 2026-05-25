@@ -1,0 +1,263 @@
+:root {
+  color-scheme: dark;
+  --sitemap-bg: #080b10;
+  --sitemap-surface: #111722;
+  --sitemap-surface-2: #171f2d;
+  --sitemap-text: #f4f7fb;
+  --sitemap-muted: #9ca8ba;
+  --sitemap-border: #263244;
+  --sitemap-border-soft: rgba(255, 255, 255, 0.08);
+  --sitemap-accent: #d6b46f;
+  --sitemap-accent-soft: rgba(214, 180, 111, 0.14);
+  --sitemap-link: #87d9ff;
+  --sitemap-shadow: rgba(0, 0, 0, 0.38);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--sitemap-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(41, 95, 140, 0.22), transparent 34rem),
+    radial-gradient(circle at top right, rgba(214, 180, 111, 0.14), transparent 28rem),
+    linear-gradient(180deg, #0b0f16 0%, var(--sitemap-bg) 100%);
+  color: var(--sitemap-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.bonumark-sitemap-shell {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 38px 0 48px;
+}
+
+.bonumark-sitemap-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--sitemap-border);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(23, 31, 45, 0.98), rgba(11, 15, 22, 0.98)),
+    var(--sitemap-surface);
+  padding: clamp(24px, 4vw, 44px);
+  box-shadow: 0 24px 80px var(--sitemap-shadow);
+}
+
+.bonumark-sitemap-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--sitemap-link), var(--sitemap-accent));
+}
+
+.bonumark-sitemap-kicker {
+  margin: 0 0 10px;
+  color: var(--sitemap-accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bonumark-sitemap-hero h1 {
+  margin: 0;
+  color: var(--sitemap-text);
+  font-size: clamp(2.1rem, 6vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.bonumark-sitemap-lede {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: var(--sitemap-muted);
+  font-size: clamp(1rem, 2vw, 1.12rem);
+}
+
+.bonumark-sitemap-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.bonumark-sitemap-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--sitemap-border-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--sitemap-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.bonumark-sitemap-stats strong {
+  color: var(--sitemap-text);
+}
+
+.bonumark-sitemap-card {
+  margin-top: 20px;
+  overflow: hidden;
+  border: 1px solid var(--sitemap-border);
+  border-radius: 20px;
+  background: rgba(17, 23, 34, 0.94);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.26);
+}
+
+.bonumark-sitemap-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.bonumark-sitemap-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.bonumark-sitemap-table th,
+.bonumark-sitemap-table td {
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--sitemap-border-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bonumark-sitemap-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(23, 31, 45, 0.98);
+  color: var(--sitemap-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.bonumark-sitemap-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.bonumark-sitemap-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.bonumark-sitemap-table tbody tr:hover {
+  background: rgba(135, 217, 255, 0.07);
+}
+
+.bonumark-sitemap-table a {
+  color: var(--sitemap-link);
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.bonumark-sitemap-table a:hover,
+.bonumark-sitemap-table a:focus {
+  color: #c6efff;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.bonumark-sitemap-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 5px 10px;
+  border: 1px solid rgba(214, 180, 111, 0.26);
+  border-radius: 999px;
+  background: var(--sitemap-accent-soft);
+  color: var(--sitemap-accent);
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bonumark-sitemap-date {
+  color: var(--sitemap-muted);
+  white-space: nowrap;
+}
+
+.bonumark-sitemap-footer {
+  margin-top: 16px;
+  color: var(--sitemap-muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .bonumark-sitemap-shell {
+    width: min(100% - 20px, 1120px);
+    padding: 18px 0 28px;
+  }
+
+  .bonumark-sitemap-hero {
+    border-radius: 18px;
+    padding: 24px 18px;
+  }
+
+  .bonumark-sitemap-card {
+    border-radius: 16px;
+  }
+
+  .bonumark-sitemap-table,
+  .bonumark-sitemap-table thead,
+  .bonumark-sitemap-table tbody,
+  .bonumark-sitemap-table th,
+  .bonumark-sitemap-table td,
+  .bonumark-sitemap-table tr {
+    display: block;
+    min-width: 0;
+  }
+
+  .bonumark-sitemap-table thead {
+    display: none;
+  }
+
+  .bonumark-sitemap-table tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--sitemap-border-soft);
+  }
+
+  .bonumark-sitemap-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .bonumark-sitemap-table td {
+    border-bottom: 0;
+    padding: 5px 16px;
+  }
+
+  .bonumark-sitemap-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--sitemap-muted);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .bonumark-sitemap-date {
+    white-space: normal;
+  }
+}

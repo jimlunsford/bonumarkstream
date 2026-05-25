@@ -1,0 +1,13 @@
+{
+  "name": "bonumark-stream",
+  "version": "0.3.2",
+  "package_type": "shared-hosting",
+  "database": "mysql-mariadb",
+  "tagline": "A self-hosted microblog stream for owning short-form publishing.",
+  "release": "Mobile Public Page Containment Repair Pass",
+  "release_name": "Mobile Public Page Containment Repair Pass",
+  "description": "Repairs mobile page viewport containment so public pages cannot force horizontal scrolling on phones.",
+  "license": "AGPL-3.0-or-later",
+  "title": "Mobile Public Page Containment Repair Pass",
+  "label": "Mobile Public Page Containment Repair Pass"
+}

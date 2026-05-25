@@ -1,0 +1,995 @@
+{
+  "name": "bonumark-stream",
+  "version": "0.3.2",
+  "generated_at": "2026-05-25T16:58:20Z",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "5e5bcb0cf533dcd2dcc7741094b9c7f914e9c25356e36da31f36f48c7adcd074"
+    },
+    {
+      "path": ".htaccess",
+      "sha256": "ded697c6bb042963870792bcac94b926f9905d131f790e697280b2cd299c70aa"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "a0a36d0c37b1c76658a6ef77991346a0078126f548427c705b23794054a8057a"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "7dd9902a724e3c212d871323876f53aa899f23a0812ccd44b7db2fa0dfe1d9ad"
+    },
+    {
+      "path": "README.md",
+      "sha256": "b75dfe61fc6ce10b2a51c8dc893cc3812d2c7fd4bf8ea6977c1e57c54263e7ad"
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "108aad370bce11a42a55c9da81d0ced0a1fc084729b9b15eae10175e47192a7f"
+    },
+    {
+      "path": "VERSION",
+      "sha256": "511a100eedfb9ea66441e5d506392dba2d8aa290f98c4c544c70ae75ec3c3396"
+    },
+    {
+      "path": "_bonumark_stream/.htaccess",
+      "sha256": "1581faf462f67052c23dee5420cf8c329d6159b54ac433b4eed97a74f3e9ab51"
+    },
+    {
+      "path": "_bonumark_stream/CHANGELOG.md",
+      "sha256": "3daa4c726775620da86aaec4d4aee8c3f0ae5f24f76d40a0aafa0e27e5b10ff3"
+    },
+    {
+      "path": "_bonumark_stream/PACKAGE.json",
+      "sha256": "985d880cb7f66e883e73017cd3632024b8ddf7fb14fff26dc7cc40472ec06d18"
+    },
+    {
+      "path": "_bonumark_stream/VERSION",
+      "sha256": "511a100eedfb9ea66441e5d506392dba2d8aa290f98c4c544c70ae75ec3c3396"
+    },
+    {
+      "path": "_bonumark_stream/app/appearance.php",
+      "sha256": "40ce6defb1ebfb7bafa3c00a88025cccb147a9bdff2a9f2d44d3facd013b6297"
+    },
+    {
+      "path": "_bonumark_stream/app/auth.php",
+      "sha256": "3fe2eeae007491846d65039644dde76e6faabd4ce32246e8c94b1883d50ba5c3"
+    },
+    {
+      "path": "_bonumark_stream/app/comments.php",
+      "sha256": "e024c7cfc093856f7f76dd66747c8e0f581e270fb551917957934c22ba433a5f"
+    },
+    {
+      "path": "_bonumark_stream/app/database.php",
+      "sha256": "2ef5ac738be7b3017ac4e1577be916f6ec816698247428a7cd19cfcb971f5cc8"
+    },
+    {
+      "path": "_bonumark_stream/app/editor.php",
+      "sha256": "74b2e38267f7790a472ce6119b0641fed7751f449ea3744059d0d03b2e19979b"
+    },
+    {
+      "path": "_bonumark_stream/app/functions.php",
+      "sha256": "45f9ba12a14df13998f5f02b4332a7232e5d47c577eb1b1b849ad986bfc5d49d"
+    },
+    {
+      "path": "_bonumark_stream/app/import-media.php",
+      "sha256": "2aa6c4e3070c8b3a9442ddf52d894ca3e6b9c9f9d138a26006bb9b5304200572"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/BlueskyArchiveImporter.php",
+      "sha256": "f3a81cca32fab04bb275bec3f67a3957dce7df4960f2f87b76445d890ac60c5e"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/BonumarkExportImporter.php",
+      "sha256": "14e2c957ccb66561f7e05080aec87d7c74868b480b92bc0f49256e530b108027"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/ImportItem.php",
+      "sha256": "5465a97a400c8d9932930add70460b9cd6b7bcf088e1e19e81841296fcfb7b6d"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/ImportResult.php",
+      "sha256": "751fefbc1dafca2b6e4772ec5f2bed6ed08ad269b0b42d3a6965490f27e8f932"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/ImporterInterface.php",
+      "sha256": "315b27eecbaca62e6ee713cc4935d7937797cc2d835b8ef605c039153ee7b58a"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/JsonImporter.php",
+      "sha256": "3135faa94340c21b0b7f49b6c94854d30765aea75bfbca459d549a857a23c40e"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/MarkdownImporter.php",
+      "sha256": "8db1c640fabec2234eda813a9696653251ee449e17df367280616abe8c1dc388"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/TwitterArchiveImporter.php",
+      "sha256": "7a57108b0743fa2799224dea6729c209c25251d29944dc6174ecd57237847a4c"
+    },
+    {
+      "path": "_bonumark_stream/app/importers/WordPressWxrImporter.php",
+      "sha256": "9ce214882bcfb779eed1702a0219799a6c58184b38c489f46539afd22ae8ac91"
+    },
+    {
+      "path": "_bonumark_stream/app/importers.php",
+      "sha256": "016212d5acf36e535a0ff81774ca386e3b0af087c0bf92e82d9e688f720dfa67"
+    },
+    {
+      "path": "_bonumark_stream/app/interactions.php",
+      "sha256": "101c2bb4668938da912c5f52b364f173aad13cb008f5a3acbd651911962a13bb"
+    },
+    {
+      "path": "_bonumark_stream/app/link-preview.php",
+      "sha256": "2e2b249ec006fb26732c60fded18760dd1ac1146fa4a79e83967914f79082bcb"
+    },
+    {
+      "path": "_bonumark_stream/app/mail.php",
+      "sha256": "d8d84aa6d9b95d736112a2627beff92daa13f8344a253811abe8ab7f2d7dacc2"
+    },
+    {
+      "path": "_bonumark_stream/app/markdown.php",
+      "sha256": "20d2278aac138e5acad2f695dd5c5a745b7111f693416d35956f9f3a047d0832"
+    },
+    {
+      "path": "_bonumark_stream/app/media.php",
+      "sha256": "5ecaf26e3b31755079e1b89ca0409c460401b094270920a0c7e211d2763733e8"
+    },
+    {
+      "path": "_bonumark_stream/app/pages.php",
+      "sha256": "6cc922636f0e0d6a6eed8b0a45e0151e2ca2e58f6c7c527a96d512d9ea256ae8"
+    },
+    {
+      "path": "_bonumark_stream/app/password-recovery.php",
+      "sha256": "040a5ff37b486a4d60e1df2fb714d0559b4f1ac8a8bce410649760aad5437650"
+    },
+    {
+      "path": "_bonumark_stream/app/preview.php",
+      "sha256": "748d133e976d0c812e04ce95f585972005bd71a2544a3744558eb17c5544ed99"
+    },
+    {
+      "path": "_bonumark_stream/app/profiles.php",
+      "sha256": "305880a921f255eb5aff4db832988af82a13751a7840fee137beffb68817c473"
+    },
+    {
+      "path": "_bonumark_stream/app/registration.php",
+      "sha256": "d702174ae54845e90187dbcc0fe5ce30fa0db25988c1a4148471b3ce3e45419b"
+    },
+    {
+      "path": "_bonumark_stream/app/renderer.php",
+      "sha256": "c04da0e7bd300e8a64fe094c45bf176f095732667d20e50124a7ae2bde9cb0c4"
+    },
+    {
+      "path": "_bonumark_stream/app/routes.php",
+      "sha256": "34c92b532b3603128aa0bb31a99f1f65615ab846115c4459d09ed58e4b3c2a6d"
+    },
+    {
+      "path": "_bonumark_stream/app/sitemap.php",
+      "sha256": "3f376ede217603fb52aa6dd8561d9884129cd19851015d8b1d318dc64f432416"
+    },
+    {
+      "path": "_bonumark_stream/app/stream-like-endpoint.php",
+      "sha256": "7e84f97e69f485f60e08fb981e8c362bef8144d9fbe8b70fb38dc3115e5e5452"
+    },
+    {
+      "path": "_bonumark_stream/app/theme-installer.php",
+      "sha256": "3063ec52e2de525df3cf5faacbf4ec71e1c586ed1134c0983a3ab87e4c6f9dbd"
+    },
+    {
+      "path": "_bonumark_stream/app/themes.php",
+      "sha256": "e69c0d4a6e3bdd3f0f1674ba875ac444df02ab21fcd405287b0789b8f26cacc7"
+    },
+    {
+      "path": "_bonumark_stream/backups/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "_bonumark_stream/backups/upgrades/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "_bonumark_stream/config.sample.php",
+      "sha256": "e182bb0dbba1a908f700782d4f697ed4c2f168732698c1b918e13935c8542627"
+    },
+    {
+      "path": "_bonumark_stream/data/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0001_initial_schema.php",
+      "sha256": "fa11010893a97ba6602b6901cfbcc03289bb35af68c977b20161be79c22bcdac"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0002_media_library.php",
+      "sha256": "d70e07b31f252ae707caa4dbe333cdd765e28d49cbe77437fc339bc810a065aa"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0003_trash_and_revisions.php",
+      "sha256": "79682b5fc15ef6fc10472fe05777adf200a572f1ba83864c1402b1483c103be5"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0004_appearance_navigation.php",
+      "sha256": "fa97e6d895333b1abc9adf5d85b5e442c4c0fedcbb361b759f323d03fdc70446"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0005_cms_confidence.php",
+      "sha256": "692432dc82ca6d564e5a0fa21d9865e2e28552c582e213ac9908dcd5932f9058"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0006_cms_confidence_completion.php",
+      "sha256": "d6eb97d560ccc7596f705fb58a9cdf2263c3892dcce4d394c72d5464f208c4d5"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0007_stream_mode_settings.php",
+      "sha256": "5ad1f80a75446d12570ae8afcd29ad27fd0d9f060bf41f84a59f70c8979d0d6e"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0008_stream_visual_settings.php",
+      "sha256": "cb5f3d2a4aa275ff6b8f04c6167437dcfefdae2342f03d36505ff3340b74da74"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0009_stream_likes.php",
+      "sha256": "a8019fc07f0e275307b7e72437247d1c3d5cc198b07149da3707277bd53dc7e2"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0010_stream_seo_settings.php",
+      "sha256": "007b8f48eb789ed6b74e817d4fd80f5c1c8333b38b8cdd1c42560477510802f4"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0011_accounts_profiles_comments.php",
+      "sha256": "acdb5a62e659e57a5d9f38bf8a3bc25fd533fdb58486f6edd43fbdd8545727cd"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0012_user_avatars.php",
+      "sha256": "7ca3d83d0685343b7484a989c405695868ccad8978f1503d37e8d94459522e23"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0013_theme_settings.php",
+      "sha256": "e90dc34b4c27ef4878eba297f14b631634edf925eca896e7866dc9d4dd015963"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0014_default_theme_cleanup.php",
+      "sha256": "2b7481d92c6c995f4dcafa44baa78955906cef92dfe263e1dc8072ed97d76bd0"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0015_mail_delivery_foundation.php",
+      "sha256": "f36e8a8815dde55894a1f32ac693adf898691dc7f2ebc5ae1f7cedfe88acc854"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0016_public_registration_foundation.php",
+      "sha256": "74c065e554b9e7c3dc416a0e81038cd396cd4d27c872e647718c37f2a68b2880"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0017_registration_approval_invite_control.php",
+      "sha256": "605425bbb2451d16d854dd0d54574fa4b554249077e6d8da43b0b87eae735272"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0018_password_recovery.php",
+      "sha256": "8eacaf579d62f542c4fd7897f6b6d5114c7c55ea7ce25449b7b995f6b94b65b3"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0019_public_profile_commenter_polish.php",
+      "sha256": "b529639dc47406016bc629920fd01e91767da5353dd6f2c768abd6660fa5bcea"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0020_multiuser_publishing_controls.php",
+      "sha256": "632722f9f5aceeb84f283324886850b1c07c11c21f2573082a12a7c369049332"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0021_multiuser_ownership_hardening.php",
+      "sha256": "b9705c7e9fb94ec6c6ac4579e38a3386ef1993efc95b7075cdfa6d35dd6ee8ed"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0022_media_bulk_actions_and_trash.php",
+      "sha256": "e5fcff5500af3bf9a3cef70c387e175940b5a983632f214ff980835557844346"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0023_database_first_content_architecture.php",
+      "sha256": "53c19f969fe3429c53d9f6f19feffab42ee67a615f9099ab6cf9bf1a8925bcee"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0024_database_first_completion.php",
+      "sha256": "e6d613a1f6ca60bb47f25c0e8990b01b40c086f12d231722ce04f60a58a2f13b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0025_fresh_install_foundation_reset.php",
+      "sha256": "33fa8dffe3cf0a8cbcd30be8862dc9ba336b4bdebae98e9020ad532dc4cd148b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0026_fresh_install_preflight_repair.php",
+      "sha256": "8420acd70c9d5d73f4953c13d7e52da82dbf385728d08675abf66e07676f9c91"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0027_static_export_isolation_repair.php",
+      "sha256": "8420acd70c9d5d73f4953c13d7e52da82dbf385728d08675abf66e07676f9c91"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0028_dynamic_feed_route_repair.php",
+      "sha256": "a01e33ac72a17e205d973c11264145abe4cebc9deaa102769d1603093d446e1f"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0029_preinstall_version_alignment_repair.php",
+      "sha256": "8420acd70c9d5d73f4953c13d7e52da82dbf385728d08675abf66e07676f9c91"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0030_preinstall_deep_audit_repair.php",
+      "sha256": "69c417cb8af68a63710dbf807bb5e8be53be1af80e5e4d025903ff4158ef04ed"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0031_clean_author_route_repair.php",
+      "sha256": "d16518870a93ef86a1e1bd2bf091996a7638297fcd8e171b5fdf2b8cae76f59a"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0032_public_release_audit_cleanup.php",
+      "sha256": "3378dc2ac94cdfd9dcc6f7ac07d3526b2d61d7b73de90c3ca66f86fdf4ab80ba"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0033_public_release_audit_repair.php",
+      "sha256": "df15cf53045a8fe5cb5eaf7e650a65fa6e0582058ac5e8341285c0d621d2f9ce"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0034_midnight_ledger_avatar_alignment.php",
+      "sha256": "e1a206e8fefc9a633e719e159d9ed2245c83519eebba0d028d74bb3247eef877"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0035_page_title_spacing_updated_date_default.php",
+      "sha256": "8c81e3e6f2c5c497a9458df093c22929819fdcffb13a3452fcd09d9febe4f671"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0036_navigation_manager_rebuild.php",
+      "sha256": "41e511d51865f3249108c214db7612f48580818ce972eb496894da1ea2f850ea"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0037_navigation_manager_interface_polish.php",
+      "sha256": "054e5b264d24c238aba46ae5618e3a03afda43a38dd657aa3c169f82932a8247"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0038_seo_slug_generation_cleanup.php",
+      "sha256": "7da75e2ca999b5c46c0b92ac34141b01ea13365d4ef114dc2026653e2abc653f"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0039_admin_clarity_polish.php",
+      "sha256": "62fd8c6dd6eef4765e7993ffa0f148780b74b0da30a85b1d344d372a782619f9"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0040_public_profile_layout_cleanup.php",
+      "sha256": "560965e4129109bffacaaba9984ad3ca8e7f2ae32f80e9346f262da5b77a9a5e"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0041_profile_layout_upgrade_hotfix.php",
+      "sha256": "f588f4958e1001ac25414b2a30eefbfacc5576b1fadecf76b268817063b9437f"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0042_public_profile_social_links.php",
+      "sha256": "2fef96b1aaeb995432c8f683ab8b2fa9142718a112b4b971b9090bc63ea385d4"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0043_profile_links_form_polish.php",
+      "sha256": "2969407fe0a745d215351795ace84c51b3aa86a2fa802023bfbd39a5aa761624"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0044_public_profile_header_cleanup.php",
+      "sha256": "f752ba01862ba26f7d2010d021029de0972ee0bd7ad568a183c23a669158362d"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0045_site_identity_link_footer_credit.php",
+      "sha256": "dba6f77fd0ef8a204eef7a2d566a8e2466a025ba5fa00776185edf90ebbb7b61"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0046_footer_link_navigation_cleanup.php",
+      "sha256": "de426857c1202fea1c64ae165e60e1666169a8642c35006764c5d5f784555c04"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0047_admin_menu_export_cleanup.php",
+      "sha256": "ffed8266d13c4844baeba71d8626dc2150aebe676b917b4f5ccb33b57437b09e"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0048_media_metadata_lcp_priority.php",
+      "sha256": "9c7a6d53c1d7c028b1287bc7cb24ecc48cea599a9c0a5eac0a431d9d31e4dbb3"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0049_avatar_optimization.php",
+      "sha256": "9823d47534a590e6075e7b740a4ee00a6d2eb667fb3b0052194717169fb524eb"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0050_upload_image_derivatives.php",
+      "sha256": "e5959a17b22648caacf6e563ef3a45f2458d915f95555e8b705c64b181338f26"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0051_image_derivative_diagnostics.php",
+      "sha256": "6867ddfc944bb076330e198e38850ffb82ce04e37c7646b820cca58b34a37090"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0052_responsive_image_output.php",
+      "sha256": "656f61e90ae50d5eb09104d2c7870f9bf267ad3ac1028366ea55d6d09a06bb2f"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0053_existing_media_regeneration_tool.php",
+      "sha256": "b81aeb59e817b5b0ea871132cb59289a4121470b6890e905cfed105204925f2a"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0054_avatar_size_selection_cleanup.php",
+      "sha256": "21b753ca6cd18008480fa63fb1317aef0e8014d4c96123db8be2c95cd92673bc"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0055_stream_card_avatar_variant_correction.php",
+      "sha256": "c6d6087fa6978b31f1a6d3b3f58b81d712b719a07abaad74eeaf9c9b0cf8b1b5"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0056_lcp_image_priority_correction.php",
+      "sha256": "aa28eadf19743507f09a93c64222c7fd00a7d743733556a2e5d954d284085782"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0057_image_variants_admin_polish.php",
+      "sha256": "7fa169781e783613124eb8db3d2d42bf9d67d7c77217c5aa8e1f0a372ca9d29b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0058_media_edit_alignment_polish.php",
+      "sha256": "096e4dd7e11b07d40f29835c0a89a593388c4910ef7db620ee16bebb3e042677"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0059_media_edit_button_alignment_hotfix.php",
+      "sha256": "daf4fe7097c0e71317c3f039df7dbdb09cdb173433075124b457f3af1b3a168e"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0060_public_release_cleanup.php",
+      "sha256": "806363a653a01118fd583d13f9eb55d2ca5c0460ed58897cffc8840cd12dc4e9"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0061_public_release_polish_upgrade_cleanup.php",
+      "sha256": "95169771172ade0468b1b8816a5f124c0b4d64cae510cf32af9033b61ef8d234"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0062_xml_sitemap.php",
+      "sha256": "aa1a9020e79c5dd70d42c119a07260db0ded3a84157475f4ccb2b6d624b07872"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0063_styled_xml_sitemap.php",
+      "sha256": "a9d743e0c81a5a163ed80bb05341e8c6aa4025d76792f6f674c3eee78c4eec90"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0064_sitemap_presentation_polish.php",
+      "sha256": "dff16d702d5f002b344f32a3ee378a737d3667b23f406a038b0bfc7e13d71a2b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0065_migration_placeholder_hotfix.php",
+      "sha256": "b1adc44df8c7fef6e117af3cc776940b70bd883445f1bdc28a49ed9bdad4c7ac"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0066_admin_dashboard_overview.php",
+      "sha256": "07688c8374ebb06f2249a4ff0da06081a7cf8bdf3434f2ab74fb99c1fbb2c5df"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0067_admin_dashboard_order_polish.php",
+      "sha256": "ec83b622f2faf413f3076dbb2e74dd7770ae5fc630b5e4bd2b8bade3e69e8fcc"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0068_admin_dashboard_layout_polish.php",
+      "sha256": "fe8331ecd089b199afb3c256fa875af9bb2359f750630598ec24932b37256335"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0069_admin_dashboard_column_flow_polish.php",
+      "sha256": "838eb60667fe76182f24b44d83ffd525e15ab549f15d33db6a5ae05d52786dd2"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0070_public_release_audit_repair.php",
+      "sha256": "1f0766456f92fb08050bd94c8683a47f01640167e7ea12313e5cf40e79fa0409"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0071_mobile_text_overflow_repair.php",
+      "sha256": "04ff55ca0c3136979decf3ad343cc5f4dc8b9453463483a78e54cfdbb8db4f42"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0072_admin_form_input_style_repair.php",
+      "sha256": "e66075562c6b30292d2d5dcdfbc31efcf565a39e84bd1e3c7695d44b6fb509c5"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0073_upgrade_action_button_alignment.php",
+      "sha256": "5d0d816548b70a5cf015174aca68e45d1d7cc8a5f3b2c58dfd0b927ff427e9d4"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0074_admin_autofill_input_color_repair.php",
+      "sha256": "de4c0499d1a76b70bee2400ae6abb1662617848af7f1e0aa5e5801cb6bafa1a4"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0075_upgrade_screen_simplification.php",
+      "sha256": "aea7c9343d391a7265ac18ea60a502c4a2a04f33bda9aa6875b70628a692b17e"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0076_admin_datetime_input_style_repair.php",
+      "sha256": "b86c6b7dc3ed0c5983a9705a8268d98f370761041c39cda7d3b94c71b26ba8fa"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0077_user_management_actions.php",
+      "sha256": "6947b69bc5fb4bf17025b5d0fd0123e54dff4400ea05aa9b9c9e1abbc65f321b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0078_user_edit_action_alignment.php",
+      "sha256": "8a2fad1962b0db7ce8f1de67b9de42f9355baf423efe6956ec2929f0b955bb1d"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0079_comment_account_link_cleanup.php",
+      "sha256": "2d11d0a655ed5c9dda942a652d4f3c87bead5afcd301deb9222136c35b400bd9"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0080_account_registration_kicker_cleanup.php",
+      "sha256": "62ea231ddffcf4bd56743beb254b7ca15375060e25c8ba9f97a5c189adf5149b"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0081_public_navigation_account_links.php",
+      "sha256": "11017b0f84c2edb56692c56d0c2c88d3d192aabf84b9fd1123fd9359a7c9409f"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0082_public_navigation_account_links_toggle.php",
+      "sha256": "a09142595d1933828e8a34fb06185fbf4d923c2484318e1344c1cea4bda8b1d3"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0083_public_github_release_baseline.php",
+      "sha256": "a66bbcf0cdbe73f9ddae33aeae8bee72b5211432e41695384c988cada3713f05"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0084_public_rendering_regression_repair.php",
+      "sha256": "1cc0387f5df786cc2a7baacfbc2b5d50a1c727b2ffde53f6dd4fcf8e5d4379f2"
+    },
+    {
+      "path": "_bonumark_stream/migrations/0085_mobile_public_page_containment_repair.php",
+      "sha256": "6604f2d8b9a1fadf69dbdfec35d95b329a2ee09964389fac80c270dfd68ff530"
+    },
+    {
+      "path": "_bonumark_stream/migrations/README.md",
+      "sha256": "0b74d21825331c4ac4ba94020c73e9215b4f8633afbb593f8a001764e7a3ada8"
+    },
+    {
+      "path": "_bonumark_stream/themes/README.md",
+      "sha256": "70718e537fc61932e06e76498fb82198f3640da3f870f59e24fde4add7b76b5e"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/README.md",
+      "sha256": "ed0504e46c074cdc60c4465a007d70ac4246dca44e867efda9b85b69659eaac2"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/THEME-DATA.md",
+      "sha256": "8213299026bfe7795a2e6ec450b1b0584aab826bcdfc821f9f3e7d57324ad045"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/_helpers.php",
+      "sha256": "2ec8ca2c66313033af0467302adbfb0a6dc6fc4e2e6e135f83493e110a38332e"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/account.php",
+      "sha256": "fc916f0f799787b6df6f5d6db39f3682c4152a4520d6d10783a053efb64e8976"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/archive.php",
+      "sha256": "c8b7f778badebb52a3e94d3795cf27bd0f246590690e4c440aac411020532082"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/card.php",
+      "sha256": "652e9a07dd4da3e9b7b83211a21a98f4f953b0933fda5c1e3c226e972935345f"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/comments-mount.php",
+      "sha256": "a1030177782aa77af54f09bc6a40e0fe28ea6bf4a91c13d12766ff6df6dd233c"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/comments.php",
+      "sha256": "ea3db5c872103d7df3af96210041a6996be281a841f703b8972257e6fcffaaf8"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/composer.php",
+      "sha256": "cd7e73dc389c8a886f235beaf24359a3cb87025f6b094a6c49d40b61649daecb"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/empty.php",
+      "sha256": "cbad9b835aa46d056841b55776e72e862abfa4fa9b79c8aa5f6cf41f6f2973c7"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/footer.php",
+      "sha256": "8a29dbaceda71740778157ef9a907ae2de121e633f24124e0746d45e6c7fd3d1"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/header.php",
+      "sha256": "52fb7a522eb1e9c7da25446b8ff18f637ca26b70816763e4090eb19782f02a2c"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/home.php",
+      "sha256": "21810716a24711e753052b57944f30fc87a33ede46f5ecabbf7e7bd5ab6a9498"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/layout.php",
+      "sha256": "bb0d1c25bba3962fe6809afab8002498cd79fbedc91c1d634dc460d8f97abb9c"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/link-preview.php",
+      "sha256": "9568d075adeac763f11359a1d9f5f307290b170e4efe7e6bba8328f49ed2da32"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/media.php",
+      "sha256": "6eec3fea5b322cd73b63568018806361b807f1de7c264179bdc0d79f6f3b79c7"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/page.php",
+      "sha256": "47e70c8a80bc49e27fb922e9073f15842a596183972f31d75bcc872fa033d8c4"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/pagination.php",
+      "sha256": "8d2433b9e0bd11f08e7cfefbf6bc6d1e13a04612d04d6f5f3d10f0f699fb610c"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/profile.php",
+      "sha256": "2df08a8a391c4adcc1a155b0c6e396c519b80f5527964e50035da8697843abd9"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/search.php",
+      "sha256": "994a9598408cb8ea39d178f8cdb2d4ea07cabe43377d4d6ef17e202b8d936ae5"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/templates/single.php",
+      "sha256": "52e0dc175a15a59d2c7292af9cdee58f16e06ba6458f43ff6572391a0a5be947"
+    },
+    {
+      "path": "_bonumark_stream/themes/default/theme.json",
+      "sha256": "97744eeed966e9b80a05f2ed196479ef857f415d7bd36e128fa35cac5c60a0f4"
+    },
+    {
+      "path": "_bonumark_stream/tools/make-password-hash.php",
+      "sha256": "de3627375659c2d060b1ccab74d172d463760e80b2e66493bc19a274c462759b"
+    },
+    {
+      "path": "account.php",
+      "sha256": "8b05d60a2b836f209560948624535ab687b901006564f025e10c52aff2f24860"
+    },
+    {
+      "path": "admin/_layout.php",
+      "sha256": "e4d9037c9d265ab1e3440c32ae0d8d2cb412228900bfef02fe931c319d03c31d"
+    },
+    {
+      "path": "admin/appearance.php",
+      "sha256": "04d2e6ac9f0f863fe8e17693d9283eabed7c48712d277ee1d1a20c9c251aacf7"
+    },
+    {
+      "path": "admin/autosave.php",
+      "sha256": "97f80206992871a22077f1b917ee51cb8ecd48da0c9549bff76e5a52e778a177"
+    },
+    {
+      "path": "admin/comments.php",
+      "sha256": "6f15377f275d0dc92be91b68932158492a392be5e24edcdc469a8b6ed2739a87"
+    },
+    {
+      "path": "admin/compare-revision.php",
+      "sha256": "4f392080a9fa2df82c6412670011d96f810bcb87755c05cbbc7f102d3347c5c4"
+    },
+    {
+      "path": "admin/content.php",
+      "sha256": "a064b199830bbb9fc92710246f1faea63e22bf5493e31259dd9c33af69330db4"
+    },
+    {
+      "path": "admin/delete-permanent.php",
+      "sha256": "4d30b30fbb886369ed9f288e6a4425e3063d6e65a72ec8b4d2cc78f71f1e7ef4"
+    },
+    {
+      "path": "admin/delete.php",
+      "sha256": "65d75795a6b080585da263cfb329a5628993432ebdbe6f092ba9326b832ec6aa"
+    },
+    {
+      "path": "admin/edit.php",
+      "sha256": "8a0a6181801c140c3b63e3382b9ed6f1cb09222e3939626ae08db2760f950f32"
+    },
+    {
+      "path": "admin/export.php",
+      "sha256": "5cb5369942cfb69711e2696ca433efb5098a27ae38a15c8008a9313395886121"
+    },
+    {
+      "path": "admin/help.php",
+      "sha256": "4a7fce7a516c6d3b4dfb6e05138b045036afe7a4ed289898383ebaf69c025168"
+    },
+    {
+      "path": "admin/import-markdown.php",
+      "sha256": "4f89a2c3750d9aebae87d0e470a9591e565c40f7fe7111ae3168c14a573dbfad"
+    },
+    {
+      "path": "admin/import.php",
+      "sha256": "97429be82c007702c1b3a892945ab3d6d93da9f65672e2a89341cba546f60dfa"
+    },
+    {
+      "path": "admin/index.php",
+      "sha256": "a3db951f521d11043432dab63b4fe49dfa55341d69c5f6b54bc6d31c1b9ab50a"
+    },
+    {
+      "path": "admin/link-preview.php",
+      "sha256": "3f5b42a1c4b01d475b20563f12d1a3f46988b3b50e09a2448876d85dfc0b4562"
+    },
+    {
+      "path": "admin/login.php",
+      "sha256": "6c6a0f08f837bb049929e296efe7976846a50a464075ce37fa689f0db85ab779"
+    },
+    {
+      "path": "admin/logout.php",
+      "sha256": "6b15673b98ec13c6fbec99ed20a869d5a0126f9b82e6c86611b6532d13263a01"
+    },
+    {
+      "path": "admin/mail.php",
+      "sha256": "0c29cac13a77f38fb898599b5549f88b6f6785435d6e9cb440045a4d3e051404"
+    },
+    {
+      "path": "admin/media-edit.php",
+      "sha256": "d5356109cefad905304e51d15c54459bacc87da5275d7910e2e6b8d613781604"
+    },
+    {
+      "path": "admin/media-picker.php",
+      "sha256": "adca8cd09ad52fcdf414d6f5ce25ff865ada68874f1dcd70e20f57516dc04bf6"
+    },
+    {
+      "path": "admin/media-regenerate.php",
+      "sha256": "93919444fbdef01e80830a313cdd9690b3f6c6b5c92b745a5077fe4892ecab86"
+    },
+    {
+      "path": "admin/media-upload.php",
+      "sha256": "1411fa387838a99e9d4d290beb0716707b1068a8b8aa3686a617a57c477e6b2a"
+    },
+    {
+      "path": "admin/media.php",
+      "sha256": "67a435a28b297622745e34eb4b29da9fcb35c8779532c1cdfcc61a8d66978801"
+    },
+    {
+      "path": "admin/navigation.php",
+      "sha256": "34900d604945ec6a9c35275cddfe9867b057bec6a13e5c0f013f85f2151e56f9"
+    },
+    {
+      "path": "admin/new.php",
+      "sha256": "00e2b75f0b4c87113f9657a6d5a11f50572cef23cbc685f9fd2cd3e027550439"
+    },
+    {
+      "path": "admin/page-delete-permanent.php",
+      "sha256": "cfb765231da744149ef13ef60f7d91ac0888241a5393456f4e3dd4ef40e2852f"
+    },
+    {
+      "path": "admin/page-delete.php",
+      "sha256": "c8c0c00953020ccae59e82bbd7e789e71a11bf38fb9189ec6a5fa4580a2879c4"
+    },
+    {
+      "path": "admin/page-edit.php",
+      "sha256": "cf56df3e64857cdad5b38bd9327ab0d4689f44b62e1f7b9ba18cc95c333cea03"
+    },
+    {
+      "path": "admin/page-new.php",
+      "sha256": "95e52a06b07cf97b1b9b1268c4bcdb80c60eec81c1fc16a84cf7393ace1c3ab9"
+    },
+    {
+      "path": "admin/page-publish.php",
+      "sha256": "1e84e05b430e83ecf49359a89158ec8f6e8556d803b62ce5ee8f9ed60226ab30"
+    },
+    {
+      "path": "admin/page-restore.php",
+      "sha256": "39d1da7c438085e5d30c63a1c8025204060c42a55ef3033ce597ce7183de03e7"
+    },
+    {
+      "path": "admin/page-unpublish.php",
+      "sha256": "6edb246906a91d5b3fb43616063d1e763aa754722711e2ab3da9ce4f46b02c98"
+    },
+    {
+      "path": "admin/pages.php",
+      "sha256": "06fba990b26d7617cf63ab0f7ff0269433150ffe2342d502c1c727b781e64fb2"
+    },
+    {
+      "path": "admin/preview-current.php",
+      "sha256": "63f5f9d07ee0e2b7fccbd1b7d51d9a0f3f60b0457247207b95a7342a2db37afe"
+    },
+    {
+      "path": "admin/preview.php",
+      "sha256": "984b41b8e5973139e718c2e6ac385a4ba76fbc6ddda851bd700c3dd90210366d"
+    },
+    {
+      "path": "admin/publish.php",
+      "sha256": "f7e809321e31dc8ea66711404f5e7cb506f507f0b08b215d3d2d5a93bd985b59"
+    },
+    {
+      "path": "admin/quick-edit.php",
+      "sha256": "398af09636f1161715329c483c6c431fbf69702530255fc61ce67394081b3cbd"
+    },
+    {
+      "path": "admin/quick-post.php",
+      "sha256": "d5cad11b5a7e00da0ad4507853c457bce361ecc64ed9801a4939c91d459d6a10"
+    },
+    {
+      "path": "admin/registration.php",
+      "sha256": "f69ea322dc1d327ef9ce3766b86f6337d1ff666f4c61495a74b8fccfc0f00538"
+    },
+    {
+      "path": "admin/restore-revision.php",
+      "sha256": "a5706be95a592739304c1dca46489e887c03486026296d6868c69af1966c1372"
+    },
+    {
+      "path": "admin/restore.php",
+      "sha256": "f45747a8b829d75661d01bafa996db7f5ef7fb55cebbfd8f576bf3e8bcac2925"
+    },
+    {
+      "path": "admin/revisions.php",
+      "sha256": "948fadb3d52573c9ebd1b1795e7ae1d6f93669565291d0a6088cf89be79045b2"
+    },
+    {
+      "path": "admin/security.php",
+      "sha256": "83726d17e94cb584f2a2d5764ede658bb93d98730b628f31ff84124fff49d489"
+    },
+    {
+      "path": "admin/settings-reading.php",
+      "sha256": "fb33274197825ba3273815bb7ad844b93c68bc06cc16bb211d95145d08e28b48"
+    },
+    {
+      "path": "admin/settings-writing.php",
+      "sha256": "c492e08f60c4fd26694c1999a380a89462db4adf8d647d778348f3305153bc55"
+    },
+    {
+      "path": "admin/settings.php",
+      "sha256": "cdc340e8f2d6e461c640a24b614e4fa879b07068d988171c2b43eac3a81e11b2"
+    },
+    {
+      "path": "admin/site-identity.php",
+      "sha256": "23b390c0a6334f2ed3a76be91081cab04114a3755da0991ae95ee38b87dbe072"
+    },
+    {
+      "path": "admin/stream-composer.php",
+      "sha256": "f3beb6cd1489832f26788b67a012e94037227db6920380b20fc312be91fc19b2"
+    },
+    {
+      "path": "admin/stream-like.php",
+      "sha256": "413d9d5c2403c05aec716870af8016429fc9d3c1a27b1551e65668bf4b990912"
+    },
+    {
+      "path": "admin/submit-review.php",
+      "sha256": "da73995262433248471261cbcfb156daf95188d333124984f5edca82809d8940"
+    },
+    {
+      "path": "admin/system-check.php",
+      "sha256": "4d7eeee473b302a85f60776ee49ab32f0ef1545303801f2a38d9891cd8d04cb7"
+    },
+    {
+      "path": "admin/theme-delete.php",
+      "sha256": "0177c55a8d14eae79aa3f4ebe18af87c8da3c8b56bb09607c6973118459112ed"
+    },
+    {
+      "path": "admin/theme-details.php",
+      "sha256": "e848931c9ad913b55d95b228a0d7003323486e2673c0541abe91729c8fe9f861"
+    },
+    {
+      "path": "admin/theme-install.php",
+      "sha256": "43a40049ee77b4360005b9d6d4eff752bd39b993e7dbf7bb7ff16482ef8f5f42"
+    },
+    {
+      "path": "admin/theme-settings.php",
+      "sha256": "836d0d70d94c800120c8a8f006090ef17021b1d6e6598b5855b371a94d94d991"
+    },
+    {
+      "path": "admin/theme.php",
+      "sha256": "829f54d460062862e4435b897f01353c02aac0e3ec8ae5611ce8c34bfc7dfe59"
+    },
+    {
+      "path": "admin/tools.php",
+      "sha256": "568ac9c9141b9616633ecb1fd44561216a69503c7ad9bce7c3cb5a4706adc26c"
+    },
+    {
+      "path": "admin/unpublish.php",
+      "sha256": "ca573e090561a27a4067e75208f166c9ee43f70661bf8a2a040da1764350e0a3"
+    },
+    {
+      "path": "admin/upgrade.php",
+      "sha256": "f8da6846ee891cafd0cf473c01629b1fc42bd6785f550f24dae8d07e36cb9f50"
+    },
+    {
+      "path": "admin/user-edit.php",
+      "sha256": "d0c2834168e7a7500605f5f7c04948ad133a339e1dc66d2d51273c527cee3a36"
+    },
+    {
+      "path": "admin/user.php",
+      "sha256": "c515251eda59596674b3558df3c9633029259cfad65f3ffbc6a4935a44cc4e0b"
+    },
+    {
+      "path": "admin/users.php",
+      "sha256": "c34fd248372d609d44d0dd6d621aba406ff2d7476b6d6c54b97b4070dfc17aec"
+    },
+    {
+      "path": "admin/welcome.php",
+      "sha256": "91a4f882c83f6eeab84264eaf2664a0f96bf6f4865d06660ddfbb24d30ede8ff"
+    },
+    {
+      "path": "assets/admin.css",
+      "sha256": "d05eea3478c55aa58f37798f8c5457d55513d9364871f25d8b71d5da188940e6"
+    },
+    {
+      "path": "assets/admin.js",
+      "sha256": "9e6fce2b7a01aa3e2f0392107acd6b1a1ea98dc4edb7ff6bcfd8b9da1ea64fe9"
+    },
+    {
+      "path": "assets/editor.js",
+      "sha256": "6331f23ea68dea8d769a7b9c9b8ceb2cc02aef54030981f8ece947dd5dfd126c"
+    },
+    {
+      "path": "assets/sitemap.css",
+      "sha256": "78bfa5b23198ec921b3315b00de979f855fc96739f7aee825fea0b833f0eba1d"
+    },
+    {
+      "path": "assets/stream.css",
+      "sha256": "39a7351d77e35c04dcc04b32c4429b1cdfedec377e37086e8596e13a3fdfc82a"
+    },
+    {
+      "path": "assets/stream.js",
+      "sha256": "1915b77f9db855bc572b0e27528ec3bcbf0de4e07b377211d63aa5aee5c306a7"
+    },
+    {
+      "path": "assets/style.css",
+      "sha256": "57534aa52a8b75dd3fd2d3e1791c4e7eb69e904b0d4761f3552f0b016946bc50"
+    },
+    {
+      "path": "assets/themes/default/css/midnight-ledger.css",
+      "sha256": "395b05d7cdfaaf60c89d3fa1388f336edc9ec1397af966e564ea5b2415b5ae3c"
+    },
+    {
+      "path": "assets/themes/default/images/screenshot.svg",
+      "sha256": "99ec8a86dad8191050d5a7a9807985b8a697bf346b7fcf0cb91ebb412dbf8429"
+    },
+    {
+      "path": "assets/themes/default/js/midnight-ledger.js",
+      "sha256": "e1175e1ae3403e2d756bd1f71cd94fe5d2c21d461d5aed6ede62062e04dd0156"
+    },
+    {
+      "path": "author.php",
+      "sha256": "97146a7016a1a57447aec47926f8a4f5ced111ead3b00b4d277463e967936a54"
+    },
+    {
+      "path": "comments.php",
+      "sha256": "7cda5a0f99835a51ddd521a03f895212fc624041366610fb2f575ea8d1a5ea15"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "f6c69fdac9de0e845e395dacd7aaa897d49fc2e18c451293882c655332be7582"
+    },
+    {
+      "path": "docs/IMPORTERS.md",
+      "sha256": "fea53818341ecca04dc6533019a85bb55655c73219930f63b1b31f5eb7778e21"
+    },
+    {
+      "path": "docs/INSTALL.md",
+      "sha256": "d5616d6b7632bd94f19367f4a5aef4e43da200e1f6c95b8ed250f1baa363c25c"
+    },
+    {
+      "path": "docs/THEMING.md",
+      "sha256": "67e2c7839b19a0f1935ad23b115ee1f6e9551c423f45d9b983232881f76876a6"
+    },
+    {
+      "path": "docs/UPGRADING.md",
+      "sha256": "8225dbf35cdca5c6f5c172b7c13e47d0924ee8593b5a76ed78076a6e84fa354a"
+    },
+    {
+      "path": "index.php",
+      "sha256": "2032c74b8d2688901c6f064d9a4fbc7a3e972e5fcd7b62115b022e946ebc752e"
+    },
+    {
+      "path": "install.php",
+      "sha256": "e60b15a8d75b3dc2bf0144195490b2e59094b0313fa50eb86173213fbabf6e07"
+    },
+    {
+      "path": "page.php",
+      "sha256": "612c5cfc8de2891081fc4ed8f15c46c44578b3a59a3f3e5d3cdcb7c32b0d6352"
+    },
+    {
+      "path": "profile.php",
+      "sha256": "31b03d926b895a28bce01f40e1b078b793464e4e035ce165ee5a5116050aac0d"
+    },
+    {
+      "path": "scripts/database-smoke-test.php",
+      "sha256": "b0c05f25c208a261fc27419ed6c3a72b4b449593941eea190d37e92adcc5b51e"
+    },
+    {
+      "path": "scripts/smoke-test.php",
+      "sha256": "9437920c63d6e4afa5a2089bda7e57a6b530f3c646441d73d8596c0ecb6a5e27"
+    },
+    {
+      "path": "search.php",
+      "sha256": "6143f78596ef3047589bd5c4a2d8ffb501170da287735e96b4504b331a4466e6"
+    },
+    {
+      "path": "stream-like.php",
+      "sha256": "a7d70a8a54fcc6975c3d10bf2397d5573218f8796c582804a306d75b9349a499"
+    }
+  ]
+}

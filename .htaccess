@@ -1,0 +1,65 @@
+Options -Indexes
+DirectoryIndex index.php index.html
+
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  ExpiresByType application/pdf "access plus 1 month"
+  ExpiresByType text/plain "access plus 1 month"
+  ExpiresByType text/html "access plus 5 minutes"
+  ExpiresByType application/xml "access plus 5 minutes"
+  ExpiresByType text/xml "access plus 5 minutes"
+  ExpiresByType text/xsl "access plus 5 minutes"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|mjs|jpg|jpeg|png|gif|webp|svg|ico|avif|woff|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(pdf|txt|doc|docx)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  <FilesMatch "\.(html|xml|xsl)$">
+    Header set Cache-Control "public, max-age=300, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^profile\.php$ index.php?__bonumark_route=profile [L,QSA]
+  RewriteRule ^profile/?$ index.php?__bonumark_route=profile [L,QSA]
+  RewriteRule ^profile/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=profile&user=$1 [L,QSA]
+  RewriteRule ^account\.php$ index.php?__bonumark_route=account [L,QSA]
+  RewriteRule ^account/?$ index.php?__bonumark_route=account [L,QSA]
+  RewriteRule ^author\.php$ index.php?__bonumark_route=author [L,QSA]
+  RewriteRule ^author/?$ index.php?__bonumark_route=author [L,QSA]
+  RewriteRule ^author/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=author&user=$1 [L,QSA]
+  RewriteRule ^page\.php$ index.php?__bonumark_route=page [L,QSA]
+  RewriteRule ^feed\.xml$ index.php?__bonumark_route=feed&feed_type=root [L,QSA]
+  RewriteRule ^stream/feed\.xml$ index.php?__bonumark_route=feed&feed_type=stream [L,QSA]
+  RewriteRule ^sitemap\.xml$ index.php?__bonumark_route=sitemap [L,QSA]
+  RewriteRule ^sitemap\.xsl$ index.php?__bonumark_route=sitemap_xsl [L,QSA]
+  RewriteRule ^robots\.txt$ index.php?__bonumark_route=robots [L,QSA]
+  RewriteRule ^stream/?$ index.php?__bonumark_route=stream [L,QSA]
+  RewriteRule ^stream/page/([0-9]+)/?$ index.php?__bonumark_route=stream&page=$1 [L,QSA]
+  RewriteRule ^stream/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=stream&slug=$1 [L,QSA]
+  RewriteRule ^pages/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=page&slug=$1 [L,QSA]
+  RewriteRule ^comments\.php$ index.php?__bonumark_route=comments [L,QSA]
+  RewriteRule ^search\.php$ index.php?__bonumark_route=search [L,QSA]
+  RewriteRule ^search/?$ index.php?__bonumark_route=search [L,QSA]
+</IfModule>

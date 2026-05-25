@@ -1,0 +1,6525 @@
+/* Bonumark admin, installer, dashboard, editor, media, settings, and workflow screens. */
+
+.admin-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 22px 80px;
+}
+
+.admin-wrap.narrow {
+  max-width: 520px;
+  padding-top: 15vh;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  margin-bottom: 28px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  margin: 20px 0;
+}
+
+label {
+  display: block;
+  font-weight: 700;
+  margin: 12px 0 6px;
+}
+
+input[type="password"], input[type="file"], input[type="datetime-local"], input[type="url"], input[type="email"], input[type="number"], input[type="search"] {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+button {
+  background: var(--accent);
+  color: #090909;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+button:hover { opacity: .85; }
+button.danger { background: var(--danger); color: #fff; }
+
+.inline-form {
+  display: inline;
+}
+
+.inline-form button {
+  margin: 0;
+  padding: 6px 10px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.flash {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  margin: 14px 0;
+}
+
+.flash.success { border-color: var(--success); }
+.flash.error { border-color: var(--danger); }
+
+.preview-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.preview-frame {
+  width: 100%;
+  min-height: 780px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 720px) {
+  .admin-table, .admin-table thead, .admin-table tbody, .admin-table th, .admin-table td, .admin-table tr {
+    display: block;
+  }
+
+  .admin-table thead { display: none; }
+  .admin-table tr {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 12px 0;
+    padding: 10px;
+  }
+
+  .admin-table td { border: 0; padding: 6px 0; }
+}
+
+.admin-footer {
+  color: var(--muted);
+  font-size: .85rem;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.editor-header h2 {
+  margin: 0 0 6px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 640px;
+  resize: vertical;
+  background: #080808;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  font: 15px/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.publish-from-editor {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .editor-header {
+    display: block;
+  }
+
+  textarea {
+    min-height: 520px;
+  }
+}
+
+.dashboard-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.action-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.action-card h3 {
+  margin: 0 0 8px;
+}
+
+.button-link {
+  display: inline-block;
+  background: var(--accent);
+  color: #090909;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 800;
+  text-decoration: none;
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .dashboard-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Editor */
+.editor-panel {
+  padding: 28px;
+}
+
+.editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.editor-header h2 {
+  margin: 0 0 8px;
+  line-height: 1.15;
+}
+
+.editor-form {
+  margin-top: 20px;
+}
+
+textarea,
+.editor-form textarea,
+textarea#markdown {
+  display: block;
+  width: 100%;
+  min-height: 68vh;
+  background: #080808;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 1rem;
+  line-height: 1.65;
+  resize: vertical;
+  tab-size: 2;
+  outline: none;
+}
+
+textarea:focus,
+.editor-form textarea:focus,
+textarea#markdown:focus {
+  border-color: var(--accent);
+}
+
+.editor-actions,
+.publish-from-editor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.editor-actions button,
+.publish-from-editor button {
+  margin-top: 0;
+}
+
+.publish-from-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.admin-footer {
+  color: var(--muted);
+  margin-top: 26px;
+}
+
+.flash {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+}
+
+.flash.success {
+  border-color: var(--success);
+}
+
+.flash.error {
+  border-color: var(--danger);
+}
+
+@media (max-width: 760px) {
+  .editor-header {
+    display: block;
+  }
+
+  textarea,
+  .editor-form textarea,
+  textarea#markdown {
+    min-height: 62vh;
+    font-size: .95rem;
+  }
+}
+
+/* Account, settings, and security forms */
+input:not([type]),
+input[type="text"],
+input[type="password"],
+input[type="file"],
+input[type="datetime-local"],
+input[type="url"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+select {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="file"]:focus,
+input[type="url"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-form {
+  max-width: 720px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: .88rem;
+  margin: 4px 0 14px;
+}
+
+.readonly-field {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 6px;
+}
+
+.readonly-field span {
+  display: block;
+  color: var(--muted);
+  font-size: .82rem;
+  margin-bottom: 4px;
+}
+
+.readonly-field strong {
+  display: block;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.admin-user {
+  color: var(--muted);
+  font-size: .9rem;
+  text-align: right;
+  margin-bottom: 8px;
+}
+
+.admin-user strong {
+  color: var(--text);
+}
+
+.admin-user span {
+  color: var(--muted);
+}
+
+.nav-form {
+  display: inline;
+  margin: 0;
+}
+
+.nav-form button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-form button:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.security-checks {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.security-check {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--panel-2);
+}
+
+.security-check strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.security-check span {
+  display: inline-block;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.security-check p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.security-check.pass {
+  border-color: var(--success);
+}
+
+.security-check.warn {
+  border-color: #d99b28;
+}
+
+.security-check.fail {
+  border-color: var(--danger);
+}
+
+/* Visual editor foundation */
+input[type="date"],
+input[type="datetime-local"] {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+input[type="date"]:focus,
+input[type="datetime-local"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.editor-tab,
+.visual-toolbar button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.editor-tab.active {
+  background: var(--accent);
+  color: #090909;
+}
+
+.visual-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.visual-toolbar button:hover,
+.editor-tab:hover {
+  opacity: .85;
+}
+
+.editor-mode-panel[hidden] {
+  display: none;
+}
+
+.visual-editor,
+.visual-preview {
+  width: 100%;
+  min-height: 68vh;
+  background: #080808;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.visual-editor:focus {
+  border-color: var(--accent);
+}
+
+.visual-editor h1,
+.visual-preview h1 {
+  font-size: 2.2rem;
+  line-height: 1.08;
+  margin: 0 0 18px;
+}
+
+.visual-editor h2,
+.visual-preview h2 {
+  font-size: 1.75rem;
+  line-height: 1.15;
+  margin: 34px 0 12px;
+}
+
+.visual-editor h3,
+.visual-preview h3 {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  margin: 28px 0 10px;
+}
+
+.visual-editor p,
+.visual-preview p,
+.visual-editor li,
+.visual-preview li {
+  font-size: 1.03rem;
+}
+
+.visual-editor blockquote,
+.visual-preview blockquote {
+  border-left: 4px solid var(--accent);
+  color: var(--muted);
+  margin: 28px 0;
+  padding: 6px 0 6px 18px;
+}
+
+.visual-editor pre,
+.visual-preview pre {
+  background: #050505;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-x: auto;
+  padding: 16px;
+}
+
+.visual-editor code,
+.visual-preview code {
+  background: #050505;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.visual-editor pre code,
+.visual-preview pre code {
+  border: 0;
+  padding: 0;
+}
+
+.visual-editor table,
+.visual-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.visual-editor th,
+.visual-editor td,
+.visual-preview th,
+.visual-preview td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px;
+  text-align: left;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 760px) {
+  .visual-editor,
+  .visual-preview {
+    min-height: 62vh;
+    padding: 16px;
+  }
+}
+
+/* Admin interface */
+body.bonumark-admin {
+  --admin-bg: #f0f0f1;
+  --admin-surface: #ffffff;
+  --admin-text: #1d2327;
+  --admin-muted: #646970;
+  --admin-border: #c3c4c7;
+  --admin-sidebar: #1d2327;
+  --admin-sidebar-hover: #2c3338;
+  --admin-sidebar-text: #f0f0f1;
+  --admin-blue: #2271b1;
+  --admin-blue-dark: #135e96;
+  --admin-danger: #b32d2e;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  line-height: 1.5;
+}
+
+body.bonumark-admin a {
+  color: var(--admin-blue);
+  text-underline-offset: 2px;
+}
+
+.admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.admin-sidebar {
+  background: var(--admin-sidebar);
+  color: var(--admin-sidebar-text);
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.admin-brand {
+  display: block;
+  color: #fff;
+  text-decoration: none;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  padding: 18px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+.admin-sidebar-nav a,
+.admin-sidebar-nav .nav-form button {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--admin-sidebar-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+  padding: 10px 18px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.admin-sidebar-nav a:hover,
+.admin-sidebar-nav .nav-form button:hover {
+  background: var(--admin-sidebar-hover);
+  opacity: 1;
+}
+
+.admin-main {
+  min-width: 0;
+}
+
+.admin-topbar {
+  min-height: 48px;
+  background: #fff;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 24px;
+}
+
+.admin-topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .admin-user {
+  color: var(--admin-muted);
+  font-size: 13px;
+  margin: 0;
+  text-align: right;
+}
+
+body.bonumark-admin .admin-user strong {
+  color: var(--admin-text);
+}
+
+.admin-content {
+  max-width: 1280px;
+  margin: 0;
+  padding: 26px 30px 70px;
+}
+
+.admin-page-title h1,
+body.bonumark-admin h1 {
+  color: var(--admin-text);
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  margin: 0 0 22px;
+}
+
+body.bonumark-admin h2 {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .panel,
+body.bonumark-admin .action-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.04);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .panel {
+  padding: 22px 24px;
+  margin: 18px 0;
+}
+
+body.bonumark-admin .card {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .meta,
+body.bonumark-admin .eyebrow,
+body.bonumark-admin .field-help {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .eyebrow {
+  font-size: 12px;
+  letter-spacing: .12em;
+}
+
+body.bonumark-admin input:not([type]),
+body.bonumark-admin input[type="text"],
+body.bonumark-admin input[type="password"],
+body.bonumark-admin input[type="file"],
+body.bonumark-admin input[type="date"],
+body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="url"],
+body.bonumark-admin input[type="email"],
+body.bonumark-admin input[type="tel"],
+body.bonumark-admin input[type="number"],
+body.bonumark-admin input[type="search"],
+body.bonumark-admin select,
+body.bonumark-admin textarea {
+  background: #fff;
+  color: var(--admin-text);
+  border: 1px solid #8c8f94;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.07);
+  padding: 8px 10px;
+}
+
+body.bonumark-admin input:focus,
+body.bonumark-admin select:focus,
+body.bonumark-admin textarea:focus,
+body.bonumark-admin .visual-editor:focus {
+  border-color: var(--admin-blue);
+  box-shadow: 0 0 0 1px var(--admin-blue);
+  outline: 2px solid transparent;
+}
+
+body.bonumark-admin button,
+body.bonumark-admin .button-link,
+body.bonumark-admin .primary-button {
+  background: var(--admin-blue);
+  border: 1px solid var(--admin-blue-dark);
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+body.bonumark-admin button:hover,
+body.bonumark-admin .button-link:hover,
+body.bonumark-admin .primary-button:hover {
+  background: var(--admin-blue-dark);
+  opacity: 1;
+}
+
+body.bonumark-admin button.danger {
+  background: var(--admin-danger);
+  border-color: var(--admin-danger);
+  color: #fff;
+}
+
+body.bonumark-admin .inline-form button {
+  padding: 5px 9px;
+}
+
+body.bonumark-admin .flash {
+  background: #fff;
+  border-left: 4px solid var(--admin-blue);
+  border-radius: 0;
+  color: var(--admin-text);
+  margin: 0 0 18px;
+  padding: 12px 14px;
+}
+
+body.bonumark-admin .flash.success {
+  border-color: #00a32a;
+}
+
+body.bonumark-admin .flash.error {
+  border-color: var(--admin-danger);
+}
+
+body.bonumark-admin .admin-table th,
+body.bonumark-admin .admin-table td {
+  border-bottom: 1px solid #dcdcde;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-table th {
+  color: #50575e;
+  font-weight: 600;
+}
+
+/* Visual editor surface */
+body.bonumark-admin .editor-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+body.bonumark-admin .editor-header {
+  background: #fff;
+  border-bottom: 1px solid var(--admin-border);
+  margin: 0;
+  padding: 20px 24px;
+}
+
+body.bonumark-admin .editor-form {
+  margin: 0;
+}
+
+body.bonumark-admin .dual-editor {
+  background: #fff;
+  padding: 0;
+}
+
+body.bonumark-admin .editor-chrome {
+  background: #f6f7f7;
+  border-bottom: 1px solid var(--admin-border);
+  padding: 10px 12px 0;
+}
+
+body.bonumark-admin .editor-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0 0 -1px;
+}
+
+body.bonumark-admin .editor-tab {
+  background: #f0f0f1;
+  border: 1px solid var(--admin-border);
+  border-bottom-color: var(--admin-border);
+  color: #2c3338;
+  margin: 0;
+  padding: 7px 12px;
+}
+
+body.bonumark-admin .editor-tab.active {
+  background: #fff;
+  border-bottom-color: #fff;
+  color: #000;
+}
+
+body.bonumark-admin .visual-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 0 9px;
+}
+
+body.bonumark-admin .visual-toolbar button {
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  color: #1d2327;
+  margin: 0;
+  min-height: 32px;
+  padding: 5px 9px;
+}
+
+body.bonumark-admin .visual-toolbar button:hover {
+  background: #f0f0f1;
+  color: #000;
+}
+
+body.bonumark-admin .editor-mode-panel {
+  background: #fff;
+  padding: 0;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview {
+  background: #fff;
+  color: #1d2327;
+  border: 0;
+  border-radius: 0;
+  display: block;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  line-height: 1.75;
+  min-height: 58vh;
+  padding: 34px 42px;
+  width: 100%;
+}
+
+body.bonumark-admin .visual-editor:empty::before {
+  content: "Start writing...";
+  color: #8c8f94;
+}
+
+body.bonumark-admin .visual-editor h1,
+body.bonumark-admin .visual-editor h2,
+body.bonumark-admin .visual-editor h3,
+body.bonumark-admin .visual-preview h1,
+body.bonumark-admin .visual-preview h2,
+body.bonumark-admin .visual-preview h3 {
+  color: #1d2327;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.2;
+}
+
+body.bonumark-admin .visual-editor p,
+body.bonumark-admin .visual-preview p {
+  margin: 0 0 1.2em;
+}
+
+body.bonumark-admin .visual-editor blockquote,
+body.bonumark-admin .visual-preview blockquote {
+  border-left: 4px solid #dcdcde;
+  color: #50575e;
+  margin: 1.5em 0;
+  padding: .25em 0 .25em 1.2em;
+}
+
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #1d2327;
+  font-size: 15px;
+  min-height: 58vh;
+  padding: 28px 34px;
+}
+
+body.bonumark-admin .editor-actions {
+  background: #f6f7f7;
+  border-top: 1px solid var(--admin-border);
+  margin: 0;
+  padding: 14px 24px;
+}
+
+body.bonumark-admin .publish-from-editor {
+  background: #fff;
+  border-top: 1px solid var(--admin-border);
+  margin: 0;
+  padding: 14px 24px 22px;
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+body.bonumark-admin .admin-footer {
+  color: var(--admin-muted);
+  border-top: 1px solid var(--admin-border);
+  margin-top: 28px;
+  padding-top: 16px;
+}
+
+@media (max-width: 860px) {
+  .admin-shell {
+    display: block;
+  }
+
+  .admin-sidebar {
+    min-height: 0;
+    position: static;
+  }
+
+  .admin-sidebar-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .admin-sidebar-nav a,
+  .admin-sidebar-nav .nav-form button {
+    width: auto;
+  }
+
+  .admin-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px 18px;
+  }
+
+  .admin-content {
+    padding: 22px 18px 54px;
+  }
+
+  body.bonumark-admin .visual-editor,
+  body.bonumark-admin .visual-preview,
+  body.bonumark-admin textarea#body_markdown {
+    min-height: 54vh;
+    padding: 24px 20px;
+  }
+}
+
+/* Dark admin interface */
+body.bonumark-admin {
+  --admin-bg: #0b0d10;
+  --admin-surface: #14171c;
+  --admin-surface-2: #1b1f26;
+  --admin-text: #f3f0ea;
+  --admin-muted: #a8a29a;
+  --admin-border: #2b3038;
+  --admin-sidebar: #08090b;
+  --admin-sidebar-hover: #171b21;
+  --admin-sidebar-text: #f3f0ea;
+  --admin-blue: #d8d2c3;
+  --admin-blue-dark: #bcb3a1;
+  --admin-danger: #d45b5b;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin a {
+  color: #efe8d8;
+}
+
+body.bonumark-admin .admin-sidebar {
+  background: var(--admin-sidebar);
+  border-right: 1px solid var(--admin-border);
+}
+
+body.bonumark-admin .admin-brand {
+  background: #0d0f13;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-sidebar-nav a,
+body.bonumark-admin .admin-sidebar-nav .nav-form button {
+  color: var(--admin-sidebar-text);
+}
+
+body.bonumark-admin .admin-sidebar-nav a:hover,
+body.bonumark-admin .admin-sidebar-nav .nav-form button:hover {
+  background: var(--admin-sidebar-hover);
+  color: #ffffff;
+}
+
+body.bonumark-admin .admin-topbar {
+  background: #101318;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+body.bonumark-admin .admin-topbar-title,
+body.bonumark-admin .admin-user,
+body.bonumark-admin .admin-user span {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .admin-user strong,
+body.bonumark-admin .admin-page-title h1,
+body.bonumark-admin h1,
+body.bonumark-admin h2,
+body.bonumark-admin h3 {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .panel,
+body.bonumark-admin .action-card,
+body.bonumark-admin .card {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .panel strong,
+body.bonumark-admin .card strong,
+body.bonumark-admin .action-card strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .meta,
+body.bonumark-admin .eyebrow,
+body.bonumark-admin .field-help {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin input:not([type]),
+body.bonumark-admin input[type="text"],
+body.bonumark-admin input[type="password"],
+body.bonumark-admin input[type="file"],
+body.bonumark-admin input[type="date"],
+body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="url"],
+body.bonumark-admin input[type="email"],
+body.bonumark-admin input[type="tel"],
+body.bonumark-admin input[type="number"],
+body.bonumark-admin input[type="search"],
+body.bonumark-admin select,
+body.bonumark-admin textarea {
+  background: #0f1217;
+  border-color: #3a404b;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin input:focus,
+body.bonumark-admin select:focus,
+body.bonumark-admin textarea:focus,
+body.bonumark-admin .visual-editor:focus {
+  border-color: #d8d2c3;
+  box-shadow: 0 0 0 1px #d8d2c3;
+}
+
+body.bonumark-admin button,
+body.bonumark-admin .button-link,
+body.bonumark-admin .primary-button {
+  background: #e8e0cf;
+  border-color: #c7bea9;
+  color: #0b0d10;
+}
+
+body.bonumark-admin button:hover,
+body.bonumark-admin .button-link:hover,
+body.bonumark-admin .primary-button:hover {
+  background: #f6efe0;
+  border-color: #d8d2c3;
+  color: #050607;
+}
+
+body.bonumark-admin button.danger {
+  background: var(--admin-danger);
+  border-color: var(--admin-danger);
+  color: #fff;
+}
+
+body.bonumark-admin .flash {
+  background: #11151b;
+  border-left-color: #d8d2c3;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .flash.success {
+  border-color: #6fbf73;
+}
+
+body.bonumark-admin .flash.error {
+  border-color: var(--admin-danger);
+}
+
+body.bonumark-admin .admin-table th,
+body.bonumark-admin .admin-table td {
+  border-bottom-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-table th {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .dual-editor,
+body.bonumark-admin .editor-header,
+body.bonumark-admin .editor-mode-panel,
+body.bonumark-admin .publish-from-editor {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin .editor-chrome,
+body.bonumark-admin .editor-actions {
+  background: #11151b;
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin .editor-tab {
+  background: #101318;
+  border-color: var(--admin-border);
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .editor-tab.active {
+  background: var(--admin-surface);
+  border-bottom-color: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .visual-toolbar button {
+  background: #171b21;
+  border-color: #343a45;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .visual-toolbar button:hover {
+  background: #222832;
+  color: #ffffff;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview {
+  background: #0f1217;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .visual-editor:empty::before {
+  color: #7f8792;
+}
+
+body.bonumark-admin .visual-editor h1,
+body.bonumark-admin .visual-editor h2,
+body.bonumark-admin .visual-editor h3,
+body.bonumark-admin .visual-preview h1,
+body.bonumark-admin .visual-preview h2,
+body.bonumark-admin .visual-preview h3 {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .visual-editor blockquote,
+body.bonumark-admin .visual-preview blockquote {
+  border-left-color: #d8d2c3;
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .visual-editor pre,
+body.bonumark-admin .visual-preview pre,
+body.bonumark-admin .visual-editor code,
+body.bonumark-admin .visual-preview code {
+  background: #08090b;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown {
+  background: #0f1217;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .preview-frame {
+  background: #fff;
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin .security-check,
+body.bonumark-admin .readonly-field {
+  background: var(--admin-surface-2);
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin .readonly-field strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-footer {
+  border-top-color: var(--admin-border);
+  color: var(--admin-muted);
+}
+
+/* Admin workflow refinement */
+body.bonumark-admin {
+  --admin-bg: #0b0d10;
+  --admin-surface: #14171c;
+  --admin-surface-2: #1b1f26;
+  --admin-surface-3: #101318;
+  --admin-text: #f3f0ea;
+  --admin-muted: #a8a29a;
+  --admin-border: #2b3038;
+  --admin-sidebar: #08090b;
+  --admin-sidebar-hover: #171b21;
+  --admin-sidebar-text: #f3f0ea;
+  --admin-accent: #e8e0cf;
+  --admin-accent-dark: #c7bea9;
+  --admin-danger: #d45b5b;
+  --admin-success: #6fbf73;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-shell {
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+
+body.bonumark-admin .admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px;
+}
+
+.admin-brand-mark {
+  align-items: center;
+  background: var(--admin-accent);
+  border-radius: 8px;
+  color: #08090b;
+  display: inline-flex;
+  font-size: .95rem;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.admin-nav-section {
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding: 8px 0;
+}
+
+.admin-nav-section:first-child {
+  border-top: 0;
+}
+
+.admin-nav-heading {
+  color: #777f89;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  padding: 10px 18px 5px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .admin-sidebar-nav a,
+body.bonumark-admin .admin-sidebar-nav .nav-form button {
+  border-left: 3px solid transparent;
+  padding: 9px 18px 9px 21px;
+}
+
+body.bonumark-admin .admin-sidebar-nav a:hover,
+body.bonumark-admin .admin-sidebar-nav .nav-form button:hover {
+  border-left-color: var(--admin-accent);
+}
+
+body.bonumark-admin .admin-topbar {
+  min-height: 52px;
+}
+
+body.bonumark-admin .admin-content {
+  max-width: 1400px;
+  padding: 28px 32px 76px;
+}
+
+.dashboard-welcome {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.dashboard-welcome h2 {
+  font-size: 1.85rem;
+  line-height: 1.15;
+  margin: 0 0 8px;
+}
+
+.dashboard-welcome-actions,
+.content-toolbar,
+.section-header-row,
+.stacked-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dashboard-welcome-actions {
+  justify-content: flex-end;
+}
+
+.section-header-row {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-header-row h2 {
+  margin-bottom: 4px;
+}
+
+.dashboard-stats {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.stat-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  color: var(--admin-text);
+  padding: 18px;
+  text-decoration: none;
+}
+
+.stat-card span {
+  display: block;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-card strong {
+  color: var(--admin-muted);
+  font-size: .9rem;
+}
+
+.stat-card:hover {
+  background: var(--admin-surface-2);
+  opacity: 1;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+}
+
+.stacked-actions {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+body.bonumark-admin .button-link.secondary,
+body.bonumark-admin .secondary {
+  background: transparent;
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .button-link.secondary:hover,
+body.bonumark-admin .secondary:hover {
+  background: var(--admin-surface-2);
+  border-color: var(--admin-accent-dark);
+  color: #fff;
+}
+
+.content-toolbar {
+  margin: -8px 0 16px;
+}
+
+.content-filter {
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+}
+
+.content-filter a {
+  color: var(--admin-muted);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.content-filter a.active,
+.content-filter a:hover {
+  color: var(--admin-text);
+}
+
+.content-filter span {
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.content-list-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+body.bonumark-admin .content-table {
+  margin: 0;
+}
+
+.title-column strong a {
+  color: var(--admin-text);
+  text-decoration: none;
+}
+
+.title-column strong a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.row-actions {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .86rem;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.row-actions a,
+.row-actions .link-button {
+  color: #d8d2c3;
+  font-size: .86rem;
+  text-decoration: none;
+}
+
+.row-actions a:hover,
+.row-actions .link-button:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.row-form,
+.inline-form.row-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+body.bonumark-admin .link-button,
+body.bonumark-admin .link-button:hover {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+}
+
+body.bonumark-admin .danger-link,
+body.bonumark-admin .danger-link:hover {
+  color: #ff8989;
+}
+
+.status-pill {
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  display: inline-flex;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.status-pill.published {
+  border-color: rgba(111,191,115,.45);
+  color: #9be49f;
+}
+
+.status-pill.draft {
+  border-color: rgba(216,210,195,.35);
+  color: #d8d2c3;
+}
+
+.empty-state {
+  padding: 28px;
+}
+
+.empty-state h2 {
+  margin-top: 0;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 10px 12px;
+}
+
+body.bonumark-admin .editor-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
+}
+
+body.bonumark-admin .editor-header {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+}
+
+.editor-layout-form {
+  margin: 0;
+}
+
+.editor-workspace {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+
+.editor-primary-column {
+  min-width: 0;
+}
+
+.editor-sidebar-column {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 68px;
+}
+
+.editor-title-card,
+.side-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.editor-title-card {
+  margin-bottom: 14px;
+}
+
+.editor-title-input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--admin-text);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 750;
+  letter-spacing: -.055em;
+  line-height: 1.05;
+  padding: 0;
+}
+
+.editor-title-input:focus {
+  box-shadow: none;
+}
+
+.permalink-row {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .9rem;
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+
+.permalink-row code {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+  padding: 4px 9px;
+}
+
+.editor-slug-input {
+  max-width: 520px;
+}
+
+.side-card h3 {
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 1rem;
+  margin: -2px 0 14px;
+  padding-bottom: 10px;
+}
+
+.publish-card .status-line {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.publish-card .status-line span {
+  color: var(--admin-muted);
+}
+
+.publish-main-button {
+  justify-content: center;
+  margin-top: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.small-textarea,
+body.bonumark-admin textarea.small-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+body.bonumark-admin .dual-editor {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+body.bonumark-admin .editor-chrome {
+  background: #101318;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview,
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown {
+  min-height: 66vh;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview {
+  padding: 38px 46px;
+}
+
+.secondary-publish-row {
+  align-items: center;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px 18px;
+}
+
+@media (max-width: 1080px) {
+  .editor-workspace,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-sidebar-column {
+    position: static;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  body.bonumark-admin .admin-shell {
+    display: block;
+  }
+
+  body.bonumark-admin .admin-sidebar-nav {
+    display: block;
+  }
+
+  .admin-nav-section {
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+
+  .dashboard-welcome,
+  .section-header-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .admin-content {
+    padding: 22px 18px 54px;
+  }
+
+  body.bonumark-admin .visual-editor,
+  body.bonumark-admin .visual-preview {
+    padding: 26px 22px;
+  }
+}
+
+/* Editor and dashboard polish */
+body.bonumark-admin .dashboard-welcome-actions .primary-button,
+body.bonumark-admin .dashboard-welcome-actions .button-link {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.2;
+  margin: 0;
+  min-height: 40px;
+  padding: 9px 14px;
+}
+
+body.bonumark-admin .dashboard-welcome-actions {
+  align-items: center;
+}
+
+body.bonumark-admin .editor-title-card {
+  padding: 22px 20px;
+}
+
+body.bonumark-admin .permalink-card .permalink-preview-row {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  color: var(--admin-muted);
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
+body.bonumark-admin .permalink-card .permalink-preview-row span {
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .permalink-card .permalink-preview-row code {
+  background: transparent;
+  border: 0;
+  color: var(--admin-text);
+  display: block;
+  font-size: .86rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 0;
+  white-space: normal;
+}
+
+body.bonumark-admin .permalink-card .editor-slug-input {
+  max-width: none;
+  width: 100%;
+}
+
+/* Admin identity refinements */
+body.bonumark-admin .admin-sidebar-nav .admin-nav-heading {
+  color: #8f98a3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 18px 12px 6px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .admin-sidebar-nav .nav-primary {
+  margin-bottom: 8px;
+}
+
+body.bonumark-admin .admin-nav-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+body.bonumark-admin .admin-sidebar-nav a,
+body.bonumark-admin .admin-sidebar-nav .nav-form button {
+  border-radius: 8px;
+  display: block;
+  margin: 2px 8px;
+  padding: 8px 10px;
+}
+
+body.bonumark-admin .admin-sidebar-nav .nav-form {
+  margin: 0;
+}
+
+body.bonumark-admin .admin-sidebar-nav .nav-form button {
+  width: calc(100% - 16px);
+  text-align: left;
+}
+
+.page-intro-panel h2,
+.dashboard-welcome h2 {
+  margin-top: 0;
+}
+
+.info-grid,
+.theme-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.info-card,
+.theme-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.info-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.info-card p,
+.theme-card p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.theme-preview {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  height: 130px;
+  margin-bottom: 16px;
+}
+
+.dark-preview {
+  background: linear-gradient(135deg, #08090b 0%, #11151b 55%, #252016 100%);
+}
+
+.light-preview {
+  background: linear-gradient(135deg, #f6f1e7 0%, #e5dfd2 55%, #cfc6b5 100%);
+}
+
+.active-theme {
+  outline: 1px solid rgba(232, 220, 194, 0.45);
+}
+
+.muted-card {
+  opacity: 0.8;
+}
+
+.static-pill,
+.static-state {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+
+.static-pill.generated,
+.static-state.generated {
+  background: rgba(111, 191, 115, 0.12);
+  border-color: rgba(111, 191, 115, 0.55);
+  color: #a8e3ab;
+}
+
+.static-pill.warning,
+.static-state.warning {
+  background: rgba(236, 178, 83, 0.12);
+  border-color: rgba(236, 178, 83, 0.55);
+  color: #f0d08e;
+}
+
+.static-pill.draft,
+.static-state.draft {
+  background: rgba(143, 152, 163, 0.12);
+  color: #c6ccd4;
+}
+
+.source-card .source-row,
+.readonly-settings-grid > div {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 9px 0;
+}
+
+.source-card .source-row span,
+.readonly-settings-grid span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.source-card .source-row strong,
+.source-card .source-row code,
+.readonly-settings-grid code {
+  max-width: 58%;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.settings-panel form {
+  max-width: 760px;
+}
+
+.settings-panel input[type="text"],
+.settings-panel select,
+.bonumark-admin select {
+  width: 100%;
+  background: #0f1217;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.readonly-settings-grid {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.plain-list {
+  color: var(--muted);
+  margin: 14px 0 0;
+}
+
+.plain-list li {
+  margin: 8px 0;
+}
+
+.system-checks {
+  margin-top: 18px;
+}
+
+@media (max-width: 1100px) {
+  .info-grid,
+  .theme-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.split-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.toolbar-actions-left,
+.toolbar-actions-right {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.content-search-form,
+.bulk-actions-row,
+.form-actions-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.content-search-form input[type="search"],
+.settings-panel input[type="email"],
+.settings-panel input[type="number"],
+.quick-edit-panel input[type="date"],
+.quick-edit-panel input[type="datetime-local"],
+.quick-edit-panel textarea,
+.quick-edit-panel select,
+.quick-edit-panel input[type="text"] {
+  background: #0f1217;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 12px;
+}
+
+.content-search-form input[type="search"] {
+  min-width: min(340px, 100%);
+}
+
+.bulk-content-form {
+  margin-bottom: 0;
+}
+
+.check-column {
+  width: 42px;
+}
+
+.source-pill {
+  background: rgba(232, 220, 194, 0.08);
+  border: 1px solid rgba(232, 220, 194, 0.18);
+  border-radius: 999px;
+  color: #e8dcc2;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.system-summary-panel {
+  margin-top: 18px;
+}
+
+.system-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.system-summary {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.system-summary strong {
+  display: block;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.system-summary span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+
+.system-summary.pass {
+  background: rgba(111, 191, 115, 0.08);
+}
+
+.system-summary.warn {
+  background: rgba(236, 178, 83, 0.08);
+}
+
+.system-summary.fail {
+  background: rgba(218, 92, 92, 0.08);
+}
+
+.radio-card-list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+
+.radio-card {
+  align-items: flex-start;
+  background: #0f1217;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+}
+
+.radio-card input {
+  margin-top: 4px;
+}
+
+.radio-card strong,
+.radio-card code {
+  display: block;
+}
+
+.radio-card code {
+  color: #d8cab0;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.card-full-content {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .system-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .content-search-form input[type="search"] {
+    min-width: 100%;
+  }
+}
+
+/* Workflow feedback and header actions */
+body.bonumark-admin .admin-page-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  justify-content: space-between;
+  margin: 0 0 22px;
+}
+
+body.bonumark-admin .admin-page-title h1 {
+  margin: 0;
+}
+
+body.bonumark-admin .admin-page-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.bonumark-admin .admin-page-actions .primary-button,
+body.bonumark-admin .admin-page-actions .button-link {
+  align-items: center;
+  display: inline-flex;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .notice-stack {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+body.bonumark-admin .flash.notice {
+  align-items: flex-start;
+  border: 1px solid var(--admin-border);
+  border-left-width: 5px;
+  border-radius: 6px;
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 13px 15px;
+}
+
+body.bonumark-admin .flash.notice .notice-icon {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 22px;
+  font-size: 13px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+  line-height: 1;
+  margin-top: 1px;
+  width: 22px;
+}
+
+body.bonumark-admin .flash.notice .notice-copy {
+  min-width: 0;
+}
+
+body.bonumark-admin .flash.notice .notice-copy strong {
+  display: block;
+  font-size: .86rem;
+  line-height: 1.2;
+  margin: 0 0 3px;
+}
+
+body.bonumark-admin .flash.notice .notice-copy p {
+  color: var(--admin-muted);
+  margin: 0;
+}
+
+body.bonumark-admin .flash.notice.success {
+  border-left-color: #6fbf73;
+}
+
+body.bonumark-admin .flash.notice.success .notice-icon,
+body.bonumark-admin .flash.notice.success .notice-copy strong {
+  color: #8bd48f;
+}
+
+body.bonumark-admin .flash.notice.error {
+  border-left-color: var(--admin-danger);
+}
+
+body.bonumark-admin .flash.notice.error .notice-icon,
+body.bonumark-admin .flash.notice.error .notice-copy strong {
+  color: #ff8a8a;
+}
+
+body.bonumark-admin .flash.notice.warning {
+  border-left-color: #d8a843;
+}
+
+body.bonumark-admin .flash.notice.warning .notice-icon,
+body.bonumark-admin .flash.notice.warning .notice-copy strong {
+  color: #ffd27a;
+}
+
+body.bonumark-admin .flash.notice.info {
+  border-left-color: #d8d2c3;
+}
+
+body.bonumark-admin .flash.notice.info .notice-icon,
+body.bonumark-admin .flash.notice.info .notice-copy strong {
+  color: #efe7d6;
+}
+
+body.bonumark-admin .editor-header .actions,
+body.bonumark-admin .content-toolbar {
+  display: none;
+}
+
+@media (max-width: 782px) {
+  body.bonumark-admin .admin-page-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .admin-page-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+/* Media library foundation */
+/* Trash and revisions */
+.media-toolbar-panel .filter-form,
+.media-search-form {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.media-search-form input[type="search"],
+.copy-field,
+.upload-media-panel input[type="text"],
+.media-edit-fields input[type="text"] {
+  width: 100%;
+  background: #101010;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+.media-search-form input[type="search"] {
+  min-width: min(420px, 100%);
+  flex: 1;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.media-card {
+  background: #111;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.media-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  background: #070707;
+  border-bottom: 1px solid var(--line);
+}
+
+.media-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.media-file-badge,
+.media-file-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 72px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #101820;
+  color: var(--text);
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.media-file-preview {
+  width: 100%;
+  min-height: 220px;
+  margin-bottom: 14px;
+  font-size: 1.1rem;
+}
+
+.media-card-body {
+  padding: 14px;
+}
+
+.media-card h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.media-card label,
+.media-edit-fields label {
+  font-size: .82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.media-caption {
+  color: var(--muted);
+  font-size: .92rem;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.link-button,
+.secondary-button {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 10px;
+  margin: 0;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.link-button:hover,
+.secondary-button:hover {
+  background: var(--panel-2);
+}
+
+.empty-state {
+  background: #111;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.media-edit-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.media-edit-preview {
+  background: #0b0b0b;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.media-edit-preview img {
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #050505;
+}
+
+.media-detail-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.media-detail-list div,
+.source-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.media-detail-list span {
+  color: var(--muted);
+}
+
+.form-actions-row,
+.side-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.danger-zone {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.visual-editor img,
+.visual-preview img,
+.content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .media-edit-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status-pill.trash {
+  border-color: rgba(255, 137, 137, 0.45);
+  color: #ffabab;
+}
+
+.static-pill.trash,
+.static-state.trash {
+  background: rgba(255, 137, 137, 0.12);
+  border-color: rgba(255, 137, 137, 0.5);
+  color: #ffabab;
+}
+
+.trash-empty-form {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 14px;
+}
+
+.revision-source-view {
+  background: #0f1319;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  color: var(--admin-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  min-height: 420px;
+  padding: 16px;
+  width: 100%;
+}
+
+.revisions-card .button-link {
+  justify-content: center;
+  width: 100%;
+}
+
+/* Appearance and navigation foundation */
+.public-site-header {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.header-nav,
+.hero-nav {
+  justify-content: flex-end;
+}
+
+.home-intro {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+  padding: 18px 0 28px;
+}
+
+.home-intro h1 {
+  font-size: clamp(2rem, 6vw, 4rem);
+  letter-spacing: -.045em;
+  line-height: 1;
+  margin: 0 0 12px;
+}
+
+.home-intro p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 1.1rem;
+  max-width: 720px;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 920px;
+  padding: 24px 22px 48px;
+}
+
+.appearance-overview-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.appearance-card {
+  color: var(--admin-text);
+  display: block;
+  min-height: 170px;
+  text-decoration: none;
+}
+
+.appearance-card h3 {
+  margin: 8px 0;
+}
+
+.appearance-card p {
+  color: var(--admin-muted);
+  margin: 0;
+}
+
+.selectable-theme {
+  cursor: pointer;
+  display: block;
+  position: relative;
+}
+
+.selectable-theme input[type="radio"] {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+}
+
+.checkbox-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0 18px;
+}
+
+.checkbox-grid label,
+.checkbox-line {
+  align-items: center;
+  background: #0f1217;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+}
+
+.checkbox-grid input,
+.checkbox-line input {
+  flex: 0 0 auto;
+}
+
+
+body.bonumark-admin .appearance-card:hover,
+body.bonumark-admin .selectable-theme:hover {
+  background: var(--admin-surface-2);
+  opacity: 1;
+}
+
+@media (max-width: 1180px) {
+  .appearance-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .public-site-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-nav,
+  .hero-nav {
+    justify-content: flex-start;
+  }
+
+  .appearance-overview-grid,
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Workflow completion */
+.sort-link {
+  color: var(--admin-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sort-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.original-pill {
+  border: 1px solid rgba(143, 152, 163, 0.28);
+  border-radius: 999px;
+  color: #c6ccd4;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.original-pill.preserved {
+  background: rgba(111, 191, 115, 0.10);
+  border-color: rgba(111, 191, 115, 0.42);
+  color: #a8e3ab;
+}
+
+.original-pill.none {
+  background: rgba(143, 152, 163, 0.10);
+}
+
+.full-width-button {
+  justify-content: center;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.media-picker[hidden] {
+  display: none;
+}
+
+.media-picker {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 9999;
+}
+
+.media-picker-backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  inset: 0;
+  position: absolute;
+}
+
+.media-picker-panel {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+  max-height: min(720px, 86vh);
+  max-width: 980px;
+  overflow: auto;
+  padding: 20px;
+  position: relative;
+  width: min(980px, 94vw);
+}
+
+.media-picker-header {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+.media-picker-header h3 {
+  margin: 0;
+}
+
+.media-picker-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.media-picker-item {
+  background: #0f1217;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  color: var(--admin-text);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  text-align: left;
+}
+
+.media-picker-item:hover,
+.media-picker-item:focus {
+  border-color: rgba(232, 220, 194, 0.45);
+  outline: none;
+}
+
+.media-picker-item img {
+  aspect-ratio: 4 / 3;
+  background: #050607;
+  border-radius: 8px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.media-picker-item span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.compact-empty-state {
+  margin: 0;
+}
+
+.upgrade-status-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin: 18px 0;
+}
+
+.upgrade-status-card {
+  background: #0f1217;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.upgrade-status-card span {
+  color: var(--admin-muted);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.upgrade-status-card strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.upgrade-status-card.pass {
+  border-color: rgba(111, 191, 115, 0.36);
+}
+
+.upgrade-status-card.fail {
+  border-color: rgba(255, 137, 137, 0.5);
+}
+
+.upgrade-migrations-list ul {
+  margin: 8px 0 0;
+}
+
+.warning-text {
+  color: #f0d08e;
+}
+
+/* Editor and media tools */
+.type-pill, .original-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: .2rem .55rem; font-size: .78rem; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #dce5f4; }
+.context-help { margin-top: .75rem; border: 1px solid rgba(255,255,255,.10); border-radius: .75rem; padding: .65rem .75rem; background: rgba(255,255,255,.035); }
+.context-help summary { cursor: pointer; font-weight: 700; color: #f3f6fb; }
+.context-help p { margin: .5rem 0 0; color: #aebbd0; font-size: .92rem; }
+.autosave-banner { display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; border: 1px solid rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .08); color: #ffe4b5; padding: .75rem; border-radius: .85rem; margin-bottom: .8rem; }
+.autosave-banner[hidden] { display: none; }
+.editor-save-state { color: #aebbd0; font-size: .85rem; margin-bottom: .55rem; }
+.media-picker-tools { display: grid; gap: .65rem; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr); padding: 1rem; border-bottom: 1px solid rgba(255,255,255,.10); }
+.media-picker-tools input { width: 100%; }
+.media-picker-item[hidden] { display: none; }
+.big-welcome-panel h2 { font-size: clamp(2rem, 5vw, 4rem); margin-bottom: .6rem; }
+.welcome-steps .stat-card { min-height: 8rem; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.feature-grid > div { border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(255,255,255,.035); padding: 1rem; }
+.diff-view { white-space: pre-wrap; overflow: auto; background: #07101f; border: 1px solid rgba(255,255,255,.1); border-radius: .8rem; padding: 1rem; line-height: 1.45; }
+.diff-line { display: block; padding: .05rem .35rem; border-left: 3px solid transparent; }
+.diff-line.added { background: rgba(34,197,94,.08); border-left-color: #22c55e; }
+.diff-line.removed { background: rgba(239,68,68,.08); border-left-color: #ef4444; }
+.theme-preview .mock-nav, .theme-preview .mock-title, .theme-preview .mock-line { display: block; border-radius: 999px; margin: .6rem; height: .5rem; background: currentColor; opacity: .25; }
+.theme-preview .mock-title { height: 1.2rem; width: 70%; opacity: .45; }
+.theme-preview .mock-line { width: 85%; }
+.theme-preview .mock-line.short { width: 52%; }
+.inline-user-form { display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+.inline-user-form select { min-width: 120px; }
+.checkbox-line { display: flex; gap: .5rem; align-items: center; margin-top: 1rem; }
+@media (max-width: 820px) { .media-picker-tools { grid-template-columns: 1fr; } .admin-topbar-actions { order: 3; width: 100%; } }
+
+/* Editor subheads and revision actions */
+.media-picker-subhead {
+  margin: 1rem 0 .75rem;
+  color: var(--muted);
+  font-size: .78rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.revision-actions-panel {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Admin topbar cleanup */
+body.bonumark-admin .admin-topbar {
+  justify-content: space-between;
+}
+body.bonumark-admin .admin-topbar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sidebar workflow cleanup */
+body.bonumark-admin .admin-nav-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 6px 8px 0;
+  padding: 4px 0;
+}
+
+body.bonumark-admin details.admin-nav-section:first-of-type {
+  border-top: 0;
+}
+
+body.bonumark-admin .admin-nav-section > summary.admin-nav-heading {
+  align-items: center;
+  border-radius: 8px;
+  color: #8f98a3;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  justify-content: space-between;
+  letter-spacing: 0.12em;
+  list-style: none;
+  margin: 0;
+  padding: 9px 10px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::after {
+  content: "›";
+  font-size: 1rem;
+  line-height: 1;
+  opacity: .72;
+  transform: rotate(0deg);
+  transition: transform .16s ease;
+}
+
+body.bonumark-admin .admin-nav-section[open] > summary.admin-nav-heading::after {
+  transform: rotate(90deg);
+}
+
+body.bonumark-admin .admin-nav-section > summary.admin-nav-heading:hover,
+body.bonumark-admin .admin-nav-section[open] > summary.admin-nav-heading {
+  background: var(--admin-sidebar-hover);
+  color: var(--admin-sidebar-text);
+}
+
+body.bonumark-admin .admin-nav-links {
+  margin-top: 4px;
+}
+
+body.bonumark-admin .admin-sidebar-nav .admin-nav-links a,
+body.bonumark-admin .admin-sidebar-nav .admin-nav-links .nav-form button {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 18px;
+}
+
+body.bonumark-admin .admin-sidebar-nav > .nav-primary {
+  margin: 8px;
+}
+
+/* Admin navigation refinement */
+body.bonumark-admin .admin-sidebar-nav > .view-site-nav {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f5f7fb;
+  font-weight: 800;
+}
+
+body.bonumark-admin .admin-sidebar-nav > .view-site-nav::after {
+  content: "↗";
+  float: right;
+  opacity: .72;
+}
+
+/* Sidebar link cleanup */
+body.bonumark-admin .admin-sidebar-nav a,
+body.bonumark-admin .admin-sidebar-nav .nav-form button {
+  width: auto;
+}
+
+body.bonumark-admin .admin-sidebar-nav > .nav-primary {
+  margin: 2px 8px;
+  width: auto;
+}
+
+body.bonumark-admin .admin-sidebar-nav > .view-site-nav {
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: var(--admin-sidebar-text);
+  font-weight: 600;
+  padding: 8px 10px;
+}
+
+body.bonumark-admin .admin-sidebar-nav > .view-site-nav:hover {
+  background: var(--admin-sidebar-hover);
+  border-left-color: var(--admin-accent);
+}
+
+body.bonumark-admin .admin-sidebar-nav > .view-site-nav::after {
+  content: none;
+}
+
+/* Stream admin utilities */
+.settings-subsection {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin: 18px 0;
+  padding: 16px;
+}
+
+.settings-subsection h3 {
+  margin: 0 0 6px;
+}
+
+.content-type-filter {
+  margin-top: -8px;
+}
+
+.content-preview {
+  color: var(--muted);
+  font-size: .88rem;
+  line-height: 1.45;
+  margin: 6px 0 0;
+  max-width: 58ch;
+}
+
+.media-indicator {
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: .72rem;
+  font-weight: 700;
+  margin-left: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.content-row.content-type-stream .title-column strong a,
+.content-row.content-type-stream .title-column strong {
+  letter-spacing: -.01em;
+}
+
+/* Publish card action consolidation */
+body.bonumark-admin .publish-card-actions {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+body.bonumark-admin .publish-card .full-width-button,
+body.bonumark-admin .publish-card .button-link.full-width-button {
+  box-sizing: border-box;
+  justify-content: center;
+  margin-top: 0;
+  text-align: center;
+  width: 100%;
+}
+
+body.bonumark-admin .publish-card-new-actions {
+  border-top: 0;
+  gap: 14px;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body.bonumark-admin .publish-card-new-actions .publish-main-button,
+body.bonumark-admin .publish-card-new-actions .full-width-button {
+  margin-top: 0;
+}
+
+body.bonumark-admin .publish-card-note {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin .editor-hidden-action-forms {
+  display: none;
+}
+
+
+/* Backend Composer Media Editor Pass */
+body.bonumark-admin .editor-workspace {
+  align-items: start;
+}
+
+body.bonumark-admin .editor-primary-column {
+  min-width: 0;
+}
+
+body.bonumark-admin .editor-title-card {
+  border-bottom: 0;
+  margin-bottom: 12px;
+}
+
+body.bonumark-admin .editor-title-input {
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+body.bonumark-admin .media-toolbar-button {
+  font-weight: 800;
+}
+
+body.bonumark-admin .media-picker-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: min(760px, 90vh);
+  padding: 0;
+  overflow: hidden;
+}
+
+body.bonumark-admin .media-picker-header {
+  margin: 0;
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .media-picker-header .meta {
+  margin: 4px 0 0;
+}
+
+body.bonumark-admin .media-picker-tabs {
+  align-items: end;
+  background: #101318;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+body.bonumark-admin .media-picker-tabs .editor-tab {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin: 0;
+}
+
+body.bonumark-admin .media-picker-panel-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+body.bonumark-admin .media-picker-tab-panel {
+  padding: 20px;
+}
+
+body.bonumark-admin .media-picker-tab-panel[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .media-quick-upload {
+  display: grid;
+  gap: 14px;
+}
+
+body.bonumark-admin .media-upload-dropzone {
+  background: #0f1217;
+  border: 1px dashed rgba(216, 210, 195, 0.38);
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+}
+
+body.bonumark-admin .media-upload-dropzone.dragging {
+  background: #171b21;
+  border-color: #e8e0cf;
+}
+
+body.bonumark-admin .media-upload-dropzone input[type="file"] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+body.bonumark-admin .media-upload-dropzone strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .media-upload-dropzone span {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+}
+
+body.bonumark-admin .media-upload-meta-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .media-upload-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .media-picker-tools {
+  grid-template-columns: minmax(180px, 1.1fr) minmax(180px, 1fr) minmax(180px, 1fr);
+  padding: 0 0 16px;
+}
+
+body.bonumark-admin .media-library-status {
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  margin-bottom: 8px;
+  min-height: 1.2em;
+}
+
+body.bonumark-admin .media-picker-grid {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+body.bonumark-admin .media-picker-item {
+  align-content: start;
+  min-height: 190px;
+}
+
+body.bonumark-admin .media-picker-thumb {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: #050607;
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+body.bonumark-admin .media-picker-thumb img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+body.bonumark-admin .media-picker-item-title {
+  color: var(--admin-text);
+  font-size: 0.9rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .media-picker-item-meta {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+}
+
+body.bonumark-admin .visual-editor audio,
+body.bonumark-admin .visual-preview audio {
+  display: block;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+body.bonumark-admin .visual-editor video,
+body.bonumark-admin .visual-preview video {
+  background: #050607;
+  display: block;
+  margin: 1rem 0;
+  max-height: 420px;
+  max-width: 100%;
+  width: 100%;
+}
+
+@media (max-width: 820px) {
+  body.bonumark-admin .media-upload-meta-grid,
+  body.bonumark-admin .media-picker-tools {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Backend Composer Publishing Surface Pass */
+body.bonumark-admin .dual-editor {
+  background: #0b0d10;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+body.bonumark-admin .editor-status-strip {
+  align-items: center;
+  background: #090b0e;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+body.bonumark-admin .editor-save-state {
+  color: #aebbd0;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+body.bonumark-admin .editor-metrics {
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.bonumark-admin .editor-metrics span {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+body.bonumark-admin .editor-command-bar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .editor-utility-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.bonumark-admin .compact-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+body.bonumark-admin .visual-toolbar {
+  align-items: center;
+  border-top: 1px solid var(--admin-border);
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+body.bonumark-admin .visual-toolbar[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .toolbar-group {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+body.bonumark-admin .toolbar-group + .toolbar-group {
+  border-left: 1px solid var(--admin-border);
+  padding-left: 10px;
+}
+
+body.bonumark-admin .markdown-toolbar button {
+  border-style: dashed;
+}
+
+body.bonumark-admin .editor-preview-header {
+  align-items: center;
+  background: #0f1217;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+body.bonumark-admin .editor-preview-header strong {
+  color: var(--admin-text);
+  display: block;
+}
+
+body.bonumark-admin .editor-preview-header span {
+  color: var(--admin-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+body.bonumark-admin .visual-preview {
+  min-height: 520px;
+}
+
+body.bonumark-admin .editor-mode-panel.active {
+  background: #0b0d10;
+}
+
+body.bonumark-admin .editor-mode-panel.active .visual-editor,
+body.bonumark-admin .editor-mode-panel.active textarea#body_markdown,
+body.bonumark-admin .editor-mode-panel.active .visual-preview {
+  border: 0;
+  border-radius: 0;
+}
+
+body.bonumark-admin.editor-focus-active {
+  overflow: hidden;
+}
+
+body.bonumark-admin.editor-focus-active .admin-shell,
+body.bonumark-admin.editor-focus-active .admin-main {
+  overflow: visible;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode {
+  background: #090b0e;
+  border-radius: 0;
+  bottom: 0;
+  box-shadow: none;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .editor-chrome,
+body.bonumark-admin .dual-editor.is-focus-mode .editor-status-strip {
+  border-left: 0;
+  border-right: 0;
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel {
+  height: calc(100vh - 136px);
+  margin: 0 auto;
+  max-width: 1120px;
+  overflow: auto;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .visual-editor,
+body.bonumark-admin .dual-editor.is-focus-mode textarea#body_markdown,
+body.bonumark-admin .dual-editor.is-focus-mode .visual-preview {
+  min-height: calc(100vh - 136px);
+}
+
+body.bonumark-admin .editor-sidebar-column .side-card {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+}
+
+body.bonumark-admin .editor-sidebar-column .side-card h3 {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: space-between;
+  margin: -2px -2px 12px;
+  padding-bottom: 10px;
+}
+
+body.bonumark-admin .editor-sidebar-column .publish-card h3::after {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: 999px;
+  color: #86efac;
+  content: "Ready";
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .editor-command-bar,
+  body.bonumark-admin .editor-status-strip,
+  body.bonumark-admin .editor-preview-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .editor-utility-actions,
+  body.bonumark-admin .editor-metrics {
+    justify-content: flex-start;
+  }
+
+  body.bonumark-admin .toolbar-group + .toolbar-group {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+
+/* Backend Composer Editor State Pass */
+body.bonumark-admin .editor-save-state[data-save-state="ready"] {
+  color: #aebbd0;
+}
+
+body.bonumark-admin .editor-save-state[data-save-state="saved"] {
+  color: #86efac;
+}
+
+body.bonumark-admin .editor-save-state[data-save-state="dirty"] {
+  color: #facc15;
+}
+
+body.bonumark-admin .editor-save-state[data-save-state="saving"] {
+  color: #93c5fd;
+}
+
+body.bonumark-admin .editor-save-state[data-save-state="warning"] {
+  color: #fca5a5;
+}
+
+body.bonumark-admin .side-card-heading {
+  gap: 10px;
+}
+
+body.bonumark-admin .side-card-toggle {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  min-height: 24px;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .side-card-toggle:hover,
+body.bonumark-admin .side-card-toggle:focus {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .side-card.is-collapsed {
+  padding-bottom: 12px;
+}
+
+body.bonumark-admin .side-card.is-collapsed > :not(h3) {
+  display: none;
+}
+
+body.bonumark-admin .side-card.is-collapsed h3 {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .side-card-toggle {
+  pointer-events: auto;
+}
+
+
+/* Backend Composer Visual Editor Fidelity Pass */
+body.bonumark-admin .visual-editor figure,
+body.bonumark-admin .visual-preview figure {
+  background: #050607;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  margin: 1.2rem 0;
+  padding: 12px;
+}
+
+body.bonumark-admin .visual-editor figcaption,
+body.bonumark-admin .visual-preview figcaption {
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin-top: 10px;
+}
+
+body.bonumark-admin .visual-editor a,
+body.bonumark-admin .visual-preview a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+body.bonumark-admin .visual-editor ul,
+body.bonumark-admin .visual-editor ol,
+body.bonumark-admin .visual-preview ul,
+body.bonumark-admin .visual-preview ol {
+  padding-left: 1.5rem;
+}
+
+body.bonumark-admin .visual-editor li + li,
+body.bonumark-admin .visual-preview li + li {
+  margin-top: 0.35rem;
+}
+
+
+/* Sidebar Cards and Screen Control Pass */
+body.bonumark-admin .editor-screen-controls {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  margin: -4px 0 18px;
+  padding: 12px;
+}
+
+body.bonumark-admin .screen-controls-toggle {
+  width: auto;
+}
+
+body.bonumark-admin .screen-controls-panel {
+  background: #0b0d10;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  margin-top: 12px;
+  padding: 16px;
+}
+
+body.bonumark-admin .screen-controls-panel[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .screen-controls-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+body.bonumark-admin .screen-controls-header strong {
+  color: var(--admin-text);
+  display: block;
+  font-size: 1rem;
+}
+
+body.bonumark-admin .screen-controls-header span {
+  color: var(--admin-muted);
+  display: block;
+  font-size: .86rem;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+body.bonumark-admin .screen-controls-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.bonumark-admin .screen-controls-grid fieldset {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  margin: 0;
+  padding: 12px;
+}
+
+body.bonumark-admin .screen-controls-grid legend {
+  color: var(--admin-text);
+  font-weight: 800;
+  padding: 0 6px;
+}
+
+body.bonumark-admin .screen-controls-grid label {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+body.bonumark-admin .screen-controls-grid input[type="checkbox"] {
+  margin: 0;
+  width: auto;
+}
+
+body.bonumark-admin .screen-controls-grid select {
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+body.bonumark-admin .screen-controls-actions {
+  align-items: center;
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+body.bonumark-admin .editor-layout-form.no-sticky-sidebar .editor-sidebar-column {
+  position: static;
+  top: auto;
+}
+
+body.bonumark-admin .editor-layout-form.is-wide-editor .editor-workspace {
+  grid-template-columns: minmax(0, 1fr) 270px;
+}
+
+body.bonumark-admin .editor-layout-form.is-single-column-editor .editor-workspace {
+  grid-template-columns: 1fr;
+}
+
+body.bonumark-admin .editor-layout-form.is-single-column-editor .editor-sidebar-column {
+  position: static;
+  top: auto;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-title-card,
+body.bonumark-admin .editor-layout-form.is-density-compact .side-card {
+  border-radius: 12px;
+  padding: 12px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-title-card {
+  margin-bottom: 10px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-title-input {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-workspace {
+  gap: 14px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-sidebar-column {
+  gap: 10px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .visual-editor,
+body.bonumark-admin .editor-layout-form.is-density-compact .visual-preview,
+body.bonumark-admin .editor-layout-form.is-density-compact textarea#body_markdown {
+  min-height: 52vh;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .visual-editor,
+body.bonumark-admin .editor-layout-form.is-density-compact .visual-preview {
+  padding: 26px 30px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-status-strip,
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-chrome,
+body.bonumark-admin .editor-layout-form.is-density-compact .editor-preview-header {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious .editor-title-card,
+body.bonumark-admin .editor-layout-form.is-density-spacious .side-card {
+  padding: 24px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious .editor-workspace {
+  gap: 26px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious .editor-sidebar-column {
+  gap: 18px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious .visual-editor,
+body.bonumark-admin .editor-layout-form.is-density-spacious .visual-preview,
+body.bonumark-admin .editor-layout-form.is-density-spacious textarea#body_markdown {
+  min-height: 74vh;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious .visual-editor,
+body.bonumark-admin .editor-layout-form.is-density-spacious .visual-preview {
+  padding: 48px 56px;
+}
+
+@media (max-width: 980px) {
+  body.bonumark-admin .screen-controls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .screen-controls-header {
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .editor-layout-form.is-wide-editor .editor-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Preview and permalink polish*/
+body.bonumark-admin .permalink-copy-row {
+  align-items: center;
+  display: grid;
+  gap: .55rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: .85rem;
+}
+
+body.bonumark-admin .permalink-final-url,
+body.bonumark-admin input.permalink-final-url {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: .75rem;
+  color: var(--admin-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .84rem;
+  min-height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+body.bonumark-admin .slug-change-warning {
+  background: rgba(245, 158, 11, .08);
+  border: 1px solid rgba(245, 158, 11, .36);
+  border-radius: .85rem;
+  color: #ffe1a7;
+  margin-top: .85rem;
+  padding: .85rem;
+}
+
+body.bonumark-admin .slug-change-warning[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .slug-change-warning strong {
+  color: #fff3cf;
+  display: block;
+  margin-bottom: .35rem;
+}
+
+body.bonumark-admin .slug-change-warning p {
+  color: #f7d899;
+  margin: 0 0 .6rem;
+}
+
+body.bonumark-admin .editor-preview-header {
+  align-items: center;
+}
+
+body.bonumark-admin .editor-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: flex-end;
+}
+
+body.bonumark-admin .preview-summary-panel,
+body.bonumark-admin .preview-frame-panel {
+  overflow: hidden;
+}
+
+body.bonumark-admin .preview-summary-grid {
+  align-items: start;
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+}
+
+body.bonumark-admin .preview-url-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 1rem;
+  display: grid;
+  gap: .55rem;
+  padding: 1rem;
+}
+
+body.bonumark-admin .preview-url-card span,
+body.bonumark-admin .preview-frame-toolbar span {
+  color: var(--admin-muted);
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .preview-action-row {
+  align-items: center;
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .7rem;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+}
+
+body.bonumark-admin .preview-frame-toolbar {
+  align-items: center;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: .9rem .9rem 0 0;
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+  padding: .75rem 1rem;
+}
+
+body.bonumark-admin .public-preview-frame {
+  border-radius: 0 0 1rem 1rem;
+  min-height: 820px;
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .preview-summary-grid,
+  body.bonumark-admin .permalink-copy-row {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .editor-preview-actions,
+  body.bonumark-admin .preview-frame-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Keyboard Shortcuts and Accessibility Pass */
+body.bonumark-admin .editor-tab:focus-visible,
+body.bonumark-admin .visual-toolbar button:focus-visible,
+body.bonumark-admin .secondary-button:focus-visible,
+body.bonumark-admin .primary-button:focus-visible,
+body.bonumark-admin .button-link:focus-visible,
+body.bonumark-admin .side-card-toggle:focus-visible,
+body.bonumark-admin .media-picker-item:focus-visible,
+body.bonumark-admin input:focus-visible,
+body.bonumark-admin textarea:focus-visible,
+body.bonumark-admin select:focus-visible,
+body.bonumark-admin [contenteditable="true"]:focus-visible {
+  outline: 3px solid rgba(147, 197, 253, .95);
+  outline-offset: 3px;
+}
+
+body.bonumark-admin .editor-shortcuts-panel[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .editor-shortcuts-panel {
+  align-items: center;
+  background: rgba(0, 0, 0, .72);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 1.25rem;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1300;
+}
+
+body.bonumark-admin .editor-shortcuts-card {
+  background: #0b0d10;
+  border: 1px solid var(--admin-border);
+  border-radius: 1.1rem;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+  max-height: min(720px, 88vh);
+  max-width: 720px;
+  overflow: auto;
+  padding: 1.1rem;
+  width: min(100%, 720px);
+}
+
+body.bonumark-admin .editor-shortcuts-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: .85rem;
+}
+
+body.bonumark-admin .editor-shortcuts-header h3 {
+  color: var(--admin-text);
+  margin: .15rem 0 0;
+}
+
+body.bonumark-admin .editor-shortcuts-list {
+  display: grid;
+  gap: .6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+body.bonumark-admin .editor-shortcuts-list > div {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: .85rem;
+  padding: .85rem;
+}
+
+body.bonumark-admin .editor-shortcuts-list dt {
+  color: var(--admin-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .84rem;
+  font-weight: 800;
+  margin-bottom: .35rem;
+}
+
+body.bonumark-admin .editor-shortcuts-list dd {
+  color: var(--admin-muted);
+  font-size: .86rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+body.bonumark-admin .media-picker-panel:focus,
+body.bonumark-admin .editor-shortcuts-card:focus {
+  outline: none;
+}
+
+body.bonumark-admin .media-picker-tabs [role="tab"][aria-selected="false"],
+body.bonumark-admin .editor-tabs [role="tab"][aria-selected="false"] {
+  opacity: .86;
+}
+
+body.bonumark-admin .visual-editor[role="textbox"] {
+  caret-color: var(--admin-text);
+}
+
+@media (max-width: 760px) {
+  body.bonumark-admin .editor-shortcuts-list {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .editor-shortcuts-header {
+    flex-direction: column;
+  }
+}
+
+/* Composer Viewport Fill Pass
+   Keep the existing stacked sidebar/card flow. Dynamically stretch only the writing surface. */
+body.bonumark-admin .editor-layout-form {
+  --editor-composer-min-height: 720px;
+  --editor-composer-viewport-height: 72vh;
+  --editor-composer-surface-height: max(var(--editor-composer-min-height), var(--editor-composer-viewport-height));
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact {
+  --editor-composer-min-height: 620px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious {
+  --editor-composer-min-height: 820px;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview,
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown {
+  min-height: var(--editor-composer-surface-height);
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-min-height: 560px;
+    --editor-composer-viewport-height: 68vh;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-min-height: 440px;
+    --editor-composer-viewport-height: 62vh;
+  }
+}
+
+
+/* Desktop Composer Column Balance Pass
+   Keep the existing desktop editor/sidebar columns. Balance only the writing surface
+   against the visible sidebar card stack so the center column does not die early. */
+body.bonumark-admin .editor-layout-form {
+  --editor-composer-max-height: 2600px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact {
+  --editor-composer-max-height: 2200px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious {
+  --editor-composer-max-height: 3000px;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview,
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown {
+  max-height: var(--editor-composer-max-height);
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 1400px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 950px;
+  }
+}
+
+
+/* Desktop Composer Full Balance Pass
+   Let the main editor reach the natural height of the right-side card stack
+   while preserving the normal desktop two-column layout. */
+body.bonumark-admin .editor-layout-form {
+  --editor-composer-max-height: 2600px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact {
+  --editor-composer-max-height: 2200px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious {
+  --editor-composer-max-height: 3000px;
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 1400px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 950px;
+  }
+}
+
+
+/* Composer Auto-Grow Longform Handling Pass
+   Keep desktop column balance, but let the active writing surface grow with content
+   until a longform cap is reached. After that, the editor itself scrolls clearly. */
+body.bonumark-admin .editor-layout-form {
+  --editor-composer-max-height: 5400px;
+  --editor-composer-content-height: 0px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact {
+  --editor-composer-max-height: 4600px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious {
+  --editor-composer-max-height: 6500px;
+}
+
+body.bonumark-admin .editor-mode-panel.active .visual-editor,
+body.bonumark-admin .editor-mode-panel.active textarea#body_markdown,
+body.bonumark-admin .editor-mode-panel.active .visual-preview {
+  height: var(--editor-composer-surface-height);
+  min-height: var(--editor-composer-surface-height);
+  max-height: var(--editor-composer-max-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body.bonumark-admin .editor-layout-form.is-longform-editor .editor-mode-panel.active .visual-editor,
+body.bonumark-admin .editor-layout-form.is-longform-editor .editor-mode-panel.active textarea#body_markdown,
+body.bonumark-admin .editor-layout-form.is-longform-editor .editor-mode-panel.active .visual-preview {
+  overflow-y: auto;
+}
+
+body.bonumark-admin textarea#body_markdown {
+  resize: vertical;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel {
+  height: calc(100vh - 136px);
+  overflow: hidden;
+}
+
+body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel.active .visual-editor,
+body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel.active textarea#body_markdown,
+body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel.active .visual-preview {
+  height: calc(100vh - 136px);
+  min-height: calc(100vh - 136px);
+  max-height: calc(100vh - 136px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 2400px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-max-height: 1600px;
+  }
+}
+
+
+/* Composer Header Simplification Pass
+   The admin page title is the only page heading. Editor guidance and Screen Controls now live
+   in a compact utility row instead of repeating the same New/Edit heading inside a large card. */
+body.bonumark-admin .editor-composer-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  margin: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+body.bonumark-admin .composer-top-row {
+  align-items: center;
+  display: flex;
+  gap: 12px 16px;
+  justify-content: space-between;
+  margin: -8px 0 16px;
+}
+
+body.bonumark-admin .editor-page-helper {
+  color: var(--admin-muted);
+  font-size: .96rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 780px;
+}
+
+body.bonumark-admin .editor-page-helper code {
+  background: #0f1217;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-text);
+  font-size: .86em;
+  padding: 3px 7px;
+}
+
+body.bonumark-admin .editor-page-helper-pill {
+  background: #1f2f27;
+  border: 1px solid rgba(98, 204, 138, .28);
+  border-radius: 999px;
+  color: #d7f8df;
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  margin-right: 8px;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .composer-top-row .editor-screen-controls {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+body.bonumark-admin .composer-top-row .screen-controls-toggle {
+  white-space: nowrap;
+}
+
+body.bonumark-admin .composer-top-row .screen-controls-panel {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+  margin-top: 10px;
+  min-width: min(820px, calc(100vw - 360px));
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+}
+
+body.bonumark-admin .composer-top-row .screen-controls-panel[hidden] {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  body.bonumark-admin .composer-top-row {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: -2px;
+  }
+
+  body.bonumark-admin .composer-top-row .editor-screen-controls {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  body.bonumark-admin .composer-top-row .screen-controls-panel {
+    min-width: 100%;
+    position: static;
+    right: auto;
+    top: auto;
+    width: 100%;
+  }
+}
+
+
+/* Composer Top Action and Autosave Alignment Pass
+   Screen Controls lives in the page action slot on composer screens, replacing the repeated All Stream Posts button.
+   Autosave recovery actions are grouped and aligned so Restore and Discard sit cleanly together. */
+body.bonumark-admin .admin-page-actions .admin-page-action-custom {
+  align-items: center;
+  display: inline-flex;
+  margin: 0;
+  position: relative;
+}
+
+body.bonumark-admin .admin-page-actions .editor-screen-controls {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: inline-flex;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+body.bonumark-admin .admin-page-actions .editor-screen-controls .screen-controls-toggle {
+  margin: 0;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .admin-page-actions .editor-screen-controls .screen-controls-panel {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+  margin-top: 10px;
+  min-width: min(820px, calc(100vw - 360px));
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 40;
+}
+
+body.bonumark-admin .admin-page-actions .editor-screen-controls .screen-controls-panel[hidden] {
+  display: none;
+}
+
+body.bonumark-admin .composer-top-row {
+  justify-content: flex-start;
+}
+
+body.bonumark-admin .autosave-banner {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .autosave-banner-copy {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: .35rem .75rem;
+  min-width: 0;
+}
+
+body.bonumark-admin .autosave-banner-copy strong,
+body.bonumark-admin .autosave-banner-copy span {
+  margin: 0;
+}
+
+body.bonumark-admin .autosave-banner-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: .55rem;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+body.bonumark-admin .autosave-banner-actions button,
+body.bonumark-admin .autosave-banner button {
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  body.bonumark-admin .admin-page-actions .admin-page-action-custom,
+  body.bonumark-admin .admin-page-actions .editor-screen-controls {
+    width: 100%;
+  }
+
+  body.bonumark-admin .admin-page-actions .editor-screen-controls {
+    justify-content: flex-start;
+  }
+
+  body.bonumark-admin .admin-page-actions .editor-screen-controls .screen-controls-panel {
+    min-width: 100%;
+    position: static;
+    right: auto;
+    top: auto;
+    width: 100%;
+  }
+
+  body.bonumark-admin .autosave-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .autosave-banner-actions {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}
+
+
+/* Autosave Discard Full Clear Pass
+   Higher-specificity hidden/dismissed rule prevents later autosave layout overrides from keeping the recovery banner visible. */
+body.bonumark-admin .autosave-banner[hidden],
+body.bonumark-admin .autosave-banner.is-dismissed {
+  display: none !important;
+}
+
+/* Publish Controls Form Repair Pass: media upload no longer nests a form inside the backend editor form.*/
+
+/* Publish Controls Validation Repair Pass: media picker upload fields are excluded from main editor form validation.*/
+
+/* Publish Card Action Consolidation Pass*/
+.publish-card .publish-card-actions .publish-main-button {
+  width: 100%;
+}
+
+
+/* Backend signed-in profile links */
+body.bonumark-admin .admin-user a {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+  outline-offset: 3px;
+}
+
+body.bonumark-admin .admin-user .admin-user-name strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .admin-user .admin-user-handle {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .admin-user a:hover,
+body.bonumark-admin .admin-user a:focus-visible {
+  color: var(--admin-text);
+  text-decoration: underline;
+}
+
+body.bonumark-admin .admin-user a:focus-visible {
+  box-shadow: 0 0 0 3px rgba(235, 222, 198, 0.16);
+}
+
+
+/* Avatar and Profile Picture Pass*/
+body.bonumark-admin .admin-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+body.bonumark-admin .admin-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.15rem;
+}
+
+body.bonumark-admin .admin-user-avatar .stream-author-avatar,
+body.bonumark-admin .admin-user-avatar-image {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(235, 222, 198, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  color: var(--admin-text);
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.bonumark-admin .admin-avatar-profile-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+body.bonumark-admin .admin-avatar-preview .stream-author-avatar,
+body.bonumark-admin .admin-avatar-image {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(249, 115, 22, 0.55);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 1), 0 0 16px rgba(249, 115, 22, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.bonumark-admin .checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  color: var(--admin-muted);
+}
+
+/* Theme Settings Pass*/
+.theme-package-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.theme-package-card {
+  gap: .85rem;
+}
+
+.theme-card-screenshot,
+.theme-settings-screenshot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, .26);
+  background: rgba(15, 23, 42, .8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+.theme-meta-list {
+  display: grid;
+  gap: .45rem;
+  margin-top: .35rem;
+  font-size: .85rem;
+  color: var(--muted);
+}
+
+.theme-meta-list span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  padding-bottom: .35rem;
+}
+
+.theme-meta-list span:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.theme-support-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .65rem;
+}
+
+.compact-readonly-grid {
+  margin-top: 1rem;
+}
+
+.form-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-top: 1rem;
+}
+
+/* Theme Finalization and Boundary Hardening Pass*/
+.invalid-theme {
+  opacity: .76;
+}
+
+.theme-health-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .75rem;
+}
+
+.theme-health-list {
+  margin: .75rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.theme-health-errors {
+  color: #fca5a5;
+}
+
+.theme-boundary-note {
+  border-left: 3px solid rgba(232, 220, 194, .45);
+  padding-left: 1rem;
+}
+
+/* Theme ZIP installer */
+.theme-install-form input[type="file"] {
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  margin: 0;
+  width: auto;
+}
+
+body.bonumark-admin .settings-panel pre {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  overflow-x: auto;
+  padding: 16px;
+  white-space: pre;
+}
+
+.theme-card-actions {
+  align-items: center;
+  border-top: 1px solid rgba(148, 163, 184, .12);
+  display: flex;
+  gap: .65rem;
+  justify-content: flex-start;
+  margin-top: .9rem;
+  padding-top: .85rem;
+}
+
+.theme-delete-panel {
+  max-width: 760px;
+}
+
+.theme-delete-screenshot {
+  max-width: 420px;
+  margin: .5rem 0 1rem;
+}
+
+.theme-delete-form input[type="text"] {
+  max-width: 420px;
+}
+
+/* Theme Manager Completion Pass*/
+.theme-manager-intro {
+  border-left: 4px solid rgba(249, 115, 22, .72);
+}
+
+.theme-manager-grid {
+  align-items: stretch;
+}
+
+.theme-manager-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.theme-manager-card .theme-card-media {
+  position: relative;
+  background: rgba(15, 23, 42, .78);
+}
+
+.theme-manager-card .theme-card-screenshot,
+.theme-details-screenshot {
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.theme-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  left: .85rem;
+  position: absolute;
+  right: .85rem;
+  top: .85rem;
+  z-index: 1;
+}
+
+.theme-card-body {
+  display: grid;
+  gap: .7rem;
+  padding: 1rem;
+}
+
+.theme-manager-card h3 {
+  margin: 0;
+}
+
+.compact-theme-meta {
+  margin-top: 0;
+}
+
+.theme-manager-actions {
+  margin: 0 1rem 1rem;
+}
+
+.inline-theme-action-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.inline-theme-action-form button {
+  min-height: 0;
+}
+
+.theme-preview-empty,
+.large-theme-preview {
+  align-items: center;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(135deg, rgba(15, 23, 42, .92), rgba(30, 41, 59, .72));
+  color: var(--muted);
+  display: flex;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.theme-details-layout {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(260px, 460px) 1fr;
+  margin-bottom: 1.25rem;
+}
+
+.theme-details-preview-panel {
+  overflow: hidden;
+  padding: 0;
+}
+
+.theme-details-badges {
+  margin: 1rem;
+  position: static;
+}
+
+.theme-details-preview-panel .theme-manager-actions {
+  border-top: 1px solid rgba(148, 163, 184, .12);
+  padding-top: .9rem;
+}
+
+.theme-details-meta-list {
+  margin-top: 1rem;
+}
+
+.theme-check-table {
+  border: 1px solid rgba(148, 163, 184, .16);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.theme-check-row {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr auto auto;
+  padding: .75rem .9rem;
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+}
+
+.theme-check-row:last-child {
+  border-bottom: 0;
+}
+
+.theme-check-row.is-good span:last-child,
+.theme-check-row.is-good span:nth-child(2) {
+  color: #86efac;
+}
+
+.theme-check-row.is-bad span:last-child,
+.theme-check-row.is-bad span:nth-child(2) {
+  color: #fca5a5;
+}
+
+.theme-health-warnings {
+  color: #fde68a;
+}
+
+@media (max-width: 900px) {
+  .theme-details-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-check-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Theme Manager Badge Layout Hotfix*/
+.theme-manager-card .theme-card-media {
+  overflow: hidden;
+}
+
+.theme-manager-card .theme-card-badges,
+.theme-details-badges {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+
+.theme-manager-card .theme-card-badges {
+  padding: .75rem 1rem 0;
+}
+
+.theme-manager-card .theme-card-screenshot + .theme-card-badges,
+.theme-manager-card .theme-preview + .theme-card-badges {
+  border-top: 1px solid rgba(148, 163, 184, .12);
+}
+
+.theme-details-badges {
+  margin-top: .85rem;
+}
+
+.theme-card-badges .status-pill {
+  max-width: 100%;
+  white-space: normal;
+}
+
+/* Theme Manager Card Declutter Pass*/
+.theme-manager-card .theme-card-body {
+  gap: .65rem;
+}
+
+.theme-manager-card .theme-card-summary {
+  border-top: 1px solid rgba(148, 163, 184, .12);
+  margin: .1rem 0 0;
+  padding-top: .65rem;
+}
+
+.theme-manager-card .theme-health-summary,
+.theme-manager-card .theme-support-list {
+  display: none;
+}
+
+
+/* Theme Manager Card Action Alignment Pass*/
+.theme-manager-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-manager-card .theme-card-media {
+  flex: 0 0 auto;
+}
+
+.theme-manager-card .theme-card-body {
+  flex: 1 1 auto;
+}
+
+.theme-manager-card .theme-manager-actions {
+  align-items: center;
+  margin-top: auto;
+}
+
+.theme-manager-actions .button-link.danger-link {
+  background: rgba(212, 91, 91, .14);
+  border-color: rgba(212, 91, 91, .58);
+  color: #fecaca;
+}
+
+.theme-manager-actions .button-link.danger-link:hover,
+.theme-manager-actions .button-link.danger-link:focus {
+  background: rgba(212, 91, 91, .92);
+  border-color: rgba(252, 165, 165, .9);
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .theme-manager-card .theme-manager-actions {
+    align-items: stretch;
+  }
+
+  .theme-manager-card .theme-manager-actions > *,
+  .theme-manager-card .theme-manager-actions button,
+  .theme-manager-card .theme-manager-actions .button-link {
+    width: 100%;
+  }
+}
+
+/* Theme Settings layout */
+.theme-settings-form.theme-settings-wide-form {
+  max-width: none;
+  width: 100%;
+}
+
+.theme-settings-lead {
+  margin: -0.65rem 0 1.35rem;
+  max-width: 780px;
+}
+
+.theme-settings-workbench {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  width: 100%;
+}
+
+.theme-settings-theme-panel,
+.theme-settings-control-panel {
+  margin: 0;
+  min-width: 0;
+}
+
+.theme-settings-theme-panel {
+  align-self: start;
+  display: grid;
+  gap: 1rem;
+  padding: 1.35rem;
+}
+
+.theme-settings-preview-frame {
+  background: rgba(8, 11, 16, .64);
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: .65rem;
+}
+
+.theme-settings-preview-frame .theme-settings-screenshot {
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.theme-settings-theme-copy h2 {
+  font-size: 1.45rem;
+  margin: .25rem 0 .45rem;
+}
+
+.theme-settings-theme-copy .meta {
+  margin: 0;
+}
+
+.theme-settings-meta-grid {
+  margin: .25rem 0 0;
+}
+
+.theme-settings-control-panel {
+  padding: 1.35rem;
+}
+
+.theme-settings-control-head {
+  align-items: start;
+  border-bottom: 1px solid rgba(148, 163, 184, .14);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+}
+
+.theme-settings-control-head h2 {
+  margin: .2rem 0 .35rem;
+}
+
+.theme-settings-control-head .meta {
+  margin: 0;
+}
+
+.theme-settings-control-head button {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.theme-settings-switcher,
+.theme-setting-row {
+  align-items: center;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(220px, 340px) minmax(260px, 1fr);
+}
+
+.theme-settings-switcher {
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.theme-settings-list {
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.theme-setting-row {
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  padding: 1rem;
+}
+
+.theme-setting-row:last-child {
+  border-bottom: 0;
+}
+
+.theme-setting-info label {
+  color: var(--admin-text);
+  display: block;
+  font-weight: 750;
+  margin: 0 0 .25rem;
+}
+
+.theme-setting-info .field-help {
+  margin: 0;
+  max-width: 620px;
+}
+
+.theme-setting-control {
+  min-width: 0;
+}
+
+.theme-setting-control select,
+.theme-setting-control input[type="text"],
+.theme-setting-control textarea {
+  max-width: 460px;
+}
+
+.theme-setting-control textarea {
+  min-height: 140px;
+}
+
+.theme-toggle-line {
+  align-items: center;
+  background: rgba(15, 23, 42, .52);
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 12px;
+  color: var(--admin-text);
+  display: inline-flex;
+  gap: .6rem;
+  margin: 0;
+  padding: .65rem .85rem;
+}
+
+.theme-toggle-line input[type="checkbox"] {
+  margin: 0;
+  width: auto;
+}
+
+.theme-settings-empty-state {
+  border: 1px dashed rgba(148, 163, 184, .2);
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+
+.theme-settings-empty-state .meta {
+  margin: 0;
+}
+
+.theme-settings-bottom-actions {
+  border-top: 1px solid rgba(148, 163, 184, .14);
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+}
+
+@media (min-width: 1500px) {
+  .theme-settings-workbench {
+    grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  }
+
+  .theme-settings-switcher,
+  .theme-setting-row {
+    grid-template-columns: minmax(260px, 400px) minmax(320px, 1fr);
+  }
+}
+
+@media (max-width: 1120px) {
+  .theme-settings-workbench,
+  .theme-settings-switcher,
+  .theme-setting-row {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-settings-control-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-settings-control-head button {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 720px) {
+  .theme-settings-control-head button,
+  .theme-settings-bottom-actions button,
+  .theme-settings-bottom-actions .button-link {
+    width: 100%;
+  }
+}
+
+/* Bonumark public preview bar. Loaded as a stylesheet so preview pages remain compatible with the app CSP. */
+.bonumark-preview-bar {
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 1rem;
+  background: #0b0d10;
+  color: #f8fafc;
+  border-bottom: 1px solid rgba(255, 255, 255, .14);
+  font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.bonumark-preview-bar strong {
+  letter-spacing: .02em;
+}
+
+.bonumark-preview-bar span {
+  color: #cbd5e1;
+}
+
+.bonumark-preview-bar a {
+  color: #f8fafc;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  padding: .35rem .7rem;
+}
+
+.bonumark-preview-bar a:hover {
+  background: rgba(255, 255, 255, .08);
+}
+
+@media (max-width: 640px) {
+  .bonumark-preview-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Import foundation */
+.import-upload-form,
+.import-confirm-form {
+    gap: 1rem;
+}
+
+.import-preview-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.import-options-card {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px;
+    margin: 1.25rem 0;
+    padding: 1rem;
+}
+
+.import-preview-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.import-preview-item {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 18px;
+    padding: 1rem;
+}
+
+.import-preview-item h3 {
+    margin-bottom: 0.35rem;
+}
+
+.import-preview-meta {
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.import-preview-meta span {
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 999px;
+    padding: 0.18rem 0.5rem;
+}
+
+.warning-text {
+    color: #fbbf24;
+}
+
+.compact-settings-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+@media (max-width: 720px) {
+    .import-preview-heading {
+        display: block;
+    }
+
+    .import-preview-heading form {
+        margin-top: 1rem;
+    }
+}
+
+/* Bulk content controls */
+body.bonumark-admin .bulk-actions-row select {
+  width: auto;
+  min-width: 220px;
+}
+
+body.bonumark-admin .select-all-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .select-all-label input {
+  margin: 0;
+}
+
+/* Admin sidebar scroll behavior */
+body.bonumark-admin .admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+}
+
+body.bonumark-admin .admin-brand {
+  flex: 0 0 auto;
+}
+
+body.bonumark-admin .admin-sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+  scrollbar-color: #343b46 #08090b;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar {
+  width: 10px;
+}
+
+body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-track {
+  background: #08090b;
+}
+
+body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb {
+  background: #343b46;
+  border: 2px solid #08090b;
+  border-radius: 999px;
+}
+
+body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #46505f;
+}
+
+@supports (height: 100dvh) {
+  body.bonumark-admin .admin-sidebar {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+@media (max-width: 860px) {
+  body.bonumark-admin .admin-sidebar {
+    display: block;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    position: static;
+  }
+
+  body.bonumark-admin .admin-sidebar-nav {
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 10px;
+    scrollbar-gutter: auto;
+  }
+}
+
+/* Mail Delivery Foundation Pass*/
+.two-column-settings {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checkbox-label {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+  margin: 0.65rem 0 1rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
+@media (max-width: 760px) {
+  .two-column-settings {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Public Registration Foundation Pass*/
+.admin-warning-panel {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+/* Registration Approval and Invite Control Pass*/
+
+/* multiuser publishing controls*/
+body.bonumark-admin .settings-fieldset {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+body.bonumark-admin .settings-fieldset legend {
+  padding: 0 0.35rem;
+  color: rgba(226, 232, 240, 0.92);
+  font-weight: 700;
+}
+
+body.bonumark-admin .nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+body.bonumark-admin .status-pill.review-pending {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.36);
+  color: #fbbf24;
+}
+
+body.bonumark-admin .status-pill.review-approved {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.34);
+  color: #86efac;
+}
+
+body.bonumark-admin .status-pill.review-rejected {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.34);
+  color: #fca5a5;
+}
+
+body.bonumark-admin .status-pill.review-none {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: rgba(203, 213, 225, 0.82);
+}
+
+/* Media bulk actions and trash */
+body.bonumark-admin .status-tabs {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+body.bonumark-admin .status-tab {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 8px;
+  font-weight: 800;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+body.bonumark-admin .status-tab:hover,
+body.bonumark-admin .status-tab.active {
+  background: rgba(232, 220, 194, 0.1);
+  color: var(--text);
+}
+
+body.bonumark-admin .status-tab span {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 0.75rem;
+  min-width: 1.55rem;
+  justify-content: center;
+  padding: 2px 7px;
+}
+
+body.bonumark-admin .bulk-media-form {
+  margin: 0;
+}
+
+body.bonumark-admin .media-bulk-actions {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+}
+
+body.bonumark-admin .media-bulk-warning {
+  color: #f0c06a;
+  margin: 0;
+}
+
+body.bonumark-admin .selectable-media-grid .media-card {
+  position: relative;
+}
+
+body.bonumark-admin .media-card-select {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 800;
+  gap: 6px;
+  left: 10px;
+  padding: 6px 9px;
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+}
+
+body.bonumark-admin .media-card-select input {
+  margin: 0;
+}
+
+body.bonumark-admin .media-card-trashed {
+  border-color: rgba(240, 192, 106, 0.35);
+  opacity: 0.86;
+}
+
+body.bonumark-admin .media-card-trashed .media-thumb {
+  filter: grayscale(0.55);
+}
+
+body.bonumark-admin .media-edit-trashed .media-edit-preview img,
+body.bonumark-admin .media-edit-trashed .media-file-preview {
+  filter: grayscale(0.55);
+}
+
+body.bonumark-admin .restore-zone {
+  margin-top: 18px;
+}
+
+/* Twitter/X full archive import pass */
+.import-preview-more {
+    background: rgba(148, 163, 184, 0.08);
+    text-align: center;
+}
+
+/* Navigation manager interface polish */
+body.bonumark-admin .navigation-manager-form {
+  display: grid;
+  gap: 1.15rem;
+}
+
+body.bonumark-admin .navigation-display-toggle {
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+body.bonumark-admin .navigation-display-toggle .checkbox-row {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+body.bonumark-admin .navigation-display-toggle .field-help {
+  margin: 0.55rem 0 0;
+}
+
+body.bonumark-admin .navigation-manager-list {
+  display: grid;
+  gap: 1rem;
+}
+
+body.bonumark-admin .navigation-manager-item,
+body.bonumark-admin .navigation-add-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 1.15rem;
+}
+
+body.bonumark-admin .navigation-manager-item {
+  display: grid;
+  gap: 1.1rem;
+}
+
+body.bonumark-admin .navigation-manager-item-summary {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+}
+
+body.bonumark-admin .navigation-manager-item-title-wrap {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+body.bonumark-admin .navigation-manager-item-kicker {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .navigation-manager-item h3 {
+  font-size: 1.08rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+body.bonumark-admin .navigation-manager-item-url {
+  color: var(--admin-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .navigation-manager-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+  min-width: max-content;
+}
+
+body.bonumark-admin .navigation-action-button {
+  font-size: 0.82rem;
+  min-height: 30px;
+  padding: 5px 9px;
+}
+
+body.bonumark-admin .navigation-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+body.bonumark-admin .navigation-remove-button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #ff9f9f;
+  font-size: 0.82rem;
+  padding: 5px 8px;
+}
+
+body.bonumark-admin .navigation-remove-button:hover,
+body.bonumark-admin .navigation-remove-button:focus-visible {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #ffd2d2;
+}
+
+body.bonumark-admin .navigation-manager-fields {
+  display: grid;
+  gap: 0.9rem;
+}
+
+body.bonumark-admin .navigation-manager-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+body.bonumark-admin .navigation-manager-field label {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+
+body.bonumark-admin .navigation-manager-field-small {
+  max-width: 18rem;
+}
+
+body.bonumark-admin .navigation-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+body.bonumark-admin .navigation-add-card {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+body.bonumark-admin .navigation-add-card h3 {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .navigation-manager-item-summary,
+  body.bonumark-admin .navigation-manager-actions {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  body.bonumark-admin .navigation-manager-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .navigation-remove-button {
+    justify-self: start;
+  }
+
+  body.bonumark-admin .navigation-manager-field-small,
+  body.bonumark-admin .navigation-add-grid {
+    max-width: none;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Profile social links */
+body.bonumark-admin .profile-links-editor {
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  padding: 18px;
+  margin: 18px 0;
+  background: rgba(15, 23, 42, 0.28);
+  display: grid;
+  gap: 16px;
+}
+
+body.bonumark-admin .profile-links-editor-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+body.bonumark-admin .profile-links-editor h3,
+body.bonumark-admin .profile-links-editor h4 {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .profile-links-editor h4 {
+  font-size: 0.95rem;
+}
+
+body.bonumark-admin .profile-links-editor .field-help {
+  margin: 0;
+}
+
+body.bonumark-admin .profile-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+body.bonumark-admin .profile-link-field,
+body.bonumark-admin .profile-links-custom-card {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+body.bonumark-admin .profile-link-field label,
+body.bonumark-admin .profile-links-custom-card label {
+  margin: 0;
+}
+
+body.bonumark-admin .profile-links-custom-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body.bonumark-admin .profile-links-custom-card {
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(2, 6, 23, 0.24);
+}
+
+@media (max-width: 760px) {
+  body.bonumark-admin .profile-links-grid,
+  body.bonumark-admin .profile-links-custom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Image variant admin cards */
+body.bonumark-admin .media-diagnostic-card {
+  background: #0b0b0b;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  padding: 16px;
+}
+
+body.bonumark-admin .media-diagnostic-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+body.bonumark-admin .media-diagnostic-header h2 {
+  color: var(--text);
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+body.bonumark-admin .media-diagnostic-header .field-help {
+  margin: 0;
+}
+
+body.bonumark-admin .media-diagnostic-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+body.bonumark-admin .media-diagnostic-grid div,
+body.bonumark-admin .media-variant-row {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+body.bonumark-admin .media-diagnostic-grid span {
+  color: var(--muted);
+}
+
+body.bonumark-admin .media-diagnostic-grid strong {
+  color: var(--text);
+}
+
+body.bonumark-admin .media-variant-list {
+  display: grid;
+  gap: 6px;
+}
+
+body.bonumark-admin .media-variant-row {
+  align-items: flex-start;
+}
+
+body.bonumark-admin .media-variant-row code {
+  color: var(--muted);
+  display: block;
+  font-size: 0.76rem;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .media-variant-row .field-help {
+  margin: 6px 0 0;
+}
+
+
+body.bonumark-admin .media-troubleshooting-details {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+body.bonumark-admin .media-troubleshooting-details summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+body.bonumark-admin .media-troubleshooting-details > .field-help {
+  margin: 8px 0 12px;
+}
+
+body.bonumark-admin .media-troubleshooting-details .media-diagnostic-grid {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin .media-regenerate-form {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+body.bonumark-admin .media-regenerate-form .field-help {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  body.bonumark-admin .media-diagnostic-header,
+  body.bonumark-admin .media-variant-row {
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .media-diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Media edit button alignment hotfix */
+body.bonumark-admin .media-variant-card .media-diagnostic-header > .status-pill {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  line-height: 1.1;
+  min-height: 38px;
+  min-width: 106px;
+  padding: 7px 12px;
+  text-align: center;
+  white-space: normal;
+}
+
+body.bonumark-admin .media-edit-actions {
+  align-items: center;
+}
+
+body.bonumark-admin .media-edit-actions button,
+body.bonumark-admin .media-edit-actions .secondary-button {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.2;
+  margin: 0;
+  min-height: 38px;
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+body.bonumark-admin .media-edit-actions .secondary-button {
+  background: #e8e0cf;
+  border-color: #c7bea9;
+  color: #0b0d10;
+}
+
+body.bonumark-admin .media-edit-actions .secondary-button:hover,
+body.bonumark-admin .media-edit-actions .secondary-button:focus {
+  background: #f6efe0;
+  border-color: #d8d2c3;
+  color: #050607;
+}
+
+
+/* Existing media regeneration tool */
+.media-regen-summary-grid {
+  margin-top: 1rem;
+}
+.media-regen-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.media-regen-card {
+  min-height: 0;
+}
+.media-regen-card button {
+  align-self: flex-start;
+}
+.media-regen-continue-form {
+  margin-top: 1rem;
+  align-items: center;
+}
+.media-regen-result-list {
+  margin-top: 0.75rem;
+}
+@media (max-width: 760px) {
+  .media-regen-mode-grid {
+    grid-template-columns: 1fr;
+  }
+  .media-regen-continue-form {
+    align-items: stretch;
+  }
+}
+
+/* Dashboard overview */
+body.bonumark-admin .dashboard-hero {
+  margin: 0 0 18px;
+}
+
+.dashboard-hero {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.dashboard-hero h2 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -.055em;
+  line-height: 1;
+  margin: 0 0 10px;
+}
+
+.dashboard-hero-copy {
+  max-width: 760px;
+}
+
+.dashboard-hero-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.dashboard-hero-actions .primary-button,
+.dashboard-hero-actions .button-link {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.2;
+  margin: 0;
+  min-height: 40px;
+  padding: 9px 14px;
+}
+
+.dashboard-metric-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.dashboard-metric-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  color: var(--admin-text);
+  min-height: 112px;
+  padding: 18px;
+  text-decoration: none;
+}
+
+.dashboard-metric-card span {
+  display: block;
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  font-weight: 900;
+  letter-spacing: -.055em;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.dashboard-metric-card strong {
+  color: var(--admin-text);
+  display: block;
+  font-size: .9rem;
+}
+
+.dashboard-metric-card em {
+  color: var(--admin-muted);
+  display: block;
+  font-size: .8rem;
+  font-style: normal;
+  line-height: 1.35;
+  margin-top: 7px;
+}
+
+.dashboard-metric-card:hover {
+  background: var(--admin-surface-2);
+  opacity: 1;
+}
+
+.dashboard-overview-grid,
+.dashboard-activity-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.dashboard-overview-grid > .dashboard-card,
+.dashboard-activity-grid > .dashboard-card {
+  grid-column: span 6;
+  min-width: 0;
+}
+
+.dashboard-overview-grid > .dashboard-card:only-child,
+.dashboard-activity-grid > .dashboard-card:only-child {
+  grid-column: 1 / -1;
+}
+
+.dashboard-balanced-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.dashboard-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dashboard-balanced-grid .dashboard-card {
+  min-width: 0;
+}
+
+body.bonumark-admin .dashboard-card {
+  margin: 0;
+}
+
+.dashboard-card h2 {
+  margin-top: 0;
+}
+
+.dashboard-attention-list,
+.dashboard-status-grid,
+.dashboard-list,
+.dashboard-note-list {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-attention-item,
+.dashboard-status-item,
+.dashboard-list-row {
+  align-items: center;
+  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 12px;
+  color: var(--admin-text);
+  display: grid;
+  gap: 12px;
+  min-height: 54px;
+  padding: 12px 14px;
+  text-decoration: none;
+}
+
+.dashboard-attention-item {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.dashboard-attention-item:hover,
+.dashboard-status-item:hover,
+.dashboard-list-row:hover {
+  background: var(--admin-surface-2);
+  opacity: 1;
+}
+
+.attention-copy strong,
+.dashboard-list-row strong {
+  color: var(--admin-text);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attention-copy small,
+.dashboard-list-row small {
+  color: var(--admin-muted);
+  display: block;
+  font-size: .78rem;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+.attention-value {
+  color: var(--admin-text);
+  font-size: 1.15rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.attention-marker,
+.status-dot {
+  border-radius: 999px;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.attention-marker.good,
+.status-dot.good {
+  background: #7ed782;
+  box-shadow: 0 0 0 4px rgba(126,215,130,.12);
+}
+
+.attention-marker.warning,
+.status-dot.warning {
+  background: #e6c068;
+  box-shadow: 0 0 0 4px rgba(230,192,104,.12);
+}
+
+.attention-marker.neutral,
+.status-dot.neutral {
+  background: #9aa4b2;
+  box-shadow: 0 0 0 4px rgba(154,164,178,.12);
+}
+
+.dashboard-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-status-item {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.dashboard-status-item span:nth-child(2) {
+  color: var(--admin-muted);
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.dashboard-status-item strong {
+  color: var(--admin-text);
+  font-size: .88rem;
+  max-width: 150px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-list-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.dashboard-action-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-action-grid .button-link {
+  justify-content: center;
+  margin: 0;
+  text-align: center;
+}
+
+.dashboard-note-list p {
+  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 12px;
+  color: var(--admin-muted);
+  line-height: 1.45;
+  margin: 0;
+  min-height: 54px;
+  padding: 12px 14px;
+}
+
+.dashboard-note-list strong {
+  color: var(--admin-text);
+}
+
+@media (max-width: 1240px) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-overview-grid,
+  .dashboard-activity-grid,
+  .dashboard-balanced-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-overview-grid > .dashboard-card,
+  .dashboard-activity-grid > .dashboard-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 860px) {
+  .dashboard-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-hero-actions {
+    justify-content: flex-start;
+  }
+
+  .dashboard-metric-grid,
+  .dashboard-status-grid,
+  .dashboard-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* v0.2.48: keep all admin text inputs in the Bonumark form style, including plain inputs without an explicit type. */
+body.bonumark-admin input:not([type]),
+body.bonumark-admin input[type="text"],
+body.bonumark-admin input[type="password"],
+body.bonumark-admin input[type="file"],
+body.bonumark-admin input[type="date"],
+body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="url"],
+body.bonumark-admin input[type="email"],
+body.bonumark-admin input[type="tel"],
+body.bonumark-admin input[type="number"],
+body.bonumark-admin input[type="search"],
+body.bonumark-admin select,
+body.bonumark-admin textarea {
+  appearance: none;
+  background: #0f1217;
+  border: 1px solid #3a404b;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35);
+  color: var(--admin-text);
+  font: inherit;
+  line-height: 1.35;
+  max-width: 100%;
+  padding: 9px 11px;
+}
+
+body.bonumark-admin input:not([type]),
+body.bonumark-admin input[type="text"],
+body.bonumark-admin input[type="password"],
+body.bonumark-admin input[type="date"],
+body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="url"],
+body.bonumark-admin input[type="email"],
+body.bonumark-admin input[type="tel"],
+body.bonumark-admin input[type="number"],
+body.bonumark-admin input[type="search"],
+body.bonumark-admin select,
+body.bonumark-admin textarea {
+  width: 100%;
+}
+
+body.bonumark-admin input[type="checkbox"],
+body.bonumark-admin input[type="radio"] {
+  appearance: auto;
+  width: auto;
+}
+
+body.bonumark-admin input:not([type]):focus,
+body.bonumark-admin input[type="tel"]:focus {
+  border-color: #d8d2c3;
+  box-shadow: 0 0 0 1px #d8d2c3;
+  outline: 2px solid transparent;
+}
+
+/* v0.2.49: align upgrade confirmation actions so Run Upgrade and Cancel sit on the same baseline. */
+body.bonumark-admin .upgrade-confirm-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .upgrade-confirm-actions button,
+body.bonumark-admin .upgrade-confirm-actions .secondary-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  min-height: 38px;
+}
+
+/* v0.2.54: align Save user and Cancel on the Edit User account form. */
+body.bonumark-admin .user-edit-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .user-edit-actions button,
+body.bonumark-admin .user-edit-actions .secondary-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  min-height: 38px;
+}
+
+/* v0.2.50: keep browser/autofilled admin fields inside the Bonumark dark form style. */
+body.bonumark-admin input:-webkit-autofill,
+body.bonumark-admin input:-webkit-autofill:hover,
+body.bonumark-admin input:-webkit-autofill:focus,
+body.bonumark-admin input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--admin-text) !important;
+  caret-color: var(--admin-text);
+  background-color: #0f1217 !important;
+  border-color: #3a404b;
+  -webkit-box-shadow:
+    0 0 0 1000px #0f1217 inset,
+    inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+  box-shadow:
+    0 0 0 1000px #0f1217 inset,
+    inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+  color: var(--admin-text) !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+body.bonumark-admin input:autofill {
+  background-color: #0f1217 !important;
+  border-color: #3a404b;
+  -webkit-box-shadow:
+    0 0 0 1000px #0f1217 inset,
+    inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+  box-shadow:
+    0 0 0 1000px #0f1217 inset,
+    inset 0 1px 2px rgba(0, 0, 0, .35) !important;
+  color: var(--admin-text) !important;
+}
+
+
+/* v0.2.51: keep the upgrade screen clean by hiding technical details until admins ask for them. */
+body.bonumark-admin .upgrade-upload-panel .upgrade-current-version {
+  align-items: center;
+  background: #0f1217;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: inline-flex;
+  gap: 8px;
+  margin: 6px 0 16px;
+  padding: 9px 12px;
+}
+
+body.bonumark-admin .upgrade-current-version span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .upgrade-current-version strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .upgrade-details {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  margin-top: 16px;
+  padding: 0;
+}
+
+body.bonumark-admin .upgrade-details summary {
+  color: var(--admin-text);
+  cursor: pointer;
+  font-weight: 800;
+  list-style-position: inside;
+  padding: 12px 14px;
+}
+
+body.bonumark-admin .upgrade-details summary:hover,
+body.bonumark-admin .upgrade-details summary:focus {
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin .upgrade-details > div {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--admin-muted);
+  padding: 0 14px 14px;
+}
+
+body.bonumark-admin .upgrade-details p:last-child {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin .upgrade-precheck-details {
+  margin-bottom: 16px;
+}
+
+body.bonumark-admin .upgrade-rule-panel p {
+  max-width: 70ch;
+}
+
+
+/* Admin Date-Time Input Style Repair Pass
+   Keep browser date/time controls inside the Bonumark admin form system. */
+body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="date"],
+body.bonumark-admin input[type="time"],
+body.bonumark-admin input[type="month"] {
+  width: 100%;
+  min-height: 42px;
+  background: #0f1217;
+  color: var(--admin-text);
+  border: 1px solid #3a404b;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+  padding: 8px 10px;
+}
+
+body.bonumark-admin input[type="datetime-local"]:focus,
+body.bonumark-admin input[type="date"]:focus,
+body.bonumark-admin input[type="time"]:focus,
+body.bonumark-admin input[type="month"]:focus {
+  border-color: #d8d2c3;
+  box-shadow: 0 0 0 1px #d8d2c3;
+  outline: 2px solid transparent;
+}
+
+body.bonumark-admin input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="date"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="time"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(.75);
+  cursor: pointer;
+}
+
+body.bonumark-admin input[type="datetime-local"]::-webkit-datetime-edit,
+body.bonumark-admin input[type="date"]::-webkit-datetime-edit,
+body.bonumark-admin input[type="time"]::-webkit-datetime-edit,
+body.bonumark-admin input[type="month"]::-webkit-datetime-edit {
+  color: var(--admin-text);
+}

@@ -1,0 +1,44 @@
+# Local install state
+_bonumark_stream/config.php
+_bonumark_stream/installed.lock
+
+# Runtime content and generated data
+_bonumark_stream/content/
+_bonumark_stream/tmp/
+_bonumark_stream/data/*
+!_bonumark_stream/data/.gitkeep
+_bonumark_stream/backups/*
+!_bonumark_stream/backups/.gitkeep
+!_bonumark_stream/backups/upgrades/
+_bonumark_stream/backups/upgrades/*
+!_bonumark_stream/backups/upgrades/.gitkeep
+
+# Public generated output and uploads
+index.html
+stream/
+feed.xml
+sitemap.xml
+sitemap.xsl
+robots.txt
+media/*
+!media/.gitkeep
+
+# Local exports, logs, and archives
+*.log
+*.sql
+*.sqlite
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keep sample config versioned
+!_bonumark_stream/config.sample.php

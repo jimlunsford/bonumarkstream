@@ -1,0 +1,118 @@
+{
+  "name": "Midnight Ledger",
+  "slug": "default",
+  "version": "1.0.25",
+  "author": "Bonumark",
+  "description": "The default Bonumark Stream public theme and reference implementation, a restrained dark editorial design that demonstrates clean theme structure, safe data boundaries, pages, profiles, comments, search, and stream output.",
+  "screenshot": "images/screenshot.svg",
+  "assets": {
+    "css": [
+      "css/midnight-ledger.css"
+    ],
+    "js": [
+      "js/midnight-ledger.js"
+    ]
+  },
+  "supports": {
+    "profiles": true,
+    "comments": true,
+    "avatars": true,
+    "media": true,
+    "navigation": true,
+    "rss": true,
+    "theme_settings": true,
+    "archives": true,
+    "search": true,
+    "composer": true,
+    "pagination": true,
+    "pages": true,
+    "profile_layouts": true,
+    "reference_theme": true,
+    "link_previews": true
+  },
+  "settings": {
+    "accent": {
+      "type": "select",
+      "label": "Accent",
+      "description": "Controls the restrained editorial accent color.",
+      "default": "copper",
+      "options": {
+        "copper": "Copper",
+        "indigo": "Indigo",
+        "forest": "Forest"
+      }
+    },
+    "density": {
+      "type": "select",
+      "label": "Density",
+      "description": "Controls the breathing room around Midnight Ledger stream items and public panels.",
+      "default": "comfortable",
+      "options": {
+        "compact": "Compact",
+        "comfortable": "Comfortable",
+        "open": "Open"
+      }
+    },
+    "content_width": {
+      "type": "select",
+      "label": "Content width",
+      "description": "Sets the public shell width for the header, stream, pages, profiles, comments, and account screens.",
+      "default": "standard",
+      "options": {
+        "standard": "Standard",
+        "wide": "Wide"
+      }
+    },
+    "show_status_chip": {
+      "type": "checkbox",
+      "label": "Show header status",
+      "description": "Midnight Ledger only: display this theme's optional header status indicator. Other themes do not need to use this pattern.",
+      "default": "1"
+    },
+    "status_label": {
+      "type": "text",
+      "label": "Header status label",
+      "description": "Midnight Ledger only: short text shown inside this theme's optional header status indicator.",
+      "default": "Live microblog"
+    },
+    "show_post_count": {
+      "type": "checkbox",
+      "label": "Show post count",
+      "description": "Midnight Ledger only: display this theme's optional published-post counter. Other themes do not need to use this pattern.",
+      "default": "1"
+    },
+    "show_page_updated_date": {
+      "type": "checkbox",
+      "label": "Show page updated date",
+      "description": "Display the updated date under public Page titles in this theme. Off by default.",
+      "default": "0"
+    },
+    "menu_label": {
+      "type": "text",
+      "label": "Menu button label",
+      "description": "Text used for the public navigation toggle.",
+      "default": "Menu"
+    }
+  },
+  "templates": [
+    "layout",
+    "header",
+    "footer",
+    "home",
+    "archive",
+    "single",
+    "page",
+    "profile",
+    "account",
+    "comments",
+    "comments-mount",
+    "search",
+    "card",
+    "link-preview",
+    "media",
+    "composer",
+    "pagination",
+    "empty"
+  ],
+  "package": "bundled-theme"
+}
