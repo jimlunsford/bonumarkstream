@@ -12,9 +12,9 @@ Only the latest development release is reviewed for security fixes.
 
 | Version | Status |
 | --- | --- |
-| 0.2.x latest | Reviewed |
-| older 0.2.x releases | Not maintained |
-| 0.1.x development line | Not maintained |
+| 0.3.x latest | Reviewed |
+| older 0.3.x releases | Not maintained |
+| 0.2.x and older | Not maintained |
 
 ## Reporting a vulnerability
 

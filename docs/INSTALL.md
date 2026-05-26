@@ -1,6 +1,6 @@
 # Installing Bonumark Stream
 
-Bonumark Stream v0.3.2 is the public GitHub fresh-install foundation baseline. Use a clean install instead of upgrading an old v0.1.x test site.
+Bonumark Stream v0.3.11 is the public GitHub fresh-install foundation baseline. Use a clean install instead of upgrading an old v0.1.x test site.
 
 Bonumark Stream is built for ordinary PHP and MySQL shared hosting.
 

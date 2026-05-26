@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.3.11 - Migration Release Integrity Cleanup Pass
+
+- Corrected migration `0086_load_more_route_fallback_repair.php` so its historical version setting records `0.3.3`, matching the pass it represents.
+- Cleaned up `_bonumark_stream/migrations/README.md` so migrations that only record pass markers no longer claim to update version settings.
+- Added migration `0094_migration_release_integrity_cleanup.php` to record this cleanup pass and advance installed sites to version `0.3.11`.
+- Updated package metadata, documentation, and release manifest.
+
+## 0.3.10 - Theme-Independent Favicon Output Hotfix
+
+- Repaired Site Identity favicon output so public favicon tags are injected at the core rendering layer instead of depending only on individual theme templates.
+- Preserved existing theme-level favicon output while preventing duplicate favicon tags when a theme already prints `favicon_tags`.
+- Kept admin favicon output unchanged and made external themes receive favicon tags even when their templates were built before the favicon setting existed.
+- Added migration `0093_theme_independent_favicon_output_hotfix.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.9 - External Theme Upgrade Preservation Hotfix
+
+- Repaired ZIP upgrade cleanup so custom installed themes are preserved when they are not part of the incoming core package.
+- Stopped deleting external `microblog-stream` installs just because the slug matches a retired bundled theme.
+- Limited retired bundled theme cleanup to themes whose installed `theme.json` clearly identifies them as bundled leftovers, such as `package: bundled-theme`.
+- Updated upgrade backup/log language to state that custom installed themes are preserved, including external themes that reuse retired bundled slugs.
+- Added migration `0092_external_theme_upgrade_preservation_hotfix.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.8 - Site Identity Favicon Pass
+
+- Added a favicon control to Admin → Site Identity with Media Library selection, direct image upload, current preview, and remove/reset support.
+- Stored favicon media ID and public path settings so selected favicon images survive upgrades and still resolve if the media record is available.
+- Output favicon tags in public document heads and admin document heads, including `icon`, `shortcut icon`, and `apple-touch-icon` when the selected image is a suitable square image.
+- Validated favicon selections and uploads as active JPG, PNG, GIF, or WebP image media, while allowing non-square images with a guidance notice instead of hard-blocking them.
+- Added migration `0091_site_identity_favicon.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.7 - WordPress Featured Media Import Repair Pass
+
+- Repaired WordPress WXR imports so `_thumbnail_id` featured image references are preserved as `featured_media` instead of being inserted as fake body Markdown images.
+- Updated import preview media counting so remote featured images are detected and make **Import media into Media** the default media handling option.
+- Allowed WordPress posts with a featured image but no body text to remain importable instead of being skipped as empty.
+- Added clearer preview and confirmation warnings for WordPress featured media and remote image download failures, including cURL availability.
+- Added migration `0090_wordpress_featured_media_import_repair.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.6 - Load More Archive Routing Repair Pass
+
+- Repaired Load More routing so stream archive pagination wins over single-post slug handling.
+- Added explicit `stream_page` pagination handling for `index.php?__bonumark_route=stream&stream_page={n}` so the button does not depend on a standalone endpoint or a fragile `page` query key.
+- Hardened `/stream/page/{n}/`, `/stream/page/`, and stale slug=page rewrite cases so they render the archive instead of the raw stream-post-not-found view.
+- Removed the JavaScript redirect-on-AJAX-failure behavior so a failed Load More request no longer dumps the visitor onto an error page.
+- Added migration `0089_load_more_archive_routing_repair.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.5 - Load More Index Route Repair Pass
+
+- Repaired Midnight Ledger Load More pagination by using the existing `index.php?__bonumark_route=stream&page={n}` public route for both AJAX and click fallback behavior.
+- Removed the fragile `stream-page.php` endpoint from the release package so Load More no longer depends on a new root PHP file being present or directly servable.
+- Kept clean `/stream/page/{n}/` archive routes as canonical public URLs while making the button itself use the safer installed entry point.
+- Kept obsolete `stream-page.php` marked as package-managed so upgrades can remove the v0.3.4 endpoint from existing installs.
+- Added migration `0088_load_more_index_route_repair.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.4 - Load More Archive Endpoint Repair Pass
+
+- Repaired Load More fallback behavior by adding a direct `stream-page.php?page={n}` archive endpoint for paginated stream output.
+- Updated Load More pagination so both the clickable fallback and AJAX request use the direct archive endpoint instead of a clean route that some installs can misread as a stream post slug.
+- Added defensive stream route handling so `/stream/page/{n}/` cannot fall through to the single-post not-found view if a server misroutes the archive path.
+- Added migration `0087_load_more_archive_endpoint_repair.php` and updated package metadata, documentation, and release manifest.
+
+## 0.3.3 - Load More Route Fallback Repair Pass
+
+- Repaired Midnight Ledger Load More pagination by giving the button a rewrite-independent AJAX URL while preserving the clean public `/stream/page/{n}/` link as the normal fallback.
+- Updated the Load More script so it follows the clean pagination URL if AJAX loading fails instead of leaving the visitor stuck on a dead button.
+- Added migration `0086_load_more_route_fallback_repair.php` and updated package metadata, documentation, and release manifest.
+
 ## 0.3.2 - Mobile Public Page Containment Repair Pass
 
 - Repaired mobile public page viewport containment so long page headings, masthead text, and rich page content cannot force horizontal scrolling on phones.

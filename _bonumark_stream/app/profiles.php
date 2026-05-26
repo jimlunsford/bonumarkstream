@@ -789,6 +789,7 @@ function mp_profile_page_html(?array $user): string
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class('profile-page'),
         'header_html' => mp_render_public_header('profile', null, $canonicalPath),

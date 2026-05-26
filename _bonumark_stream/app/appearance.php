@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/themes.php';
 
 function mp_theme_options(): array
@@ -51,6 +52,136 @@ function mp_show_powered_by(): bool
 
 
 
+
+
+
+function mp_site_favicon_media_id(): int
+{
+    return max(0, (int)mp_setting_or_config('site_favicon_media_id', '0'));
+}
+
+function mp_site_favicon_path(): string
+{
+    $path = trim((string)mp_setting_or_config('site_favicon_path', ''));
+    $path = str_replace('\\', '/', $path);
+    $path = trim($path, '/');
+    if ($path === '' || str_contains($path, "\0") || preg_match('#(^|/)\.\.(/|$)#', $path) === 1) {
+        return '';
+    }
+    return str_starts_with($path, 'media/') ? $path : '';
+}
+
+function mp_site_favicon_is_image(array $media): bool
+{
+    if (function_exists('mp_media_is_trashed') && mp_media_is_trashed($media)) {
+        return false;
+    }
+    $publicPath = trim((string)($media['public_path'] ?? ''));
+    $mime = strtolower(trim((string)($media['mime_type'] ?? '')));
+    if ($publicPath === '' || !str_starts_with($publicPath, 'media/')) {
+        return false;
+    }
+    if ($mime !== '' && !str_starts_with($mime, 'image/')) {
+        return false;
+    }
+    $extension = strtolower(pathinfo($publicPath, PATHINFO_EXTENSION));
+    return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
+}
+
+function mp_site_favicon_media(): ?array
+{
+    $id = mp_site_favicon_media_id();
+    if ($id > 0 && function_exists('mp_media_find')) {
+        $media = mp_media_find($id);
+        if (is_array($media) && mp_site_favicon_is_image($media)) {
+            return $media;
+        }
+    }
+
+    $path = mp_site_favicon_path();
+    if ($path !== '' && function_exists('mp_media_find_by_public_path')) {
+        $media = mp_media_find_by_public_path($path);
+        if (is_array($media) && mp_site_favicon_is_image($media)) {
+            return $media;
+        }
+    }
+
+    return null;
+}
+
+function mp_site_favicon_view_data(): array
+{
+    $media = mp_site_favicon_media();
+    if (!$media) {
+        $path = mp_site_favicon_path();
+        if ($path !== '') {
+            $file = function_exists('mp_public_path') ? mp_public_path($path) : '';
+            if ($file !== '' && is_file($file)) {
+                $info = @getimagesize($file);
+                $width = is_array($info) ? (int)($info[0] ?? 0) : 0;
+                $height = is_array($info) ? (int)($info[1] ?? 0) : 0;
+                $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
+                $isSquare = $width > 0 && $height > 0 && abs($width - $height) <= 2;
+                return [
+                    'media' => null,
+                    'id' => 0,
+                    'url' => function_exists('mp_url_path') ? mp_url_path($path) : '',
+                    'path' => $path,
+                    'mime' => $mime,
+                    'width' => $width,
+                    'height' => $height,
+                    'is_square' => $isSquare,
+                    'apple_touch_icon' => $isSquare && $width >= 180 && $height >= 180,
+                ];
+            }
+        }
+        return [
+            'media' => null,
+            'id' => 0,
+            'url' => '',
+            'path' => '',
+            'mime' => '',
+            'width' => 0,
+            'height' => 0,
+            'is_square' => false,
+            'apple_touch_icon' => false,
+        ];
+    }
+
+    $width = max(0, (int)($media['width'] ?? 0));
+    $height = max(0, (int)($media['height'] ?? 0));
+    $isSquare = $width > 0 && $height > 0 && abs($width - $height) <= 2;
+    return [
+        'media' => $media,
+        'id' => (int)($media['id'] ?? 0),
+        'url' => function_exists('mp_media_public_url_for_item') ? mp_media_public_url_for_item($media) : '',
+        'path' => (string)($media['public_path'] ?? ''),
+        'mime' => (string)($media['mime_type'] ?? ''),
+        'width' => $width,
+        'height' => $height,
+        'is_square' => $isSquare,
+        'apple_touch_icon' => $isSquare && $width >= 180 && $height >= 180,
+    ];
+}
+
+function mp_site_favicon_tags(): string
+{
+    $favicon = mp_site_favicon_view_data();
+    $url = trim((string)($favicon['url'] ?? ''));
+    if ($url === '') {
+        return '';
+    }
+
+    $safeUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+    $mime = trim((string)($favicon['mime'] ?? ''));
+    $typeAttribute = $mime !== '' ? ' type="' . htmlspecialchars($mime, ENT_QUOTES, 'UTF-8') . '"' : '';
+    $tags = '  <link rel="icon" href="' . $safeUrl . '"' . $typeAttribute . '>' . "\n";
+    $tags .= '  <link rel="shortcut icon" href="' . $safeUrl . '"' . $typeAttribute . '>' . "\n";
+    if (!empty($favicon['apple_touch_icon'])) {
+        $tags .= '  <link rel="apple-touch-icon" href="' . $safeUrl . '">' . "\n";
+    }
+    return $tags;
+}
 
 function mp_default_navigation_items(): array
 {

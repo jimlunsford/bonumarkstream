@@ -1,6 +1,6 @@
 # Migrations
 
-Bonumark Stream v0.3.2 uses a database-first schema with dynamic public rendering, Markdown export/fallback, and Static Site Export as an optional artifact.
+Bonumark Stream v0.3.11 uses a database-first schema with dynamic public rendering, Markdown export/fallback, and Static Site Export as an optional artifact.
 
 The migration set includes the clean install schema plus v0.2.x hardening migrations so installs from the current v0.2.x development baseline can continue forward. Do not use this package as an upgrade bridge from the old v0.1.x development line.
 
@@ -36,19 +36,29 @@ Migrations must return a numeric array of SQL statement strings. Do not insert m
 - `0067_admin_dashboard_order_polish.php` records the v0.2.43 admin dashboard order polish pass and updates version settings.
 - `0068_admin_dashboard_layout_polish.php` records the v0.2.44 admin dashboard layout polish pass and updates version settings.
 - `0069_admin_dashboard_column_flow_polish.php` records the v0.2.45 admin dashboard column flow polish pass and updates version settings.
-- `0070_public_release_audit_repair.php` records the v0.2.46 public release audit repair pass and updates version settings.
+- `0070_public_release_audit_repair.php` records the v0.2.46 public release audit repair pass and cleans up default theme status-label settings.
 - `0071_mobile_text_overflow_repair.php` records the v0.2.47 mobile text overflow repair pass and updates version settings.
 - `0072_admin_form_input_style_repair.php` records the v0.2.48 admin form input style repair pass and updates version settings.
 - `0073_upgrade_action_button_alignment.php` records the v0.2.49 upgrade action button alignment pass and updates version settings.
 - `0074_admin_autofill_input_color_repair.php` records the v0.2.50 admin autofill input color repair pass and updates version settings.
 - `0075_upgrade_screen_simplification.php` records the v0.2.51 upgrade screen simplification pass and updates version settings.
 - `0076_admin_datetime_input_style_repair.php` records the v0.2.52 admin date-time input style repair pass and updates version settings.
-- `0077_user_management_actions.php` records the v0.2.53 user management actions pass and updates version settings.
-- `0078_user_edit_action_alignment.php` records the v0.2.54 Edit User action-alignment pass and updates version settings.
-- `0079_comment_account_link_cleanup.php` records the v0.2.55 comment account link cleanup pass and updates version settings.
-- `0080_account_registration_kicker_cleanup.php` records the v0.2.56 account registration kicker cleanup pass and updates version settings.
-- `0081_public_navigation_account_links.php` records the v0.2.57 public navigation account links pass and updates version settings.
+- `0077_user_management_actions.php` records the v0.2.53 user management actions pass marker.
+- `0078_user_edit_action_alignment.php` records the v0.2.54 Edit User action-alignment pass marker.
+- `0079_comment_account_link_cleanup.php` records the v0.2.55 comment account link cleanup pass marker.
+- `0080_account_registration_kicker_cleanup.php` records the v0.2.56 account registration kicker cleanup pass marker.
+- `0081_public_navigation_account_links.php` records the v0.2.57 public navigation account links pass marker.
 - `0082_public_navigation_account_links_toggle.php` records the v0.2.58 public navigation account links toggle pass and seeds the default enabled account-link setting.
 - `0083_public_github_release_baseline.php` records the v0.3.0 public GitHub release baseline and updates version settings.
 - `0084_public_rendering_regression_repair.php` records the v0.3.1 public rendering regression repair pass and updates version settings.
 - `0085_mobile_public_page_containment_repair.php` records the v0.3.2 mobile public page containment repair pass and updates version settings.
+- `0086_load_more_route_fallback_repair.php` records the v0.3.3 Load More route fallback repair pass and updates version settings.
+- `0087_load_more_archive_endpoint_repair.php` records the v0.3.4 Load More archive endpoint repair pass and updates version settings.
+- `0088_load_more_index_route_repair.php` records the v0.3.5 Load More index-route repair pass, removes reliance on the standalone stream-page.php endpoint, and updates version settings.
+- `0089_load_more_archive_routing_repair.php` records the v0.3.6 Load More archive routing repair pass, makes stream archive pagination win over single-post slug handling, and updates version settings.
+- `0090_wordpress_featured_media_import_repair.php` records the v0.3.7 WordPress featured media import repair pass, preserving `_thumbnail_id` images as featured media during WXR imports.
+
+- `0091_site_identity_favicon.php` records the v0.3.8 Site Identity favicon pass, adding upgrade-safe favicon settings for public and admin browser icon output.
+- `0092_external_theme_upgrade_preservation_hotfix.php` records the v0.3.9 external theme upgrade preservation hotfix, keeping custom installed themes through core ZIP upgrades unless a retired bundled theme is clearly identified as a bundled leftover.
+- `0093_theme_independent_favicon_output_hotfix.php` records the v0.3.10 theme-independent favicon output hotfix, injecting Site Identity favicon tags at the core rendering layer when an active theme does not print them.
+- `0094_migration_release_integrity_cleanup.php` records the v0.3.11 migration release integrity cleanup pass and advances the stored version setting after correcting historical migration metadata.

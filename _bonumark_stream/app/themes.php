@@ -965,6 +965,36 @@ function mp_public_theme_template_path(string $template, ?string $slug = null): 
     return mp_themes_path($themeSlug . '/templates/' . $template . '.php');
 }
 
+function mp_public_head_has_favicon_tags(string $headHtml): bool
+{
+    return preg_match('/<link\s+[^>]*rel=["\']?(?:shortcut\s+)?icon(?:["\']|\s|>)/i', $headHtml) === 1
+        || preg_match('/<link\s+[^>]*rel=["\']?apple-touch-icon(?:["\']|\s|>)/i', $headHtml) === 1;
+}
+
+function mp_inject_public_favicon_tags(string $html): string
+{
+    if ($html === '' || !function_exists('mp_site_favicon_tags')) {
+        return $html;
+    }
+
+    $faviconTags = mp_site_favicon_tags();
+    if (trim($faviconTags) === '') {
+        return $html;
+    }
+
+    if (preg_match('/<head\b[^>]*>(.*?)<\/head>/is', $html, $matches) !== 1) {
+        return $html;
+    }
+
+    $headHtml = (string)($matches[1] ?? '');
+    if (mp_public_head_has_favicon_tags($headHtml)) {
+        return $html;
+    }
+
+    return preg_replace('/<\/head>/i', rtrim($faviconTags) . "
+</head>", $html, 1) ?? $html;
+}
+
 function mp_render_public_theme_template(string $template, array $data = []): ?string
 {
     $template = mp_theme_template_reference($template);
@@ -996,9 +1026,10 @@ function mp_render_public_theme_template(string $template, array $data = []): ?s
 
     $data['theme'] = $data['theme'] ?? ($renderSlug === $activeSlug ? mp_active_public_theme() : (mp_public_theme_packages()[$renderSlug] ?? mp_active_public_theme()));
     $data['theme_settings'] = $data['theme_settings'] ?? mp_public_theme_settings($renderSlug);
+    $data['favicon_tags'] = $data['favicon_tags'] ?? (function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '');
 
     $mp_theme_data = $data;
     ob_start();
     include $path;
-    return (string)ob_get_clean();
+    return mp_inject_public_favicon_tags((string)ob_get_clean());
 }

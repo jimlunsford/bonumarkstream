@@ -234,7 +234,13 @@ function mp_import_fetch_remote_image_once(string $url, int $maxBytes): array
         throw new RuntimeException('Remote image exceeds the import size limit.');
     }
     if ($error !== '') {
-        throw new RuntimeException('Remote image download failed.');
+        $safeError = trim(preg_replace('/\s+/', ' ', $error) ?? $error);
+        if (function_exists('mb_substr')) {
+            $safeError = mb_substr($safeError, 0, 160);
+        } else {
+            $safeError = substr($safeError, 0, 160);
+        }
+        throw new RuntimeException($safeError !== '' ? 'Remote image download failed: ' . $safeError . '.' : 'Remote image download failed.');
     }
 
     $location = '';

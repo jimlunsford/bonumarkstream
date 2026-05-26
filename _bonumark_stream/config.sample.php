@@ -1,10 +1,12 @@
 <?php
 return [
-    'version' => '0.3.2',
+    'version' => '0.3.11',
     'site_name' => 'Bonumark Stream',
     'site_tagline' => 'A self-hosted microblog stream for owning short-form publishing.',
     'active_public_theme' => 'default',
     'show_powered_by' => '1',
+    'site_favicon_media_id' => '0',
+    'site_favicon_path' => '',
     'public_navigation_account_links_enabled' => '1',
     'author_name' => 'Admin',
     'base_path' => '',

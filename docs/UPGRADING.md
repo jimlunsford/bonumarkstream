@@ -1,15 +1,15 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.3.2 is the current public GitHub release baseline. It keeps the public package focused on the bundled Midnight Ledger theme, preserves the database-first upgrade path from the stable v0.2.x line, keeps dynamic XML sitemap, styled sitemap output, robots.txt discovery routes, the improved admin dashboard overview, admin form input style repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, Edit User action-row alignment, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, and mobile public page containment repair.
+Bonumark Stream v0.3.11 is the current public GitHub release baseline. It keeps the public package focused on the bundled Midnight Ledger theme, preserves the database-first upgrade path from the stable v0.2.x line, keeps dynamic XML sitemap, styled sitemap output, robots.txt discovery routes, the improved admin dashboard overview, admin form input style repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, Edit User action-row alignment, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, mobile public page containment repair, Load More archive routing repair, WordPress featured media import repair, Site Identity favicon support, theme-independent favicon output, external theme upgrade preservation, and migration release integrity cleanup.
 
-Do **not** treat v0.3.2 as an upgrade bridge from the old v0.1.x development line. The v0.1.x line carried Markdown-first and static-generation transition code that has now been removed or simplified. For a clean foundation, install v0.3.2 fresh.
+Do **not** treat v0.3.11 as an upgrade bridge from the old v0.1.x development line. The v0.1.x line carried Markdown-first and static-generation transition code that has now been removed or simplified. For a clean foundation, install v0.3.11 fresh.
 
 ## Recommended path from v0.1.x test installs
 
 1. Export anything you want to keep.
 2. Download any media you want to preserve.
 3. Delete or archive the old test install.
-4. Upload v0.3.2 fresh.
+4. Upload v0.3.11 fresh.
 5. Run `install.php`.
 6. Re-import only the content you actually want.
 
@@ -29,7 +29,7 @@ The admin ZIP upgrader remains in the package for v0.2.x and later releases. Upg
 - `_bonumark_stream/tmp/`
 - uploaded media
 - database records
-- custom installed themes, except retired bundled themes explicitly removed by the current release
+- custom installed themes, including external themes that reuse retired bundled slugs unless their installed theme manifest clearly identifies them as bundled leftovers
 
 ## Static Site Export after upgrades
 
@@ -80,7 +80,7 @@ v0.2.30 uses 96w avatar variants for compact stream-card/comment contexts and ke
 
 ## Rollback behavior
 
-The admin ZIP upgrader backs up package-managed software files before copying the new package. If an upgrade fails after copying begins, Bonumark Stream restores backed-up files and removes newly copied package files that did not exist before the attempt. User-owned data is still preserved: `_bonumark_stream/config.php`, `_bonumark_stream/installed.lock`, `_bonumark_stream/content/`, `_bonumark_stream/data/`, `_bonumark_stream/backups/`, `_bonumark_stream/tmp/`, uploaded media, database records, and custom installed themes are not deleted by rollback cleanup.
+The admin ZIP upgrader backs up package-managed software files before copying the new package. If an upgrade fails after copying begins, Bonumark Stream restores backed-up files and removes newly copied package files that did not exist before the attempt. User-owned data is still preserved: `_bonumark_stream/config.php`, `_bonumark_stream/installed.lock`, `_bonumark_stream/content/`, `_bonumark_stream/data/`, `_bonumark_stream/backups/`, `_bonumark_stream/tmp/`, uploaded media, database records, and custom installed themes are not deleted by rollback cleanup, including external themes that reuse retired bundled slugs.
 
 ## Release validation
 

@@ -29,7 +29,7 @@ $formatDate = static function ($value): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Account | <?= $h($siteName) ?></title>
-  <link rel="stylesheet" href="<?= $h((string)($data['style_url'] ?? '')) ?>">
+  <?= (string)($data['favicon_tags'] ?? '') ?>  <link rel="stylesheet" href="<?= $h((string)($data['style_url'] ?? '')) ?>">
 <?= (string)($data['theme_stylesheet_links'] ?? '') ?></head>
 <body class="<?= $h(ml_body_class($data, 'ledger-account-template')) ?>">
   <a class="skip-link" href="#site-main">Skip to content</a>

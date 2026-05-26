@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/profiles.php';
+require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
 function mp_admin_action_link(array $action): string
 {
     if (isset($action['html']) && is_string($action['html'])) {
@@ -133,12 +134,13 @@ function mp_admin_header(string $title, array $actions = []): void
     $safePublicProfileUrl = htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8');
     $profileOwnerLabel = trim($displayName) !== '' ? $displayName : (trim($username) !== '' ? $username : 'current user');
     $safeProfileOwnerLabel = htmlspecialchars($profileOwnerLabel, ENT_QUOTES, 'UTF-8');
+    $adminFaviconTags = function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '';
     $adminAvatarMarkup = '';
     if (function_exists('mp_is_logged_in') && mp_is_logged_in() && function_exists('mp_user_avatar_markup')) {
         $adminAvatarMarkup = '<span class="admin-user-avatar">' . mp_user_avatar_markup(mp_current_user(), 'admin-user-avatar-image', 96, 96, false) . '</span>';
     }
 
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title><link rel="stylesheet" href="' . $styleUrl . '">
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . '<link rel="stylesheet" href="' . $styleUrl . '">
   <link rel="stylesheet" href="' . $adminStyleUrl . '"><script src="' . $adminScriptUrl . '" defer></script></head><body class="bonumark-admin"><div class="admin-shell">';
     echo '<aside class="admin-sidebar" aria-label="Admin navigation"><a class="admin-brand" href="' . $dashboardUrl . '"><span class="admin-brand-mark">B</span><span>Bonumark Stream</span></a><nav class="admin-sidebar-nav">';
     echo '<a class="nav-primary view-site-nav" href="' . $siteUrl . '" target="_blank" rel="noopener">View Site</a>';

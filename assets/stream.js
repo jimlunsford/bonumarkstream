@@ -811,7 +811,7 @@
         return;
       }
 
-      var url = loadMoreLink.getAttribute('href');
+      var url = loadMoreLink.getAttribute('data-load-more-url') || loadMoreLink.getAttribute('href') || '';
       if (!url) {
         return;
       }
@@ -879,6 +879,7 @@
 
           if (newMoreLink && newMoreLink.getAttribute('href')) {
             loadMoreLink.setAttribute('href', newMoreLink.getAttribute('href'));
+            loadMoreLink.setAttribute('data-load-more-url', newMoreLink.getAttribute('data-load-more-url') || newMoreLink.getAttribute('href'));
             loadMoreLink.textContent = originalLabel;
             loadMoreLink.classList.remove('is-disabled');
             loadMoreLink.removeAttribute('aria-disabled');

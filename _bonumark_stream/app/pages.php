@@ -55,6 +55,7 @@ function mp_render_page(array $page): string
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class('page'),
         'header_html' => mp_render_public_header('page', null, mp_page_relative_directory_for_page($page) . '/'),

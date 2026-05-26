@@ -61,6 +61,8 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
         }
 
         $attachments = $this->attachmentMap($items);
+        $featuredImageCount = 0;
+        $remoteImageReferenceCount = 0;
         $skippedNonPosts = 0;
         $skippedStatuses = 0;
 
@@ -82,8 +84,18 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             }
 
             $item = $this->postToItem($xmlItem, $attachments, $name, $index + 1);
-            if (trim($item->body) === '') {
-                $result->addWarning('Skipped WordPress post ' . ($index + 1) . ' because it had no importable content.');
+            if ($item->featuredMedia !== '') {
+                $featuredImageCount++;
+                if (function_exists('mp_import_is_remote_http_url') && mp_import_is_remote_http_url($item->featuredMedia)) {
+                    $remoteImageReferenceCount++;
+                }
+            }
+            if (function_exists('mp_import_extract_remote_image_urls')) {
+                $remoteImageReferenceCount += count(mp_import_extract_remote_image_urls($item->body));
+            }
+
+            if (trim($item->body) === '' && trim($item->featuredMedia) === '') {
+                $result->addWarning('Skipped WordPress post ' . ($index + 1) . ' because it had no importable body or featured image.');
                 continue;
             }
 
@@ -94,6 +106,12 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             $result->addWarning('Prepared the first ' . self::MAX_IMPORT_ITEMS . ' WordPress post(s). The export is larger than Bonumark Stream\'s safety limit for one import preview, so use the original export again after importing this range if you need the rest.');
         } else {
             $result->addWarning('Prepared ' . count($result->items) . ' WordPress post(s) for import. The preview screen may show only a sample, but confirmation can import the full prepared set.');
+        }
+        if ($featuredImageCount > 0) {
+            $result->addWarning('Detected ' . $featuredImageCount . ' WordPress featured image reference(s). Choose Import media into Media during confirmation to copy supported images into Bonumark Stream.');
+        }
+        if ($remoteImageReferenceCount > 0 && !function_exists('curl_init')) {
+            $result->addWarning('This server does not have the PHP cURL extension enabled. Remote WordPress media import will fail until cURL is enabled by the host.');
         }
         if ($skippedNonPosts > 0) {
             $result->addWarning('Skipped ' . $skippedNonPosts . ' non-post WordPress item(s), including pages, revisions, menu items, and attachments used only for media URL lookup.');
@@ -125,7 +143,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
         return array_values(array_map('strval', $matches[1]));
     }
 
-    /** @param list<string> $items @return array<string,string> */
+    /** @param list<string> $items @return array<string,array{url:string,title:string,alt:string}> */
     private function attachmentMap(array $items): array
     {
         $attachments = [];
@@ -135,14 +153,22 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             }
             $id = trim($this->childValue($xmlItem, 'wp:post_id'));
             $url = trim($this->childValue($xmlItem, 'wp:attachment_url'));
-            if ($id !== '' && $url !== '') {
-                $attachments[$id] = $url;
+            if ($id === '' || $url === '') {
+                continue;
             }
+
+            $title = trim($this->childValue($xmlItem, 'title'));
+            $alt = $this->attachmentAltText($xmlItem);
+            $attachments[$id] = [
+                'url' => $url,
+                'title' => $title,
+                'alt' => $alt,
+            ];
         }
         return $attachments;
     }
 
-    /** @param array<string,string> $attachments */
+    /** @param array<string,array{url:string,title:string,alt:string}> $attachments */
     private function postToItem(string $xmlItem, array $attachments, string $sourceName, int $index): MP_ImportItem
     {
         $postId = trim($this->childValue($xmlItem, 'wp:post_id'));
@@ -164,9 +190,6 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
 
         $body = $this->htmlToMarkdown($contentHtml);
         $featuredImage = $this->featuredImageUrl($xmlItem, $attachments);
-        if ($featuredImage !== '' && !str_contains($body, $featuredImage)) {
-            $body = trim('![Featured image](' . $featuredImage . ')' . "\n\n" . $body);
-        }
 
         $description = $this->htmlToPlainText(trim($this->childValue($xmlItem, 'excerpt:encoded')));
         if ($description === '') {
@@ -192,13 +215,16 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             'description' => $description,
             'status' => $status,
             'source' => $source,
-            'featured_media' => '',
+            'featured_media' => $featuredImage,
             'tags' => $terms,
         ]);
 
         $remoteImages = function_exists('mp_import_extract_remote_image_urls') ? mp_import_extract_remote_image_urls($body) : [];
         if ($remoteImages) {
-            $item->warnings[] = count($remoteImages) . ' remote image reference(s) detected. Choose Import images into Media during confirmation to copy supported images into Bonumark Stream.';
+            $item->warnings[] = count($remoteImages) . ' inline remote image reference(s) detected. Choose Import media into Media during confirmation to copy supported images into Bonumark Stream.';
+        }
+        if ($featuredImage !== '') {
+            $item->warnings[] = 'WordPress featured image detected and will be imported as featured media when media import is selected.';
         }
         if ($author !== '') {
             $item->warnings[] = 'Original WordPress author: ' . $author . '.';
@@ -249,7 +275,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
         return mp_normalize_terms($terms);
     }
 
-    /** @param array<string,string> $attachments */
+    /** @param array<string,array{url:string,title:string,alt:string}> $attachments */
     private function featuredImageUrl(string $xmlItem, array $attachments): string
     {
         $thumbnailId = '';
@@ -263,7 +289,27 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
                 }
             }
         }
-        return $thumbnailId !== '' ? (string)($attachments[$thumbnailId] ?? '') : '';
+        if ($thumbnailId === '' || !isset($attachments[$thumbnailId])) {
+            return '';
+        }
+        return (string)($attachments[$thumbnailId]['url'] ?? '');
+    }
+
+    private function attachmentAltText(string $xmlItem): string
+    {
+        $matched = preg_match_all('#<wp:postmeta\b[^>]*>(.*?)</wp:postmeta>#is', $xmlItem, $matches);
+        if ($matched === false || $matched === 0) {
+            return '';
+        }
+
+        foreach ($matches[1] as $meta) {
+            $key = trim($this->childValue((string)$meta, 'wp:meta_key'));
+            if ($key === '_wp_attachment_image_alt') {
+                return trim($this->childValue((string)$meta, 'wp:meta_value'));
+            }
+        }
+
+        return '';
     }
 
     private function htmlToMarkdown(string $html): string

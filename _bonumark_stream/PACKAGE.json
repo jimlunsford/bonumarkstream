@@ -1,13 +1,13 @@
 {
   "name": "bonumark-stream",
-  "version": "0.3.2",
+  "version": "0.3.11",
   "package_type": "shared-hosting",
   "database": "mysql-mariadb",
   "tagline": "A self-hosted microblog stream for owning short-form publishing.",
-  "release": "Mobile Public Page Containment Repair Pass",
-  "release_name": "Mobile Public Page Containment Repair Pass",
-  "description": "Repairs mobile page viewport containment so public pages cannot force horizontal scrolling on phones.",
+  "release": "Migration Release Integrity Cleanup Pass",
+  "release_name": "Migration Release Integrity Cleanup Pass",
+  "description": "Corrects historical migration version metadata and migration README wording so the public GitHub release line has clean release-integrity records without changing runtime behavior.",
   "license": "AGPL-3.0-or-later",
-  "title": "Mobile Public Page Containment Repair Pass",
-  "label": "Mobile Public Page Containment Repair Pass"
+  "title": "Migration Release Integrity Cleanup Pass",
+  "label": "Migration Release Integrity Cleanup Pass"
 }

@@ -58,6 +58,7 @@ function mp_render_stream_index(array $pages, bool $includeComposer = false, int
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class($bodyContext),
         'header_html' => mp_render_public_header($isArchive ? 'stream' : 'home', $totalPosts, $navCurrentPath),
@@ -79,7 +80,10 @@ function mp_stream_pagination_view_data(int $pageNumber, int $totalPages, string
     $pageNumber = max(1, $pageNumber);
     $totalPages = max(1, $totalPages);
     $hasOlder = $pageNumber < $totalPages;
-    $olderPath = $hasOlder ? 'stream/page/' . ($pageNumber + 1) . '/' : '';
+    $nextPage = $pageNumber + 1;
+    $olderPath = $hasOlder ? 'index.php?__bonumark_route=stream&stream_page=' . $nextPage : '';
+    $olderAjaxPath = $olderPath;
+    $olderCanonicalPath = $hasOlder ? 'stream/page/' . $nextPage . '/' : '';
 
     return [
         'page_number' => $pageNumber,
@@ -87,6 +91,8 @@ function mp_stream_pagination_view_data(int $pageNumber, int $totalPages, string
         'context' => $context,
         'has_older' => $hasOlder,
         'older_url' => $hasOlder ? mp_url_path($olderPath) : '',
+        'older_ajax_url' => $hasOlder ? mp_url_path($olderAjaxPath) : '',
+        'older_canonical_url' => $hasOlder ? mp_url_path($olderCanonicalPath) : '',
         'older_label' => 'Load More',
         'complete_label' => 'No more posts',
         'back_to_top_url' => '#site-main',
@@ -593,6 +599,7 @@ function mp_render_stream_single(array $page): string
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class('stream-single'),
         'header_html' => mp_render_public_header('stream-single', null, mp_stream_relative_directory_for_post($page) . '/'),
@@ -665,6 +672,7 @@ function mp_render_stream_search(string $query = ''): string
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class('search-page'),
         'header_html' => mp_render_public_header('search', null, 'search.php'),

@@ -208,8 +208,12 @@ mp_admin_header('Import', [
           $previewRemoteImageCount += count(mp_import_extract_remote_image_urls($previewBody));
           $previewStagedImageCount += count(mp_import_extract_staged_media_urls($previewBody));
           $previewFeaturedMedia = trim((string)($previewItem['featured_media'] ?? ''));
-          if ($previewFeaturedMedia !== '' && mp_import_is_staged_media_url($previewFeaturedMedia)) {
-              $previewStagedImageCount++;
+          if ($previewFeaturedMedia !== '') {
+              if (mp_import_is_staged_media_url($previewFeaturedMedia)) {
+                  $previewStagedImageCount++;
+              } elseif (mp_import_is_remote_http_url($previewFeaturedMedia)) {
+                  $previewRemoteImageCount++;
+              }
           }
       }
   }
@@ -331,6 +335,9 @@ mp_admin_header('Import', [
         $itemWarnings = is_array($item['warnings'] ?? null) ? $item['warnings'] : [];
         $remoteImages = mp_import_extract_remote_image_urls($body);
         $stagedImages = mp_import_extract_staged_media_urls($body);
+        $previewFeaturedMedia = trim((string)($item['featured_media'] ?? ''));
+        $featuredRemoteImage = $previewFeaturedMedia !== '' && mp_import_is_remote_http_url($previewFeaturedMedia);
+        $featuredStagedImage = $previewFeaturedMedia !== '' && mp_import_is_staged_media_url($previewFeaturedMedia);
         ?>
         <article class="import-preview-item">
           <div class="import-preview-meta">
@@ -342,8 +349,10 @@ mp_admin_header('Import', [
           <h3><?= htmlspecialchars((string)($item['title'] ?? 'Untitled'), ENT_QUOTES, 'UTF-8') ?></h3>
           <p class="meta">Slug: <?= htmlspecialchars((string)($item['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
           <?php if ($excerpt !== ''): ?><p><?= htmlspecialchars($excerpt, ENT_QUOTES, 'UTF-8') ?><?= strlen($excerpt) >= 220 ? '…' : '' ?></p><?php endif; ?>
-          <?php if ($remoteImages): ?><p class="meta">Remote images detected: <?= count($remoteImages) ?></p><?php endif; ?>
+          <?php if ($remoteImages): ?><p class="meta">Inline remote images detected: <?= count($remoteImages) ?></p><?php endif; ?>
+          <?php if ($featuredRemoteImage): ?><p class="meta">Featured remote image detected</p><?php endif; ?>
           <?php if ($stagedImages): ?><p class="meta">Archive media staged: <?= count($stagedImages) ?></p><?php endif; ?>
+          <?php if ($featuredStagedImage): ?><p class="meta">Featured archive media staged</p><?php endif; ?>
           <?php if ($itemWarnings): ?><p class="meta warning-text"><?= htmlspecialchars(implode(' ', array_map('strval', $itemWarnings)), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </article>
       <?php endforeach; ?>

@@ -188,6 +188,7 @@ function mp_handle_account_route(): void
         'style_url' => mp_asset_url('assets/style.css'),
         'script_url' => mp_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => mp_public_theme_stylesheet_links(),
+        'favicon_tags' => function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '',
         'theme_script_tags' => mp_public_theme_script_tags(),
         'body_class' => mp_public_theme_class('account-page'),
         'header_html' => mp_render_public_header('account', null, 'account.php'),
@@ -309,13 +310,65 @@ function mp_handle_author_route(): void
 
 
 
+function mp_stream_route_page_number(): int
+{
+    foreach (['stream_page', 'page', 'paged'] as $key) {
+        if (isset($_GET[$key]) && is_numeric($_GET[$key])) {
+            return max(1, (int)$_GET[$key]);
+        }
+    }
+
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $path = parse_url($requestUri, PHP_URL_PATH);
+    $path = is_string($path) ? $path : $requestUri;
+
+    if (preg_match('#(?:^|/)stream/page/([0-9]+)(?:/|$)#', $path, $matches) === 1) {
+        return max(1, (int)$matches[1]);
+    }
+
+    if (preg_match('#(?:^|/)index\.php/stream/page/([0-9]+)(?:/|$)#', $path, $matches) === 1) {
+        return max(1, (int)$matches[1]);
+    }
+
+    return 1;
+}
+
+function mp_stream_route_is_archive_request(string $slug, int $pageNumber): bool
+{
+    if ($pageNumber > 1 || isset($_GET['stream_page']) || isset($_GET['page']) || isset($_GET['paged'])) {
+        return true;
+    }
+
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $path = parse_url($requestUri, PHP_URL_PATH);
+    $path = is_string($path) ? $path : $requestUri;
+
+    if ($slug === 'page') {
+        return true;
+    }
+
+    return preg_match('#(?:^|/)stream/page(?:/[0-9]+)?/?$#', $path) === 1;
+}
+
 function mp_handle_stream_route(): void
 {
     if (!mp_is_installed()) {
         mp_redirect(mp_url_path('install.php'));
     }
     require_once __DIR__ . '/renderer.php';
+
+    $pageNumber = mp_stream_route_page_number();
     $slug = mp_slugify((string)($_GET['slug'] ?? ''));
+
+    // Archive pagination must win over slug handling. Some hosts or stale rewrite
+    // rules can pass /stream/page/2/ through as slug=page, and Load More uses
+    // index.php?__bonumark_route=stream&stream_page=N. Both are archive requests,
+    // not single-post requests.
+    if (mp_stream_route_is_archive_request($slug, $pageNumber)) {
+        echo mp_render_stream_index(mp_list_content_records('published'), false, $pageNumber, 'archive');
+        return;
+    }
+
     if ($slug !== '') {
         $page = null;
         if (function_exists('mp_find_database_content_by_slug_status')) {
@@ -334,8 +387,7 @@ function mp_handle_stream_route(): void
         return;
     }
 
-    $pageNumber = max(1, (int)($_GET['page'] ?? 1));
-    echo mp_render_stream_index(mp_list_content_records('published'), false, $pageNumber, $pageNumber > 1 ? 'archive' : 'archive');
+    echo mp_render_stream_index(mp_list_content_records('published'), false, $pageNumber, 'archive');
 }
 
 function mp_handle_page_public_route(): void

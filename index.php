@@ -6,6 +6,11 @@ if (!mp_is_installed()) {
 }
 
 $route = (string)($_GET['__bonumark_route'] ?? '');
+if ($route === '' && isset($_GET['stream_page'])) {
+    // Load More uses this explicit query key so shared-hosting installs do not
+    // need a separate endpoint or a successful clean URL rewrite to page the stream.
+    $route = 'stream';
+}
 if ($route !== '') {
     require_once __DIR__ . '/_bonumark_stream/app/routes.php';
     if (mp_dispatch_public_route($route)) {

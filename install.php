@@ -179,6 +179,8 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'homepage_eyebrow' => 'Own your short-form publishing',
         'site_footer_text' => '',
         'show_powered_by' => '1',
+        'site_favicon_media_id' => '0',
+        'site_favicon_path' => '',
         'primary_navigation_enabled' => '0',
         'public_navigation_account_links_enabled' => '1',
         'primary_navigation' => json_encode([

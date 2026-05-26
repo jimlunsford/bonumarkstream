@@ -248,7 +248,76 @@ function mp_upgrade_package_theme_slugs(array $manifestFiles, string $prefix): a
     return $slugs;
 }
 
-function mp_upgrade_cleanup_preserved_path(string $relative, array $privateThemeSlugs, array $publicThemeSlugs): bool
+function mp_upgrade_installed_theme_manifest(string $publicRoot, string $slug): array
+{
+    $slug = trim($slug);
+    if ($slug === '' || str_contains($slug, '/') || str_contains($slug, '\\')) {
+        return [];
+    }
+
+    $path = rtrim(str_replace('\\', '/', $publicRoot), '/') . '/_bonumark_stream/themes/' . $slug . '/theme.json';
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $data = json_decode((string)file_get_contents($path), true);
+    return is_array($data) ? $data : [];
+}
+
+function mp_upgrade_theme_marked_as_bundled(array $manifest): bool
+{
+    $package = strtolower(trim((string)($manifest['package'] ?? '')));
+    if (in_array($package, ['bundled-theme', 'bundled', 'core'], true)) {
+        return true;
+    }
+
+    return !empty($manifest['bundled']) || !empty($manifest['core_theme']);
+}
+
+function mp_upgrade_retired_bundled_theme_leftover(string $publicRoot, string $slug): bool
+{
+    static $cache = [];
+
+    $publicRoot = rtrim(str_replace('\\', '/', $publicRoot), '/');
+    $cacheKey = $publicRoot . '|' . $slug;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $retiredThemeSlugs = mp_upgrade_retired_bundled_theme_slugs();
+    if (!isset($retiredThemeSlugs[$slug])) {
+        $cache[$cacheKey] = false;
+        return false;
+    }
+
+    $manifest = mp_upgrade_installed_theme_manifest($publicRoot, $slug);
+    if (!$manifest) {
+        $cache[$cacheKey] = false;
+        return false;
+    }
+
+    $cache[$cacheKey] = mp_upgrade_theme_marked_as_bundled($manifest);
+    return $cache[$cacheKey];
+}
+
+function mp_upgrade_theme_path_preserved(string $publicRoot, string $slug, array $packageThemeSlugs): bool
+{
+    if ($slug === '') {
+        return false;
+    }
+
+    if (isset($packageThemeSlugs[$slug])) {
+        return false;
+    }
+
+    if (mp_upgrade_retired_bundled_theme_leftover($publicRoot, $slug)) {
+        return false;
+    }
+
+    return true;
+}
+
+function mp_upgrade_cleanup_preserved_path(string $publicRoot, string $relative, array $privateThemeSlugs, array $publicThemeSlugs): bool
 {
     $relative = str_replace('\\', '/', ltrim($relative, '/'));
 
@@ -267,22 +336,12 @@ function mp_upgrade_cleanup_preserved_path(string $relative, array $privateTheme
         }
     }
 
-    $retiredThemeSlugs = mp_upgrade_retired_bundled_theme_slugs();
-
     if (preg_match('#^_bonumark_stream/themes/([^/]+)/#', $relative, $matches)) {
-        $slug = (string)$matches[1];
-        if (isset($retiredThemeSlugs[$slug])) {
-            return false;
-        }
-        return empty($privateThemeSlugs[$slug]);
+        return mp_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $privateThemeSlugs);
     }
 
     if (preg_match('#^assets/themes/([^/]+)/#', $relative, $matches)) {
-        $slug = (string)$matches[1];
-        if (isset($retiredThemeSlugs[$slug])) {
-            return false;
-        }
-        return empty($publicThemeSlugs[$slug]);
+        return mp_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $publicThemeSlugs);
     }
 
     return false;
@@ -315,6 +374,7 @@ function mp_upgrade_cleanup_managed_path(string $relative): bool
         'profile.php' => true,
         'search.php' => true,
         'stream-like.php' => true,
+        'stream-page.php' => true,
         '_bonumark_stream/.htaccess' => true,
         '_bonumark_stream/CHANGELOG.md' => true,
         '_bonumark_stream/PACKAGE.json' => true,
@@ -344,7 +404,7 @@ function mp_upgrade_remove_empty_directories(string $root, array $privateThemeSl
             continue;
         }
         $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($root) + 1));
-        if ($relative === '' || mp_upgrade_cleanup_preserved_path($relative . '/', $privateThemeSlugs, $publicThemeSlugs)) {
+        if ($relative === '' || mp_upgrade_cleanup_preserved_path($root, $relative . '/', $privateThemeSlugs, $publicThemeSlugs)) {
             continue;
         }
         if (!mp_upgrade_cleanup_managed_path($relative . '/') && !mp_upgrade_cleanup_managed_path($relative)) {
@@ -377,7 +437,7 @@ function mp_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFi
             continue;
         }
         $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($publicRoot) + 1));
-        if (isset($manifestFiles[$relative]) || mp_upgrade_cleanup_preserved_path($relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
+        if (isset($manifestFiles[$relative]) || mp_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
             continue;
         }
         if (@unlink($item->getPathname())) {
@@ -518,7 +578,7 @@ function mp_upgrade_remove_new_package_files(string $publicRoot, array $manifest
         if ($relative === '' || !empty($existingBefore[$relative])) {
             continue;
         }
-        if (mp_upgrade_cleanup_preserved_path($relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
+        if (mp_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
             continue;
         }
 
@@ -738,7 +798,7 @@ function mp_upgrade_install(string $zipPath): array
             "From: {$currentVersion}\n" .
             "To: {$packageVersion}\n" .
             "Date: " . date('c') . "\n" .
-            "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/content/, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and custom installed themes, excluding retired bundled themes\n" .
+            "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/content/, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and custom installed themes, including external themes that reuse retired bundled slugs unless their theme manifest clearly identifies them as bundled leftovers\n" .
             "Obsolete package-managed files removed: " . count($removed) . "\n";
         mp_write_file($backupRoot . '/UPGRADE.txt', $log);
 
@@ -875,7 +935,7 @@ mp_admin_header('Upgrade Bonumark Stream', [
   <details class="upgrade-details">
     <summary>What happens during upgrade?</summary>
     <div>
-      <p><strong>Protected:</strong> <code>_bonumark_stream/config.php</code>, <code>_bonumark_stream/installed.lock</code>, runtime content, data, backups, media, uploads, and custom installed themes.</p>
+      <p><strong>Protected:</strong> <code>_bonumark_stream/config.php</code>, <code>_bonumark_stream/installed.lock</code>, runtime content, data, backups, media, uploads, and custom installed themes, including external themes that reuse retired bundled slugs.</p>
       <p><strong>Updated:</strong> admin files, Stream app files, tools, assets, documentation, changelog, migrations, bundled themes, and version markers.</p>
       <p>Bonumark Stream validates the release manifest, rejects unsafe ZIP paths, blocks symlinks, refuses older versions, creates a backup, copies software files, runs migrations, and restores the previous software files if the upgrade fails.</p>
     </div>
@@ -932,7 +992,7 @@ mp_admin_header('Upgrade Bonumark Stream', [
       <?php else: ?>
         <p class="meta">No database migrations appear to be pending for this package.</p>
       <?php endif; ?>
-      <p>Running the upgrade creates a backup, replaces software files, removes obsolete package-managed files, and runs pending migrations. Dynamic public routes use the upgraded code immediately. Static Site Export remains an optional Export-screen artifact.</p>
+      <p>Running the upgrade creates a backup, replaces software files, removes obsolete package-managed files, preserves custom installed themes, and runs pending migrations. Dynamic public routes use the upgraded code immediately. Static Site Export remains an optional Export-screen artifact.</p>
     </div>
   </details>
 
