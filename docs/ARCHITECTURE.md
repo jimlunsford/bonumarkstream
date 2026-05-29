@@ -1,6 +1,6 @@
 # Bonumark Stream Architecture
 
-Bonumark Stream v0.3.11 is the public GitHub fresh-install foundation baseline.
+Bonumark Stream v0.3.12 is the public GitHub fresh-install foundation baseline.
 
 The architecture is now intentionally simple:
 
@@ -106,11 +106,11 @@ The live site serves `/sitemap.xml` dynamically from published database content 
 
 ## Migrations
 
-The v0.3.11 line keeps the database-first install schema, dynamic discovery routes, styled sitemap output, dashboard order polish, dashboard layout polish, public release audit repairs, mobile text overflow repair, admin form input styling repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, mobile public page containment repair, Load More archive routing repair, WordPress featured media import repair, Site Identity favicon support, theme-independent favicon output, external theme upgrade preservation, migration release integrity cleanup, and the retained v0.2.x hardening migrations needed to preserve the stable upgrade path. The old v0.1.x compatibility line is not preserved. Future schema changes should be added as new migrations after this baseline.
+The v0.3.12 line keeps the database-first install schema, dynamic discovery routes, styled sitemap output, dashboard order polish, dashboard layout polish, public release audit repairs, mobile text overflow repair, admin form input styling repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, mobile public page containment repair, Load More archive routing repair, WordPress featured media import repair, Site Identity favicon support, theme-independent favicon output, external theme upgrade preservation, migration release integrity cleanup, SEO title output repair, and the retained v0.2.x hardening migrations needed to preserve the stable upgrade path. The old v0.1.x compatibility line is not preserved. Future schema changes should be added as new migrations after this baseline.
 
 ## Upgrade stance
 
-v0.3.11 is not intended as an upgrade bridge from old v0.1.x test installs. Install it fresh. Future upgrades should target the v0.3.11 baseline and later.
+v0.3.12 is not intended as an upgrade bridge from old v0.1.x test installs. Install it fresh. Future upgrades should target the v0.3.12 baseline and later.
 
 
 ## Private backup warning

@@ -19,7 +19,7 @@ function mp_default_config(): array
         'site_favicon_media_id' => '0',
         'site_favicon_path' => '',
         'public_navigation_account_links_enabled' => '1',
-        'version' => '0.3.11',
+        'version' => '0.3.12',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -513,6 +513,180 @@ function mp_stream_limit_text(string $text, int $limit, string $suffix = '…'):
     return rtrim($cut, " \t\n\r\0\x0B.,;:!?") . $suffix;
 }
 
+
+function mp_seo_clean_title(string $title): string
+{
+    $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $title = trim(strip_tags($title));
+    $title = preg_replace('/\s+/u', ' ', $title) ?? $title;
+    return trim($title);
+}
+
+function mp_seo_site_title(): string
+{
+    $siteTitle = mp_seo_clean_title((string)mp_setting_or_config('site_name', 'Bonumark Stream'));
+    return $siteTitle !== '' ? $siteTitle : 'Bonumark Stream';
+}
+
+function mp_seo_site_tagline(): string
+{
+    if (function_exists('mp_site_identity_plain_text')) {
+        return mp_seo_clean_title(mp_site_identity_plain_text((string)mp_setting_or_config('site_tagline', '')));
+    }
+    return mp_seo_clean_title((string)mp_setting_or_config('site_tagline', ''));
+}
+
+function mp_seo_title_lower(string $title): string
+{
+    return function_exists('mb_strtolower') ? mb_strtolower($title, 'UTF-8') : strtolower($title);
+}
+
+function mp_seo_strip_site_title(string $title, ?string $siteTitle = null): string
+{
+    $title = mp_seo_clean_title($title);
+    $siteTitle = mp_seo_clean_title($siteTitle ?? mp_seo_site_title());
+    if ($title === '' || $siteTitle === '') {
+        return $title;
+    }
+
+    $separators = [' | ', ' - ', ' – ', ' — ', ' · ', ' • ', ': '];
+    $changed = true;
+    while ($changed && $title !== '') {
+        $changed = false;
+        foreach ($separators as $separator) {
+            $suffix = $separator . $siteTitle;
+            $prefix = $siteTitle . $separator;
+            $titleLower = mp_seo_title_lower($title);
+            $suffixLower = mp_seo_title_lower($suffix);
+            $prefixLower = mp_seo_title_lower($prefix);
+
+            if (str_ends_with($titleLower, $suffixLower)) {
+                $title = trim((string)(function_exists('mb_substr') ? mb_substr($title, 0, -1 * (function_exists('mb_strlen') ? mb_strlen($suffix) : strlen($suffix)), 'UTF-8') : substr($title, 0, -1 * strlen($suffix))));
+                $changed = true;
+                break;
+            }
+            if (str_starts_with($titleLower, $prefixLower)) {
+                $title = trim((string)(function_exists('mb_substr') ? mb_substr($title, (function_exists('mb_strlen') ? mb_strlen($prefix) : strlen($prefix)), null, 'UTF-8') : substr($title, strlen($prefix))));
+                $changed = true;
+                break;
+            }
+        }
+    }
+
+    return mp_seo_title_lower($title) === mp_seo_title_lower($siteTitle) ? '' : $title;
+}
+
+function mp_seo_join_title_parts(array $parts, int $limit = 70): string
+{
+    $clean = [];
+    foreach ($parts as $part) {
+        $part = mp_seo_clean_title((string)$part);
+        if ($part !== '') {
+            $clean[] = $part;
+        }
+    }
+    if (!$clean) {
+        return '';
+    }
+
+    $title = implode(' | ', $clean);
+    return mp_stream_limit_text($title, $limit, '…');
+}
+
+function mp_seo_document_title(string $primaryTitle = '', int $limit = 70): string
+{
+    $siteTitle = mp_seo_site_title();
+    $primaryTitle = mp_seo_strip_site_title($primaryTitle, $siteTitle);
+
+    if ($primaryTitle === '') {
+        return mp_stream_limit_text($siteTitle, $limit, '…');
+    }
+
+    $separator = ' | ';
+    $siteLength = function_exists('mb_strlen') ? mb_strlen($siteTitle, 'UTF-8') : strlen($siteTitle);
+    $separatorLength = function_exists('mb_strlen') ? mb_strlen($separator, 'UTF-8') : strlen($separator);
+    $availableForPrimary = $limit - $siteLength - $separatorLength;
+
+    if ($siteTitle !== '' && $availableForPrimary >= 18) {
+        return mp_stream_limit_text($primaryTitle, $availableForPrimary, '…') . $separator . $siteTitle;
+    }
+
+    return mp_stream_limit_text($primaryTitle, $limit, '…');
+}
+
+function mp_seo_home_title(int $limit = 70): string
+{
+    $siteTitle = mp_seo_site_title();
+    $tagline = mp_seo_strip_site_title(mp_seo_site_tagline(), $siteTitle);
+
+    if ($tagline === '') {
+        return mp_stream_limit_text($siteTitle, $limit, '…');
+    }
+
+    $separator = ' | ';
+    $siteLength = function_exists('mb_strlen') ? mb_strlen($siteTitle, 'UTF-8') : strlen($siteTitle);
+    $separatorLength = function_exists('mb_strlen') ? mb_strlen($separator, 'UTF-8') : strlen($separator);
+    $availableForTagline = $limit - $siteLength - $separatorLength;
+
+    if ($availableForTagline >= 18) {
+        return $siteTitle . $separator . mp_stream_limit_text($tagline, $availableForTagline, '…');
+    }
+
+    return mp_stream_limit_text($siteTitle, $limit, '…');
+}
+
+function mp_public_seo_view_data(string $template, array $data): array
+{
+    $template = strtolower(trim($template));
+    $siteTitle = mp_seo_site_title();
+    $primary = '';
+    $documentTitle = '';
+    $socialTitle = '';
+
+    $providedPrimary = mp_seo_strip_site_title((string)($data['seo_title_primary'] ?? ''), $siteTitle);
+
+    if ($template === 'home') {
+        $documentTitle = mp_seo_home_title();
+        $socialTitle = $siteTitle;
+        $primary = $siteTitle;
+    } elseif ($providedPrimary !== '') {
+        $primary = $providedPrimary;
+    } elseif ($template === 'archive') {
+        $pageNumber = max(1, (int)($data['page_number'] ?? 1));
+        $primary = $pageNumber > 1 ? 'Stream, Page ' . $pageNumber : 'Stream';
+    } elseif ($template === 'single') {
+        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Stream post'), $siteTitle);
+    } elseif ($template === 'page') {
+        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Page'), $siteTitle);
+    } elseif ($template === 'search') {
+        $query = trim((string)($data['query'] ?? ''));
+        $primary = $query !== '' ? 'Search results for ' . $query : 'Search';
+    } elseif ($template === 'profile') {
+        $primary = mp_seo_strip_site_title((string)($data['display_name'] ?? $data['title'] ?? 'Profile'), $siteTitle);
+        if ($primary === '') {
+            $primary = 'Profile';
+        }
+    } elseif ($template === 'account') {
+        $primary = 'Account';
+    } else {
+        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? ''), $siteTitle);
+    }
+
+    if ($documentTitle === '') {
+        $documentTitle = mp_seo_document_title($primary);
+    }
+    if ($socialTitle === '') {
+        $socialTitle = $primary !== '' ? $primary : $documentTitle;
+    }
+
+    $data['seo_title_primary'] = $data['seo_title_primary'] ?? $primary;
+    $data['seo_document_title'] = $data['seo_document_title'] ?? $documentTitle;
+    $data['seo_social_title'] = $data['seo_social_title'] ?? $socialTitle;
+    $data['title'] = $data['seo_document_title'];
+
+    return $data;
+}
+
 function mp_stream_first_sentence(string $body): string
 {
     $text = mp_stream_clean_text_for_seo($body);
@@ -579,29 +753,12 @@ function mp_stream_generated_post_title(string $body, string $createdAt = '', st
 
 function mp_stream_generated_seo_title(string $body, string $createdAt = '', string $featuredMedia = '', array $media = []): string
 {
-    $siteTitle = trim((string)mp_setting_or_config('site_name', 'Bonumark Stream'));
-    $postTitle = mp_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70);
-    $postTitle = trim($postTitle);
-
+    $postTitle = trim(mp_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70));
     if ($postTitle === '') {
         $postTitle = 'Stream update';
     }
 
-    if ($siteTitle === '') {
-        return mp_stream_limit_text($postTitle, 65, '…');
-    }
-
-    $separator = ' | ';
-    $siteLength = function_exists('mb_strlen') ? mb_strlen($siteTitle) : strlen($siteTitle);
-    $separatorLength = function_exists('mb_strlen') ? mb_strlen($separator) : strlen($separator);
-    $availableForPost = 65 - $siteLength - $separatorLength;
-
-    if ($availableForPost >= 15) {
-        $postPart = mp_stream_limit_text($postTitle, $availableForPost, '…');
-        return $postPart . $separator . $siteTitle;
-    }
-
-    return mp_stream_limit_text($postTitle, 65, '…');
+    return mp_stream_limit_text(mp_seo_strip_site_title($postTitle), 70, '…');
 }
 
 function mp_stream_generated_description(string $body, string $createdAt = '', string $featuredMedia = '', int $limit = 160): string
@@ -695,12 +852,7 @@ function mp_page_generated_seo_title(string $title): string
         $pageTitle = 'Untitled Page';
     }
 
-    $siteTitle = trim((string)mp_setting_or_config('site_name', 'Bonumark Stream'));
-    if ($siteTitle === '') {
-        return mp_stream_limit_text($pageTitle, 65, '…');
-    }
-
-    return mp_stream_limit_text($pageTitle . ' | ' . $siteTitle, 65, '…');
+    return mp_stream_limit_text(mp_seo_strip_site_title($pageTitle), 70, '…');
 }
 
 function mp_page_unique_slug(string $baseSlug, string $currentSlug = ''): string

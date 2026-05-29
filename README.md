@@ -5,7 +5,7 @@ Bonumark Stream is a self-hosted microblog and lightweight publishing system for
 It gives you a public timeline, pages, media, comments, profiles, themes, imports, exports, and upgrade tools in one shared-hosting friendly PHP application.
 
 **Demo:** [https://demo.bonumark.org](https://demo.bonumark.org)  
-Current version: **0.3.11**  
+Current version: **0.3.12**  
 **License:** AGPL-3.0-or-later
 
 ## What Bonumark Stream Is
@@ -311,7 +311,7 @@ GitHub repository:
 
 ## Current release
 
-**0.3.11, Migration Release Integrity Cleanup Pass** cleans up historical migration release metadata so migration `0086` records the correct v0.3.3 version value and the migration README accurately describes pass-marker migrations.
+**0.3.12, SEO Title Output Repair Pass** repairs browser-tab and crawler-facing title output so the home page includes the tagline, content pages append the site title exactly once, and external themes cannot accidentally duplicate title parts.
 
 **0.3.10, Theme-Independent Favicon Output Hotfix** repairs Site Identity favicon output so public favicon tags are injected at the core rendering layer and external themes receive browser icons even when their templates do not print `favicon_tags`.
 

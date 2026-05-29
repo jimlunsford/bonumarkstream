@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.12 - SEO Title Output Repair Pass
+
+- Added core SEO title helpers that build browser title output in one place instead of allowing themes and stored SEO fields to double-append the site title.
+- Repaired home page title output so the browser tab uses `Site Title | Tagline` when a tagline exists.
+- Repaired stream post, page, search, profile, account, and archive title output so the site title is appended exactly once.
+- Added core public head normalization that corrects `<title>`, `og:title`, and `twitter:title` output even when an external theme was built against an older template contract.
+- Updated generated stream and page SEO title helpers so new generated titles store the primary title only while public rendering appends the site title.
+- Added migration `0095_seo_title_output_repair.php` and updated package metadata, documentation, and release manifest.
+
 ## 0.3.11 - Migration Release Integrity Cleanup Pass
 
 - Corrected migration `0086_load_more_route_fallback_repair.php` so its historical version setting records `0.3.3`, matching the pass it represents.

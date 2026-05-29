@@ -1,6 +1,6 @@
 # Migrations
 
-Bonumark Stream v0.3.11 uses a database-first schema with dynamic public rendering, Markdown export/fallback, and Static Site Export as an optional artifact.
+Bonumark Stream v0.3.12 uses a database-first schema with dynamic public rendering, Markdown export/fallback, and Static Site Export as an optional artifact.
 
 The migration set includes the clean install schema plus v0.2.x hardening migrations so installs from the current v0.2.x development baseline can continue forward. Do not use this package as an upgrade bridge from the old v0.1.x development line.
 
@@ -62,3 +62,4 @@ Migrations must return a numeric array of SQL statement strings. Do not insert m
 - `0092_external_theme_upgrade_preservation_hotfix.php` records the v0.3.9 external theme upgrade preservation hotfix, keeping custom installed themes through core ZIP upgrades unless a retired bundled theme is clearly identified as a bundled leftover.
 - `0093_theme_independent_favicon_output_hotfix.php` records the v0.3.10 theme-independent favicon output hotfix, injecting Site Identity favicon tags at the core rendering layer when an active theme does not print them.
 - `0094_migration_release_integrity_cleanup.php` records the v0.3.11 migration release integrity cleanup pass and advances the stored version setting after correcting historical migration metadata.
+- `0095_seo_title_output_repair.php` records the v0.3.12 SEO title output repair pass and advances the stored version setting after centralizing public document title generation.

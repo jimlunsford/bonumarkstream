@@ -48,6 +48,7 @@ function mp_render_page(array $page): string
     return mp_render_public_theme_template('page', [
         'site_name' => $siteNameRaw,
         'title' => $seoTitleRaw,
+        'seo_title_primary' => function_exists('mp_seo_strip_site_title') ? mp_seo_strip_site_title($seoTitleRaw, $siteNameRaw) : $seoTitleRaw,
         'page_title' => $titleRaw,
         'description' => $descriptionRaw,
         'canonical' => mp_site_url(mp_page_relative_directory_for_page($page) . '/'),

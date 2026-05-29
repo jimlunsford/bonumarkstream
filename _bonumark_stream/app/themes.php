@@ -995,6 +995,57 @@ function mp_inject_public_favicon_tags(string $html): string
 </head>", $html, 1) ?? $html;
 }
 
+
+function mp_public_head_replace_or_add_tag(string $html, string $pattern, string $replacement): string
+{
+    if (preg_match($pattern, $html) === 1) {
+        return preg_replace($pattern, $replacement, $html, 1) ?? $html;
+    }
+
+    return preg_replace('/<\/head>/i', $replacement . "\n</head>", $html, 1) ?? $html;
+}
+
+function mp_inject_public_seo_head(string $html, array $data): string
+{
+    if ($html === '' || preg_match('/<head\b[^>]*>(.*?)<\/head>/is', $html) !== 1) {
+        return $html;
+    }
+
+    $documentTitle = trim((string)($data['seo_document_title'] ?? ''));
+    $socialTitle = trim((string)($data['seo_social_title'] ?? ''));
+    if ($documentTitle === '' && function_exists('mp_seo_document_title')) {
+        $documentTitle = mp_seo_document_title((string)($data['title'] ?? $data['page_title'] ?? ''));
+    }
+    if ($socialTitle === '') {
+        $socialTitle = $documentTitle;
+    }
+
+    if ($documentTitle !== '') {
+        $safeTitle = htmlspecialchars($documentTitle, ENT_QUOTES, 'UTF-8');
+        if (preg_match('/<title\b[^>]*>.*?<\/title>/is', $html) === 1) {
+            $html = preg_replace('/<title\b[^>]*>.*?<\/title>/is', '<title>' . $safeTitle . '</title>', $html, 1) ?? $html;
+        } else {
+            $html = preg_replace('/<head\b([^>]*)>/i', '<head$1>' . "\n  <title>" . $safeTitle . '</title>', $html, 1) ?? $html;
+        }
+    }
+
+    if ($socialTitle !== '') {
+        $safeSocialTitle = htmlspecialchars($socialTitle, ENT_QUOTES, 'UTF-8');
+        $html = mp_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*property=["\']og:title["\'][^>]*>/i',
+            '<meta property="og:title" content="' . $safeSocialTitle . '">'
+        );
+        $html = mp_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*name=["\']twitter:title["\'][^>]*>/i',
+            '<meta name="twitter:title" content="' . $safeSocialTitle . '">'
+        );
+    }
+
+    return $html;
+}
+
 function mp_render_public_theme_template(string $template, array $data = []): ?string
 {
     $template = mp_theme_template_reference($template);
@@ -1027,9 +1078,14 @@ function mp_render_public_theme_template(string $template, array $data = []): ?s
     $data['theme'] = $data['theme'] ?? ($renderSlug === $activeSlug ? mp_active_public_theme() : (mp_public_theme_packages()[$renderSlug] ?? mp_active_public_theme()));
     $data['theme_settings'] = $data['theme_settings'] ?? mp_public_theme_settings($renderSlug);
     $data['favicon_tags'] = $data['favicon_tags'] ?? (function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '');
+    if (function_exists('mp_public_seo_view_data')) {
+        $data = mp_public_seo_view_data($template, $data);
+    }
 
     $mp_theme_data = $data;
     ob_start();
     include $path;
-    return mp_inject_public_favicon_tags((string)ob_get_clean());
+    $html = (string)ob_get_clean();
+    $html = mp_inject_public_seo_head($html, $data);
+    return mp_inject_public_favicon_tags($html);
 }

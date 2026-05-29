@@ -1,6 +1,6 @@
 <?php
 return [
-    'version' => '0.3.11',
+    'version' => '0.3.12',
     'site_name' => 'Bonumark Stream',
     'site_tagline' => 'A self-hosted microblog stream for owning short-form publishing.',
     'active_public_theme' => 'default',

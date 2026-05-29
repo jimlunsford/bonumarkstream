@@ -69,10 +69,10 @@ if (!function_exists('ml_page_title')) {
 if (!function_exists('ml_document_head')) {
     function ml_document_head(array $data, array $options = []): void
     {
-        $title = ml_page_title($data, (string)($options['fallback_title'] ?? ''), !empty($options['append_site_name']));
+        $title = (string)($data['seo_document_title'] ?? ml_page_title($data, (string)($options['fallback_title'] ?? ''), false));
         $description = (string)($data['description'] ?? '');
         $canonical = (string)($data['canonical'] ?? '');
-        $ogTitle = (string)($options['og_title'] ?? ($data['page_title'] ?? $data['title'] ?? $title));
+        $ogTitle = (string)($options['og_title'] ?? ($data['seo_social_title'] ?? $data['page_title'] ?? $data['title'] ?? $title));
         $ogType = (string)($options['og_type'] ?? 'website');
         ?>
 <head>

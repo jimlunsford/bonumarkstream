@@ -1,15 +1,15 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.3.11 is the current public GitHub release baseline. It keeps the public package focused on the bundled Midnight Ledger theme, preserves the database-first upgrade path from the stable v0.2.x line, keeps dynamic XML sitemap, styled sitemap output, robots.txt discovery routes, the improved admin dashboard overview, admin form input style repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, Edit User action-row alignment, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, mobile public page containment repair, Load More archive routing repair, WordPress featured media import repair, Site Identity favicon support, theme-independent favicon output, external theme upgrade preservation, and migration release integrity cleanup.
+Bonumark Stream v0.3.12 is the current public GitHub release baseline. It keeps the public package focused on the bundled Midnight Ledger theme, preserves the database-first upgrade path from the stable v0.2.x line, keeps dynamic XML sitemap, styled sitemap output, robots.txt discovery routes, the improved admin dashboard overview, admin form input style repairs, upgrade action button alignment, admin autofill input color repair, upgrade screen simplification, admin user management actions, Edit User action-row alignment, comment account link cleanup, account registration kicker cleanup, public navigation account links and account-link toggle, public page Markdown presentation repair, desktop no-image link-preview repair, mobile public page containment repair, Load More archive routing repair, WordPress featured media import repair, Site Identity favicon support, theme-independent favicon output, external theme upgrade preservation, and migration release integrity cleanup, SEO title output repair.
 
-Do **not** treat v0.3.11 as an upgrade bridge from the old v0.1.x development line. The v0.1.x line carried Markdown-first and static-generation transition code that has now been removed or simplified. For a clean foundation, install v0.3.11 fresh.
+Do **not** treat v0.3.12 as an upgrade bridge from the old v0.1.x development line. The v0.1.x line carried Markdown-first and static-generation transition code that has now been removed or simplified. For a clean foundation, install v0.3.12 fresh.
 
 ## Recommended path from v0.1.x test installs
 
 1. Export anything you want to keep.
 2. Download any media you want to preserve.
 3. Delete or archive the old test install.
-4. Upload v0.3.11 fresh.
+4. Upload v0.3.12 fresh.
 5. Run `install.php`.
 6. Re-import only the content you actually want.
 

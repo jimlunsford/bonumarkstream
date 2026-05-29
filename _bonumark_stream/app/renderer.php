@@ -591,6 +591,7 @@ function mp_render_stream_single(array $page): string
     $view = [
         'site_name' => $siteNameRaw,
         'title' => $titleRaw,
+        'seo_title_primary' => function_exists('mp_seo_strip_site_title') ? mp_seo_strip_site_title($titleRaw, $siteNameRaw) : $titleRaw,
         'description' => $descriptionRaw,
         'canonical' => $canonical,
         'published_meta' => $publishedMeta,
