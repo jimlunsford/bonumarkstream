@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/_bonumark_stream/app/database.php';
 
-mp_start_secure_session();
-mp_send_security_headers();
+bms_start_secure_session();
+bms_send_security_headers();
 
-if (mp_is_installed()) {
-    mp_redirect(mp_admin_url('login.php'));
+if (bms_is_installed()) {
+    bms_redirect(bms_admin_url('login.php'));
 }
 
 function bm_install_token(): string
@@ -26,7 +26,7 @@ function bm_verify_install_token(): void
 
 function bm_install_url(string $step = ''): string
 {
-    return mp_url_path('install.php' . ($step ? '?step=' . urlencode($step) : ''));
+    return bms_url_path('install.php' . ($step ? '?step=' . urlencode($step) : ''));
 }
 
 
@@ -42,7 +42,7 @@ function bm_detect_base_path_from_request(): string
 
 function bm_detect_base_url_from_request(): string
 {
-    return rtrim(mp_install_base_url_from_request(), '/');
+    return rtrim(bms_install_base_url_from_request(), '/');
 }
 
 function bm_valid_timezone(string $timezone): bool
@@ -115,8 +115,8 @@ function bm_connect(array $db): PDO
 
 function bm_write_config(array $db, array $site): void
 {
-    $config = mp_default_config();
-    $config['version'] = mp_version();
+    $config = bms_default_config();
+    $config['version'] = bms_version();
     $config['site_name'] = (string)$site['site_name'];
     $config['site_tagline'] = (string)$site['site_tagline'];
     $config['author_name'] = (string)$site['author_name'];
@@ -136,15 +136,15 @@ function bm_write_config(array $db, array $site): void
     ];
 
     $php = "<?php\nreturn " . var_export($config, true) . ";\n";
-    mp_write_file(mp_config_path(), $php);
-    @chmod(mp_config_path(), 0640);
-    mp_config(true);
+    bms_write_file(bms_config_path(), $php);
+    @chmod(bms_config_path(), 0640);
+    bms_config(true);
 }
 
 function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): int
 {
     $prefix = bm_sanitize_prefix($prefix);
-    mp_install_schema($pdo, $prefix);
+    bms_install_schema($pdo, $prefix);
 
     $settings = [
         'site_name' => $site['site_name'],
@@ -170,12 +170,8 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'registration_default_role' => 'commenter',
         'registration_require_email_verification' => '1',
         'registration_require_admin_approval' => '0',
-        'registration_user_role_requires_approval' => '1',
         'registration_honeypot_enabled' => '1',
-        'user_publish_mode' => 'draft_review',
-        'media_limit_administrator_mb' => '32',
-        'media_limit_user_mb' => '8',
-        'media_limit_commenter_mb' => '2',
+        'media_upload_limit_mb' => '32',
         'homepage_eyebrow' => 'Own your short-form publishing',
         'site_footer_text' => '',
         'show_powered_by' => '1',
@@ -197,8 +193,8 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'mail_smtp_password' => '',
         'mail_sendmail_path' => '/usr/sbin/sendmail',
         'content_storage_mode' => 'database',
-        'fresh_install_baseline' => mp_version(),
-        'version' => mp_version(),
+        'fresh_install_baseline' => bms_version(),
+        'version' => bms_version(),
     ];
 
     $settingStmt = $pdo->prepare('INSERT INTO `' . $prefix . 'settings` (setting_key, setting_value, updated_at) VALUES (:setting_key, :setting_value, NOW()) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()');
@@ -206,7 +202,7 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         $settingStmt->execute(['setting_key' => $key, 'setting_value' => (string)$value]);
     }
 
-    $username = mp_normalize_username((string)$admin['username']);
+    $username = bms_normalize_username((string)$admin['username']);
     $email = trim((string)$admin['email']);
     $stmt = $pdo->prepare('INSERT INTO `' . $prefix . 'users` (username, display_name, email, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
     $stmt->execute([
@@ -215,7 +211,7 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'email' => $email,
         'email_verified_at' => date('Y-m-d H:i:s'),
         'password_hash' => password_hash((string)$admin['password'], PASSWORD_DEFAULT),
-        'role' => 'administrator',
+        'role' => 'admin',
         'status' => 'active',
     ]);
 
@@ -224,16 +220,16 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
 
 function bm_installer_header(string $title): void
 {
-    mp_send_security_headers();
-    $styleUrl = htmlspecialchars(mp_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
-    $adminStyleUrl = htmlspecialchars(mp_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
+    bms_send_security_headers();
+    $styleUrl = htmlspecialchars(bms_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
+    $adminStyleUrl = htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . '</title><link rel="stylesheet" href="' . $styleUrl . '"><link rel="stylesheet" href="' . $adminStyleUrl . '"></head><body><main class="admin-wrap narrow install-wrap"><p class="eyebrow">Bonumark Stream install</p><h1>' . $safeTitle . '</h1>';
 }
 
 function bm_installer_footer(): void
 {
-    echo '<footer class="admin-footer">Bonumark Stream v' . htmlspecialchars(mp_version(), ENT_QUOTES, 'UTF-8') . '</footer></main></body></html>';
+    echo '<footer class="admin-footer">Bonumark Stream v' . htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') . '</footer></main></body></html>';
 }
 
 
@@ -273,12 +269,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         ];
 
         try {
-            if (!mp_db_supports_mysql()) {
+            if (!bms_db_supports_mysql()) {
                 throw new RuntimeException('The PDO MySQL extension is not enabled on this server. Ask your host to enable pdo_mysql.');
             }
-            mp_db_test_connection($db);
+            bms_db_test_connection($db);
             $_SESSION['bm_install_db'] = $db;
-            mp_redirect(bm_install_url('setup'));
+            bms_redirect(bm_install_url('setup'));
         } catch (Throwable $e) {
             $error = $e->getMessage();
         }
@@ -287,7 +283,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($step === 'setup') {
         $db = $_SESSION['bm_install_db'] ?? null;
         if (!is_array($db)) {
-            mp_redirect(bm_install_url('database'));
+            bms_redirect(bm_install_url('database'));
         }
 
         $site = [
@@ -299,7 +295,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'base_url' => bm_detect_base_url_from_request(),
         ];
         $admin = [
-            'username' => mp_normalize_username((string)($_POST['username'] ?? 'admin')),
+            'username' => bms_normalize_username((string)($_POST['username'] ?? '')),
             'display_name' => trim((string)($_POST['display_name'] ?? 'Admin')),
             'email' => trim((string)($_POST['email'] ?? '')),
             'password' => (string)($_POST['password'] ?? ''),
@@ -325,13 +321,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($admin['email'] !== '' && !filter_var($admin['email'], FILTER_VALIDATE_EMAIL)) {
                 throw new RuntimeException('Enter a valid email address or leave it blank.');
             }
-            mp_validate_password_policy($admin['password'], $admin['username'], $admin['email']);
+            bms_validate_password_policy($admin['password'], $admin['username'], $admin['email']);
             if ($admin['password'] !== $admin['confirm_password']) {
                 throw new RuntimeException('Password and confirmation do not match.');
             }
 
             $baseUrlForProbe = $site['base_url'] !== '' ? $site['base_url'] : null;
-            $probe = mp_probe_private_folder_exposure($baseUrlForProbe);
+            $probe = bms_probe_private_folder_exposure($baseUrlForProbe);
             if (($probe['status'] ?? '') === 'exposed') {
                 throw new RuntimeException($probe['message']);
             }
@@ -340,18 +336,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             bm_write_config($db, $site);
             $userId = bm_seed_database($pdo, (string)$db['prefix'], $site, $admin);
 
-            foreach (['content/legacy-markdown', 'content/versions', 'backups/upgrades', 'tmp/upgrades', 'tmp/exports', 'tmp/static-site-exports', 'data'] as $dir) {
-                $path = mp_root_path($dir);
+            foreach (['content/import-markdown', 'content/versions', 'backups/upgrades', 'tmp/upgrades', 'tmp/exports', 'tmp/static-site-exports', 'data'] as $dir) {
+                $path = bms_root_path($dir);
                 if (!is_dir($path)) {
                     mkdir($path, 0755, true);
                 }
             }
 
-            mp_write_file(mp_installed_lock_path(), "Installed: " . date('c') . "\nVersion: " . mp_version() . "\n");
-            $_SESSION['mp_logged_in'] = true;
-            $_SESSION['mp_user_id'] = $userId;
+            bms_write_file(bms_installed_lock_path(), "Installed: " . date('c') . "\nVersion: " . bms_version() . "\n");
+            $_SESSION['bms_logged_in'] = true;
+            $_SESSION['bms_user_id'] = $userId;
             unset($_SESSION['bm_install_db']);
-            mp_redirect(mp_admin_url());
+            bms_redirect(bms_admin_url());
         } catch (Throwable $e) {
             $error = $e->getMessage();
         }
@@ -362,7 +358,7 @@ if ($step === 'welcome') {
     bm_installer_header('Welcome to Bonumark Stream');
     ?>
     <section class="panel">
-      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This setup follows the same basic flow most shared hosting users already know.</p>
+      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v0.4.x installer creates a clean empty database-first site.</p>
       <ol>
         <li>Create a database and database user in your hosting control panel.</li>
         <li>Enter the database details.</li>
@@ -374,10 +370,10 @@ if ($step === 'welcome') {
     <section class="panel">
       <h2>Server check</h2>
       <ul class="check-list">
-        <li>PHP version: <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?> <?= version_compare(PHP_VERSION, '8.2.0', '>=') ? 'OK' : 'needs PHP 8.2+' ?></li>
-        <li>PDO MySQL: <?= mp_db_supports_mysql() ? 'available' : 'not available' ?></li>
-        <li>Config writable: <?= is_writable(mp_root_path()) ? 'yes' : 'no' ?></li>
-        <?php $probe = mp_probe_private_folder_exposure(); ?>
+        <li>PHP version: <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?> <?= version_compare(PHP_VERSION, '8.1.0', '>=') ? (version_compare(PHP_VERSION, '8.2.0', '>=') ? 'OK' : 'OK, PHP 8.2+ recommended') : 'needs PHP 8.1+' ?></li>
+        <li>PDO MySQL: <?= bms_db_supports_mysql() ? 'available' : 'not available' ?></li>
+        <li>Config writable: <?= is_writable(bms_root_path()) ? 'yes' : 'no' ?></li>
+        <?php $probe = bms_probe_private_folder_exposure(); ?>
         <li>Private folder exposure: <?= htmlspecialchars($probe['status'] . ' - ' . $probe['message'], ENT_QUOTES, 'UTF-8') ?></li>
       </ul>
     </section>
@@ -409,7 +405,7 @@ if ($step === 'database') {
 
 if ($step === 'setup') {
     if (empty($_SESSION['bm_install_db']) || !is_array($_SESSION['bm_install_db'])) {
-        mp_redirect(bm_install_url('database'));
+        bms_redirect(bm_install_url('database'));
     }
     $posted = $_POST ?: [];
     bm_installer_header('Site Setup');
@@ -427,7 +423,7 @@ if ($step === 'setup') {
       <?php bm_readonly_info('Detected Base Path', bm_detect_base_path_from_request() !== '' ? bm_detect_base_path_from_request() : '/', 'Root installs use /. Subfolder installs are detected automatically.'); ?>
 
       <h2>Admin Account</h2>
-      <?php bm_field('username', 'Username', (string)($posted['username'] ?? 'admin')); ?>
+      <?php bm_field('username', 'Username', (string)($posted['username'] ?? '')); ?>
       <?php bm_field('display_name', 'Display Name', (string)($posted['display_name'] ?? ''), 'text', 'Shown inside the admin and used as the default public author name.'); ?>
       <?php bm_field('email', 'Email', (string)($posted['email'] ?? ''), 'text', 'Optional for now, useful for future recovery features.', false); ?>
       <?php bm_field('password', 'Password', '', 'password', 'Minimum 12 characters. Use a strong password or a long passphrase.'); ?>
@@ -439,4 +435,4 @@ if ($step === 'setup') {
     exit;
 }
 
-mp_redirect(bm_install_url());
+bms_redirect(bm_install_url());

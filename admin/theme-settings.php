@@ -3,56 +3,56 @@ require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
-$packages = function_exists('mp_public_theme_packages') ? mp_public_theme_packages() : ['default' => ['slug' => 'default', 'name' => 'Midnight Ledger', 'description' => 'The default Bonumark Stream public theme.', 'settings' => []]];
-$activePackage = function_exists('mp_active_public_theme_slug') ? mp_active_public_theme_slug() : 'default';
+$packages = function_exists('bms_public_theme_packages') ? bms_public_theme_packages() : ['default' => ['slug' => 'default', 'name' => 'Midnight Ledger', 'description' => 'The default Bonumark Stream public theme.', 'settings' => []]];
+$activePackage = function_exists('bms_active_public_theme_slug') ? bms_active_public_theme_slug() : 'default';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
 
-    $postedPackage = function_exists('mp_theme_slug') ? mp_theme_slug((string)($_POST['active_public_theme'] ?? $activePackage)) : 'default';
+    $postedPackage = function_exists('bms_theme_slug') ? bms_theme_slug((string)($_POST['active_public_theme'] ?? $activePackage)) : 'default';
     if (!isset($packages[$postedPackage])) {
         $postedPackage = 'default';
     }
 
-    $selectedHealth = is_array($packages[$postedPackage]['health'] ?? null) ? $packages[$postedPackage]['health'] : (function_exists('mp_public_theme_package_health') ? mp_public_theme_package_health($packages[$postedPackage]) : ['valid' => true]);
+    $selectedHealth = is_array($packages[$postedPackage]['health'] ?? null) ? $packages[$postedPackage]['health'] : (function_exists('bms_public_theme_package_health') ? bms_public_theme_package_health($packages[$postedPackage]) : ['valid' => true]);
     if (empty($selectedHealth['valid'])) {
-        $message = function_exists('mp_public_theme_activation_error') ? mp_public_theme_activation_error($packages[$postedPackage]) : 'The selected theme is not safe to activate.';
-        mp_flash($message, 'error');
-        mp_redirect(mp_admin_url('theme-settings.php'));
+        $message = function_exists('bms_public_theme_activation_error') ? bms_public_theme_activation_error($packages[$postedPackage]) : 'The selected theme is not safe to activate.';
+        bms_flash($message, 'error');
+        bms_redirect(bms_admin_url('theme-settings.php'));
     }
 
     $rawThemeSettings = is_array($_POST['theme_settings'] ?? null) ? $_POST['theme_settings'] : [];
 
     try {
-        mp_set_setting('active_public_theme', $postedPackage);
-        if (function_exists('mp_save_public_theme_settings')) {
-            mp_save_public_theme_settings($postedPackage, $rawThemeSettings);
+        bms_set_setting('active_public_theme', $postedPackage);
+        if (function_exists('bms_save_public_theme_settings')) {
+            bms_save_public_theme_settings($postedPackage, $rawThemeSettings);
         }
-        mp_flash('Theme settings saved. Dynamic public routes use the updated theme values immediately.', 'success');
-        mp_redirect(mp_admin_url('theme-settings.php'));
+        bms_flash('Theme settings saved. Dynamic public routes use the updated theme values immediately.', 'success');
+        bms_redirect(bms_admin_url('theme-settings.php'));
     } catch (Throwable $e) {
-        mp_flash('Could not save theme settings: ' . $e->getMessage(), 'error');
+        bms_flash('Could not save theme settings: ' . $e->getMessage(), 'error');
     }
 
     $activePackage = $postedPackage;
 }
 
 $activeTheme = $packages[$activePackage] ?? $packages['default'];
-$activeSettings = function_exists('mp_public_theme_settings') ? mp_public_theme_settings($activePackage) : [];
-$settingsSchema = function_exists('mp_public_theme_settings_schema') ? mp_public_theme_settings_schema($activePackage) : [];
-$screenshotUrl = function_exists('mp_public_theme_screenshot_url') ? mp_public_theme_screenshot_url($activeTheme) : '';
-$activeHealth = is_array($activeTheme['health'] ?? null) ? $activeTheme['health'] : (function_exists('mp_public_theme_package_health') ? mp_public_theme_package_health($activeTheme) : ['valid' => true, 'label' => 'Safe to activate', 'errors' => [], 'warnings' => []]);
+$activeSettings = function_exists('bms_public_theme_settings') ? bms_public_theme_settings($activePackage) : [];
+$settingsSchema = function_exists('bms_public_theme_settings_schema') ? bms_public_theme_settings_schema($activePackage) : [];
+$screenshotUrl = function_exists('bms_public_theme_screenshot_url') ? bms_public_theme_screenshot_url($activeTheme) : '';
+$activeHealth = is_array($activeTheme['health'] ?? null) ? $activeTheme['health'] : (function_exists('bms_public_theme_package_health') ? bms_public_theme_package_health($activeTheme) : ['valid' => true, 'label' => 'Safe to activate', 'errors' => [], 'warnings' => []]);
 
-mp_admin_header('Theme Settings', [
-    ['label' => 'Themes', 'href' => mp_admin_url('theme.php'), 'style' => 'secondary'],
+bms_admin_header('Theme Settings', [
+    ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
 ]);
 ?>
-<p class="meta theme-settings-lead">Adjust the active public theme and the settings declared by that theme.</p>
+<p class="meta theme-settings-lead">Adjust the active public presentation theme and the settings declared by that theme.</p>
 
 <form method="post" class="settings-form theme-settings-form theme-settings-wide-form">
-  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
   <div class="theme-settings-workbench">
     <section class="panel theme-settings-theme-panel" aria-label="Active theme summary">
@@ -74,7 +74,6 @@ mp_admin_header('Theme Settings', [
         <div><span>Slug</span><code><?= htmlspecialchars((string)($activeTheme['slug'] ?? $activePackage), ENT_QUOTES, 'UTF-8') ?></code></div>
         <div><span>Version</span><code><?= htmlspecialchars((string)($activeTheme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></code></div>
         <div><span>Author</span><code><?= htmlspecialchars((string)($activeTheme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></code></div>
-        <div><span>Templates</span><code><?= htmlspecialchars((string)count((array)($activeTheme['templates'] ?? [])), ENT_QUOTES, 'UTF-8') ?></code></div>
         <div><span>Health</span><code><?= htmlspecialchars((string)($activeHealth['label'] ?? 'Safe to activate'), ENT_QUOTES, 'UTF-8') ?></code></div>
       </div>
     </section>
@@ -84,7 +83,7 @@ mp_admin_header('Theme Settings', [
         <div>
           <p class="eyebrow">Settings</p>
           <h2>Active theme settings</h2>
-          <p class="meta">Change the active theme or edit the values this theme exposes.</p>
+          <p class="meta">Change the active presentation theme or edit the values this theme exposes.</p>
         </div>
         <button type="submit">Save Theme Settings</button>
       </div>
@@ -97,7 +96,7 @@ mp_admin_header('Theme Settings', [
         <div class="theme-setting-control">
           <select id="active_public_theme" name="active_public_theme">
             <?php foreach ($packages as $key => $theme): ?>
-              <?php $themeHealth = is_array($theme['health'] ?? null) ? $theme['health'] : (function_exists('mp_public_theme_package_health') ? mp_public_theme_package_health($theme) : ['valid' => true]); ?>
+              <?php $themeHealth = is_array($theme['health'] ?? null) ? $theme['health'] : (function_exists('bms_public_theme_package_health') ? bms_public_theme_package_health($theme) : ['valid' => true]); ?>
               <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $key === $activePackage ? 'selected' : '' ?> <?= empty($themeHealth['valid']) ? 'disabled' : '' ?>><?= htmlspecialchars((string)($theme['name'] ?? $key), ENT_QUOTES, 'UTF-8') ?>, v<?= htmlspecialchars((string)($theme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?><?= empty($themeHealth['valid']) ? ' (not safe to activate)' : '' ?></option>
             <?php endforeach; ?>
           </select>
@@ -149,9 +148,9 @@ mp_admin_header('Theme Settings', [
 
       <div class="form-actions-row theme-settings-bottom-actions">
         <button type="submit">Save Theme Settings</button>
-        <a class="button-link" href="<?= htmlspecialchars(mp_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
+        <a class="button-link" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
       </div>
     </section>
   </div>
 </form>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

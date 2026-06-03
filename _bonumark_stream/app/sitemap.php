@@ -2,44 +2,44 @@
 require_once __DIR__ . '/pages.php';
 require_once __DIR__ . '/profiles.php';
 
-function mp_sitemap_enabled(): bool
+function bms_sitemap_enabled(): bool
 {
-    return (string)mp_setting_or_config('sitemap_enabled', '1') === '1';
+    return (string)bms_setting_or_config('sitemap_enabled', '1') === '1';
 }
 
-function mp_sitemap_include_stream_posts(): bool
+function bms_sitemap_include_stream_posts(): bool
 {
-    return (string)mp_setting_or_config('sitemap_include_stream_posts', '1') === '1';
+    return (string)bms_setting_or_config('sitemap_include_stream_posts', '1') === '1';
 }
 
-function mp_sitemap_include_pages(): bool
+function bms_sitemap_include_pages(): bool
 {
-    return (string)mp_setting_or_config('sitemap_include_pages', '1') === '1';
+    return (string)bms_setting_or_config('sitemap_include_pages', '1') === '1';
 }
 
-function mp_sitemap_include_profiles(): bool
+function bms_sitemap_include_profiles(): bool
 {
-    return (string)mp_setting_or_config('sitemap_include_profiles', '0') === '1';
+    return (string)bms_setting_or_config('sitemap_include_profiles', '0') === '1';
 }
 
 
-function mp_sitemap_absolute_url(string $pathOrUrl): string
+function bms_sitemap_absolute_url(string $pathOrUrl): string
 {
     $pathOrUrl = trim($pathOrUrl);
     if ($pathOrUrl === '') {
-        return mp_site_url('');
+        return bms_site_url('');
     }
     if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $pathOrUrl) === 1) {
         return $pathOrUrl;
     }
     if (str_starts_with($pathOrUrl, '/')) {
-        $base = rtrim((string)mp_setting_or_config('base_url', ''), '/');
+        $base = rtrim((string)bms_setting_or_config('base_url', ''), '/');
         return $base !== '' ? $base . $pathOrUrl : $pathOrUrl;
     }
-    return mp_site_url($pathOrUrl);
+    return bms_site_url($pathOrUrl);
 }
 
-function mp_sitemap_datetime(string $raw): string
+function bms_sitemap_datetime(string $raw): string
 {
     $raw = trim($raw);
     $time = $raw !== '' ? strtotime($raw) : false;
@@ -49,30 +49,30 @@ function mp_sitemap_datetime(string $raw): string
     return date('c', $time);
 }
 
-function mp_sitemap_lastmod_from_content(array $item): string
+function bms_sitemap_lastmod_from_content(array $item): string
 {
     foreach (['updated_at', 'published_at', 'stream_created_at', 'date_published', 'date', 'created_at'] as $key) {
         $value = trim((string)($item[$key] ?? ($item['front_matter'][$key] ?? '')));
         if ($value !== '') {
-            return mp_sitemap_datetime($value);
+            return bms_sitemap_datetime($value);
         }
     }
-    return mp_sitemap_datetime('');
+    return bms_sitemap_datetime('');
 }
 
-function mp_sitemap_content_is_indexable(array $item, string $type): bool
+function bms_sitemap_content_is_indexable(array $item, string $type): bool
 {
-    if ($type === 'page' && function_exists('mp_page_robots_directive')) {
-        return !str_contains(strtolower(mp_page_robots_directive($item)), 'noindex');
+    if ($type === 'page' && function_exists('bms_page_robots_directive')) {
+        return !str_contains(strtolower(bms_page_robots_directive($item)), 'noindex');
     }
-    if ($type === 'stream' && function_exists('mp_stream_robots_directive')) {
-        return !str_contains(strtolower(mp_stream_robots_directive($item)), 'noindex');
+    if ($type === 'stream' && function_exists('bms_stream_robots_directive')) {
+        return !str_contains(strtolower(bms_stream_robots_directive($item)), 'noindex');
     }
     $robots = strtolower(trim((string)($item['robots'] ?? ($item['front_matter']['robots'] ?? ''))));
     return $robots === '' || !str_contains($robots, 'noindex');
 }
 
-function mp_sitemap_add_url(array &$urls, string $loc, string $lastmod = '', string $changefreq = '', string $priority = ''): void
+function bms_sitemap_add_url(array &$urls, string $loc, string $lastmod = '', string $changefreq = '', string $priority = ''): void
 {
     $loc = trim($loc);
     if ($loc === '') {
@@ -84,13 +84,13 @@ function mp_sitemap_add_url(array &$urls, string $loc, string $lastmod = '', str
     }
     $urls[$key] = [
         'loc' => $loc,
-        'lastmod' => $lastmod !== '' ? mp_sitemap_datetime($lastmod) : '',
+        'lastmod' => $lastmod !== '' ? bms_sitemap_datetime($lastmod) : '',
         'changefreq' => $changefreq,
         'priority' => $priority,
     ];
 }
 
-function mp_sitemap_latest_lastmod(array $items): string
+function bms_sitemap_latest_lastmod(array $items): string
 {
     $latest = 0;
     foreach ($items as $item) {
@@ -111,17 +111,17 @@ function mp_sitemap_latest_lastmod(array $items): string
     return $latest > 0 ? date('c', $latest) : date('c');
 }
 
-function mp_sitemap_public_users(): array
+function bms_sitemap_public_users(): array
 {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         return [];
     }
     try {
-        $stmt = mp_db()->prepare('SELECT id, username, display_name, email, role, status, bio, website, social_links, profile_visibility, avatar_path, created_at, updated_at FROM ' . mp_table('users') . ' WHERE status = :status AND profile_visibility <> :visibility ORDER BY updated_at DESC, id ASC LIMIT 500');
+        $stmt = bms_db()->prepare('SELECT id, username, display_name, email, role, status, bio, website, social_links, profile_visibility, avatar_path, created_at, updated_at FROM ' . bms_table('users') . ' WHERE status = :status AND profile_visibility <> :visibility ORDER BY updated_at DESC, id ASC LIMIT 500');
         $stmt->execute(['status' => 'active', 'visibility' => 'private']);
         $users = [];
         foreach ($stmt->fetchAll() ?: [] as $user) {
-            if (is_array($user) && mp_profile_user_is_viewable($user)) {
+            if (is_array($user) && bms_profile_user_is_viewable($user)) {
                 $users[] = $user;
             }
         }
@@ -131,56 +131,56 @@ function mp_sitemap_public_users(): array
     }
 }
 
-function mp_sitemap_url_entries(?array $streamPosts = null, ?array $pages = null): array
+function bms_sitemap_url_entries(?array $streamPosts = null, ?array $pages = null): array
 {
-    $streamPosts = $streamPosts ?? mp_list_content_records('published');
-    $pages = $pages ?? mp_list_page_records('published');
+    $streamPosts = $streamPosts ?? bms_list_content_records('published');
+    $pages = $pages ?? bms_list_page_records('published');
     $urls = [];
     $combined = array_merge($streamPosts, $pages);
-    $latest = mp_sitemap_latest_lastmod($combined);
+    $latest = bms_sitemap_latest_lastmod($combined);
 
-    mp_sitemap_add_url($urls, mp_site_url(''), $latest, 'daily', '1.0');
-    mp_sitemap_add_url($urls, mp_site_url('stream/'), $latest, 'daily', '0.9');
+    bms_sitemap_add_url($urls, bms_site_url(''), $latest, 'daily', '1.0');
+    bms_sitemap_add_url($urls, bms_site_url('stream/'), $latest, 'daily', '0.9');
 
-    if (mp_sitemap_include_stream_posts()) {
-        foreach (mp_sort_stream_posts(mp_filter_stream_posts($streamPosts)) as $post) {
-            if (!mp_sitemap_content_is_indexable($post, 'stream')) {
+    if (bms_sitemap_include_stream_posts()) {
+        foreach (bms_sort_stream_posts(bms_filter_stream_posts($streamPosts)) as $post) {
+            if (!bms_sitemap_content_is_indexable($post, 'stream')) {
                 continue;
             }
-            $slug = mp_slugify((string)($post['slug'] ?? ''));
+            $slug = bms_slugify((string)($post['slug'] ?? ''));
             if ($slug === '') {
                 continue;
             }
-            mp_sitemap_add_url($urls, mp_site_url(mp_stream_relative_directory_for_post($post) . '/'), mp_sitemap_lastmod_from_content($post), 'weekly', '0.8');
+            bms_sitemap_add_url($urls, bms_site_url(bms_stream_relative_directory_for_post($post) . '/'), bms_sitemap_lastmod_from_content($post), 'weekly', '0.8');
         }
     }
 
-    if (mp_sitemap_include_pages()) {
+    if (bms_sitemap_include_pages()) {
         foreach ($pages as $page) {
-            if (!mp_sitemap_content_is_indexable($page, 'page')) {
+            if (!bms_sitemap_content_is_indexable($page, 'page')) {
                 continue;
             }
-            $slug = mp_slugify((string)($page['slug'] ?? ''));
+            $slug = bms_slugify((string)($page['slug'] ?? ''));
             if ($slug === '') {
                 continue;
             }
-            mp_sitemap_add_url($urls, mp_site_url(mp_page_relative_directory_for_page($page) . '/'), mp_sitemap_lastmod_from_content($page), 'monthly', '0.7');
+            bms_sitemap_add_url($urls, bms_site_url(bms_page_relative_directory_for_page($page) . '/'), bms_sitemap_lastmod_from_content($page), 'monthly', '0.7');
         }
     }
 
-    if (mp_sitemap_include_profiles()) {
-        foreach (mp_sitemap_public_users() as $user) {
-            $profileUrl = mp_public_profile_url_for_user($user);
-            mp_sitemap_add_url($urls, mp_sitemap_absolute_url($profileUrl), mp_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? '')), 'monthly', '0.4');
+    if (bms_sitemap_include_profiles()) {
+        foreach (bms_sitemap_public_users() as $user) {
+            $profileUrl = bms_public_profile_url_for_user($user);
+            bms_sitemap_add_url($urls, bms_sitemap_absolute_url($profileUrl), bms_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? '')), 'monthly', '0.4');
         }
     }
 
     return array_values($urls);
 }
 
-function mp_render_sitemap_xsl(): string
+function bms_render_sitemap_xsl(): string
 {
-    $stylesheetHref = mp_xml_escape(mp_asset_url('assets/sitemap.css'));
+    $stylesheetHref = bms_xml_escape(bms_asset_url('assets/sitemap.css'));
     return <<<XSL
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0"
@@ -253,50 +253,50 @@ function mp_render_sitemap_xsl(): string
 XSL;
 }
 
-function mp_render_xml_sitemap(?array $streamPosts = null, ?array $pages = null): string
+function bms_render_xml_sitemap(?array $streamPosts = null, ?array $pages = null): string
 {
-    $entries = mp_sitemap_url_entries($streamPosts, $pages);
+    $entries = bms_sitemap_url_entries($streamPosts, $pages);
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-        . '<?xml-stylesheet type="text/xsl" href="' . mp_xml_escape(mp_url_path('sitemap.xsl')) . '"?>' . "\n"
+        . '<?xml-stylesheet type="text/xsl" href="' . bms_xml_escape(bms_url_path('sitemap.xsl')) . '"?>' . "\n"
         . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
     foreach ($entries as $entry) {
         $xml .= '  <url>' . "\n"
-            . '    <loc>' . mp_xml_escape((string)$entry['loc']) . '</loc>' . "\n";
+            . '    <loc>' . bms_xml_escape((string)$entry['loc']) . '</loc>' . "\n";
         if ((string)$entry['lastmod'] !== '') {
-            $xml .= '    <lastmod>' . mp_xml_escape((string)$entry['lastmod']) . '</lastmod>' . "\n";
+            $xml .= '    <lastmod>' . bms_xml_escape((string)$entry['lastmod']) . '</lastmod>' . "\n";
         }
         if ((string)$entry['changefreq'] !== '') {
-            $xml .= '    <changefreq>' . mp_xml_escape((string)$entry['changefreq']) . '</changefreq>' . "\n";
+            $xml .= '    <changefreq>' . bms_xml_escape((string)$entry['changefreq']) . '</changefreq>' . "\n";
         }
         if ((string)$entry['priority'] !== '') {
-            $xml .= '    <priority>' . mp_xml_escape((string)$entry['priority']) . '</priority>' . "\n";
+            $xml .= '    <priority>' . bms_xml_escape((string)$entry['priority']) . '</priority>' . "\n";
         }
         $xml .= '  </url>' . "\n";
     }
     return $xml . '</urlset>' . "\n";
 }
 
-function mp_render_robots_txt(): string
+function bms_render_robots_txt(): string
 {
     $lines = [
         'User-agent: *',
         'Allow: /',
     ];
-    if (mp_sitemap_enabled()) {
+    if (bms_sitemap_enabled()) {
         $lines[] = '';
-        $lines[] = 'Sitemap: ' . mp_site_url('sitemap.xml');
+        $lines[] = 'Sitemap: ' . bms_site_url('sitemap.xml');
     }
     return implode("\n", $lines) . "\n";
 }
 
-function mp_generate_static_sitemap(?array $streamPosts = null, ?array $pages = null, ?string $targetRoot = null): void
+function bms_generate_static_sitemap(?array $streamPosts = null, ?array $pages = null, ?string $targetRoot = null): void
 {
-    if (!mp_sitemap_enabled()) {
+    if (!bms_sitemap_enabled()) {
         return;
     }
-    $streamPosts = $streamPosts ?? mp_list_content_records('published');
-    $pages = $pages ?? mp_list_page_records('published');
-    mp_write_file(mp_static_site_export_path('sitemap.xml', $targetRoot), mp_render_xml_sitemap($streamPosts, $pages));
-    mp_write_file(mp_static_site_export_path('sitemap.xsl', $targetRoot), mp_render_sitemap_xsl());
-    mp_write_file(mp_static_site_export_path('robots.txt', $targetRoot), mp_render_robots_txt());
+    $streamPosts = $streamPosts ?? bms_list_content_records('published');
+    $pages = $pages ?? bms_list_page_records('published');
+    bms_write_file(bms_static_site_export_path('sitemap.xml', $targetRoot), bms_render_xml_sitemap($streamPosts, $pages));
+    bms_write_file(bms_static_site_export_path('sitemap.xsl', $targetRoot), bms_render_sitemap_xsl());
+    bms_write_file(bms_static_site_export_path('robots.txt', $targetRoot), bms_render_robots_txt());
 }

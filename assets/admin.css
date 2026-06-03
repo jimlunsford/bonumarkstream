@@ -5399,7 +5399,7 @@ body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
 
 /* Registration Approval and Invite Control Pass*/
 
-/* multiuser publishing controls*/
+/* account controls */
 body.bonumark-admin .settings-fieldset {
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 14px;
@@ -6297,7 +6297,7 @@ body.bonumark-admin .dashboard-card {
   }
 }
 
-/* v0.2.48: keep all admin text inputs in the Bonumark form style, including plain inputs without an explicit type. */
+/* Keep all admin text inputs in the Bonumark form style, including plain inputs without an explicit type. */
 body.bonumark-admin input:not([type]),
 body.bonumark-admin input[type="text"],
 body.bonumark-admin input[type="password"],
@@ -6351,7 +6351,7 @@ body.bonumark-admin input[type="tel"]:focus {
   outline: 2px solid transparent;
 }
 
-/* v0.2.49: align upgrade confirmation actions so Run Upgrade and Cancel sit on the same baseline. */
+/* Align upgrade confirmation actions so Run Upgrade and Cancel sit on the same baseline. */
 body.bonumark-admin .upgrade-confirm-actions {
   align-items: center;
   display: flex;
@@ -6369,7 +6369,7 @@ body.bonumark-admin .upgrade-confirm-actions .secondary-button {
   min-height: 38px;
 }
 
-/* v0.2.54: align Save user and Cancel on the Edit User account form. */
+/* Align Save user and Cancel on the Edit User account form. */
 body.bonumark-admin .user-edit-actions {
   align-items: center;
   display: flex;
@@ -6387,7 +6387,7 @@ body.bonumark-admin .user-edit-actions .secondary-button {
   min-height: 38px;
 }
 
-/* v0.2.50: keep browser/autofilled admin fields inside the Bonumark dark form style. */
+/* Keep browser/autofilled admin fields inside the Bonumark dark form style. */
 body.bonumark-admin input:-webkit-autofill,
 body.bonumark-admin input:-webkit-autofill:hover,
 body.bonumark-admin input:-webkit-autofill:focus,
@@ -6419,7 +6419,7 @@ body.bonumark-admin input:autofill {
 }
 
 
-/* v0.2.51: keep the upgrade screen clean by hiding technical details until admins ask for them. */
+/* Keep the upgrade screen clean by hiding technical details until admins ask for them. */
 body.bonumark-admin .upgrade-upload-panel .upgrade-current-version {
   align-items: center;
   background: #0f1217;

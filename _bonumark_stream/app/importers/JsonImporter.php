@@ -1,6 +1,6 @@
 <?php
 
-class MP_JsonImporter implements MP_ImporterInterface
+class BMS_JsonImporter implements BMS_ImporterInterface
 {
     private const MAX_IMPORT_ITEMS = 5000;
 
@@ -15,12 +15,12 @@ class MP_JsonImporter implements MP_ImporterInterface
         return str_ends_with($name, '.json');
     }
 
-    public function importPreview(array $file): MP_ImportResult
+    public function importPreview(array $file): BMS_ImportResult
     {
-        $result = new MP_ImportResult($this->label());
+        $result = new BMS_ImportResult($this->label());
         $path = (string)($file['tmp_name'] ?? '');
         $name = (string)($file['name'] ?? 'import.json');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             $result->addError('Uploaded JSON file could not be read.');
             return $result;
         }
@@ -96,7 +96,7 @@ class MP_JsonImporter implements MP_ImporterInterface
     }
 
     /** @param array<string,mixed> $record */
-    private function recordToItem(array $record, string $sourceName, int $index): MP_ImportItem
+    private function recordToItem(array $record, string $sourceName, int $index): BMS_ImportItem
     {
         $body = $this->firstString($record, ['body', 'content', 'markdown', 'text', 'post_content', 'description_html']);
         $body = html_entity_decode(trim(strip_tags($body)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -112,14 +112,14 @@ class MP_JsonImporter implements MP_ImporterInterface
             $title = 'Imported post ' . $index;
         }
 
-        return mp_import_make_item([
+        return bms_import_make_item([
             'title' => $title,
             'slug' => $slug,
             'body' => $body,
-            'date' => mp_import_normalize_date($dateRaw),
-            'created_at' => mp_import_normalize_datetime($dateRaw),
+            'date' => bms_import_normalize_date($dateRaw),
+            'created_at' => bms_import_normalize_datetime($dateRaw),
             'description' => $description,
-            'status' => mp_import_normalize_status($status),
+            'status' => bms_import_normalize_status($status),
             'source' => $sourceName . ' #' . $index,
             'featured_media' => $featuredMedia,
             'tags' => $tags,
@@ -153,10 +153,10 @@ class MP_JsonImporter implements MP_ImporterInterface
             }
             $value = $record[$key];
             if (is_string($value)) {
-                return mp_normalize_terms($value);
+                return bms_normalize_terms($value);
             }
             if (is_array($value)) {
-                return mp_normalize_terms($value);
+                return bms_normalize_terms($value);
             }
         }
         return [];

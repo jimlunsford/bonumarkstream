@@ -2,9 +2,9 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
-function mp_upgrade_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
+function bms_upgrade_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
 {
     if (!method_exists($zip, 'getExternalAttributesIndex')) {
         return false;
@@ -24,7 +24,7 @@ function mp_upgrade_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
     return false;
 }
 
-function mp_upgrade_safe_extract(ZipArchive $zip, string $destination): void
+function bms_upgrade_safe_extract(ZipArchive $zip, string $destination): void
 {
     $maxFiles = 700;
     $maxTotalBytes = 50 * 1024 * 1024;
@@ -48,7 +48,7 @@ function mp_upgrade_safe_extract(ZipArchive $zip, string $destination): void
         if (strlen($normalized) > 240 || $depth > 12) {
             throw new RuntimeException('Upgrade package contains paths that are too deep or too long.');
         }
-        if (mp_upgrade_zip_entry_is_symlink($zip, $i)) {
+        if (bms_upgrade_zip_entry_is_symlink($zip, $i)) {
             throw new RuntimeException('Upgrade package contains a symbolic link, which is not allowed.');
         }
         if ($size > $maxSingleBytes) {
@@ -75,7 +75,7 @@ function mp_upgrade_safe_extract(ZipArchive $zip, string $destination): void
     }
 }
 
-function mp_upgrade_find_package_root(string $directory): string
+function bms_upgrade_find_package_root(string $directory): string
 {
     $directory = rtrim($directory, '/\\');
     if (is_file($directory . '/_bonumark_stream/VERSION') && is_file($directory . '/admin/index.php')) {
@@ -100,24 +100,24 @@ function mp_upgrade_find_package_root(string $directory): string
     throw new RuntimeException('This does not look like a Bonumark Stream release package.');
 }
 
-function mp_upgrade_normalize_package_name(string $name): string
+function bms_upgrade_normalize_package_name(string $name): string
 {
     $name = strtolower(trim($name));
     $name = preg_replace('/[^a-z0-9]+/', '-', $name) ?: '';
     return trim($name, '-');
 }
 
-function mp_upgrade_allowed_package_names(): array
+function bms_upgrade_allowed_package_names(): array
 {
     return ['bonumark-stream'];
 }
 
-function mp_upgrade_package_version(string $packageRoot): string
+function bms_upgrade_package_version(string $packageRoot): string
 {
     $manifest = $packageRoot . '/_bonumark_stream/PACKAGE.json';
     if (is_file($manifest)) {
         $data = json_decode((string)file_get_contents($manifest), true);
-        if (is_array($data) && in_array(mp_upgrade_normalize_package_name((string)($data['name'] ?? '')), mp_upgrade_allowed_package_names(), true) && !empty($data['version'])) {
+        if (is_array($data) && in_array(bms_upgrade_normalize_package_name((string)($data['name'] ?? '')), bms_upgrade_allowed_package_names(), true) && !empty($data['version'])) {
             return trim((string)$data['version']);
         }
     }
@@ -134,7 +134,7 @@ function mp_upgrade_package_version(string $packageRoot): string
 }
 
 
-function mp_upgrade_package_file_paths(string $packageRoot): array
+function bms_upgrade_package_file_paths(string $packageRoot): array
 {
     $paths = [];
     $root = rtrim($packageRoot, '/\\');
@@ -158,7 +158,7 @@ function mp_upgrade_package_file_paths(string $packageRoot): array
     return $paths;
 }
 
-function mp_upgrade_verify_manifest(string $packageRoot): void
+function bms_upgrade_verify_manifest(string $packageRoot): void
 {
     $manifestPath = $packageRoot . '/_bonumark_stream/RELEASE-MANIFEST.json';
     if (!is_file($manifestPath)) {
@@ -166,7 +166,7 @@ function mp_upgrade_verify_manifest(string $packageRoot): void
     }
 
     $manifest = json_decode((string)file_get_contents($manifestPath), true);
-    if (!is_array($manifest) || !in_array(mp_upgrade_normalize_package_name((string)($manifest['name'] ?? '')), mp_upgrade_allowed_package_names(), true) || empty($manifest['files']) || !is_array($manifest['files'])) {
+    if (!is_array($manifest) || !in_array(bms_upgrade_normalize_package_name((string)($manifest['name'] ?? '')), bms_upgrade_allowed_package_names(), true) || empty($manifest['files']) || !is_array($manifest['files'])) {
         throw new RuntimeException('Release manifest is invalid. Upgrade refused.');
     }
 
@@ -194,7 +194,7 @@ function mp_upgrade_verify_manifest(string $packageRoot): void
         $manifestFiles[$relative] = true;
     }
 
-    $packageFiles = mp_upgrade_package_file_paths($packageRoot);
+    $packageFiles = bms_upgrade_package_file_paths($packageRoot);
     foreach ($packageFiles as $relative => $_) {
         if (!isset($manifestFiles[$relative])) {
             throw new RuntimeException('Release package contains an unlisted file. Upgrade refused: ' . $relative);
@@ -203,7 +203,7 @@ function mp_upgrade_verify_manifest(string $packageRoot): void
 }
 
 
-function mp_upgrade_manifest_file_set(string $packageRoot): array
+function bms_upgrade_manifest_file_set(string $packageRoot): array
 {
     $manifestPath = $packageRoot . '/_bonumark_stream/RELEASE-MANIFEST.json';
     $manifest = json_decode((string)file_get_contents($manifestPath), true);
@@ -227,14 +227,14 @@ function mp_upgrade_manifest_file_set(string $packageRoot): array
 }
 
 
-function mp_upgrade_retired_bundled_theme_slugs(): array
+function bms_upgrade_retired_bundled_theme_slugs(): array
 {
     return [
         'microblog-stream' => true,
     ];
 }
 
-function mp_upgrade_package_theme_slugs(array $manifestFiles, string $prefix): array
+function bms_upgrade_package_theme_slugs(array $manifestFiles, string $prefix): array
 {
     $slugs = [];
     foreach (array_keys($manifestFiles) as $relative) {
@@ -248,7 +248,7 @@ function mp_upgrade_package_theme_slugs(array $manifestFiles, string $prefix): a
     return $slugs;
 }
 
-function mp_upgrade_installed_theme_manifest(string $publicRoot, string $slug): array
+function bms_upgrade_installed_theme_manifest(string $publicRoot, string $slug): array
 {
     $slug = trim($slug);
     if ($slug === '' || str_contains($slug, '/') || str_contains($slug, '\\')) {
@@ -264,7 +264,7 @@ function mp_upgrade_installed_theme_manifest(string $publicRoot, string $slug): 
     return is_array($data) ? $data : [];
 }
 
-function mp_upgrade_theme_marked_as_bundled(array $manifest): bool
+function bms_upgrade_theme_marked_as_bundled(array $manifest): bool
 {
     $package = strtolower(trim((string)($manifest['package'] ?? '')));
     if (in_array($package, ['bundled-theme', 'bundled', 'core'], true)) {
@@ -274,7 +274,7 @@ function mp_upgrade_theme_marked_as_bundled(array $manifest): bool
     return !empty($manifest['bundled']) || !empty($manifest['core_theme']);
 }
 
-function mp_upgrade_retired_bundled_theme_leftover(string $publicRoot, string $slug): bool
+function bms_upgrade_retired_bundled_theme_leftover(string $publicRoot, string $slug): bool
 {
     static $cache = [];
 
@@ -284,23 +284,23 @@ function mp_upgrade_retired_bundled_theme_leftover(string $publicRoot, string $s
         return $cache[$cacheKey];
     }
 
-    $retiredThemeSlugs = mp_upgrade_retired_bundled_theme_slugs();
+    $retiredThemeSlugs = bms_upgrade_retired_bundled_theme_slugs();
     if (!isset($retiredThemeSlugs[$slug])) {
         $cache[$cacheKey] = false;
         return false;
     }
 
-    $manifest = mp_upgrade_installed_theme_manifest($publicRoot, $slug);
+    $manifest = bms_upgrade_installed_theme_manifest($publicRoot, $slug);
     if (!$manifest) {
         $cache[$cacheKey] = false;
         return false;
     }
 
-    $cache[$cacheKey] = mp_upgrade_theme_marked_as_bundled($manifest);
+    $cache[$cacheKey] = bms_upgrade_theme_marked_as_bundled($manifest);
     return $cache[$cacheKey];
 }
 
-function mp_upgrade_theme_path_preserved(string $publicRoot, string $slug, array $packageThemeSlugs): bool
+function bms_upgrade_theme_path_preserved(string $publicRoot, string $slug, array $packageThemeSlugs): bool
 {
     if ($slug === '') {
         return false;
@@ -310,14 +310,14 @@ function mp_upgrade_theme_path_preserved(string $publicRoot, string $slug, array
         return false;
     }
 
-    if (mp_upgrade_retired_bundled_theme_leftover($publicRoot, $slug)) {
+    if (bms_upgrade_retired_bundled_theme_leftover($publicRoot, $slug)) {
         return false;
     }
 
     return true;
 }
 
-function mp_upgrade_cleanup_preserved_path(string $publicRoot, string $relative, array $privateThemeSlugs, array $publicThemeSlugs): bool
+function bms_upgrade_cleanup_preserved_path(string $publicRoot, string $relative, array $privateThemeSlugs, array $publicThemeSlugs): bool
 {
     $relative = str_replace('\\', '/', ltrim($relative, '/'));
 
@@ -330,24 +330,24 @@ function mp_upgrade_cleanup_preserved_path(string $publicRoot, string $relative,
         return true;
     }
 
-    foreach (['_bonumark_stream/content/', '_bonumark_stream/data/', '_bonumark_stream/backups/', '_bonumark_stream/tmp/', 'media/', 'uploads/'] as $prefix) {
+    foreach (['_bonumark_stream/data/', '_bonumark_stream/backups/', '_bonumark_stream/tmp/', 'media/', 'uploads/'] as $prefix) {
         if (str_starts_with($relative, $prefix)) {
             return true;
         }
     }
 
     if (preg_match('#^_bonumark_stream/themes/([^/]+)/#', $relative, $matches)) {
-        return mp_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $privateThemeSlugs);
+        return bms_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $privateThemeSlugs);
     }
 
     if (preg_match('#^assets/themes/([^/]+)/#', $relative, $matches)) {
-        return mp_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $publicThemeSlugs);
+        return bms_upgrade_theme_path_preserved($publicRoot, (string)$matches[1], $publicThemeSlugs);
     }
 
     return false;
 }
 
-function mp_upgrade_cleanup_managed_path(string $relative): bool
+function bms_upgrade_cleanup_managed_path(string $relative): bool
 {
     $relative = str_replace('\\', '/', ltrim($relative, '/'));
 
@@ -366,7 +366,6 @@ function mp_upgrade_cleanup_managed_path(string $relative): bool
         'SECURITY.md' => true,
         'VERSION' => true,
         'account.php' => true,
-        'author.php' => true,
         'comments.php' => true,
         'index.php' => true,
         'install.php' => true,
@@ -374,7 +373,6 @@ function mp_upgrade_cleanup_managed_path(string $relative): bool
         'profile.php' => true,
         'search.php' => true,
         'stream-like.php' => true,
-        'stream-page.php' => true,
         '_bonumark_stream/.htaccess' => true,
         '_bonumark_stream/CHANGELOG.md' => true,
         '_bonumark_stream/PACKAGE.json' => true,
@@ -388,7 +386,7 @@ function mp_upgrade_cleanup_managed_path(string $relative): bool
     return isset($managedExact[$relative]);
 }
 
-function mp_upgrade_remove_empty_directories(string $root, array $privateThemeSlugs, array $publicThemeSlugs): void
+function bms_upgrade_remove_empty_directories(string $root, array $privateThemeSlugs, array $publicThemeSlugs): void
 {
     if (!is_dir($root)) {
         return;
@@ -404,10 +402,10 @@ function mp_upgrade_remove_empty_directories(string $root, array $privateThemeSl
             continue;
         }
         $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($root) + 1));
-        if ($relative === '' || mp_upgrade_cleanup_preserved_path($root, $relative . '/', $privateThemeSlugs, $publicThemeSlugs)) {
+        if ($relative === '' || bms_upgrade_cleanup_preserved_path($root, $relative . '/', $privateThemeSlugs, $publicThemeSlugs)) {
             continue;
         }
-        if (!mp_upgrade_cleanup_managed_path($relative . '/') && !mp_upgrade_cleanup_managed_path($relative)) {
+        if (!bms_upgrade_cleanup_managed_path($relative . '/') && !bms_upgrade_cleanup_managed_path($relative)) {
             continue;
         }
         $contents = array_diff(scandir($item->getPathname()) ?: [], ['.', '..']);
@@ -417,10 +415,10 @@ function mp_upgrade_remove_empty_directories(string $root, array $privateThemeSl
     }
 }
 
-function mp_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFiles): array
+function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFiles): array
 {
-    $privateThemeSlugs = mp_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
-    $publicThemeSlugs = mp_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
+    $privateThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
+    $publicThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
     $removed = [];
 
     if (!is_dir($publicRoot)) {
@@ -437,7 +435,7 @@ function mp_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFi
             continue;
         }
         $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($publicRoot) + 1));
-        if (isset($manifestFiles[$relative]) || mp_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
+        if (isset($manifestFiles[$relative]) || bms_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !bms_upgrade_cleanup_managed_path($relative)) {
             continue;
         }
         if (@unlink($item->getPathname())) {
@@ -447,20 +445,20 @@ function mp_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFi
         }
     }
 
-    mp_upgrade_remove_empty_directories($publicRoot, $privateThemeSlugs, $publicThemeSlugs);
+    bms_upgrade_remove_empty_directories($publicRoot, $privateThemeSlugs, $publicThemeSlugs);
     sort($removed);
     return $removed;
 }
 
-function mp_upgrade_record_history(string $fromVersion, string $toVersion, array $ran, array $removed): void
+function bms_upgrade_record_history(string $fromVersion, string $toVersion, array $ran, array $removed): void
 {
-    if (!function_exists('mp_db')) {
+    if (!function_exists('bms_db')) {
         return;
     }
 
     $migrationNotes = $ran ? implode(', ', $ran) : 'none';
     $cleanupNotes = $removed ? implode(', ', array_slice($removed, 0, 25)) . (count($removed) > 25 ? ' +' . (count($removed) - 25) . ' more' : '') : 'none';
-    $stmt = mp_db()->prepare('INSERT INTO ' . mp_table('upgrade_history') . ' (from_version, to_version, status, notes, ran_at) VALUES (:from_version, :to_version, :status, :notes, NOW())');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('upgrade_history') . ' (from_version, to_version, status, notes, ran_at) VALUES (:from_version, :to_version, :status, :notes, NOW())');
     $stmt->execute([
         'from_version' => $fromVersion,
         'to_version' => $toVersion,
@@ -469,7 +467,7 @@ function mp_upgrade_record_history(string $fromVersion, string $toVersion, array
     ]);
 }
 
-function mp_upgrade_software_items(string $packageRoot): array
+function bms_upgrade_software_items(string $packageRoot): array
 {
     $items = [
         'admin',
@@ -488,14 +486,13 @@ function mp_upgrade_software_items(string $packageRoot): array
         'page.php',
         'account.php',
         'profile.php',
-        'author.php',
         'comments.php',
         'search.php',
         'stream-like.php',
     ];
 
     $privateRoot = $packageRoot . '/_bonumark_stream';
-    $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'content' => true, 'data' => true, 'backups' => true, 'tmp' => true];
+    $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'data' => true, 'backups' => true, 'tmp' => true];
     foreach (array_diff(scandir($privateRoot) ?: [], ['.', '..']) as $item) {
         if (isset($skipPrivate[$item])) {
             continue;
@@ -508,7 +505,7 @@ function mp_upgrade_software_items(string $packageRoot): array
     return $items;
 }
 
-function mp_upgrade_copy_recursive(string $source, string $destination): void
+function bms_upgrade_copy_recursive(string $source, string $destination): void
 {
     if (is_file($source)) {
         $dir = dirname($destination);
@@ -531,27 +528,27 @@ function mp_upgrade_copy_recursive(string $source, string $destination): void
 
     $items = array_diff(scandir($source) ?: [], ['.', '..']);
     foreach ($items as $item) {
-        mp_upgrade_copy_recursive($source . '/' . $item, $destination . '/' . $item);
+        bms_upgrade_copy_recursive($source . '/' . $item, $destination . '/' . $item);
     }
 }
 
-function mp_upgrade_backup_existing(array $items, string $backupRoot, string $publicRoot): void
+function bms_upgrade_backup_existing(array $items, string $backupRoot, string $publicRoot): void
 {
     foreach ($items as $item) {
         $source = $publicRoot . '/' . $item;
         if (!file_exists($source)) {
             continue;
         }
-        mp_upgrade_copy_recursive($source, $backupRoot . '/' . $item);
+        bms_upgrade_copy_recursive($source, $backupRoot . '/' . $item);
     }
 
     $config = $publicRoot . '/_bonumark_stream/config.php';
     if (is_file($config)) {
-        mp_upgrade_copy_recursive($config, $backupRoot . '/_bonumark_stream/config.php');
+        bms_upgrade_copy_recursive($config, $backupRoot . '/_bonumark_stream/config.php');
     }
 }
 
-function mp_upgrade_existing_manifest_file_set(string $publicRoot, array $manifestFiles): array
+function bms_upgrade_existing_manifest_file_set(string $publicRoot, array $manifestFiles): array
 {
     $existing = [];
     foreach (array_keys($manifestFiles) as $relative) {
@@ -564,10 +561,10 @@ function mp_upgrade_existing_manifest_file_set(string $publicRoot, array $manife
     return $existing;
 }
 
-function mp_upgrade_remove_new_package_files(string $publicRoot, array $manifestFiles, array $existingBefore): array
+function bms_upgrade_remove_new_package_files(string $publicRoot, array $manifestFiles, array $existingBefore): array
 {
-    $privateThemeSlugs = mp_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
-    $publicThemeSlugs = mp_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
+    $privateThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
+    $publicThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
     $removed = [];
 
     $paths = array_keys($manifestFiles);
@@ -578,7 +575,7 @@ function mp_upgrade_remove_new_package_files(string $publicRoot, array $manifest
         if ($relative === '' || !empty($existingBefore[$relative])) {
             continue;
         }
-        if (mp_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !mp_upgrade_cleanup_managed_path($relative)) {
+        if (bms_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !bms_upgrade_cleanup_managed_path($relative)) {
             continue;
         }
 
@@ -592,36 +589,36 @@ function mp_upgrade_remove_new_package_files(string $publicRoot, array $manifest
         $removed[] = $relative;
     }
 
-    mp_upgrade_remove_empty_directories($publicRoot, $privateThemeSlugs, $publicThemeSlugs);
+    bms_upgrade_remove_empty_directories($publicRoot, $privateThemeSlugs, $publicThemeSlugs);
     sort($removed);
     return $removed;
 }
 
-function mp_upgrade_restore_backup(array $items, string $backupRoot, string $publicRoot): void
+function bms_upgrade_restore_backup(array $items, string $backupRoot, string $publicRoot): void
 {
     foreach ($items as $item) {
         $backup = $backupRoot . '/' . $item;
         if (!file_exists($backup)) {
             continue;
         }
-        mp_upgrade_copy_recursive($backup, $publicRoot . '/' . $item);
+        bms_upgrade_copy_recursive($backup, $publicRoot . '/' . $item);
     }
 
     $config = $backupRoot . '/_bonumark_stream/config.php';
     if (is_file($config)) {
-        mp_upgrade_copy_recursive($config, $publicRoot . '/_bonumark_stream/config.php');
+        bms_upgrade_copy_recursive($config, $publicRoot . '/_bonumark_stream/config.php');
     }
 }
 
-function mp_upgrade_remove_temp(string $path): void
+function bms_upgrade_remove_temp(string $path): void
 {
     if (is_dir($path)) {
-        mp_delete_directory($path);
+        bms_delete_directory($path);
     }
 }
 
 
-function mp_upgrade_pending_migrations_from_package(string $packageRoot): array
+function bms_upgrade_pending_migrations_from_package(string $packageRoot): array
 {
     $packageFiles = glob($packageRoot . '/_bonumark_stream/migrations/*.php') ?: [];
     $packageMigrations = array_map(fn($file) => basename($file, '.php'), $packageFiles);
@@ -629,9 +626,9 @@ function mp_upgrade_pending_migrations_from_package(string $packageRoot): array
 
     $done = [];
     try {
-        if (function_exists('mp_has_database_config') && mp_has_database_config()) {
-            $table = mp_table_prefix() . 'migrations';
-            $stmt = mp_db()->query('SELECT migration FROM `' . $table . '`');
+        if (function_exists('bms_has_database_config') && bms_has_database_config()) {
+            $table = bms_table_prefix() . 'migrations';
+            $stmt = bms_db()->query('SELECT migration FROM `' . $table . '`');
             foreach ($stmt->fetchAll() as $row) {
                 $done[(string)$row['migration']] = true;
             }
@@ -643,16 +640,25 @@ function mp_upgrade_pending_migrations_from_package(string $packageRoot): array
     return array_values(array_filter($packageMigrations, fn($migration) => !isset($done[$migration])));
 }
 
-function mp_upgrade_precheck_package(string $uploadedPath, string $uploadedName): array
+
+function bms_upgrade_assert_supported_current_version(string $currentVersion): void
+{
+    if ($currentVersion !== 'unknown' && version_compare($currentVersion, '0.4.0', '<')) {
+        throw new RuntimeException('Bonumark Stream v0.4.x supports admin ZIP upgrades from v0.4.0 and newer only.');
+    }
+}
+
+function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName): array
 {
     if (!class_exists('ZipArchive')) {
         throw new RuntimeException('The PHP ZipArchive extension is not available on this server. Ask the host to enable it before using admin ZIP upgrades.');
     }
 
-    $currentVersion = mp_version();
+    $currentVersion = bms_version();
+    bms_upgrade_assert_supported_current_version($currentVersion);
     $token = bin2hex(random_bytes(16));
-    $pendingDir = mp_root_path('tmp/upgrades/pending');
-    $extractRoot = mp_root_path('tmp/upgrades/precheck-' . $token);
+    $pendingDir = bms_root_path('tmp/upgrades/pending');
+    $extractRoot = bms_root_path('tmp/upgrades/precheck-' . $token);
     if (!is_dir($pendingDir) && !mkdir($pendingDir, 0755, true)) {
         throw new RuntimeException('Could not create the pending upgrade folder.');
     }
@@ -663,7 +669,7 @@ function mp_upgrade_precheck_package(string $uploadedPath, string $uploadedName)
     $pendingZip = $pendingDir . '/' . $token . '.zip';
     $copied = is_uploaded_file($uploadedPath) ? move_uploaded_file($uploadedPath, $pendingZip) : copy($uploadedPath, $pendingZip);
     if (!$copied) {
-        mp_upgrade_remove_temp($extractRoot);
+        bms_upgrade_remove_temp($extractRoot);
         throw new RuntimeException('Could not store the uploaded upgrade package for checking.');
     }
 
@@ -671,20 +677,20 @@ function mp_upgrade_precheck_package(string $uploadedPath, string $uploadedName)
     $opened = $zip->open($pendingZip);
     if ($opened !== true) {
         @unlink($pendingZip);
-        mp_upgrade_remove_temp($extractRoot);
+        bms_upgrade_remove_temp($extractRoot);
         throw new RuntimeException('Could not open the uploaded ZIP package.');
     }
 
     try {
-        mp_upgrade_safe_extract($zip, $extractRoot);
+        bms_upgrade_safe_extract($zip, $extractRoot);
     } finally {
         $zip->close();
     }
 
     try {
-        $packageRoot = mp_upgrade_find_package_root($extractRoot);
-        $packageVersion = mp_upgrade_package_version($packageRoot);
-        mp_upgrade_verify_manifest($packageRoot);
+        $packageRoot = bms_upgrade_find_package_root($extractRoot);
+        $packageVersion = bms_upgrade_package_version($packageRoot);
+        bms_upgrade_verify_manifest($packageRoot);
         $packageMeta = is_file($packageRoot . '/_bonumark_stream/PACKAGE.json') ? json_decode((string)file_get_contents($packageRoot . '/_bonumark_stream/PACKAGE.json'), true) : [];
         $releaseNotes = is_array($packageMeta) ? trim((string)($packageMeta['release_name'] ?? $packageMeta['description'] ?? '')) : '';
 
@@ -692,13 +698,13 @@ function mp_upgrade_precheck_package(string $uploadedPath, string $uploadedName)
             throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
         }
 
-        $backupBase = mp_root_path('backups/upgrades');
+        $backupBase = bms_root_path('backups/upgrades');
         if (!is_dir($backupBase)) {
             @mkdir($backupBase, 0755, true);
         }
         $backupReady = is_dir($backupBase) && is_writable($backupBase);
-        $pendingMigrations = mp_upgrade_pending_migrations_from_package($packageRoot);
-        $publishedCount = count(mp_list_content_records('published'));
+        $pendingMigrations = bms_upgrade_pending_migrations_from_package($packageRoot);
+        $publishedCount = count(bms_list_content_records('published'));
 
         $precheck = [
             'token' => $token,
@@ -718,11 +724,11 @@ function mp_upgrade_precheck_package(string $uploadedPath, string $uploadedName)
         @unlink($pendingZip);
         throw $e;
     } finally {
-        mp_upgrade_remove_temp($extractRoot);
+        bms_upgrade_remove_temp($extractRoot);
     }
 }
 
-function mp_upgrade_clear_pending(): void
+function bms_upgrade_clear_pending(): void
 {
     $pending = $_SESSION['pending_upgrade'] ?? null;
     if (is_array($pending) && !empty($pending['zip_path']) && is_file((string)$pending['zip_path'])) {
@@ -731,17 +737,18 @@ function mp_upgrade_clear_pending(): void
     unset($_SESSION['pending_upgrade']);
 }
 
-function mp_upgrade_install(string $zipPath): array
+function bms_upgrade_install(string $zipPath): array
 {
     if (!class_exists('ZipArchive')) {
         throw new RuntimeException('The PHP ZipArchive extension is not available on this server. Ask the host to enable it before using admin ZIP upgrades.');
     }
 
-    $currentVersion = mp_version();
-    $publicRoot = mp_public_path();
+    $currentVersion = bms_version();
+    bms_upgrade_assert_supported_current_version($currentVersion);
+    $publicRoot = bms_public_path();
     $timestamp = date('Ymd-His');
-    $tmpRoot = mp_root_path('tmp/upgrades/' . $timestamp . '-' . bin2hex(random_bytes(4)));
-    $backupRoot = mp_root_path('backups/upgrades/' . $timestamp);
+    $tmpRoot = bms_root_path('tmp/upgrades/' . $timestamp . '-' . bin2hex(random_bytes(4)));
+    $backupRoot = bms_root_path('backups/upgrades/' . $timestamp);
 
     if (!is_dir($tmpRoot) && !mkdir($tmpRoot, 0755, true)) {
         throw new RuntimeException('Could not create upgrade temp directory.');
@@ -750,35 +757,35 @@ function mp_upgrade_install(string $zipPath): array
     $zip = new ZipArchive();
     $opened = $zip->open($zipPath);
     if ($opened !== true) {
-        mp_upgrade_remove_temp($tmpRoot);
+        bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('Could not open the uploaded ZIP package.');
     }
 
     try {
-        mp_upgrade_safe_extract($zip, $tmpRoot);
+        bms_upgrade_safe_extract($zip, $tmpRoot);
     } finally {
         $zip->close();
     }
 
-    $packageRoot = mp_upgrade_find_package_root($tmpRoot);
-    $packageVersion = mp_upgrade_package_version($packageRoot);
-    mp_upgrade_verify_manifest($packageRoot);
-    $manifestFiles = mp_upgrade_manifest_file_set($packageRoot);
+    $packageRoot = bms_upgrade_find_package_root($tmpRoot);
+    $packageVersion = bms_upgrade_package_version($packageRoot);
+    bms_upgrade_verify_manifest($packageRoot);
+    $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
 
     if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=')) {
-        mp_upgrade_remove_temp($tmpRoot);
+        bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
     }
 
-    $softwareItems = mp_upgrade_software_items($packageRoot);
-    $existingManifestFiles = mp_upgrade_existing_manifest_file_set($publicRoot, $manifestFiles);
+    $softwareItems = bms_upgrade_software_items($packageRoot);
+    $existingManifestFiles = bms_upgrade_existing_manifest_file_set($publicRoot, $manifestFiles);
 
     if (!is_dir($backupRoot) && !mkdir($backupRoot, 0755, true)) {
-        mp_upgrade_remove_temp($tmpRoot);
+        bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('Could not create upgrade backup directory.');
     }
 
-    mp_upgrade_backup_existing($softwareItems, $backupRoot, $publicRoot);
+    bms_upgrade_backup_existing($softwareItems, $backupRoot, $publicRoot);
 
     $ran = [];
     $removed = [];
@@ -789,38 +796,38 @@ function mp_upgrade_install(string $zipPath): array
             if (!file_exists($source)) {
                 continue;
             }
-            mp_upgrade_copy_recursive($source, $publicRoot . '/' . $item);
+            bms_upgrade_copy_recursive($source, $publicRoot . '/' . $item);
         }
 
-        $removed = mp_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles);
+        $removed = bms_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles);
 
         $log = "Bonumark Stream upgrade\n" .
             "From: {$currentVersion}\n" .
             "To: {$packageVersion}\n" .
             "Date: " . date('c') . "\n" .
-            "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/content/, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and custom installed themes, including external themes that reuse retired bundled slugs unless their theme manifest clearly identifies them as bundled leftovers\n" .
+            "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and future code-free theme assets. Upgrade support starts at v0.4.0.\n" .
             "Obsolete package-managed files removed: " . count($removed) . "\n";
-        mp_write_file($backupRoot . '/UPGRADE.txt', $log);
+        bms_write_file($backupRoot . '/UPGRADE.txt', $log);
 
-        if (function_exists('mp_run_migrations')) {
-            $ran = mp_run_migrations();
+        if (function_exists('bms_run_migrations')) {
+            $ran = bms_run_migrations();
         }
-        mp_upgrade_record_history($currentVersion, $packageVersion, $ran, $removed);
+        bms_upgrade_record_history($currentVersion, $packageVersion, $ran, $removed);
     } catch (Throwable $e) {
         $rollbackRemoved = [];
         try {
-            mp_upgrade_restore_backup($softwareItems, $backupRoot, $publicRoot);
-            $rollbackRemoved = mp_upgrade_remove_new_package_files($publicRoot, $manifestFiles, $existingManifestFiles);
+            bms_upgrade_restore_backup($softwareItems, $backupRoot, $publicRoot);
+            $rollbackRemoved = bms_upgrade_remove_new_package_files($publicRoot, $manifestFiles, $existingManifestFiles);
         } catch (Throwable $rollbackError) {
-            mp_upgrade_remove_temp($tmpRoot);
+            bms_upgrade_remove_temp($tmpRoot);
             throw new RuntimeException('Upgrade failed. Rollback also failed: ' . $rollbackError->getMessage() . '. Original error: ' . $e->getMessage());
         }
-        mp_upgrade_remove_temp($tmpRoot);
+        bms_upgrade_remove_temp($tmpRoot);
         $rollbackNote = $rollbackRemoved ? ' Newly copied package files removed during rollback: ' . count($rollbackRemoved) . '.' : ' No newly copied package files remained after rollback.';
         throw new RuntimeException('Upgrade failed and Bonumark Stream restored the previous software files.' . $rollbackNote . ' Original error: ' . $e->getMessage());
     }
 
-    mp_upgrade_remove_temp($tmpRoot);
+    bms_upgrade_remove_temp($tmpRoot);
 
     return [
         'from' => $currentVersion,
@@ -838,63 +845,63 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !empty($_GET['post_upgrade']) && !e
     unset($_SESSION['completed_upgrade']);
 
     $migrationCount = count($completedUpgrade['migrations'] ?? []);
-    mp_flash('Upgrade complete. Bonumark Stream moved from v' . (string)($completedUpgrade['from'] ?? 'unknown') . ' to v' . (string)($completedUpgrade['to'] ?? mp_version()) . '. Backup created and ' . $migrationCount . ' migration(s) ran. Dynamic public routes now use the upgraded code.', 'success');
+    bms_flash('Upgrade complete. Bonumark Stream moved from v' . (string)($completedUpgrade['from'] ?? 'unknown') . ' to v' . (string)($completedUpgrade['to'] ?? bms_version()) . '. Backup created and ' . $migrationCount . ' migration(s) ran. Dynamic public routes now use the upgraded code.', 'success');
 
-    mp_redirect(mp_admin_url());
+    bms_redirect(bms_admin_url());
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
 
     if (!empty($_POST['cancel_upgrade'])) {
-        mp_upgrade_clear_pending();
-        mp_flash('Pending upgrade canceled. No software files were changed.', 'info');
-        mp_redirect(mp_admin_url('upgrade.php'));
+        bms_upgrade_clear_pending();
+        bms_flash('Pending upgrade canceled. No software files were changed.', 'info');
+        bms_redirect(bms_admin_url('upgrade.php'));
     }
 
     if (!empty($_POST['confirm_upgrade'])) {
         $pending = $_SESSION['pending_upgrade'] ?? null;
         if (!is_array($pending) || empty($pending['zip_path']) || !is_file((string)$pending['zip_path'])) {
-            mp_flash('Upgrade confirmation expired. Upload the Bonumark Stream release ZIP again.', 'warning');
-            mp_redirect(mp_admin_url('upgrade.php'));
+            bms_flash('Upgrade confirmation expired. Upload the Bonumark Stream release ZIP again.', 'warning');
+            bms_redirect(bms_admin_url('upgrade.php'));
         }
 
         try {
-            $result = mp_upgrade_install((string)$pending['zip_path']);
+            $result = bms_upgrade_install((string)$pending['zip_path']);
             $_SESSION['completed_upgrade'] = $result;
-            mp_upgrade_clear_pending();
-            mp_redirect(mp_admin_url('upgrade.php?post_upgrade=1'));
+            bms_upgrade_clear_pending();
+            bms_redirect(bms_admin_url('upgrade.php?post_upgrade=1'));
         } catch (Throwable $e) {
-            mp_flash('Upgrade failed. ' . $e->getMessage(), 'error');
-            mp_redirect(mp_admin_url('upgrade.php'));
+            bms_flash('Upgrade failed. ' . $e->getMessage(), 'error');
+            bms_redirect(bms_admin_url('upgrade.php'));
         }
     }
 
     if (empty($_FILES['upgrade_zip']) || $_FILES['upgrade_zip']['error'] !== UPLOAD_ERR_OK) {
-        mp_flash('Upload failed. Choose a Bonumark Stream release ZIP and try again.', 'error');
-        mp_redirect(mp_admin_url('upgrade.php'));
+        bms_flash('Upload failed. Choose a Bonumark Stream release ZIP and try again.', 'error');
+        bms_redirect(bms_admin_url('upgrade.php'));
     }
 
     $file = $_FILES['upgrade_zip'];
     $extension = strtolower(pathinfo((string)$file['name'], PATHINFO_EXTENSION));
     if ($extension !== 'zip') {
-        mp_flash('Only Bonumark Stream .zip release packages are allowed.', 'error');
-        mp_redirect(mp_admin_url('upgrade.php'));
+        bms_flash('Only Bonumark Stream .zip release packages are allowed.', 'error');
+        bms_redirect(bms_admin_url('upgrade.php'));
     }
 
     if (($file['size'] ?? 0) > 1024 * 1024 * 20) {
-        mp_flash('Upgrade package is too large. Keep ZIP uploads under 20 MB.', 'error');
-        mp_redirect(mp_admin_url('upgrade.php'));
+        bms_flash('Upgrade package is too large. Keep ZIP uploads under 20 MB.', 'error');
+        bms_redirect(bms_admin_url('upgrade.php'));
     }
 
     try {
-        mp_upgrade_clear_pending();
-        $precheck = mp_upgrade_precheck_package((string)$file['tmp_name'], (string)$file['name']);
-        mp_flash('Upgrade package checked. Review the status below before running the upgrade.', 'info');
+        bms_upgrade_clear_pending();
+        $precheck = bms_upgrade_precheck_package((string)$file['tmp_name'], (string)$file['name']);
+        bms_flash('Upgrade package checked. Review the status below before running the upgrade.', 'info');
     } catch (Throwable $e) {
-        mp_upgrade_clear_pending();
-        mp_flash('Upgrade check failed. ' . $e->getMessage(), 'error');
-        mp_redirect(mp_admin_url('upgrade.php'));
+        bms_upgrade_clear_pending();
+        bms_flash('Upgrade check failed. ' . $e->getMessage(), 'error');
+        bms_redirect(bms_admin_url('upgrade.php'));
     }
 } elseif (!empty($_SESSION['pending_upgrade']) && is_array($_SESSION['pending_upgrade'])) {
     $pending = $_SESSION['pending_upgrade'];
@@ -907,13 +914,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $upgradeHistory = [];
 try {
-    $upgradeHistory = mp_db()->query('SELECT * FROM ' . mp_table('upgrade_history') . ' ORDER BY ran_at DESC LIMIT 8')->fetchAll() ?: [];
+    $upgradeHistory = bms_db()->query('SELECT * FROM ' . bms_table('upgrade_history') . ' ORDER BY ran_at DESC LIMIT 8')->fetchAll() ?: [];
 } catch (Throwable $e) {
     $upgradeHistory = [];
 }
 
-mp_admin_header('Upgrade Bonumark Stream', [
-    ['label' => 'System Check', 'href' => mp_admin_url('system-check.php'), 'style' => 'secondary'],
+bms_admin_header('Upgrade Bonumark Stream', [
+    ['label' => 'System Check', 'href' => bms_admin_url('system-check.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel upgrade-upload-panel">
@@ -922,11 +929,11 @@ mp_admin_header('Upgrade Bonumark Stream', [
 
   <div class="upgrade-current-version">
     <span>Installed version</span>
-    <strong>v<?= htmlspecialchars(mp_version(), ENT_QUOTES, 'UTF-8') ?></strong>
+    <strong>v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?></strong>
   </div>
 
   <form method="post" enctype="multipart/form-data" class="upgrade-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <label for="upgrade_zip">Bonumark Stream release ZIP</label>
     <input id="upgrade_zip" type="file" name="upgrade_zip" accept=".zip,application/zip" required>
     <button type="submit">Upload and check package</button>
@@ -992,12 +999,12 @@ mp_admin_header('Upgrade Bonumark Stream', [
       <?php else: ?>
         <p class="meta">No database migrations appear to be pending for this package.</p>
       <?php endif; ?>
-      <p>Running the upgrade creates a backup, replaces software files, removes obsolete package-managed files, preserves custom installed themes, and runs pending migrations. Dynamic public routes use the upgraded code immediately. Static Site Export remains an optional Export-screen artifact.</p>
+      <p>Running the upgrade creates a backup, replaces software files, removes obsolete package-managed files, preserves config, data, uploads, media, and runs pending migrations. This tool supports v0.4.0 and newer only. Dynamic public routes use the upgraded code immediately. Static Site Export remains optional export tooling.</p>
     </div>
   </details>
 
   <form method="post" class="form-actions-row upgrade-confirm-actions">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <button type="submit" name="confirm_upgrade" value="1" <?= empty($precheck['backup_ready']) ? 'disabled' : '' ?>>Run Upgrade</button>
     <button type="submit" name="cancel_upgrade" value="1" class="secondary-button">Cancel</button>
   </form>
@@ -1030,4 +1037,4 @@ mp_admin_header('Upgrade Bonumark Stream', [
     </div>
   </details>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

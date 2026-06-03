@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_appearance');
-mp_redirect(mp_admin_url('theme.php'));
+bms_require_login();
+bms_require_capability('manage_appearance');
+bms_redirect(bms_admin_url('theme.php'));

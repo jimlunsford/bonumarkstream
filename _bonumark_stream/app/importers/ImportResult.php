@@ -1,9 +1,9 @@
 <?php
 
-class MP_ImportResult
+class BMS_ImportResult
 {
     public string $importerName;
-    /** @var list<MP_ImportItem> */
+    /** @var list<BMS_ImportItem> */
     public array $items = [];
     /** @var list<string> */
     public array $warnings = [];
@@ -15,7 +15,7 @@ class MP_ImportResult
         $this->importerName = $importerName;
     }
 
-    public function addItem(MP_ImportItem $item): void
+    public function addItem(BMS_ImportItem $item): void
     {
         $this->items[] = $item;
     }
@@ -46,7 +46,7 @@ class MP_ImportResult
     {
         return [
             'importer' => $this->importerName,
-            'items' => array_map(static fn(MP_ImportItem $item): array => $item->toArray(), $this->items),
+            'items' => array_map(static fn(BMS_ImportItem $item): array => $item->toArray(), $this->items),
             'warnings' => $this->warnings,
             'errors' => $this->errors,
         ];

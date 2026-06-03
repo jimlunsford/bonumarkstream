@@ -1,17 +1,18 @@
 {
   "name": "Midnight Ledger",
   "slug": "default",
-  "version": "1.0.25",
+  "version": "1.2.1",
   "author": "Bonumark",
-  "description": "The default Bonumark Stream public theme and reference implementation, a restrained dark editorial design that demonstrates clean theme structure, safe data boundaries, pages, profiles, comments, search, and stream output.",
-  "screenshot": "images/screenshot.svg",
+  "description": "The bundled Bonumark Stream reference theme. Midnight Ledger is a code-free presentation theme built from metadata, settings, CSS, images, and a screenshot while Bonumark Stream core owns all application behavior.",
+  "screenshot": "assets/images/screenshot.svg",
   "assets": {
     "css": [
-      "css/midnight-ledger.css"
+      "assets/css/theme.css"
     ],
-    "js": [
-      "js/midnight-ledger.js"
-    ]
+    "images": [
+      "assets/images/screenshot.svg"
+    ],
+    "fonts": []
   },
   "supports": {
     "profiles": true,
@@ -66,19 +67,19 @@
     "show_status_chip": {
       "type": "checkbox",
       "label": "Show header status",
-      "description": "Midnight Ledger only: display this theme's optional header status indicator. Other themes do not need to use this pattern.",
+      "description": "Display Midnight Ledger's optional header status indicator.",
       "default": "1"
     },
     "status_label": {
       "type": "text",
       "label": "Header status label",
-      "description": "Midnight Ledger only: short text shown inside this theme's optional header status indicator.",
+      "description": "Short text shown inside Midnight Ledger's optional header status indicator.",
       "default": "Live microblog"
     },
     "show_post_count": {
       "type": "checkbox",
       "label": "Show post count",
-      "description": "Midnight Ledger only: display this theme's optional published-post counter. Other themes do not need to use this pattern.",
+      "description": "Display Midnight Ledger's optional published-post counter.",
       "default": "1"
     },
     "show_page_updated_date": {
@@ -94,25 +95,5 @@
       "default": "Menu"
     }
   },
-  "templates": [
-    "layout",
-    "header",
-    "footer",
-    "home",
-    "archive",
-    "single",
-    "page",
-    "profile",
-    "account",
-    "comments",
-    "comments-mount",
-    "search",
-    "card",
-    "link-preview",
-    "media",
-    "composer",
-    "pagination",
-    "empty"
-  ],
-  "package": "bundled-theme"
+  "package": "bundled-code-free-reference-theme"
 }

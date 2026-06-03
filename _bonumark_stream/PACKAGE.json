@@ -1,13 +1,16 @@
 {
   "name": "bonumark-stream",
-  "version": "0.3.12",
+  "version": "0.4.5",
   "package_type": "shared-hosting",
   "database": "mysql-mariadb",
-  "tagline": "A self-hosted microblog stream for owning short-form publishing.",
-  "release": "SEO Title Output Repair Pass",
-  "release_name": "SEO Title Output Repair Pass",
-  "description": "Repairs core SEO title generation so the home page uses the site tagline, public pages append the site title exactly once, and theme output is normalized before reaching the browser tab or crawlers.",
+  "tagline": "A self-hosted microblog CMS for publishing short-form posts on a site you control.",
+  "release": "Public Release Legacy Cleanup Pass",
+  "release_name": "Public Release Legacy Cleanup Pass",
+  "description": "Public release cleanup that removes legacy compatibility surface, aligns v0.4.0+ upgrade support, and tightens the release package.",
   "license": "AGPL-3.0-or-later",
-  "title": "SEO Title Output Repair Pass",
-  "label": "SEO Title Output Repair Pass"
+  "title": "Public Release Legacy Cleanup Pass",
+  "label": "Public Release Legacy Cleanup Pass",
+  "homepage": "https://bonumark.org",
+  "repository": "https://github.com/jimlunsford/bonumarkstream",
+  "demo": "https://demo.bonumark.org"
 }

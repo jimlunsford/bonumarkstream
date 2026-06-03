@@ -3,55 +3,54 @@ require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_appearance');
+bms_require_login();
+bms_require_capability('manage_appearance');
 
-$slug = function_exists('mp_theme_slug') ? mp_theme_slug((string)($_GET['slug'] ?? $_POST['slug'] ?? 'default')) : 'default';
-$packages = function_exists('mp_public_theme_packages') ? mp_public_theme_packages() : [];
+$slug = function_exists('bms_theme_slug') ? bms_theme_slug((string)($_GET['slug'] ?? $_POST['slug'] ?? 'default')) : 'default';
+$packages = function_exists('bms_public_theme_packages') ? bms_public_theme_packages() : [];
 $theme = $packages[$slug] ?? null;
 
 if (!$theme) {
-    mp_admin_error_page('Theme Not Found', 'That public theme is not installed.', 404, [
-        ['label' => 'Themes', 'href' => mp_admin_url('theme.php'), 'style' => 'primary'],
-        ['label' => 'Install Theme', 'href' => mp_admin_url('theme-install.php'), 'style' => 'secondary'],
+    bms_admin_error_page('Theme Not Found', 'That public theme is not installed.', 404, [
+        ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'primary'],
+        ['label' => 'Install Theme', 'href' => bms_admin_url('theme-install.php'), 'style' => 'secondary'],
     ]);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['theme_action'] ?? '');
     try {
         if ($action === 'activate') {
-            $activated = mp_activate_public_theme($slug);
-            mp_flash('Theme activated: ' . (string)($activated['name'] ?? $slug) . '. Dynamic public routes use the new theme immediately; use Static Site Export only when you want a portable HTML copy.', 'success');
-            mp_redirect(mp_admin_url('theme-details.php?slug=' . rawurlencode($slug)));
+            $activated = bms_activate_public_theme($slug);
+            bms_flash('Theme activated: ' . (string)($activated['name'] ?? $slug) . '. Dynamic public routes use the new theme immediately; use Static Site Export only when you want a portable HTML copy.', 'success');
+            bms_redirect(bms_admin_url('theme-details.php?slug=' . rawurlencode($slug)));
         }
         throw new RuntimeException('Unknown theme action.');
     } catch (Throwable $e) {
-        mp_flash($e->getMessage(), 'error');
-        mp_redirect(mp_admin_url('theme-details.php?slug=' . rawurlencode($slug)));
+        bms_flash($e->getMessage(), 'error');
+        bms_redirect(bms_admin_url('theme-details.php?slug=' . rawurlencode($slug)));
     }
 }
 
-$activeSlug = function_exists('mp_active_public_theme_slug') ? mp_active_public_theme_slug() : 'default';
+$activeSlug = function_exists('bms_active_public_theme_slug') ? bms_active_public_theme_slug() : 'default';
 $isActive = $slug === $activeSlug;
-$health = is_array($theme['health'] ?? null) ? $theme['health'] : mp_public_theme_package_health($theme);
-$summary = function_exists('mp_public_theme_manager_summary') ? mp_public_theme_manager_summary($theme) : ['valid' => !empty($health['valid'])];
-$templateRows = function_exists('mp_public_theme_template_inventory') ? mp_public_theme_template_inventory($theme) : [];
-$assetRows = function_exists('mp_public_theme_asset_inventory') ? mp_public_theme_asset_inventory($theme) : [];
-$supports = function_exists('mp_public_theme_supports_list') ? mp_public_theme_supports_list($theme) : [];
+$health = is_array($theme['health'] ?? null) ? $theme['health'] : bms_public_theme_package_health($theme);
+$summary = function_exists('bms_public_theme_manager_summary') ? bms_public_theme_manager_summary($theme) : ['valid' => !empty($health['valid'])];
+$assetRows = function_exists('bms_public_theme_asset_inventory') ? bms_public_theme_asset_inventory($theme) : [];
+$supports = function_exists('bms_public_theme_supports_list') ? bms_public_theme_supports_list($theme) : [];
 $settings = is_array($theme['settings'] ?? null) ? $theme['settings'] : [];
-$screenshotUrl = function_exists('mp_public_theme_screenshot_url') ? mp_public_theme_screenshot_url($theme) : '';
-$deleteStatus = function_exists('mp_public_theme_delete_status') ? mp_public_theme_delete_status($slug) : ['can_delete' => false, 'errors' => []];
+$screenshotUrl = function_exists('bms_public_theme_screenshot_url') ? bms_public_theme_screenshot_url($theme) : '';
+$deleteStatus = function_exists('bms_public_theme_delete_status') ? bms_public_theme_delete_status($slug) : ['can_delete' => false, 'errors' => []];
 $canDelete = !empty($deleteStatus['can_delete']);
 $canActivate = !empty($summary['valid']);
 $errors = is_array($health['errors'] ?? null) ? $health['errors'] : [];
 $warnings = is_array($health['warnings'] ?? null) ? $health['warnings'] : [];
 
-mp_admin_header('Theme Details', [
-    ['label' => 'Themes', 'href' => mp_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'Install Theme', 'href' => mp_admin_url('theme-install.php'), 'style' => 'secondary'],
-    ['label' => 'Theme Settings', 'href' => mp_admin_url('theme-settings.php'), 'style' => 'secondary'],
+bms_admin_header('Theme Details', [
+    ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
+    ['label' => 'Install Theme', 'href' => bms_admin_url('theme-install.php'), 'style' => 'secondary'],
+    ['label' => 'Theme Settings', 'href' => bms_admin_url('theme-settings.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel page-intro-panel theme-details-hero">
@@ -75,16 +74,16 @@ mp_admin_header('Theme Details', [
     <div class="theme-card-actions theme-manager-actions">
       <?php if (!$isActive && $canActivate): ?>
         <form method="post" class="inline-theme-action-form">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="theme_action" value="activate">
           <input type="hidden" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
           <button type="submit">Activate Theme</button>
         </form>
       <?php elseif ($isActive): ?>
-        <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8') ?>">Edit Settings</a>
+        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8') ?>">Edit Settings</a>
       <?php endif; ?>
       <?php if ($canDelete): ?>
-        <a class="button-link danger-link" href="<?= htmlspecialchars(mp_admin_url('theme-delete.php?slug=' . rawurlencode($slug)), ENT_QUOTES, 'UTF-8') ?>">Delete Theme</a>
+        <a class="button-link danger-link" href="<?= htmlspecialchars(bms_admin_url('theme-delete.php?slug=' . rawurlencode($slug)), ENT_QUOTES, 'UTF-8') ?>">Delete Theme</a>
       <?php endif; ?>
     </div>
   </div>
@@ -96,7 +95,6 @@ mp_admin_header('Theme Details', [
       <span><strong>Slug</strong> <code><?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></span>
       <span><strong>Version</strong> <code><?= htmlspecialchars((string)($theme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></code></span>
       <span><strong>Author</strong> <code><?= htmlspecialchars((string)($theme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></code></span>
-      <span><strong>Templates</strong> <code><?= (int)($summary['template_total'] ?? count($templateRows)) ?></code></span>
       <span><strong>Assets</strong> <code><?= (int)($summary['asset_total'] ?? count($assetRows)) ?></code></span>
       <span><strong>Settings</strong> <code><?= (int)($summary['setting_total'] ?? count($settings)) ?></code></span>
     </div>
@@ -126,20 +124,6 @@ mp_admin_header('Theme Details', [
 <?php endif; ?>
 
 <section class="panel settings-panel theme-details-checklist-panel">
-  <p class="eyebrow">Templates</p>
-  <h2>Required public templates</h2>
-  <div class="theme-check-table">
-    <?php foreach ($templateRows as $row): ?>
-      <div class="theme-check-row <?= !empty($row['exists']) ? 'is-good' : 'is-bad' ?>">
-        <code><?= htmlspecialchars((string)($row['file'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code>
-        <span><?= !empty($row['exists']) ? 'Present' : 'Missing' ?></span>
-        <span><?= !empty($row['declared']) ? 'Declared' : 'Not declared' ?></span>
-      </div>
-    <?php endforeach; ?>
-  </div>
-</section>
-
-<section class="panel settings-panel theme-details-checklist-panel">
   <p class="eyebrow">Assets</p>
   <h2>Declared public assets</h2>
   <?php if (!$assetRows): ?>
@@ -150,7 +134,7 @@ mp_admin_header('Theme Details', [
         <div class="theme-check-row <?= !empty($row['exists']) ? 'is-good' : 'is-bad' ?>">
           <code><?= htmlspecialchars((string)($row['file'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code>
           <span><?= htmlspecialchars((string)($row['type'] ?? 'Asset'), ENT_QUOTES, 'UTF-8') ?></span>
-          <span><?= !empty($row['exists']) ? 'Present' : 'Missing' ?></span>
+          <span><?= !empty($row['exists']) ? 'Available' : 'Missing' ?></span>
         </div>
       <?php endforeach; ?>
     </div>
@@ -174,4 +158,4 @@ mp_admin_header('Theme Details', [
     </div>
   <?php endif; ?>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

@@ -2,16 +2,16 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/pages.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_pages');
+bms_require_login();
+bms_require_capability('manage_pages');
 
 $status = (string)($_GET['status'] ?? 'all');
 $status = in_array($status, ['all', 'draft', 'published', 'trash'], true) ? $status : 'all';
 $q = trim((string)($_GET['q'] ?? ''));
 
-$drafts = mp_list_page_records('draft');
-$published = mp_list_page_records('published');
-$trash = function_exists('mp_list_page_trash_items') ? mp_list_page_trash_items() : [];
+$drafts = bms_list_page_records('draft');
+$published = bms_list_page_records('published');
+$trash = function_exists('bms_list_page_trash_items') ? bms_list_page_trash_items() : [];
 foreach ($drafts as &$item) { $item['content_status'] = 'draft'; $item['section'] = 'pages/drafts'; }
 unset($item);
 foreach ($published as &$item) { $item['content_status'] = 'published'; $item['section'] = 'pages/published'; }
@@ -51,9 +51,9 @@ $title = match ($status) {
     default => 'Pages',
 };
 
-mp_admin_header($title, [
-    ['label' => 'New Page', 'href' => mp_admin_url('page-new.php'), 'style' => 'primary'],
-    mp_view_site_action(),
+bms_admin_header($title, [
+    ['label' => 'New Page', 'href' => bms_admin_url('page-new.php'), 'style' => 'primary'],
+    bms_view_site_action(),
 ]);
 ?>
 <section class="panel page-intro-panel">
@@ -63,15 +63,15 @@ mp_admin_header($title, [
 </section>
 
 <nav class="content-filter" aria-label="Page status filters">
-  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('pages.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
-  <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('pages.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
-  <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('pages.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
-  <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(mp_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
+  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
+  <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
+  <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
+  <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
 </nav>
 
 <?php if ($status === 'trash' && $trash): ?>
-  <form method="post" action="<?= htmlspecialchars(mp_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="trash-empty-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="trash-empty-form">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="empty_page_trash" value="1">
     <button type="submit" class="danger">Empty Page Trash</button>
   </form>
@@ -88,7 +88,7 @@ mp_admin_header($title, [
   <?php if (!$items): ?>
     <div class="empty-state compact-empty-state">
       <h3><?= $status === 'trash' ? 'Page trash is empty.' : 'No pages found.' ?></h3>
-      <?php if ($status !== 'trash'): ?><p class="meta">Create stable site content without adding it to the stream timeline.</p><a class="primary-button" href="<?= htmlspecialchars(mp_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a><?php endif; ?>
+      <?php if ($status !== 'trash'): ?><p class="meta">Create stable site content without adding it to the stream timeline.</p><a class="primary-button" href="<?= htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a><?php endif; ?>
     </div>
   <?php else: ?>
     <div class="table-wrap">
@@ -100,8 +100,8 @@ mp_admin_header($title, [
             $file = (string)($item['filename'] ?? '');
             $titleText = (string)($item['title'] ?? 'Untitled Page');
             $description = (string)($item['description'] ?? '');
-            $viewUrl = $itemStatus === 'published' ? mp_page_url_for_page($item) : '';
-            $editUrl = $itemStatus !== 'trash' ? mp_admin_url('page-edit.php?type=' . ($itemStatus === 'published' ? 'published' : 'draft') . '&file=' . rawurlencode($file)) : '';
+            $viewUrl = $itemStatus === 'published' ? bms_page_url_for_page($item) : '';
+            $editUrl = $itemStatus !== 'trash' ? bms_admin_url('page-edit.php?type=' . ($itemStatus === 'published' ? 'published' : 'draft') . '&file=' . rawurlencode($file)) : '';
         ?>
           <tr>
             <td>
@@ -114,19 +114,19 @@ mp_admin_header($title, [
                 <?php if ($description !== ''): ?><div class="table-subtext"><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
               <?php endif; ?>
             </td>
-            <td><?php if ($itemStatus === 'trash'): ?><?= htmlspecialchars(function_exists('mp_page_trash_label') ? mp_page_trash_label((string)($item['original_status'] ?? 'page_draft')) : 'Page', ENT_QUOTES, 'UTF-8') ?><?php else: ?><?= $itemStatus === 'published' ? 'Published' : 'Draft' ?><?php endif; ?></td>
-            <td><code><?= htmlspecialchars($viewUrl !== '' ? $viewUrl : mp_page_url((string)($item['slug'] ?? '')), ENT_QUOTES, 'UTF-8') ?></code></td>
+            <td><?php if ($itemStatus === 'trash'): ?><?= htmlspecialchars(function_exists('bms_page_trash_label') ? bms_page_trash_label((string)($item['original_status'] ?? 'page_draft')) : 'Page', ENT_QUOTES, 'UTF-8') ?><?php else: ?><?= $itemStatus === 'published' ? 'Published' : 'Draft' ?><?php endif; ?></td>
+            <td><code><?= htmlspecialchars($viewUrl !== '' ? $viewUrl : bms_page_url((string)($item['slug'] ?? '')), ENT_QUOTES, 'UTF-8') ?></code></td>
             <td><?= htmlspecialchars($itemStatus === 'trash' ? (string)($item['deleted_at'] ?? '') : (string)($item['date'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
             <td class="table-actions">
               <?php if ($itemStatus === 'trash'): ?>
-                <form method="post" action="<?= htmlspecialchars(mp_admin_url('page-restore.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
-                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-restore.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="trash_id" value="<?= (int)($item['trash_id'] ?? 0) ?>">
                   <button type="submit" class="link-button">Restore</button>
                 </form>
                 <span>|</span>
-                <form method="post" action="<?= htmlspecialchars(mp_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
-                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="trash_id" value="<?= (int)($item['trash_id'] ?? 0) ?>">
                   <button type="submit" class="link-button danger-link">Delete Permanently</button>
                 </form>
@@ -142,4 +142,4 @@ mp_admin_header($title, [
     </div>
   <?php endif; ?>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

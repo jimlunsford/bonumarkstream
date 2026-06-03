@@ -1,3 +1,3 @@
 <?php
 require_once __DIR__ . '/_bonumark_stream/app/routes.php';
-mp_handle_comments_route();
+bms_handle_comments_route();

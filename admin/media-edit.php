@@ -2,75 +2,75 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/media.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_media');
+bms_require_login();
+bms_require_capability('manage_media');
 
 $id = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
-$media = mp_media_find($id);
+$media = bms_media_find($id);
 if (!$media) {
-    mp_admin_error_page('Media item not found', 'The requested media item could not be found.', 404, [
-        ['label' => 'Media Library', 'href' => mp_admin_url('media.php'), 'style' => 'primary'],
-        ['label' => 'Dashboard', 'href' => mp_admin_url(), 'style' => 'secondary'],
+    bms_admin_error_page('Media item not found', 'The requested media item could not be found.', 404, [
+        ['label' => 'Media Library', 'href' => bms_admin_url('media.php'), 'style' => 'primary'],
+        ['label' => 'Dashboard', 'href' => bms_admin_url(), 'style' => 'secondary'],
     ]);
 }
-mp_require_media_item_access($media);
+bms_require_media_item_access($media);
 
-$isTrashed = function_exists('mp_media_is_trashed') ? mp_media_is_trashed($media) : false;
+$isTrashed = function_exists('bms_media_is_trashed') ? bms_media_is_trashed($media) : false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['action'] ?? 'save');
     try {
         $name = (string)($media['original_filename'] ?? $media['filename'] ?? 'Media item');
         if ($action === 'trash') {
-            mp_media_trash($id);
-            mp_flash('Moved media item “' . $name . '” to trash.', 'success');
-            mp_redirect(mp_admin_url('media.php'));
+            bms_media_trash($id);
+            bms_flash('Moved media item “' . $name . '” to trash.', 'success');
+            bms_redirect(bms_admin_url('media.php'));
         }
         if ($action === 'restore') {
-            mp_media_restore($id);
-            mp_flash('Restored media item “' . $name . '”.', 'success');
-            mp_redirect(mp_admin_url('media-edit.php?id=' . urlencode((string)$id)));
+            bms_media_restore($id);
+            bms_flash('Restored media item “' . $name . '”.', 'success');
+            bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
         }
         if ($action === 'delete_permanently') {
-            mp_media_delete_permanently($id);
-            mp_flash('Permanently deleted media item “' . $name . '”.', 'success');
-            mp_redirect(mp_admin_url('media.php?status=trash'));
+            bms_media_delete_permanently($id);
+            bms_flash('Permanently deleted media item “' . $name . '”.', 'success');
+            bms_redirect(bms_admin_url('media.php?status=trash'));
         }
         if ($isTrashed) {
             throw new RuntimeException('Restore this media item before editing its metadata.');
         }
         if ($action === 'regenerate_variants') {
-            $report = mp_media_regenerate_image_variants($id);
-            $message = mp_media_variant_status_text($report);
-            mp_flash('Image variant refresh complete. ' . $message . '.', 'success');
-            mp_redirect(mp_admin_url('media-edit.php?id=' . urlencode((string)$id)));
+            $report = bms_media_regenerate_image_variants($id);
+            $message = bms_media_variant_status_text($report);
+            bms_flash('Image variant refresh complete. ' . $message . '.', 'success');
+            bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
         }
-        mp_media_update($id, (string)($_POST['alt_text'] ?? ''), (string)($_POST['caption'] ?? ''));
-        mp_flash('Media details saved.', 'success');
-        mp_redirect(mp_admin_url('media-edit.php?id=' . urlencode((string)$id)));
+        bms_media_update($id, (string)($_POST['alt_text'] ?? ''), (string)($_POST['caption'] ?? ''));
+        bms_flash('Media details saved.', 'success');
+        bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
     } catch (Throwable $e) {
-        mp_flash('Media update failed. ' . $e->getMessage(), 'error');
-        mp_redirect(mp_admin_url('media-edit.php?id=' . urlencode((string)$id)));
+        bms_flash('Media update failed. ' . $e->getMessage(), 'error');
+        bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
     }
 }
 
-$url = mp_media_public_url_for_item($media);
-$markdown = mp_media_markdown($media);
-$kind = function_exists('mp_media_kind_label') ? mp_media_kind_label($media) : 'Media';
-$isImage = function_exists('mp_media_is_image_item') ? mp_media_is_image_item($media) : str_starts_with((string)($media['mime_type'] ?? ''), 'image/');
+$url = bms_media_public_url_for_item($media);
+$markdown = bms_media_markdown($media);
+$kind = function_exists('bms_media_kind_label') ? bms_media_kind_label($media) : 'Media';
+$isImage = function_exists('bms_media_is_image_item') ? bms_media_is_image_item($media) : str_starts_with((string)($media['mime_type'] ?? ''), 'image/');
 $width = (int)($media['width'] ?? 0);
 $height = (int)($media['height'] ?? 0);
 $dimensions = $width > 0 && $height > 0 ? ($width . '×' . $height) : 'Not applicable';
-$usageSummary = function_exists('mp_media_usage_summary') ? mp_media_usage_summary($media) : 'Usage detection unavailable.';
-$variantReport = $isImage && function_exists('mp_media_image_variant_status') ? mp_media_image_variant_status($media) : [];
+$usageSummary = function_exists('bms_media_usage_summary') ? bms_media_usage_summary($media) : 'Usage detection unavailable.';
+$variantReport = $isImage && function_exists('bms_media_image_variant_status') ? bms_media_image_variant_status($media) : [];
 $variantEnvironment = is_array($variantReport['environment'] ?? null) ? $variantReport['environment'] : [];
 $variantTargets = is_array($variantReport['targets'] ?? null) ? $variantReport['targets'] : [];
-$variantSummary = $variantReport ? mp_media_variant_status_text($variantReport) : 'Not applicable';
-mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
-    ['label' => 'Media Library', 'href' => mp_admin_url('media.php'), 'style' => 'secondary'],
-    ['label' => 'Media Trash', 'href' => mp_admin_url('media.php?status=trash'), 'style' => 'secondary'],
-    ['label' => 'Add New Media', 'href' => mp_admin_url('media-upload.php'), 'style' => 'primary'],
+$variantSummary = $variantReport ? bms_media_variant_status_text($variantReport) : 'Not applicable';
+bms_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
+    ['label' => 'Media Library', 'href' => bms_admin_url('media.php'), 'style' => 'secondary'],
+    ['label' => 'Media Trash', 'href' => bms_admin_url('media.php?status=trash'), 'style' => 'secondary'],
+    ['label' => 'Add New Media', 'href' => bms_admin_url('media-upload.php'), 'style' => 'primary'],
     ['label' => 'View Media', 'href' => $url, 'style' => 'secondary', 'target' => true],
 ]);
 ?>
@@ -88,7 +88,7 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
       <div class="media-detail-list">
         <div><span>File</span><strong><?= htmlspecialchars((string)($media['original_filename'] ?? $media['filename']), ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Kind</span><strong><?= htmlspecialchars($kind, ENT_QUOTES, 'UTF-8') ?></strong></div>
-        <div><span>Size</span><strong><?= htmlspecialchars(mp_media_human_size((int)($media['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></strong></div>
+        <div><span>Size</span><strong><?= htmlspecialchars(bms_media_human_size((int)($media['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Dimensions</span><strong><?= htmlspecialchars($dimensions, ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Type</span><strong><?= htmlspecialchars((string)($media['mime_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Usage</span><strong><?= htmlspecialchars($usageSummary, ENT_QUOTES, 'UTF-8') ?></strong></div>
@@ -122,7 +122,7 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
                       <p class="field-help"><?= htmlspecialchars((string)$target['reason'], ENT_QUOTES, 'UTF-8') ?></p>
                     <?php endif; ?>
                   </div>
-                  <span class="status-pill <?= !empty($target['exists']) ? 'published' : 'draft' ?>"><?= !empty($target['exists']) ? htmlspecialchars(mp_media_human_size((int)($target['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8') : 'Missing' ?></span>
+                  <span class="status-pill <?= !empty($target['exists']) ? 'published' : 'draft' ?>"><?= !empty($target['exists']) ? htmlspecialchars(bms_media_human_size((int)($target['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8') : 'Missing' ?></span>
                 </div>
               <?php endforeach; ?>
             </div>
@@ -139,7 +139,7 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
           </details>
           <?php if (!$isTrashed): ?>
             <form method="post" class="form-actions-row media-regenerate-form">
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
               <input type="hidden" name="id" value="<?= (int)$id ?>">
               <input type="hidden" name="action" value="regenerate_variants">
               <button type="submit" class="secondary-button">Refresh variants</button>
@@ -150,7 +150,7 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
       <?php endif; ?>
 
       <form method="post" class="settings-form">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="id" value="<?= (int)$id ?>">
         <label for="alt_text">Alt text / description</label>
         <input id="alt_text" type="text" name="alt_text" maxlength="255" value="<?= htmlspecialchars((string)($media['alt_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"<?= $isTrashed ? ' disabled' : '' ?>>
@@ -177,13 +177,13 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
 
       <?php if ($isTrashed): ?>
         <form method="post" class="form-actions-row restore-zone">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="id" value="<?= (int)$id ?>">
           <input type="hidden" name="action" value="restore">
           <button type="submit">Restore Media</button>
         </form>
         <form method="post" class="danger-zone" data-confirm="Permanently delete this media item? This deletes the file from disk and cannot be undone.">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="id" value="<?= (int)$id ?>">
           <input type="hidden" name="action" value="delete_permanently">
           <button type="submit" class="danger">Delete Permanently</button>
@@ -191,7 +191,7 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
         </form>
       <?php else: ?>
         <form method="post" class="danger-zone" data-confirm="Move this media item to trash? Existing post references may still display while the file remains on disk.">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="id" value="<?= (int)$id ?>">
           <input type="hidden" name="action" value="trash">
           <button type="submit" class="danger">Move to Trash</button>
@@ -200,5 +200,5 @@ mp_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
     </div>
   </div>
 </section>
-<script src="<?= htmlspecialchars(mp_asset_url('assets/editor.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
-<?php mp_admin_footer(); ?>
+<script src="<?= htmlspecialchars(bms_asset_url('assets/editor.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>
+<?php bms_admin_footer(); ?>

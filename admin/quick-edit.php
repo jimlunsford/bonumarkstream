@@ -2,42 +2,34 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
 $type = $_GET['type'] ?? ($_POST['type'] ?? 'draft');
 $type = $type === 'published' ? 'published' : 'draft';
 $file = basename($_GET['file'] ?? ($_POST['file'] ?? ''));
 $section = $type === 'published' ? 'published' : 'drafts';
-$path = mp_content_path($section . '/' . $file);
 
 $page = null;
-if ($file !== '' && function_exists('mp_find_database_content_by_markdown_path')) {
-    $page = mp_find_database_content_by_markdown_path($section, $file);
-}
-if (!$page && $file !== '' && is_file($path)) {
-    $page = mp_parse_markdown_file($path);
-    $page['filename'] = $file;
-    $page['path'] = $path;
-    $page['section'] = $section;
+if ($file !== '' && function_exists('bms_find_database_content_by_markdown_path')) {
+    $page = bms_find_database_content_by_markdown_path($section, $file);
 }
 if ($file === '' || !$page) {
-    mp_admin_error_page('Stream post not found', 'The requested Stream Post could not be found.', 404);
+    bms_admin_error_page('Stream post not found', 'The requested Stream Post could not be found.', 404);
 }
 
-mp_require_content_file_access($section, $file, 'edit_content', $page);
-$originalAuthorId = function_exists('mp_content_author_id_for_file') ? mp_content_author_id_for_file($section, $file) : null;
+bms_require_content_file_access($section, $file, 'edit_content', $page);
+$originalAuthorId = function_exists('bms_content_author_id_for_file') ? bms_content_author_id_for_file($section, $file) : null;
 if ($originalAuthorId === null && (int)($page['author_id'] ?? 0) > 0) {
     $originalAuthorId = (int)$page['author_id'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
-    $previousReviewStatus = ($type === 'draft' && function_exists('mp_review_status_for_file')) ? mp_review_status_for_file('drafts', $file) : '';
+    bms_verify_csrf();
     $targetStatus = (string)($_POST['stream_status'] ?? $type);
     $targetStatus = $targetStatus === 'published' ? 'published' : 'draft';
     $targetSection = $targetStatus === 'published' ? 'published' : 'drafts';
     if ($targetStatus === 'published') {
-        mp_require_content_file_access($section, $file, 'publish_content', $page);
+        bms_require_content_file_access($section, $file, 'publish_content', $page);
     }
 
     $fields = [
@@ -56,64 +48,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     try {
-        $fields = mp_stream_prepare_metadata_fields($fields, (string)($page['body'] ?? ''), (string)($page['slug'] ?? ''));
-        $raw = mp_build_markdown_document($fields, (string)($page['body'] ?? ''));
-        $updated = mp_parse_markdown_string($raw);
+        $fields = bms_stream_prepare_metadata_fields($fields, (string)($page['body'] ?? ''), (string)($page['slug'] ?? ''));
+        $raw = bms_build_markdown_document($fields, (string)($page['body'] ?? ''));
+        $updated = bms_parse_markdown_string($raw);
         $newFilename = $updated['slug'] . '.md';
-        $oldSlug = mp_slugify((string)($page['slug'] ?? pathinfo($file, PATHINFO_FILENAME)));
-        $newSlug = mp_slugify((string)($updated['slug'] ?? pathinfo($newFilename, PATHINFO_FILENAME)));
+        $oldSlug = bms_slugify((string)($page['slug'] ?? pathinfo($file, PATHINFO_FILENAME)));
+        $newSlug = bms_slugify((string)($updated['slug'] ?? pathinfo($newFilename, PATHINFO_FILENAME)));
 
-        if ($newSlug !== $oldSlug && function_exists('mp_find_database_content_by_slug_status') && mp_find_database_content_by_slug_status($newSlug, $targetStatus, 'stream')) {
+        if ($newSlug !== $oldSlug && function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($newSlug, $targetStatus, 'stream')) {
             throw new RuntimeException('Another stream post already uses this slug in the target status.');
         }
 
-        if ($newSlug !== $oldSlug && function_exists('mp_find_database_content_by_slug_status') && mp_find_database_content_by_slug_status($newSlug, $targetStatus === 'published' ? 'draft' : 'published', 'stream')) {
+        if ($newSlug !== $oldSlug && function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($newSlug, $targetStatus === 'published' ? 'draft' : 'published', 'stream')) {
             throw new RuntimeException('Another stream post already uses this slug.');
         }
 
-        if ($type === 'published' && function_exists('mp_record_revision_from_page')) {
-            mp_record_revision_from_page($page, 'published', $file, $originalAuthorId);
+        if ($type === 'published' && function_exists('bms_record_revision_from_page')) {
+            bms_record_revision_from_page($page, 'published', $file, $originalAuthorId);
         }
 
-        if (function_exists('mp_delete_post_metadata_by_filename') && ($targetSection !== $section || $newFilename !== $file)) {
-            mp_delete_post_metadata_by_filename($section, $file);
+        if (function_exists('bms_delete_post_metadata_by_filename') && ($targetSection !== $section || $newFilename !== $file)) {
+            bms_delete_post_metadata_by_filename($section, $file);
         }
-        if (is_file($path)) {
-            @unlink($path);
+        if (function_exists('bms_sync_stream_metadata')) {
+            bms_sync_stream_metadata($updated, $targetSection, $newFilename, $originalAuthorId);
         }
-        if (function_exists('mp_sync_stream_metadata')) {
-            mp_sync_stream_metadata($updated, $targetSection, $newFilename, $originalAuthorId);
-        }
-        if ($targetStatus === 'draft' && $previousReviewStatus === 'pending' && function_exists('mp_mark_draft_pending_review')) {
-            mp_mark_draft_pending_review($newFilename);
-        }
-        if ($targetStatus === 'published' && function_exists('mp_mark_post_review_status')) {
-            mp_mark_post_review_status('published', $newFilename, 'approved');
-        }
-
         if ($targetStatus === 'published') {
-            mp_flash('Quick edit saved. The live stream post is current through dynamic rendering.', 'success');
-            mp_redirect(mp_admin_url('quick-edit.php?type=published&file=' . urlencode($newFilename)));
+            bms_flash('Quick edit saved. The live stream post is current through dynamic rendering.', 'success');
+            bms_redirect(bms_admin_url('quick-edit.php?type=published&file=' . urlencode($newFilename)));
         }
-
-        if ($type === 'published') {
-        }
-        mp_flash('Quick edit saved. Draft details were updated.', 'success');
-        mp_redirect(mp_admin_url('quick-edit.php?type=draft&file=' . urlencode($newFilename)));
+        bms_flash('Quick edit saved. Draft details were updated.', 'success');
+        bms_redirect(bms_admin_url('quick-edit.php?type=draft&file=' . urlencode($newFilename)));
     } catch (Throwable $e) {
-        mp_flash('Quick edit failed. ' . $e->getMessage(), 'error');
-        mp_redirect(mp_admin_url('quick-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
+        bms_flash('Quick edit failed. ' . $e->getMessage(), 'error');
+        bms_redirect(bms_admin_url('quick-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
     }
 }
 
 $headerActions = [
-    ['label' => 'All Stream Posts', 'href' => mp_admin_url('content.php'), 'style' => 'secondary'],
-    ['label' => 'Full Editor', 'href' => mp_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)), 'style' => 'primary'],
+    ['label' => 'All Stream Posts', 'href' => bms_admin_url('content.php'), 'style' => 'secondary'],
+    ['label' => 'Full Editor', 'href' => bms_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)), 'style' => 'primary'],
 ];
 if ($type === 'published') {
-    $headerActions[] = mp_view_stream_post_action($page, 'View Post');
+    $headerActions[] = bms_view_stream_post_action($page, 'View Post');
 }
-mp_admin_header('Quick Edit', $headerActions);
+bms_admin_header('Quick Edit', $headerActions);
 ?>
 <section class="panel page-intro-panel">
   <p class="eyebrow">Quick Edit</p>
@@ -123,7 +102,7 @@ mp_admin_header('Quick Edit', $headerActions);
 
 <section class="panel settings-panel quick-edit-panel">
   <form method="post">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="type" value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -138,7 +117,7 @@ mp_admin_header('Quick Edit', $headerActions);
     <label for="stream_status">Status</label>
     <select id="stream_status" name="stream_status">
       <option value="draft" <?= $type === 'draft' ? 'selected' : '' ?>>Draft</option>
-      <?php if ($type === 'published' || mp_current_user_can('publish_content', mp_content_subject_for_file($section, $file, $page))): ?>
+      <?php if ($type === 'published' || bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page))): ?>
         <option value="published" <?= $type === 'published' ? 'selected' : '' ?>>Published</option>
       <?php endif; ?>
     </select>
@@ -163,9 +142,9 @@ mp_admin_header('Quick Edit', $headerActions);
 
     <div class="form-actions-row">
       <button type="submit">Save Quick Edit</button>
-      <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
-      <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Open Full Editor</a>
+      <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
+      <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Open Full Editor</a>
     </div>
   </form>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

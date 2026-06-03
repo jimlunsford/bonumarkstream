@@ -1,6 +1,6 @@
 <?php
 
-class MP_TwitterArchiveImporter implements MP_ImporterInterface
+class BMS_TwitterArchiveImporter implements BMS_ImporterInterface
 {
     private const MAX_DATA_FILE_BYTES = 32_000_000;
     private const MAX_STAGED_MEDIA_BYTES = 64_000_000;
@@ -21,7 +21,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
             return false;
         }
         $path = (string)($file['tmp_name'] ?? '');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             return false;
         }
 
@@ -43,9 +43,9 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
         return false;
     }
 
-    public function importPreview(array $file): MP_ImportResult
+    public function importPreview(array $file): BMS_ImportResult
     {
-        $result = new MP_ImportResult($this->label());
+        $result = new BMS_ImportResult($this->label());
         $path = (string)($file['tmp_name'] ?? '');
         $sourceName = (string)($file['name'] ?? 'twitter-archive.zip');
 
@@ -53,7 +53,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
             $result->addError('ZipArchive is required to import Twitter/X archive ZIP files.');
             return $result;
         }
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             $result->addError('Uploaded Twitter/X archive could not be read.');
             return $result;
         }
@@ -64,7 +64,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
             return $result;
         }
 
-        $stagingToken = function_exists('mp_import_staging_token') ? mp_import_staging_token() : bin2hex(random_bytes(12));
+        $stagingToken = function_exists('bms_import_staging_token') ? bms_import_staging_token() : bin2hex(random_bytes(12));
         $mediaEntries = [];
         $tweetDataEntries = [];
 
@@ -293,7 +293,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
     }
 
     /** @param array<string,mixed> $tweet */
-    private function tweetToItem(array $tweet, string $sourceName, string $entry, ZipArchive $zip, array $mediaMap, string $stagingToken, int &$stagedBytes): MP_ImportItem
+    private function tweetToItem(array $tweet, string $sourceName, string $entry, ZipArchive $zip, array $mediaMap, string $stagingToken, int &$stagedBytes): BMS_ImportItem
     {
         $id = trim((string)($tweet['id_str'] ?? $tweet['id'] ?? ''));
         $dateRaw = trim((string)($tweet['created_at'] ?? $tweet['createdAt'] ?? ''));
@@ -336,12 +336,12 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
             $source .= ' #' . $id;
         }
 
-        $item = mp_import_make_item([
+        $item = bms_import_make_item([
             'title' => $title,
             'slug' => $slug,
             'body' => $body,
-            'date' => mp_import_normalize_date($dateRaw),
-            'created_at' => mp_import_normalize_datetime($dateRaw),
+            'date' => bms_import_normalize_date($dateRaw),
+            'created_at' => bms_import_normalize_datetime($dateRaw),
             'description' => $this->descriptionFromText($text),
             'status' => 'published',
             'source' => $source,
@@ -423,7 +423,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
                 $tags = array_values(array_map('strval', $matches[2] ?? []));
             }
         }
-        return mp_normalize_terms($tags);
+        return bms_normalize_terms($tags);
     }
 
     /** @param array<string,mixed> $tweet @return list<string> */
@@ -447,7 +447,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
                     continue;
                 }
                 $url = (string)($media['media_url_https'] ?? $media['media_url'] ?? '');
-                if ($url !== '' && mp_import_is_remote_http_url($url)) {
+                if ($url !== '' && bms_import_is_remote_http_url($url)) {
                     $urls[] = $url;
                 }
             }
@@ -479,7 +479,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
         if ($size <= 0) {
             return '';
         }
-        if ($size > mp_import_remote_image_max_bytes()) {
+        if ($size > bms_import_remote_image_max_bytes()) {
             $warnings[] = 'Skipped oversized archive media file: ' . basename($entry) . '.';
             return '';
         }
@@ -488,7 +488,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
             return '';
         }
 
-        $data = $this->readZipEntry($zip, $entry, mp_import_remote_image_max_bytes());
+        $data = $this->readZipEntry($zip, $entry, bms_import_remote_image_max_bytes());
         if ($data === '') {
             return '';
         }
@@ -499,7 +499,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
         }
 
         $relative = basename($entry);
-        $destination = mp_import_staging_path($token, $relative);
+        $destination = bms_import_staging_path($token, $relative);
         $dir = dirname($destination);
         if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
             $warnings[] = 'Could not create import staging folder for archive media.';
@@ -509,7 +509,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
         @chmod($destination, 0600);
         $stagedBytes += strlen($data);
 
-        return mp_import_staged_media_url($token, $relative);
+        return bms_import_staged_media_url($token, $relative);
     }
 
     private function descriptionFromText(string $text): string
@@ -521,7 +521,7 @@ class MP_TwitterArchiveImporter implements MP_ImporterInterface
         return substr($text, 0, 156);
     }
 
-    private function addDiagnosticWarning(MP_ImportResult $result, ZipArchive $zip): void
+    private function addDiagnosticWarning(BMS_ImportResult $result, ZipArchive $zip): void
     {
         $sample = [];
         for ($i = 0; $i < min(25, $zip->numFiles); $i++) {

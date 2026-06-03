@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
-$checks = mp_security_status();
-mp_admin_header('System Check', [
-    ['label' => 'Tools', 'href' => mp_admin_url('tools.php'), 'style' => 'secondary'],
+$checks = bms_security_status();
+bms_admin_header('System Check', [
+    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel">
@@ -41,4 +41,4 @@ mp_admin_header('System Check', [
     <li><strong>Private storage:</strong> <code>_bonumark_stream</code> should never be publicly reachable.</li>
   </ul>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

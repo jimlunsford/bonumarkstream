@@ -2,18 +2,18 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/media.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_media');
+bms_require_login();
+bms_require_capability('manage_media');
 
-$mode = function_exists('mp_media_regeneration_mode') ? mp_media_regeneration_mode((string)($_GET['mode'] ?? $_POST['mode'] ?? 'missing')) : 'missing';
+$mode = function_exists('bms_media_regeneration_mode') ? bms_media_regeneration_mode((string)($_GET['mode'] ?? $_POST['mode'] ?? 'missing')) : 'missing';
 $afterId = max(0, (int)($_GET['after_id'] ?? $_POST['after_id'] ?? 0));
-$limit = function_exists('mp_media_regeneration_batch_size') ? mp_media_regeneration_batch_size() : 5;
+$limit = function_exists('bms_media_regeneration_batch_size') ? bms_media_regeneration_batch_size() : 5;
 $result = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     try {
-        $result = mp_media_regeneration_run_batch($mode, $afterId, $limit);
+        $result = bms_media_regeneration_run_batch($mode, $afterId, $limit);
         $parts = [];
         $parts[] = (int)$result['processed'] . ' image(s) checked';
         $parts[] = (int)$result['generated'] . ' with optimized variants';
@@ -23,21 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ((int)$result['failed'] > 0) {
             $parts[] = (int)$result['failed'] . ' failed';
         }
-        mp_flash('Image optimization batch complete: ' . implode(', ', $parts) . '.', ((int)$result['failed'] > 0) ? 'warning' : 'success');
+        bms_flash('Image optimization batch complete: ' . implode(', ', $parts) . '.', ((int)$result['failed'] > 0) ? 'warning' : 'success');
     } catch (Throwable $e) {
-        mp_flash('Image optimization failed. ' . $e->getMessage(), 'error');
+        bms_flash('Image optimization failed. ' . $e->getMessage(), 'error');
     }
 }
 
-$summary = function_exists('mp_media_regeneration_summary') ? mp_media_regeneration_summary() : ['total_images' => 0, 'with_variants' => 0, 'missing_variants' => 0, 'all_candidates' => 0];
-$environment = function_exists('mp_media_derivative_environment') ? mp_media_derivative_environment('image/jpeg') : [];
-$remaining = function_exists('mp_media_regeneration_count') ? mp_media_regeneration_count($mode) : 0;
+$summary = function_exists('bms_media_regeneration_summary') ? bms_media_regeneration_summary() : ['total_images' => 0, 'with_variants' => 0, 'missing_variants' => 0, 'all_candidates' => 0];
+$environment = function_exists('bms_media_derivative_environment') ? bms_media_derivative_environment('image/jpeg') : [];
+$remaining = function_exists('bms_media_regeneration_count') ? bms_media_regeneration_count($mode) : 0;
 $nextAfter = is_array($result) ? (int)($result['last_id'] ?? $afterId) : $afterId;
 $hasMore = is_array($result) ? (bool)($result['has_more'] ?? false) : ($remaining > 0);
 
-mp_admin_header('Optimize Images', [
-    ['label' => 'Media Library', 'href' => mp_admin_url('media.php'), 'style' => 'secondary'],
-    ['label' => 'Upload Media', 'href' => mp_admin_url('media-upload.php'), 'style' => 'primary'],
+bms_admin_header('Optimize Images', [
+    ['label' => 'Media Library', 'href' => bms_admin_url('media.php'), 'style' => 'secondary'],
+    ['label' => 'Upload Media', 'href' => bms_admin_url('media-upload.php'), 'style' => 'primary'],
 ]);
 ?>
 <section class="panel page-intro-panel">
@@ -80,7 +80,7 @@ mp_admin_header('Optimize Images', [
   </div>
   <div class="media-regen-mode-grid">
     <form method="post" class="action-card media-regen-card">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="mode" value="missing">
       <input type="hidden" name="after_id" value="<?= $mode === 'missing' ? (int)$nextAfter : 0 ?>">
       <h3>Generate missing variants</h3>
@@ -88,7 +88,7 @@ mp_admin_header('Optimize Images', [
       <button type="submit"><?= $mode === 'missing' && $afterId > 0 ? 'Continue Missing Batch' : 'Start Missing Batch' ?></button>
     </form>
     <form method="post" class="action-card media-regen-card" data-confirm="Refresh variants for all local images? This still runs in small batches but may replace existing generated variants.">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="mode" value="all">
       <input type="hidden" name="after_id" value="<?= $mode === 'all' ? (int)$nextAfter : 0 ?>">
       <h3>Refresh all variants</h3>
@@ -98,7 +98,7 @@ mp_admin_header('Optimize Images', [
   </div>
   <?php if (is_array($result) && !empty($result['has_more'])): ?>
     <form method="post" class="form-actions-row media-regen-continue-form">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="mode" value="<?= htmlspecialchars((string)($result['mode'] ?? $mode), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="after_id" value="<?= (int)($result['last_id'] ?? 0) ?>">
       <button type="submit" class="primary-button">Process next batch</button>
@@ -143,4 +143,4 @@ mp_admin_header('Optimize Images', [
     <li>It does not process the full library in one request.</li>
   </ul>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

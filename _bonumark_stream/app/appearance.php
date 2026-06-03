@@ -3,51 +3,51 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/themes.php';
 
-function mp_theme_options(): array
+function bms_theme_options(): array
 {
     // Deprecated legacy dark/light visual-mode options. Public theme packages now
     // own their own settings through theme.json.
     return [];
 }
 
-function mp_public_theme(): string
+function bms_public_theme(): string
 {
     // Backward-compatible helper for old code paths. New code should use
-    // mp_active_public_theme_slug().
-    return function_exists('mp_active_public_theme_slug') ? mp_active_public_theme_slug() : 'default';
+    // bms_active_public_theme_slug().
+    return function_exists('bms_active_public_theme_slug') ? bms_active_public_theme_slug() : 'default';
 }
 
-function mp_public_theme_name(): string
+function bms_public_theme_name(): string
 {
-    return mp_public_theme_package_name();
+    return bms_public_theme_package_name();
 }
 
-function mp_public_theme_package_name(): string
+function bms_public_theme_package_name(): string
 {
-    return function_exists('mp_active_public_theme_name') ? mp_active_public_theme_name() : 'Midnight Ledger';
+    return function_exists('bms_active_public_theme_name') ? bms_active_public_theme_name() : 'Midnight Ledger';
 }
 
-function mp_public_theme_class(string $context = ''): string
+function bms_public_theme_class(string $context = ''): string
 {
-    $themeSlug = function_exists('mp_active_public_theme_slug') ? mp_active_public_theme_slug() : 'default';
+    $themeSlug = function_exists('bms_active_public_theme_slug') ? bms_active_public_theme_slug() : 'default';
     $themeSlug = preg_replace('/[^a-z0-9_-]+/i', '-', $themeSlug) ?: 'default';
     $context = preg_replace('/[^a-z0-9_-]+/i', '-', $context) ?: 'site';
     return trim('bonumark-public public-theme-' . strtolower($themeSlug) . ' context-' . strtolower($context));
 }
 
-function mp_homepage_eyebrow(): string
+function bms_homepage_eyebrow(): string
 {
-    return trim((string)mp_setting_or_config('homepage_eyebrow', 'Own your short-form publishing'));
+    return trim((string)bms_setting_or_config('homepage_eyebrow', 'Own your short-form publishing'));
 }
 
-function mp_site_footer_text(): string
+function bms_site_footer_text(): string
 {
-    return trim((string)mp_setting_or_config('site_footer_text', ''));
+    return trim((string)bms_setting_or_config('site_footer_text', ''));
 }
 
-function mp_show_powered_by(): bool
+function bms_show_powered_by(): bool
 {
-    return (string)mp_setting_or_config('show_powered_by', '1') === '1';
+    return (string)bms_setting_or_config('show_powered_by', '1') === '1';
 }
 
 
@@ -55,14 +55,14 @@ function mp_show_powered_by(): bool
 
 
 
-function mp_site_favicon_media_id(): int
+function bms_site_favicon_media_id(): int
 {
-    return max(0, (int)mp_setting_or_config('site_favicon_media_id', '0'));
+    return max(0, (int)bms_setting_or_config('site_favicon_media_id', '0'));
 }
 
-function mp_site_favicon_path(): string
+function bms_site_favicon_path(): string
 {
-    $path = trim((string)mp_setting_or_config('site_favicon_path', ''));
+    $path = trim((string)bms_setting_or_config('site_favicon_path', ''));
     $path = str_replace('\\', '/', $path);
     $path = trim($path, '/');
     if ($path === '' || str_contains($path, "\0") || preg_match('#(^|/)\.\.(/|$)#', $path) === 1) {
@@ -71,9 +71,9 @@ function mp_site_favicon_path(): string
     return str_starts_with($path, 'media/') ? $path : '';
 }
 
-function mp_site_favicon_is_image(array $media): bool
+function bms_site_favicon_is_image(array $media): bool
 {
-    if (function_exists('mp_media_is_trashed') && mp_media_is_trashed($media)) {
+    if (function_exists('bms_media_is_trashed') && bms_media_is_trashed($media)) {
         return false;
     }
     $publicPath = trim((string)($media['public_path'] ?? ''));
@@ -88,20 +88,20 @@ function mp_site_favicon_is_image(array $media): bool
     return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
 }
 
-function mp_site_favicon_media(): ?array
+function bms_site_favicon_media(): ?array
 {
-    $id = mp_site_favicon_media_id();
-    if ($id > 0 && function_exists('mp_media_find')) {
-        $media = mp_media_find($id);
-        if (is_array($media) && mp_site_favicon_is_image($media)) {
+    $id = bms_site_favicon_media_id();
+    if ($id > 0 && function_exists('bms_media_find')) {
+        $media = bms_media_find($id);
+        if (is_array($media) && bms_site_favicon_is_image($media)) {
             return $media;
         }
     }
 
-    $path = mp_site_favicon_path();
-    if ($path !== '' && function_exists('mp_media_find_by_public_path')) {
-        $media = mp_media_find_by_public_path($path);
-        if (is_array($media) && mp_site_favicon_is_image($media)) {
+    $path = bms_site_favicon_path();
+    if ($path !== '' && function_exists('bms_media_find_by_public_path')) {
+        $media = bms_media_find_by_public_path($path);
+        if (is_array($media) && bms_site_favicon_is_image($media)) {
             return $media;
         }
     }
@@ -109,13 +109,13 @@ function mp_site_favicon_media(): ?array
     return null;
 }
 
-function mp_site_favicon_view_data(): array
+function bms_site_favicon_view_data(): array
 {
-    $media = mp_site_favicon_media();
+    $media = bms_site_favicon_media();
     if (!$media) {
-        $path = mp_site_favicon_path();
+        $path = bms_site_favicon_path();
         if ($path !== '') {
-            $file = function_exists('mp_public_path') ? mp_public_path($path) : '';
+            $file = function_exists('bms_public_path') ? bms_public_path($path) : '';
             if ($file !== '' && is_file($file)) {
                 $info = @getimagesize($file);
                 $width = is_array($info) ? (int)($info[0] ?? 0) : 0;
@@ -125,7 +125,7 @@ function mp_site_favicon_view_data(): array
                 return [
                     'media' => null,
                     'id' => 0,
-                    'url' => function_exists('mp_url_path') ? mp_url_path($path) : '',
+                    'url' => function_exists('bms_url_path') ? bms_url_path($path) : '',
                     'path' => $path,
                     'mime' => $mime,
                     'width' => $width,
@@ -154,7 +154,7 @@ function mp_site_favicon_view_data(): array
     return [
         'media' => $media,
         'id' => (int)($media['id'] ?? 0),
-        'url' => function_exists('mp_media_public_url_for_item') ? mp_media_public_url_for_item($media) : '',
+        'url' => function_exists('bms_media_public_url_for_item') ? bms_media_public_url_for_item($media) : '',
         'path' => (string)($media['public_path'] ?? ''),
         'mime' => (string)($media['mime_type'] ?? ''),
         'width' => $width,
@@ -164,9 +164,9 @@ function mp_site_favicon_view_data(): array
     ];
 }
 
-function mp_site_favicon_tags(): string
+function bms_site_favicon_tags(): string
 {
-    $favicon = mp_site_favicon_view_data();
+    $favicon = bms_site_favicon_view_data();
     $url = trim((string)($favicon['url'] ?? ''));
     if ($url === '') {
         return '';
@@ -183,34 +183,34 @@ function mp_site_favicon_tags(): string
     return $tags;
 }
 
-function mp_default_navigation_items(): array
+function bms_default_navigation_items(): array
 {
     return [
         ['label' => 'Home', 'url' => '/', 'target' => '_self', 'order' => 10, 'source' => 'system'],
     ];
 }
 
-function mp_public_navigation_enabled(): bool
+function bms_public_navigation_enabled(): bool
 {
-    return (string)mp_setting_or_config('primary_navigation_enabled', '0') === '1';
+    return (string)bms_setting_or_config('primary_navigation_enabled', '0') === '1';
 }
 
-function mp_save_public_navigation_enabled(bool $enabled): void
+function bms_save_public_navigation_enabled(bool $enabled): void
 {
-    mp_set_setting('primary_navigation_enabled', $enabled ? '1' : '0');
+    bms_set_setting('primary_navigation_enabled', $enabled ? '1' : '0');
 }
 
-function mp_public_navigation_account_links_enabled(): bool
+function bms_public_navigation_account_links_enabled(): bool
 {
-    return (string)mp_setting_or_config('public_navigation_account_links_enabled', '1') === '1';
+    return (string)bms_setting_or_config('public_navigation_account_links_enabled', '1') === '1';
 }
 
-function mp_save_public_navigation_account_links_enabled(bool $enabled): void
+function bms_save_public_navigation_account_links_enabled(bool $enabled): void
 {
-    mp_set_setting('public_navigation_account_links_enabled', $enabled ? '1' : '0');
+    bms_set_setting('public_navigation_account_links_enabled', $enabled ? '1' : '0');
 }
 
-function mp_normalize_navigation_order(mixed $value, int $fallback): int
+function bms_normalize_navigation_order(mixed $value, int $fallback): int
 {
     if (is_numeric($value)) {
         return max(0, min(9999, (int)$value));
@@ -218,7 +218,7 @@ function mp_normalize_navigation_order(mixed $value, int $fallback): int
     return max(0, min(9999, $fallback));
 }
 
-function mp_normalize_navigation_item(array $item, int $position = 0): ?array
+function bms_normalize_navigation_item(array $item, int $position = 0): ?array
 {
     $label = trim((string)($item['label'] ?? ''));
     $url = trim((string)($item['url'] ?? ''));
@@ -233,7 +233,7 @@ function mp_normalize_navigation_item(array $item, int $position = 0): ?array
 
     return [
         'label' => substr($label, 0, 80),
-        'url' => mp_sanitize_navigation_url($url),
+        'url' => bms_sanitize_navigation_url($url),
         'target' => $target === '_blank' ? '_blank' : '_self',
         'order' => ($position + 1) * 10,
         'source' => substr(strtolower($source), 0, 40),
@@ -243,7 +243,7 @@ function mp_normalize_navigation_item(array $item, int $position = 0): ?array
     ];
 }
 
-function mp_sort_navigation_items(array $items): array
+function bms_sort_navigation_items(array $items): array
 {
     usort($items, function (array $a, array $b): int {
         $orderCompare = ((int)($a['order'] ?? 0)) <=> ((int)($b['order'] ?? 0));
@@ -259,16 +259,16 @@ function mp_sort_navigation_items(array $items): array
     }, $items));
 }
 
-function mp_navigation_items(): array
+function bms_navigation_items(): array
 {
-    $raw = (string)mp_setting_or_config('primary_navigation', '');
+    $raw = (string)bms_setting_or_config('primary_navigation', '');
     if ($raw === '') {
-        return mp_sort_navigation_items(mp_default_navigation_items());
+        return bms_sort_navigation_items(bms_default_navigation_items());
     }
 
     $decoded = json_decode($raw, true);
     if (!is_array($decoded)) {
-        return mp_sort_navigation_items(mp_default_navigation_items());
+        return bms_sort_navigation_items(bms_default_navigation_items());
     }
 
     $items = [];
@@ -276,18 +276,18 @@ function mp_navigation_items(): array
         if (!is_array($item)) {
             continue;
         }
-        $normalized = mp_normalize_navigation_item($item, (int)$index);
+        $normalized = bms_normalize_navigation_item($item, (int)$index);
         if ($normalized !== null) {
             $items[] = $normalized;
         }
     }
 
-    return mp_sort_navigation_items($items);
+    return bms_sort_navigation_items($items);
 }
 
-function mp_navigation_url_key(string $url): string
+function bms_navigation_url_key(string $url): string
 {
-    $resolved = mp_resolve_navigation_url($url);
+    $resolved = bms_resolve_navigation_url($url);
     $parts = parse_url($resolved);
     if (!is_array($parts)) {
         return strtolower(trim($resolved));
@@ -316,37 +316,37 @@ function mp_navigation_url_key(string $url): string
     return strtolower($prefix . $path . ($query !== '' ? '?' . $query : '') . ($fragment !== '' ? '#' . $fragment : ''));
 }
 
-function mp_navigation_has_url(array $items, string $url): bool
+function bms_navigation_has_url(array $items, string $url): bool
 {
-    $needle = mp_navigation_url_key($url);
+    $needle = bms_navigation_url_key($url);
     foreach ($items as $item) {
-        if (mp_navigation_url_key((string)($item['url'] ?? '')) === $needle) {
+        if (bms_navigation_url_key((string)($item['url'] ?? '')) === $needle) {
             return true;
         }
     }
     return false;
 }
 
-function mp_public_navigation_account_items(): array
+function bms_public_navigation_account_items(): array
 {
-    if (!function_exists('mp_is_logged_in')) {
+    if (!function_exists('bms_is_logged_in')) {
         return [];
     }
 
     $items = [];
-    if (!mp_is_logged_in()) {
+    if (!bms_is_logged_in()) {
         $items[] = [
             'label' => 'Sign in',
-            'url' => mp_url_path('account.php'),
+            'url' => bms_url_path('account.php'),
             'target' => '_self',
             'source' => 'system-account',
         ];
 
-        $registrationEnabled = function_exists('mp_public_registration_enabled') && mp_public_registration_enabled();
+        $registrationEnabled = function_exists('bms_public_registration_enabled') && bms_public_registration_enabled();
         if ($registrationEnabled) {
             $items[] = [
                 'label' => 'Create account',
-                'url' => mp_url_path('account.php#create-account'),
+                'url' => bms_url_path('account.php#create-account'),
                 'target' => '_self',
                 'source' => 'system-account',
             ];
@@ -355,28 +355,28 @@ function mp_public_navigation_account_items(): array
         return $items;
     }
 
-    $user = function_exists('mp_current_user') ? mp_current_user() : [];
-    $canViewAdmin = function_exists('mp_current_user_can') && mp_current_user_can('view_admin');
+    $user = function_exists('bms_current_user') ? bms_current_user() : [];
+    $canViewAdmin = function_exists('bms_current_user_can') && bms_current_user_can('view_admin');
     $items[] = [
         'label' => $canViewAdmin ? 'Dashboard' : 'Account',
-        'url' => $canViewAdmin && function_exists('mp_admin_url') ? mp_admin_url() : mp_url_path('account.php'),
+        'url' => $canViewAdmin && function_exists('bms_admin_url') ? bms_admin_url() : bms_url_path('account.php'),
         'target' => '_self',
         'source' => 'system-account',
     ];
 
-    if (is_array($user) && (int)($user['id'] ?? 0) > 0 && function_exists('mp_public_profile_url_for_user')) {
+    if (is_array($user) && (int)($user['id'] ?? 0) > 0 && function_exists('bms_public_profile_url_for_user')) {
         $items[] = [
             'label' => 'Profile',
-            'url' => mp_public_profile_url_for_user($user),
+            'url' => bms_public_profile_url_for_user($user),
             'target' => '_self',
             'source' => 'system-account',
         ];
     }
 
-    if (function_exists('mp_csrf_token')) {
+    if (function_exists('bms_csrf_token')) {
         $items[] = [
             'label' => 'Sign out',
-            'url' => mp_url_path('account.php?action=logout&csrf_token=' . rawurlencode(mp_csrf_token())),
+            'url' => bms_url_path('account.php?action=logout&csrf_token=' . rawurlencode(bms_csrf_token())),
             'target' => '_self',
             'source' => 'system-account',
         ];
@@ -385,27 +385,27 @@ function mp_public_navigation_account_items(): array
     return $items;
 }
 
-function mp_public_navigation_items(): array
+function bms_public_navigation_items(): array
 {
-    $items = mp_navigation_items();
+    $items = bms_navigation_items();
     if (!$items) {
-        $items = mp_default_navigation_items();
+        $items = bms_default_navigation_items();
     }
 
-    if (mp_public_navigation_account_links_enabled()) {
-        foreach (mp_public_navigation_account_items() as $accountItem) {
-            $normalized = mp_normalize_navigation_item($accountItem, count($items));
-            if ($normalized === null || mp_navigation_has_url($items, (string)$normalized['url'])) {
+    if (bms_public_navigation_account_links_enabled()) {
+        foreach (bms_public_navigation_account_items() as $accountItem) {
+            $normalized = bms_normalize_navigation_item($accountItem, count($items));
+            if ($normalized === null || bms_navigation_has_url($items, (string)$normalized['url'])) {
                 continue;
             }
             $items[] = $normalized;
         }
     }
 
-    return mp_sort_navigation_items($items);
+    return bms_sort_navigation_items($items);
 }
 
-function mp_sanitize_navigation_url(string $url): string
+function bms_sanitize_navigation_url(string $url): string
 {
     $url = trim(str_replace('\\', '/', $url));
     if ($url === '') {
@@ -443,19 +443,19 @@ function mp_sanitize_navigation_url(string $url): string
     return '/' . ltrim($url, '/');
 }
 
-function mp_resolve_navigation_url(string $url): string
+function bms_resolve_navigation_url(string $url): string
 {
-    $url = mp_sanitize_navigation_url($url);
+    $url = bms_sanitize_navigation_url($url);
     if ($url === '/') {
-        return mp_url_path();
+        return bms_url_path();
     }
     if (str_starts_with($url, '#') || preg_match('#^(https?://|mailto:)#i', $url) === 1) {
         return $url;
     }
-    return mp_url_path(ltrim($url, '/'));
+    return bms_url_path(ltrim($url, '/'));
 }
 
-function mp_normalize_navigation_path(string $path): string
+function bms_normalize_navigation_path(string $path): string
 {
     $path = parse_url($path, PHP_URL_PATH);
     $path = is_string($path) ? $path : '/';
@@ -466,7 +466,7 @@ function mp_normalize_navigation_path(string $path): string
     return $path;
 }
 
-function mp_current_navigation_path(?string $currentPath = null): string
+function bms_current_navigation_path(?string $currentPath = null): string
 {
     if ($currentPath !== null && trim($currentPath) !== '') {
         $path = $currentPath;
@@ -475,12 +475,12 @@ function mp_current_navigation_path(?string $currentPath = null): string
     }
 
     if (preg_match('#^(https?://|mailto:)#i', $path) === 1) {
-        return mp_normalize_navigation_path($path);
+        return bms_normalize_navigation_path($path);
     }
 
-    $base = parse_url(mp_url_path(), PHP_URL_PATH);
+    $base = parse_url(bms_url_path(), PHP_URL_PATH);
     $base = is_string($base) ? trim($base, '/') : '';
-    $normalized = mp_normalize_navigation_path($path);
+    $normalized = bms_normalize_navigation_path($path);
     if ($base !== '' && str_starts_with(trim($normalized, '/'), $base . '/')) {
         $normalized = '/' . substr(trim($normalized, '/'), strlen($base) + 1);
         if ($normalized !== '/') {
@@ -490,15 +490,15 @@ function mp_current_navigation_path(?string $currentPath = null): string
     return $normalized;
 }
 
-function mp_navigation_item_is_active(array $item, ?string $currentPath = null): bool
+function bms_navigation_item_is_active(array $item, ?string $currentPath = null): bool
 {
     $url = (string)($item['url'] ?? '');
     if ($url === '' || str_starts_with($url, '#') || preg_match('#^(https?://|mailto:)#i', $url) === 1) {
         return false;
     }
 
-    $itemPath = mp_current_navigation_path(mp_resolve_navigation_url($url));
-    $current = mp_current_navigation_path($currentPath);
+    $itemPath = bms_current_navigation_path(bms_resolve_navigation_url($url));
+    $current = bms_current_navigation_path($currentPath);
 
     if ($itemPath === '/') {
         return $current === '/';
@@ -507,7 +507,7 @@ function mp_navigation_item_is_active(array $item, ?string $currentPath = null):
     return $current === $itemPath;
 }
 
-function mp_save_navigation_items(array $items): void
+function bms_save_navigation_items(array $items): void
 {
     $normalizedItems = [];
     $position = 0;
@@ -515,7 +515,7 @@ function mp_save_navigation_items(array $items): void
         if (!is_array($item)) {
             continue;
         }
-        $normalized = mp_normalize_navigation_item($item, $position);
+        $normalized = bms_normalize_navigation_item($item, $position);
         if ($normalized === null) {
             continue;
         }
@@ -523,16 +523,16 @@ function mp_save_navigation_items(array $items): void
         $position++;
     }
 
-    mp_set_setting('primary_navigation', json_encode(mp_sort_navigation_items($normalizedItems), JSON_UNESCAPED_SLASHES));
+    bms_set_setting('primary_navigation', json_encode(bms_sort_navigation_items($normalizedItems), JSON_UNESCAPED_SLASHES));
 }
 
-function mp_render_public_navigation(string $class = 'public-nav', ?string $currentPath = null): string
+function bms_render_public_navigation(string $class = 'public-nav', ?string $currentPath = null): string
 {
-    if (!mp_public_navigation_enabled()) {
+    if (!bms_public_navigation_enabled()) {
         return '';
     }
 
-    $items = mp_public_navigation_items();
+    $items = bms_public_navigation_items();
     if (!$items) {
         return '';
     }
@@ -540,8 +540,8 @@ function mp_render_public_navigation(string $class = 'public-nav', ?string $curr
     $html = '<nav class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '" aria-label="Primary navigation">';
     foreach ($items as $item) {
         $label = htmlspecialchars((string)$item['label'], ENT_QUOTES, 'UTF-8');
-        $url = htmlspecialchars(mp_resolve_navigation_url((string)$item['url']), ENT_QUOTES, 'UTF-8');
-        $active = mp_navigation_item_is_active($item, $currentPath);
+        $url = htmlspecialchars(bms_resolve_navigation_url((string)$item['url']), ENT_QUOTES, 'UTF-8');
+        $active = bms_navigation_item_is_active($item, $currentPath);
         $target = (string)($item['target'] ?? '_self') === '_blank' ? ' target="_blank" rel="noopener"' : '';
         $classAttr = $active ? ' class="is-active" aria-current="page"' : '';
         $html .= '<a href="' . $url . '"' . $target . $classAttr . '>' . $label . '</a>';
@@ -550,13 +550,13 @@ function mp_render_public_navigation(string $class = 'public-nav', ?string $curr
     return $html;
 }
 
-function mp_render_public_navigation_list(string $class = 'site-nav', string $id = 'site-primary-nav', ?string $currentPath = null): string
+function bms_render_public_navigation_list(string $class = 'site-nav', string $id = 'site-primary-nav', ?string $currentPath = null): string
 {
-    if (!mp_public_navigation_enabled()) {
+    if (!bms_public_navigation_enabled()) {
         return '';
     }
 
-    $items = mp_public_navigation_items();
+    $items = bms_public_navigation_items();
     if (!$items) {
         return '';
     }
@@ -564,11 +564,11 @@ function mp_render_public_navigation_list(string $class = 'site-nav', string $id
     $html = '<nav id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '" class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '" aria-label="Primary menu">';
     $html .= '<ul class="site-nav-list">';
     foreach ($items as $item) {
-        $active = mp_navigation_item_is_active($item, $currentPath);
+        $active = bms_navigation_item_is_active($item, $currentPath);
         $liClass = $active ? ' class="is-active"' : '';
         $linkClass = $active ? ' class="is-active" aria-current="page"' : '';
         $label = htmlspecialchars((string)$item['label'], ENT_QUOTES, 'UTF-8');
-        $url = htmlspecialchars(mp_resolve_navigation_url((string)$item['url']), ENT_QUOTES, 'UTF-8');
+        $url = htmlspecialchars(bms_resolve_navigation_url((string)$item['url']), ENT_QUOTES, 'UTF-8');
         $target = (string)($item['target'] ?? '_self') === '_blank' ? ' target="_blank" rel="noopener"' : '';
         $html .= '<li' . $liClass . '><a href="' . $url . '"' . $target . $linkClass . '>' . $label . '</a></li>';
     }
@@ -576,9 +576,9 @@ function mp_render_public_navigation_list(string $class = 'site-nav', string $id
     return $html;
 }
 
-function mp_navigation_prepare_page_item(array $page, string $label = ''): ?array
+function bms_navigation_prepare_page_item(array $page, string $label = ''): ?array
 {
-    $slug = mp_slugify((string)($page['slug'] ?? ''));
+    $slug = bms_slugify((string)($page['slug'] ?? ''));
     if ($slug === '') {
         return null;
     }
@@ -590,7 +590,7 @@ function mp_navigation_prepare_page_item(array $page, string $label = ''): ?arra
 
     return [
         'label' => substr($pageLabel, 0, 80),
-        'url' => '/' . trim(mp_page_relative_directory($slug), '/') . '/',
+        'url' => '/' . trim(bms_page_relative_directory($slug), '/') . '/',
         'target' => '_self',
         'source' => 'page',
         'object_type' => 'page',
@@ -598,57 +598,15 @@ function mp_navigation_prepare_page_item(array $page, string $label = ''): ?arra
     ];
 }
 
-function mp_migrate_legacy_page_navigation_once(): void
-{
-    if ((string)mp_setting_or_config('legacy_page_navigation_migrated', '0') === '1') {
-        return;
-    }
-    if (!function_exists('mp_list_page_records')) {
-        return;
-    }
-
-    $items = mp_navigation_items();
-    $existingUrls = [];
-    foreach ($items as $item) {
-        $existingUrls[] = mp_sanitize_navigation_url((string)($item['url'] ?? ''));
-    }
-
-    $changed = false;
-    foreach (mp_list_page_records('published') as $page) {
-        $frontMatter = is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
-        $show = (string)($page['show_in_menu'] ?? $frontMatter['show_in_menu'] ?? '0') === '1';
-        if (!$show) {
-            continue;
-        }
-        $label = (string)($page['menu_label'] ?? $frontMatter['menu_label'] ?? '');
-        $item = mp_navigation_prepare_page_item($page, $label);
-        if ($item === null) {
-            continue;
-        }
-        $url = mp_sanitize_navigation_url((string)$item['url']);
-        if (in_array($url, $existingUrls, true)) {
-            continue;
-        }
-        $items[] = $item;
-        $existingUrls[] = $url;
-        $changed = true;
-    }
-
-    if ($changed) {
-        mp_save_navigation_items($items);
-    }
-    mp_set_setting('legacy_page_navigation_migrated', '1');
-}
-
-function mp_stream_published_count(?int $knownCount = null): int
+function bms_stream_published_count(?int $knownCount = null): int
 {
     if ($knownCount !== null) {
         return max(0, $knownCount);
     }
 
-    if (function_exists('mp_list_content_records') && function_exists('mp_filter_stream_posts')) {
+    if (function_exists('bms_list_content_records') && function_exists('bms_filter_stream_posts')) {
         try {
-            return count(mp_filter_stream_posts(mp_list_content_records('published')));
+            return count(bms_filter_stream_posts(bms_list_content_records('published')));
         } catch (Throwable $e) {
             return 0;
         }
@@ -657,23 +615,23 @@ function mp_stream_published_count(?int $knownCount = null): int
     return 0;
 }
 
-function mp_stream_count_label(int $count): string
+function bms_stream_count_label(int $count): string
 {
     return number_format($count) . ' ' . ($count === 1 ? 'post' : 'posts');
 }
 
-function mp_render_public_header(string $context = 'page', ?int $streamPostCount = null, ?string $currentPath = null): string
+function bms_render_public_header(string $context = 'page', ?int $streamPostCount = null, ?string $currentPath = null): string
 {
-    $siteNameRaw = (string)mp_setting_or_config('site_name', 'Bonumark Stream');
-    $taglineRaw = (string)mp_setting_or_config('site_tagline', '');
-    $taglineHtml = function_exists('mp_sanitize_site_identity_html') ? mp_sanitize_site_identity_html($taglineRaw) : htmlspecialchars($taglineRaw, ENT_QUOTES, 'UTF-8');
-    $homeUrlRaw = mp_url_path();
-    $count = mp_stream_published_count($streamPostCount);
-    $countLabelRaw = mp_stream_count_label($count);
-    $navHtml = mp_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath);
+    $siteNameRaw = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
+    $taglineRaw = (string)bms_setting_or_config('site_tagline', '');
+    $taglineHtml = function_exists('bms_sanitize_site_identity_html') ? bms_sanitize_site_identity_html($taglineRaw) : htmlspecialchars($taglineRaw, ENT_QUOTES, 'UTF-8');
+    $homeUrlRaw = bms_url_path();
+    $count = bms_stream_published_count($streamPostCount);
+    $countLabelRaw = bms_stream_count_label($count);
+    $navHtml = bms_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath);
     $titleTag = $context === 'home' ? 'h1' : 'p';
 
-    return mp_render_public_theme_template('header', [
+    return bms_render_public_theme_template('header', [
         'context' => $context,
         'site_name' => $siteNameRaw,
         'tagline' => $taglineRaw,
@@ -683,18 +641,18 @@ function mp_render_public_header(string $context = 'page', ?int $streamPostCount
         'count_label' => $countLabelRaw,
         'navigation_html' => $navHtml,
         'title_tag' => $titleTag,
-        'theme_settings' => mp_public_theme_settings(),
+        'theme_settings' => bms_public_theme_settings(),
     ]);
 }
 
-function mp_render_public_footer(?string $currentPath = null): string
+function bms_render_public_footer(?string $currentPath = null): string
 {
-    $footerText = trim(mp_site_footer_text());
-    $footerHtml = function_exists('mp_sanitize_site_identity_html') ? mp_sanitize_site_identity_html($footerText) : htmlspecialchars($footerText, ENT_QUOTES, 'UTF-8');
+    $footerText = trim(bms_site_footer_text());
+    $footerHtml = function_exists('bms_sanitize_site_identity_html') ? bms_sanitize_site_identity_html($footerText) : htmlspecialchars($footerText, ENT_QUOTES, 'UTF-8');
 
-    return mp_render_public_theme_template('footer', [
-        'footer_text' => mp_site_identity_plain_text($footerText),
+    return bms_render_public_theme_template('footer', [
+        'footer_text' => bms_site_identity_plain_text($footerText),
         'footer_html' => $footerHtml,
-        'show_powered_by' => mp_show_powered_by(),
+        'show_powered_by' => bms_show_powered_by(),
     ]);
 }

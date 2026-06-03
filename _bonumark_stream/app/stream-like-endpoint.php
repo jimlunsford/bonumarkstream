@@ -26,7 +26,7 @@ function bms_stream_like_json(array $payload, int $status = 200): void
 }
 
 try {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         bms_stream_like_json(['ok' => false, 'message' => 'Bonumark Stream is not installed.'], 503);
     }
 
@@ -40,13 +40,13 @@ try {
     if ($method === 'GET') {
         $raw = (string)($_GET['slugs'] ?? $_GET['slug'] ?? '');
         $slugs = preg_split('/[\s,]+/', $raw) ?: [];
-        $slugs = array_values(array_filter(array_map('mp_slugify', $slugs)));
+        $slugs = array_values(array_filter(array_map('bms_slugify', $slugs)));
 
         if (!$slugs) {
             bms_stream_like_json(['ok' => false, 'message' => 'Missing stream posts.'], 400);
         }
 
-        $data = mp_stream_like_status_for_slugs($slugs);
+        $data = bms_stream_like_status_for_slugs($slugs);
         bms_stream_like_json(['ok' => true, 'data' => $data]);
     }
 
@@ -54,14 +54,14 @@ try {
         bms_stream_like_json(['ok' => false, 'message' => 'Invalid request method.'], 405);
     }
 
-    $slug = mp_slugify((string)($_POST['slug'] ?? ''));
+    $slug = bms_slugify((string)($_POST['slug'] ?? ''));
 
     if ($slug === '') {
         $rawInput = trim((string)file_get_contents('php://input'));
         if ($rawInput !== '') {
             $json = json_decode($rawInput, true);
             if (is_array($json)) {
-                $slug = mp_slugify((string)($json['slug'] ?? ''));
+                $slug = bms_slugify((string)($json['slug'] ?? ''));
             }
         }
     }
@@ -70,7 +70,7 @@ try {
         bms_stream_like_json(['ok' => false, 'message' => 'Missing stream post.'], 400);
     }
 
-    $result = mp_stream_register_like($slug);
+    $result = bms_stream_register_like($slug);
     bms_stream_like_json(['ok' => true, 'data' => $result]);
 } catch (Throwable $e) {
     error_log('Bonumark Stream like endpoint failed: ' . $e->getMessage());

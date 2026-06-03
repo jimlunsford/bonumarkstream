@@ -1,22 +1,22 @@
 <?php
 require_once __DIR__ . '/media.php';
 
-function mp_editor_request_path_for_autosave(): string
+function bms_editor_request_path_for_autosave(): string
 {
     $path = parse_url((string)($_SERVER['SCRIPT_NAME'] ?? $_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
     return $path ?: '';
 }
 
-function mp_editor_autosave_key(string $mode, string $file = ''): string
+function bms_editor_autosave_key(string $mode, string $file = ''): string
 {
-    $path = mp_editor_request_path_for_autosave();
+    $path = bms_editor_request_path_for_autosave();
     if ($mode === 'edit' && $file !== '') {
         return 'bonumark-autosave:' . $path . ':file:' . basename($file);
     }
     return 'bonumark-autosave:' . $path . ':new-stream-post';
 }
 
-function mp_editor_autosave_saved_at(?string $path = null): string
+function bms_editor_autosave_saved_at(?string $path = null): string
 {
     if (!$path || !is_file($path)) {
         return '';
@@ -25,25 +25,25 @@ function mp_editor_autosave_saved_at(?string $path = null): string
     return $timestamp ? date('c', $timestamp) : '';
 }
 
-function mp_clear_submitted_autosave(): void
+function bms_clear_submitted_autosave(): void
 {
     $key = trim((string)($_POST['autosave_key'] ?? ''));
-    if ($key !== '' && function_exists('mp_delete_autosave')) {
-        mp_delete_autosave($key);
+    if ($key !== '' && function_exists('bms_delete_autosave')) {
+        bms_delete_autosave($key);
     }
 }
 
-function mp_editor_media_payload(array $media): array
+function bms_editor_media_payload(array $media): array
 {
-    $url = function_exists('mp_media_public_url_for_item') ? mp_media_public_url_for_item($media) : '';
+    $url = function_exists('bms_media_public_url_for_item') ? bms_media_public_url_for_item($media) : '';
     $alt = trim((string)($media['alt_text'] ?? ''));
     $label = trim((string)($media['original_filename'] ?? $media['filename'] ?? 'Media'));
     if ($alt === '') {
         $alt = $label;
     }
-    $mime = function_exists('mp_media_mime_type') ? mp_media_mime_type($media) : strtolower((string)($media['mime_type'] ?? ''));
-    $kind = function_exists('mp_media_kind_label') ? mp_media_kind_label($media) : 'Media';
-    $markdown = function_exists('mp_media_markdown') ? mp_media_markdown($media) : '[' . $label . '](' . $url . ')';
+    $mime = function_exists('bms_media_mime_type') ? bms_media_mime_type($media) : strtolower((string)($media['mime_type'] ?? ''));
+    $kind = function_exists('bms_media_kind_label') ? bms_media_kind_label($media) : 'Media';
+    $markdown = function_exists('bms_media_markdown') ? bms_media_markdown($media) : '[' . $label . '](' . $url . ')';
 
     return [
         'id' => (int)($media['id'] ?? 0),
@@ -55,16 +55,16 @@ function mp_editor_media_payload(array $media): array
         'mime' => $mime,
         'kind' => $kind,
         'markdown' => $markdown,
-        'size' => function_exists('mp_media_human_size') ? mp_media_human_size((int)($media['file_size'] ?? 0)) : '',
+        'size' => function_exists('bms_media_human_size') ? bms_media_human_size((int)($media['file_size'] ?? 0)) : '',
         'width' => (int)($media['width'] ?? 0),
         'height' => (int)($media['height'] ?? 0),
         'search' => strtolower(trim($label . ' ' . $alt . ' ' . (string)($media['caption'] ?? '') . ' ' . (string)($media['filename'] ?? '') . ' ' . $kind . ' ' . $mime)),
     ];
 }
 
-function mp_editor_media_item_button(array $media): void
+function bms_editor_media_item_button(array $media): void
 {
-    $payload = mp_editor_media_payload($media);
+    $payload = bms_editor_media_payload($media);
     $isImage = str_starts_with($payload['mime'], 'image/');
     $dimensions = ($payload['width'] > 0 && $payload['height'] > 0) ? ($payload['width'] . '×' . $payload['height'] . ' · ') : '';
     ?>
@@ -93,14 +93,14 @@ function mp_editor_media_item_button(array $media): void
     <?php
 }
 
-function mp_editor_media_picker_markup(): void
+function bms_editor_media_picker_markup(): void
 {
-    $items = function_exists('mp_media_list') ? mp_media_list(120) : [];
-    $accept = function_exists('mp_allowed_media_accept_attribute') ? mp_allowed_media_accept_attribute() : 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt';
-    $allowed = function_exists('mp_allowed_media_extensions_label') ? mp_allowed_media_extensions_label() : 'JPG, PNG, GIF, WebP, MP3, M4A, WAV, OGG, MP4, WebM, MOV, PDF, DOC, DOCX, and TXT';
-    $endpoint = mp_admin_url('media-picker.php');
+    $items = function_exists('bms_media_list') ? bms_media_list(120) : [];
+    $accept = function_exists('bms_allowed_media_accept_attribute') ? bms_allowed_media_accept_attribute() : 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt';
+    $allowed = function_exists('bms_allowed_media_extensions_label') ? bms_allowed_media_extensions_label() : 'JPG, PNG, GIF, WebP, MP3, M4A, WAV, OGG, MP4, WebM, MOV, PDF, DOC, DOCX, and TXT';
+    $endpoint = bms_admin_url('media-picker.php');
     ?>
-    <div class="media-picker" data-media-picker data-media-endpoint="<?= htmlspecialchars($endpoint, ENT_QUOTES, 'UTF-8') ?>" data-media-csrf="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>" hidden aria-hidden="true">
+    <div class="media-picker" data-media-picker data-media-endpoint="<?= htmlspecialchars($endpoint, ENT_QUOTES, 'UTF-8') ?>" data-media-csrf="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>" hidden aria-hidden="true">
       <div class="media-picker-backdrop" data-close-media-picker></div>
       <section class="media-picker-panel" role="dialog" aria-modal="true" aria-labelledby="media-picker-title" aria-describedby="media-picker-description" tabindex="-1">
         <header class="media-picker-header">
@@ -120,12 +120,12 @@ function mp_editor_media_picker_markup(): void
         <div class="media-picker-panel-body">
           <section id="media-panel-upload" class="media-picker-tab-panel active" role="tabpanel" data-media-panel="upload" aria-labelledby="media-tab-upload">
             <div class="media-quick-upload" data-media-upload-form>
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
               <label for="media_quick_file">Media file</label>
               <div class="media-upload-dropzone" data-media-dropzone>
                 <input id="media_quick_file" type="file" name="media_file" accept="<?= htmlspecialchars($accept, ENT_QUOTES, 'UTF-8') ?>">
                 <strong>Drop a file here or choose one from your computer.</strong>
-                <span>Supported formats: <?= htmlspecialchars($allowed, ENT_QUOTES, 'UTF-8') ?>. Maximum size: <?= function_exists('mp_current_media_upload_limit_mb') ? (int)mp_current_media_upload_limit_mb() : 8 ?> MB for your role.</span>
+                <span>Supported formats: <?= htmlspecialchars($allowed, ENT_QUOTES, 'UTF-8') ?>. Maximum size: <?= function_exists('bms_current_media_upload_limit_mb') ? (int)bms_current_media_upload_limit_mb() : 8 ?> MB.</span>
               </div>
 
               <div class="media-upload-meta-grid">
@@ -173,7 +173,7 @@ function mp_editor_media_picker_markup(): void
                 </div>
               <?php else: ?>
                 <?php foreach ($items as $media): ?>
-                  <?php mp_editor_media_item_button($media); ?>
+                  <?php bms_editor_media_item_button($media); ?>
                 <?php endforeach; ?>
               <?php endif; ?>
             </div>
@@ -184,7 +184,7 @@ function mp_editor_media_picker_markup(): void
     <?php
 }
 
-function mp_stream_field_value(array $page, string $key, string $default = ''): string
+function bms_stream_field_value(array $page, string $key, string $default = ''): string
 {
     $value = $page[$key] ?? ($page['front_matter'][$key] ?? $default);
     if (is_array($value)) {
@@ -194,9 +194,9 @@ function mp_stream_field_value(array $page, string $key, string $default = ''): 
 }
 
 
-function mp_stream_title_fields(array $page): void
+function bms_stream_title_fields(array $page): void
 {
-    $title = mp_stream_field_value($page, 'title', '');
+    $title = bms_stream_field_value($page, 'title', '');
     ?>
     <section class="editor-title-card" aria-label="Title">
       <label class="sr-only" for="stream_title">Title</label>
@@ -206,13 +206,13 @@ function mp_stream_title_fields(array $page): void
     <?php
 }
 
-function mp_stream_url_fields(array $page, string $section = 'drafts'): void
+function bms_stream_url_fields(array $page, string $section = 'drafts'): void
 {
-    $slug = mp_stream_field_value($page, 'slug', '');
-    $cleanSlug = $slug !== '' ? mp_slugify($slug) : 'generated-on-save';
+    $slug = bms_stream_field_value($page, 'slug', '');
+    $cleanSlug = $slug !== '' ? bms_slugify($slug) : 'generated-on-save';
     $displaySlug = $cleanSlug !== '' ? $cleanSlug : 'generated-on-save';
-    $relativeBase = rtrim(mp_url_path('stream'), '/') . '/';
-    $absoluteBase = rtrim(mp_site_url('stream'), '/') . '/';
+    $relativeBase = rtrim(bms_url_path('stream'), '/') . '/';
+    $absoluteBase = rtrim(bms_site_url('stream'), '/') . '/';
     $relativeUrl = $relativeBase . $displaySlug . '/';
     $absoluteUrl = $absoluteBase . $displaySlug . '/';
     $hasSavedSlug = trim($slug) !== '' && $displaySlug !== 'generated-on-save';
@@ -252,7 +252,7 @@ function mp_stream_url_fields(array $page, string $section = 'drafts'): void
     <?php
 }
 
-function mp_stream_settings_fields(array $page, string $section): void
+function bms_stream_settings_fields(array $page, string $section): void
 {
     $status = $section === 'published' ? 'published' : 'draft';
     ?>
@@ -263,18 +263,18 @@ function mp_stream_settings_fields(array $page, string $section): void
       <input type="hidden" name="stream_tags" value="">
 
       <label for="stream_date">Date</label>
-      <input type="date" id="stream_date" name="stream_date" value="<?= htmlspecialchars(mp_stream_field_value($page, 'date', date('Y-m-d')), ENT_QUOTES, 'UTF-8') ?>" required>
+      <input type="date" id="stream_date" name="stream_date" value="<?= htmlspecialchars(bms_stream_field_value($page, 'date', date('Y-m-d')), ENT_QUOTES, 'UTF-8') ?>" required>
 
       <label for="stream_description">Meta description</label>
-      <textarea class="small-textarea" id="stream_description" name="stream_description" maxlength="300"><?= htmlspecialchars(mp_stream_field_value($page, 'description', ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+      <textarea class="small-textarea" id="stream_description" name="stream_description" maxlength="300"><?= htmlspecialchars(bms_stream_field_value($page, 'description', ''), ENT_QUOTES, 'UTF-8') ?></textarea>
       <p class="field-help">Optional. If empty, Bonumark Stream generates one from the post text or media.</p>
 
       <label for="stream_seo_title">Search title</label>
-      <input type="text" id="stream_seo_title" name="stream_seo_title" value="<?= htmlspecialchars(mp_stream_field_value($page, 'seo_title', ''), ENT_QUOTES, 'UTF-8') ?>" maxlength="180" placeholder="Generated from post text if blank">
+      <input type="text" id="stream_seo_title" name="stream_seo_title" value="<?= htmlspecialchars(bms_stream_field_value($page, 'seo_title', ''), ENT_QUOTES, 'UTF-8') ?>" maxlength="180" placeholder="Generated from post text if blank">
       <p class="field-help">Optional. Used for the HTML title, Open Graph title, and RSS title. If blank, Bonumark generates “post text | site title” and keeps it under 65 characters when possible.</p>
 
       <label for="stream_robots">Search indexing</label>
-      <?php $robots = mp_stream_field_value($page, 'robots', ''); ?>
+      <?php $robots = bms_stream_field_value($page, 'robots', ''); ?>
       <select id="stream_robots" name="stream_robots">
         <option value="" <?= $robots === '' ? 'selected' : '' ?>>Use reading setting</option>
         <option value="index,follow" <?= $robots === 'index,follow' ? 'selected' : '' ?>>Index this post</option>
@@ -283,8 +283,8 @@ function mp_stream_settings_fields(array $page, string $section): void
       <p class="field-help">Optional per-post override for individual stream post pages.</p>
 
       <input type="hidden" name="stream_status" value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="stream_created_at" value="<?= htmlspecialchars(mp_stream_field_value($page, 'stream_created_at', mp_stream_field_value($page, 'date', date('Y-m-d'))), ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="featured_media" value="<?= htmlspecialchars(mp_stream_field_value($page, 'featured_media', ''), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="stream_created_at" value="<?= htmlspecialchars(bms_stream_field_value($page, 'stream_created_at', bms_stream_field_value($page, 'date', date('Y-m-d'))), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="featured_media" value="<?= htmlspecialchars(bms_stream_field_value($page, 'featured_media', ''), ENT_QUOTES, 'UTF-8') ?>">
     </section>
     <?php
 }
@@ -292,18 +292,18 @@ function mp_stream_settings_fields(array $page, string $section): void
 
 
 
-function mp_stream_revision_fields(array $page): void
+function bms_stream_revision_fields(array $page): void
 {
     $slug = (string)($page['slug'] ?? '');
     $count = 0;
-    if ($slug !== '' && function_exists('mp_revision_count_for_slug')) {
+    if ($slug !== '' && function_exists('bms_revision_count_for_slug')) {
         try {
-            $count = mp_revision_count_for_slug($slug);
+            $count = bms_revision_count_for_slug($slug);
         } catch (Throwable $e) {
             $count = 0;
         }
     }
-    $url = mp_admin_url('revisions.php' . ($slug !== '' ? '?slug=' . urlencode($slug) : ''));
+    $url = bms_admin_url('revisions.php' . ($slug !== '' ? '?slug=' . urlencode($slug) : ''));
     ?>
     <section class="side-card revisions-card" data-editor-card="revisions" aria-label="Revisions">
       <h3>Revisions</h3>
@@ -314,7 +314,7 @@ function mp_stream_revision_fields(array $page): void
     <?php
 }
 
-function mp_stream_media_fields(): void
+function bms_stream_media_fields(): void
 {
     ?>
     <section class="side-card media-helper-card" data-editor-card="media" aria-label="Media tools">
@@ -322,17 +322,17 @@ function mp_stream_media_fields(): void
       <p class="field-help">Add images, audio, video, and downloadable files without leaving the post editor.</p>
       <div class="side-card-actions">
         <button type="button" class="secondary-button full-width-button" data-open-media-picker>Add Media</button>
-        <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(mp_admin_url('media.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Library</a>
+        <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Library</a>
       </div>
     </section>
     <?php
 }
 
 
-function mp_editor_screen_controls_action(): array
+function bms_editor_screen_controls_action(): array
 {
     ob_start();
-    mp_editor_screen_controls();
+    bms_editor_screen_controls();
     return [
         'html' => ob_get_clean(),
         'class' => 'editor-screen-controls-action',
@@ -340,7 +340,7 @@ function mp_editor_screen_controls_action(): array
 }
 
 
-function mp_editor_screen_controls(): void
+function bms_editor_screen_controls(): void
 {
     ?>
     <section class="editor-screen-controls" data-editor-screen-controls-shell aria-label="Editor screen controls">
@@ -398,7 +398,7 @@ function mp_editor_screen_controls(): void
     <?php
 }
 
-function mp_publish_sidebar(string $section, string $buttonLabel, string $helperText, array $context = []): void
+function bms_publish_sidebar(string $section, string $buttonLabel, string $helperText, array $context = []): void
 {
     $isPublished = str_contains($section, 'published');
     $contentType = (string)($context['content_type'] ?? 'stream');
@@ -409,10 +409,9 @@ function mp_publish_sidebar(string $section, string $buttonLabel, string $helper
     $page = is_array($context['page'] ?? null) ? $context['page'] : [];
     $isNew = $mode === 'new';
     $newDefaultStatus = (string)($context['default_status'] ?? ($isPublished ? 'published' : 'draft'));
-    $requiresReview = !empty($context['requires_review']) || (function_exists('mp_current_user_requires_post_review') && mp_current_user_requires_post_review());
-    $canPublishThis = function_exists('mp_current_user_can') ? mp_current_user_can('publish_content') : false;
-    if (!$isNew && $file !== '' && function_exists('mp_content_subject_for_file') && function_exists('mp_current_user_can')) {
-        $canPublishThis = mp_current_user_can('publish_content', mp_content_subject_for_file($section, $file, $page));
+    $canPublishThis = function_exists('bms_current_user_can') ? bms_current_user_can('publish_content') : false;
+    if (!$isNew && $file !== '' && function_exists('bms_content_subject_for_file') && function_exists('bms_current_user_can')) {
+        $canPublishThis = bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page));
     }
     $previewType = $isPageContent ? ($isPublished ? 'page-published' : 'page-draft') : ($isPublished ? 'published' : 'draft');
     ?>
@@ -422,27 +421,21 @@ function mp_publish_sidebar(string $section, string $buttonLabel, string $helper
 
       <?php if ($isNew): ?>
         <div class="publish-card-actions publish-card-new-actions" aria-label="New content actions">
-          <?php if ($requiresReview): ?>
-            <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button name="stream_submit_action" value="submit_review">Submit for Review</button>
+          <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button name="stream_submit_action" value="<?= $newDefaultStatus === 'published' ? 'publish' : 'draft' ?>"><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
+          <?php if ($newDefaultStatus === 'published'): ?>
             <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Save Draft</button>
-            <p class="field-help publish-card-note">Your account can create drafts. An admin must approve publishing.</p>
           <?php else: ?>
-            <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button name="stream_submit_action" value="<?= $newDefaultStatus === 'published' ? 'publish' : 'draft' ?>"><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
-            <?php if ($newDefaultStatus === 'published'): ?>
-              <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Save Draft</button>
-            <?php else: ?>
-              <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
-            <?php endif; ?>
+            <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
           <?php endif; ?>
         </div>
       <?php else: ?>
         <div class="publish-card-actions" aria-label="Post actions">
           <?php if ($file !== ''): ?>
-            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(mp_admin_url('preview.php?type=' . urlencode($previewType) . '&file=' . urlencode($file) . '&frame=1'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'Preview Page' : 'Preview Post' ?></a>
+            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . urlencode($previewType) . '&file=' . urlencode($file) . '&frame=1'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'Preview Page' : 'Preview Post' ?></a>
           <?php endif; ?>
 
           <?php if ($isPublished && $page): ?>
-            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars($isPageContent && function_exists('mp_page_url_for_page') ? mp_page_url_for_page($page) : mp_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'View Page' : 'View Post' ?></a>
+            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'View Page' : 'View Post' ?></a>
           <?php endif; ?>
 
           <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
@@ -450,11 +443,9 @@ function mp_publish_sidebar(string $section, string $buttonLabel, string $helper
           <?php if (!$isPublished): ?>
             <?php if ($canPublishThis): ?>
               <button type="submit" class="secondary-button full-width-button" form="publish-draft-action-form"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
-            <?php else: ?>
-              <button type="submit" class="secondary-button full-width-button" form="submit-review-action-form">Submit for Review</button>
             <?php endif; ?>
             <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Draft Page to Trash' : 'Move Draft to Trash' ?></button>
-            <p class="field-help publish-card-note"><?= $canPublishThis ? 'Preview uses the saved draft. Save changes first if you edited the post.' : 'Preview uses the saved draft. Submit for review when it is ready for an admin.' ?></p>
+            <p class="field-help publish-card-note">Preview uses the saved draft. Save changes first if you edited the post.</p>
           <?php else: ?>
             <?php if ($canPublishThis): ?>
               <button type="submit" class="secondary-button full-width-button" form="unpublish-post-action-form"><?= $isPageContent ? 'Move Page to Drafts' : 'Move to Drafts' ?></button>
@@ -467,14 +458,14 @@ function mp_publish_sidebar(string $section, string $buttonLabel, string $helper
     <?php
 }
 
-function mp_dual_editor(string $bodyMarkdown): void
+function bms_dual_editor(string $bodyMarkdown): void
 {
-    $defaultMode = function_exists('mp_default_editor_mode') ? mp_default_editor_mode() : 'visual';
-    $initialHtml = function_exists('mp_markdown_to_html')
-        ? mp_markdown_to_html($bodyMarkdown, false)
+    $defaultMode = function_exists('bms_default_editor_mode') ? bms_default_editor_mode() : 'visual';
+    $initialHtml = function_exists('bms_markdown_to_html')
+        ? bms_markdown_to_html($bodyMarkdown, false)
         : '<p>' . htmlspecialchars($bodyMarkdown, ENT_QUOTES, 'UTF-8') . '</p>';
     ?>
-    <div class="dual-editor" data-bonumark-editor data-autosave-enabled="<?= mp_autosave_enabled() ? '1' : '0' ?>" data-autosave-url="<?= htmlspecialchars(mp_admin_url('autosave.php'), ENT_QUOTES, 'UTF-8') ?>" data-default-mode="<?= htmlspecialchars($defaultMode, ENT_QUOTES, 'UTF-8') ?>">
+    <div class="dual-editor" data-bonumark-editor data-autosave-enabled="<?= bms_autosave_enabled() ? '1' : '0' ?>" data-autosave-url="<?= htmlspecialchars(bms_admin_url('autosave.php'), ENT_QUOTES, 'UTF-8') ?>" data-default-mode="<?= htmlspecialchars($defaultMode, ENT_QUOTES, 'UTF-8') ?>">
       <div class="autosave-banner" data-autosave-banner hidden>
         <div class="autosave-banner-copy">
           <strong data-autosave-banner-title>Autosave recovery available.</strong>
@@ -589,23 +580,23 @@ function mp_dual_editor(string $bodyMarkdown): void
           </div>
           <div class="editor-preview-actions">
             <button type="button" class="secondary-button compact-button" data-editor-preview-refresh data-screen-preview-tool>Refresh Preview</button>
-            <button type="submit" form="stream-editor-form" class="secondary-button compact-button" formaction="<?= htmlspecialchars(mp_admin_url('preview-current.php'), ENT_QUOTES, 'UTF-8') ?>" formmethod="post" formtarget="_blank" data-public-preview-submit>Preview in New Tab</button>
+            <button type="submit" form="stream-editor-form" class="secondary-button compact-button" formaction="<?= htmlspecialchars(bms_admin_url('preview-current.php'), ENT_QUOTES, 'UTF-8') ?>" formmethod="post" formtarget="_blank" data-public-preview-submit>Preview in New Tab</button>
           </div>
         </div>
         <div class="visual-preview" data-editor-preview><?= $initialHtml ?></div>
       </div>
     </div>
-    <?php mp_editor_media_picker_markup(); ?>
+    <?php bms_editor_media_picker_markup(); ?>
     <?php
 }
 
-function mp_editor_script_tag(): void
+function bms_editor_script_tag(): void
 {
-    $src = htmlspecialchars(mp_asset_url('assets/editor.js'), ENT_QUOTES, 'UTF-8');
+    $src = htmlspecialchars(bms_asset_url('assets/editor.js'), ENT_QUOTES, 'UTF-8');
     echo '<script src="' . $src . '" defer></script>';
 }
 
-function mp_page_field_value(array $page, string $key, string $default = ''): string
+function bms_page_field_value(array $page, string $key, string $default = ''): string
 {
     $value = $page[$key] ?? ($page['front_matter'][$key] ?? $default);
     if (is_array($value)) {
@@ -614,9 +605,9 @@ function mp_page_field_value(array $page, string $key, string $default = ''): st
     return (string)$value;
 }
 
-function mp_page_title_fields(array $page): void
+function bms_page_title_fields(array $page): void
 {
-    $title = mp_page_field_value($page, 'title', '');
+    $title = bms_page_field_value($page, 'title', '');
     ?>
     <div class="editor-title-block">
       <label for="page_title">Page Title</label>
@@ -626,18 +617,18 @@ function mp_page_title_fields(array $page): void
     <?php
 }
 
-function mp_page_url_fields(array $page, string $section = 'pages/drafts'): void
+function bms_page_url_fields(array $page, string $section = 'pages/drafts'): void
 {
-    $slug = mp_page_field_value($page, 'slug', '');
+    $slug = bms_page_field_value($page, 'slug', '');
     $published = $section === 'pages/published';
-    $previewSlug = $slug !== '' && !mp_page_slug_needs_generation($slug) ? $slug : 'example';
-    $previewUrl = mp_page_url($previewSlug);
+    $previewSlug = $slug !== '' && !bms_page_slug_needs_generation($slug) ? $slug : 'example';
+    $previewUrl = bms_page_url($previewSlug);
     ?>
     <section class="editor-card">
       <h2>Page URL</h2>
       <label for="page_slug">Slug</label>
       <input type="text" id="page_slug" name="page_slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" maxlength="190" placeholder="about" data-page-slug-input data-original-slug="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" data-is-published="<?= $published ? '1' : '0' ?>">
-      <p class="field-help">Leave blank to generate this from the page title. Public URL after publishing: <code data-page-permalink-preview data-page-permalink-base="<?= htmlspecialchars(mp_url_path('pages/'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($previewUrl, ENT_QUOTES, 'UTF-8') ?></code></p>
+      <p class="field-help">Leave blank to generate this from the page title. Public URL after publishing: <code data-page-permalink-preview data-page-permalink-base="<?= htmlspecialchars(bms_url_path('pages/'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($previewUrl, ENT_QUOTES, 'UTF-8') ?></code></p>
       <?php if ($published): ?>
         <label class="checkbox-row" data-page-slug-warning><input type="checkbox" name="confirm_slug_change" value="1" data-page-confirm-slug-change> I understand this can change the live page URL.</label>
       <?php endif; ?>
@@ -645,14 +636,14 @@ function mp_page_url_fields(array $page, string $section = 'pages/drafts'): void
     <?php
 }
 
-function mp_page_settings_fields(array $page): void
+function bms_page_settings_fields(array $page): void
 {
-    $date = mp_page_field_value($page, 'date', date('Y-m-d'));
-    $description = mp_page_field_value($page, 'description', '');
-    $seoTitle = mp_page_field_value($page, 'seo_title', '');
-    $generatedSeoTitle = mp_page_generated_seo_title(mp_page_field_value($page, 'title', 'Untitled Page'));
-    $siteName = trim((string)mp_setting_or_config('site_name', 'Bonumark Stream'));
-    $robots = mp_page_field_value($page, 'robots', '');
+    $date = bms_page_field_value($page, 'date', date('Y-m-d'));
+    $description = bms_page_field_value($page, 'description', '');
+    $seoTitle = bms_page_field_value($page, 'seo_title', '');
+    $generatedSeoTitle = bms_page_generated_seo_title(bms_page_field_value($page, 'title', 'Untitled Page'));
+    $siteName = trim((string)bms_setting_or_config('site_name', 'Bonumark Stream'));
+    $robots = bms_page_field_value($page, 'robots', '');
     ?>
     <section class="editor-card">
       <h2>Page Settings</h2>

@@ -4,12 +4,8 @@ require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/pages.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-if (function_exists('mp_migrate_legacy_page_navigation_once')) {
-    mp_migrate_legacy_page_navigation_once();
-}
-
-function mp_admin_navigation_posted_items(): array
+bms_require_login();
+function bms_admin_navigation_posted_items(): array
 {
     $labels = $_POST['nav_label'] ?? [];
     $urls = $_POST['nav_url'] ?? [];
@@ -43,70 +39,70 @@ function mp_admin_navigation_posted_items(): array
     return $items;
 }
 
-function mp_admin_navigation_save_state(bool $enabled, bool $accountLinksEnabled, array $items): void
+function bms_admin_navigation_save_state(bool $enabled, bool $accountLinksEnabled, array $items): void
 {
-    mp_save_public_navigation_enabled($enabled);
-    if (function_exists('mp_save_public_navigation_account_links_enabled')) {
-        mp_save_public_navigation_account_links_enabled($accountLinksEnabled);
+    bms_save_public_navigation_enabled($enabled);
+    if (function_exists('bms_save_public_navigation_account_links_enabled')) {
+        bms_save_public_navigation_account_links_enabled($accountLinksEnabled);
     }
-    mp_save_navigation_items($items);
+    bms_save_navigation_items($items);
 }
 
-function mp_admin_navigation_find_page_by_slug(array $pages, string $slug): ?array
+function bms_admin_navigation_find_page_by_slug(array $pages, string $slug): ?array
 {
-    $slug = mp_slugify($slug);
+    $slug = bms_slugify($slug);
     foreach ($pages as $page) {
-        if (mp_slugify((string)($page['slug'] ?? '')) === $slug) {
+        if (bms_slugify((string)($page['slug'] ?? '')) === $slug) {
             return $page;
         }
     }
     return null;
 }
 
-function mp_admin_navigation_item_exists(array $items, string $url): bool
+function bms_admin_navigation_item_exists(array $items, string $url): bool
 {
-    $url = mp_sanitize_navigation_url($url);
+    $url = bms_sanitize_navigation_url($url);
     foreach ($items as $item) {
-        if (mp_sanitize_navigation_url((string)($item['url'] ?? '')) === $url) {
+        if (bms_sanitize_navigation_url((string)($item['url'] ?? '')) === $url) {
             return true;
         }
     }
     return false;
 }
 
-$publishedPages = function_exists('mp_list_page_records') ? mp_list_page_records('published') : [];
+$publishedPages = function_exists('bms_list_page_records') ? bms_list_page_records('published') : [];
 usort($publishedPages, function (array $a, array $b): int {
     return strcmp(strtolower((string)($a['title'] ?? '')), strtolower((string)($b['title'] ?? '')));
 });
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['nav_action'] ?? 'save');
     $enabled = !empty($_POST['primary_navigation_enabled']);
     $accountLinksEnabled = !empty($_POST['public_navigation_account_links_enabled']);
 
     try {
         if ($action === 'add_page') {
-            $items = mp_navigation_items();
-            $page = mp_admin_navigation_find_page_by_slug($publishedPages, (string)($_POST['page_slug'] ?? ''));
+            $items = bms_navigation_items();
+            $page = bms_admin_navigation_find_page_by_slug($publishedPages, (string)($_POST['page_slug'] ?? ''));
             if (!$page) {
                 throw new RuntimeException('Choose a published page to add.');
             }
-            $pageItem = mp_navigation_prepare_page_item($page);
+            $pageItem = bms_navigation_prepare_page_item($page);
             if ($pageItem === null) {
                 throw new RuntimeException('The selected page could not be added to navigation.');
             }
-            if (mp_admin_navigation_item_exists($items, (string)$pageItem['url'])) {
+            if (bms_admin_navigation_item_exists($items, (string)$pageItem['url'])) {
                 throw new RuntimeException('That page is already in the menu.');
             }
             $items[] = $pageItem;
-            mp_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
-            mp_flash('Page added to navigation.', 'success');
-            mp_redirect(mp_admin_url('navigation.php'));
+            bms_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
+            bms_flash('Page added to navigation.', 'success');
+            bms_redirect(bms_admin_url('navigation.php'));
         }
 
         if ($action === 'add_custom') {
-            $items = mp_navigation_items();
+            $items = bms_navigation_items();
             $label = trim((string)($_POST['custom_label'] ?? ''));
             $url = trim((string)($_POST['custom_url'] ?? ''));
             if ($label === '' || $url === '') {
@@ -118,12 +114,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'target' => ((string)($_POST['custom_target'] ?? '_self')) === '_blank' ? '_blank' : '_self',
                 'source' => 'custom',
             ];
-            mp_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
-            mp_flash('Custom link added to navigation.', 'success');
-            mp_redirect(mp_admin_url('navigation.php'));
+            bms_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
+            bms_flash('Custom link added to navigation.', 'success');
+            bms_redirect(bms_admin_url('navigation.php'));
         }
 
-        $items = mp_admin_navigation_posted_items();
+        $items = bms_admin_navigation_posted_items();
         if (preg_match('/^move-up:(\d+)$/', $action, $match)) {
             $index = (int)$match[1];
             if ($index > 0 && isset($items[$index], $items[$index - 1])) {
@@ -141,26 +137,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        mp_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
+        bms_admin_navigation_save_state($enabled, $accountLinksEnabled, $items);
         $message = $action === 'save' ? 'Navigation saved.' : 'Navigation updated.';
-        mp_flash($message . ' Dynamic public routes use the updated menu immediately.', 'success');
-        mp_redirect(mp_admin_url('navigation.php'));
+        bms_flash($message . ' Dynamic public routes use the updated menu immediately.', 'success');
+        bms_redirect(bms_admin_url('navigation.php'));
     } catch (Throwable $e) {
-        mp_flash('Could not update navigation: ' . $e->getMessage(), 'error');
+        bms_flash('Could not update navigation: ' . $e->getMessage(), 'error');
     }
 }
 
-$items = mp_navigation_items();
-$navigationEnabled = mp_public_navigation_enabled();
-$accountLinksEnabled = function_exists('mp_public_navigation_account_links_enabled') ? mp_public_navigation_account_links_enabled() : true;
+$items = bms_navigation_items();
+$navigationEnabled = bms_public_navigation_enabled();
+$accountLinksEnabled = function_exists('bms_public_navigation_account_links_enabled') ? bms_public_navigation_account_links_enabled() : true;
 $menuUrls = [];
 foreach ($items as $item) {
-    $menuUrls[] = mp_sanitize_navigation_url((string)($item['url'] ?? ''));
+    $menuUrls[] = bms_sanitize_navigation_url((string)($item['url'] ?? ''));
 }
 
-mp_admin_header('Navigation', [
-    ['label' => 'Themes', 'href' => mp_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'Pages', 'href' => mp_admin_url('pages.php'), 'style' => 'secondary'],
+bms_admin_header('Navigation', [
+    ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
+    ['label' => 'Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel page-intro-panel">
@@ -171,7 +167,7 @@ mp_admin_header('Navigation', [
 
 <section class="panel settings-panel navigation-builder-panel">
   <form method="post" class="navigation-manager-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="nav_action" value="save">
 
     <div class="navigation-display-toggle">
@@ -245,11 +241,11 @@ mp_admin_header('Navigation', [
       <p class="eyebrow">Add items</p>
       <h2>Add pages and custom links.</h2>
     </div>
-    <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a>
+    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a>
   </div>
   <div class="navigation-add-grid">
     <form method="post" class="navigation-add-card">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="nav_action" value="add_page">
       <?php if ($navigationEnabled): ?><input type="hidden" name="primary_navigation_enabled" value="1"><?php endif; ?>
       <?php if ($accountLinksEnabled): ?><input type="hidden" name="public_navigation_account_links_enabled" value="1"><?php endif; ?>
@@ -261,9 +257,9 @@ mp_admin_header('Navigation', [
         <select id="page_slug" name="page_slug">
           <?php foreach ($publishedPages as $page): ?>
             <?php
-              $slug = mp_slugify((string)($page['slug'] ?? ''));
-              $url = '/' . trim(mp_page_relative_directory($slug), '/') . '/';
-              $alreadyAdded = in_array(mp_sanitize_navigation_url($url), $menuUrls, true);
+              $slug = bms_slugify((string)($page['slug'] ?? ''));
+              $url = '/' . trim(bms_page_relative_directory($slug), '/') . '/';
+              $alreadyAdded = in_array(bms_sanitize_navigation_url($url), $menuUrls, true);
             ?>
             <option value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" <?= $alreadyAdded ? 'disabled' : '' ?>><?= htmlspecialchars((string)($page['title'] ?? 'Untitled Page'), ENT_QUOTES, 'UTF-8') ?><?= $alreadyAdded ? ' (already added)' : '' ?></option>
           <?php endforeach; ?>
@@ -273,7 +269,7 @@ mp_admin_header('Navigation', [
     </form>
 
     <form method="post" class="navigation-add-card">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="nav_action" value="add_custom">
       <?php if ($navigationEnabled): ?><input type="hidden" name="primary_navigation_enabled" value="1"><?php endif; ?>
       <?php if ($accountLinksEnabled): ?><input type="hidden" name="public_navigation_account_links_enabled" value="1"><?php endif; ?>
@@ -291,4 +287,4 @@ mp_admin_header('Navigation', [
     </form>
   </div>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

@@ -1,10 +1,10 @@
 /*
 Bonumark Stream compatibility stylesheet.
 
-The default public design now lives in:
-assets/themes/default/css/midnight-ledger.css
+The bundled public theme design now lives in:
+assets/themes/default/assets/css/theme.css
 
-This file remains as a fallback for older rendering paths and upgraded installs
-that still request assets/stream.css directly.
+This file remains as a fallback for older rendering paths that still request
+assets/stream.css directly.
 */
-@import url("themes/default/css/midnight-ledger.css");
+@import url("themes/default/assets/css/theme.css");

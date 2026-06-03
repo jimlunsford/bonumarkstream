@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/database.php';
 
-function mp_mail_defaults(): array
+function bms_mail_defaults(): array
 {
     return [
         'mail_transport' => 'disabled',
@@ -17,26 +17,26 @@ function mp_mail_defaults(): array
     ];
 }
 
-function mp_mail_settings(): array
+function bms_mail_settings(): array
 {
     $settings = [];
 
-    foreach (mp_mail_defaults() as $key => $default) {
-        $settings[$key] = (string)mp_setting_or_config($key, $default);
+    foreach (bms_mail_defaults() as $key => $default) {
+        $settings[$key] = (string)bms_setting_or_config($key, $default);
     }
 
     if ($settings['mail_from_name'] === '') {
-        $settings['mail_from_name'] = (string)mp_setting_or_config('site_name', 'Bonumark Stream');
+        $settings['mail_from_name'] = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
     }
 
     if ($settings['mail_from_email'] === '') {
-        $settings['mail_from_email'] = (string)mp_setting_or_config('site_admin_email', '');
+        $settings['mail_from_email'] = (string)bms_setting_or_config('site_admin_email', '');
     }
 
     return $settings;
 }
 
-function mp_mail_transport_options(): array
+function bms_mail_transport_options(): array
 {
     return [
         'disabled' => 'Disabled',
@@ -47,7 +47,7 @@ function mp_mail_transport_options(): array
     ];
 }
 
-function mp_mail_encryption_options(): array
+function bms_mail_encryption_options(): array
 {
     return [
         'none' => 'None',
@@ -56,13 +56,13 @@ function mp_mail_encryption_options(): array
     ];
 }
 
-function mp_mail_transport_label(string $transport): string
+function bms_mail_transport_label(string $transport): string
 {
-    $options = mp_mail_transport_options();
+    $options = bms_mail_transport_options();
     return $options[$transport] ?? $transport;
 }
 
-function mp_mail_normalize_email_list(string $emails): string
+function bms_mail_normalize_email_list(string $emails): string
 {
     $emails = str_replace(["\r\n", "\r", "\n", ';'], ',', $emails);
     $parts = array_filter(array_map('trim', explode(',', $emails)));
@@ -78,9 +78,9 @@ function mp_mail_normalize_email_list(string $emails): string
     return implode(', ', array_values(array_unique($clean)));
 }
 
-function mp_mail_parse_email_list(string $emails): array
+function bms_mail_parse_email_list(string $emails): array
 {
-    $normalized = mp_mail_normalize_email_list($emails);
+    $normalized = bms_mail_normalize_email_list($emails);
 
     if ($normalized === '') {
         return [];
@@ -89,29 +89,29 @@ function mp_mail_parse_email_list(string $emails): array
     return array_values(array_filter(array_map('trim', explode(',', $normalized))));
 }
 
-function mp_mail_validate_header_value(string $value): string
+function bms_mail_validate_header_value(string $value): string
 {
     return str_replace(["\r", "\n"], '', $value);
 }
 
-function mp_mail_boundary(): string
+function bms_mail_boundary(): string
 {
     return 'bonumark_' . bin2hex(random_bytes(16));
 }
 
-function mp_mail_has_attachments(array $message): bool
+function bms_mail_has_attachments(array $message): bool
 {
     return !empty($message['attachments']) && is_array($message['attachments']);
 }
 
-function mp_mail_content_type_for_body(string $bodyFormat): string
+function bms_mail_content_type_for_body(string $bodyFormat): string
 {
     return $bodyFormat === 'html'
         ? 'text/html; charset=UTF-8'
         : 'text/plain; charset=UTF-8';
 }
 
-function mp_mail_build_headers_array(array $message, bool $includeRecipientsAndSubject = false, ?string $boundary = null, bool $includeBccHeader = false): array
+function bms_mail_build_headers_array(array $message, bool $includeRecipientsAndSubject = false, ?string $boundary = null, bool $includeBccHeader = false): array
 {
     $headers = [];
 
@@ -126,7 +126,7 @@ function mp_mail_build_headers_array(array $message, bool $includeRecipientsAndS
             $headers[] = 'Bcc: ' . implode(', ', $message['bcc']);
         }
 
-        $headers[] = 'Subject: ' . mp_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
+        $headers[] = 'Subject: ' . bms_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
         $headers[] = 'Date: ' . date('r');
     } else {
         if (!empty($message['cc'])) {
@@ -138,14 +138,14 @@ function mp_mail_build_headers_array(array $message, bool $includeRecipientsAndS
         }
     }
 
-    $fromName = mp_mail_validate_header_value((string)($message['from_name'] ?? 'Bonumark Stream'));
-    $fromEmail = mp_mail_validate_header_value((string)($message['from_email'] ?? ''));
+    $fromName = bms_mail_validate_header_value((string)($message['from_name'] ?? 'Bonumark Stream'));
+    $fromEmail = bms_mail_validate_header_value((string)($message['from_email'] ?? ''));
 
     if ($fromEmail !== '') {
         $headers[] = 'From: ' . ($fromName !== '' ? '"' . addcslashes($fromName, '"\\') . '" ' : '') . '<' . $fromEmail . '>';
     }
 
-    $replyTo = mp_mail_validate_header_value((string)($message['reply_to'] ?? ''));
+    $replyTo = bms_mail_validate_header_value((string)($message['reply_to'] ?? ''));
     if ($replyTo !== '') {
         $headers[] = 'Reply-To: <' . $replyTo . '>';
     }
@@ -155,7 +155,7 @@ function mp_mail_build_headers_array(array $message, bool $includeRecipientsAndS
     if ($boundary !== null) {
         $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
     } else {
-        $headers[] = 'Content-Type: ' . mp_mail_content_type_for_body((string)($message['body_format'] ?? 'plain_text'));
+        $headers[] = 'Content-Type: ' . bms_mail_content_type_for_body((string)($message['body_format'] ?? 'plain_text'));
     }
 
     $headers[] = 'X-Mailer: Bonumark Stream';
@@ -163,20 +163,20 @@ function mp_mail_build_headers_array(array $message, bool $includeRecipientsAndS
     return $headers;
 }
 
-function mp_mail_build_headers(array $message, string $lineEnding = "\r\n"): string
+function bms_mail_build_headers(array $message, string $lineEnding = "\r\n"): string
 {
-    $boundary = mp_mail_has_attachments($message)
-        ? ($message['_boundary'] ?? mp_mail_boundary())
+    $boundary = bms_mail_has_attachments($message)
+        ? ($message['_boundary'] ?? bms_mail_boundary())
         : null;
 
-    return implode($lineEnding, mp_mail_build_headers_array($message, false, $boundary, true));
+    return implode($lineEnding, bms_mail_build_headers_array($message, false, $boundary, true));
 }
 
-function mp_mail_render_body(array $message, ?string $boundary = null): string
+function bms_mail_render_body(array $message, ?string $boundary = null): string
 {
     $body = (string)($message['body'] ?? '');
 
-    if ($boundary === null || !mp_mail_has_attachments($message)) {
+    if ($boundary === null || !bms_mail_has_attachments($message)) {
         return $body;
     }
 
@@ -184,14 +184,14 @@ function mp_mail_render_body(array $message, ?string $boundary = null): string
     $parts = [];
 
     $parts[] = '--' . $boundary;
-    $parts[] = 'Content-Type: ' . mp_mail_content_type_for_body((string)($message['body_format'] ?? 'plain_text'));
+    $parts[] = 'Content-Type: ' . bms_mail_content_type_for_body((string)($message['body_format'] ?? 'plain_text'));
     $parts[] = 'Content-Transfer-Encoding: 8bit';
     $parts[] = '';
     $parts[] = $body;
 
     foreach ($message['attachments'] as $attachment) {
-        $filename = mp_mail_validate_header_value((string)($attachment['filename'] ?? 'attachment.txt'));
-        $contentType = mp_mail_validate_header_value((string)($attachment['content_type'] ?? 'application/octet-stream'));
+        $filename = bms_mail_validate_header_value((string)($attachment['filename'] ?? 'attachment.txt'));
+        $contentType = bms_mail_validate_header_value((string)($attachment['content_type'] ?? 'application/octet-stream'));
         $content = (string)($attachment['content'] ?? '');
 
         $parts[] = '--' . $boundary;
@@ -208,23 +208,23 @@ function mp_mail_render_body(array $message, ?string $boundary = null): string
     return implode($lineEnding, $parts);
 }
 
-function mp_mail_build_full_message(array $message, bool $includeBccHeader = false): string
+function bms_mail_build_full_message(array $message, bool $includeBccHeader = false): string
 {
-    $boundary = mp_mail_has_attachments($message) ? mp_mail_boundary() : null;
+    $boundary = bms_mail_has_attachments($message) ? bms_mail_boundary() : null;
 
     if ($boundary !== null) {
         $message['_boundary'] = $boundary;
     }
 
-    $headers = mp_mail_build_headers_array($message, true, $boundary, $includeBccHeader);
-    $body = mp_mail_render_body($message, $boundary);
+    $headers = bms_mail_build_headers_array($message, true, $boundary, $includeBccHeader);
+    $body = bms_mail_render_body($message, $boundary);
 
     return implode("\r\n", $headers) . "\r\n\r\n" . $body;
 }
 
-function mp_mail_message_from_settings(array $settings, string $to, string $subject, string $body, string $bodyFormat = 'plain_text', array $attachments = []): array
+function bms_mail_message_from_settings(array $settings, string $to, string $subject, string $body, string $bodyFormat = 'plain_text', array $attachments = []): array
 {
-    $recipients = mp_mail_parse_email_list($to);
+    $recipients = bms_mail_parse_email_list($to);
 
     if (!$recipients) {
         throw new RuntimeException('At least one recipient is required.');
@@ -257,32 +257,32 @@ function mp_mail_message_from_settings(array $settings, string $to, string $subj
     ];
 }
 
-function mp_mail_send(array $settings, array $message): array
+function bms_mail_send(array $settings, array $message): array
 {
     $transport = (string)($settings['mail_transport'] ?? 'disabled');
 
     return match ($transport) {
-        'php_mail' => mp_mail_send_php_mail($message),
-        'smtp' => mp_mail_send_smtp($settings, $message),
-        'smtp_phpmailer' => mp_mail_send_phpmailer($settings, $message),
-        'sendmail' => mp_mail_send_sendmail($settings, $message),
+        'php_mail' => bms_mail_send_php_mail($message),
+        'smtp' => bms_mail_send_smtp($settings, $message),
+        'smtp_phpmailer' => bms_mail_send_phpmailer($settings, $message),
+        'sendmail' => bms_mail_send_sendmail($settings, $message),
         'disabled' => throw new RuntimeException('Mail transport is disabled. Choose PHP Mail, SMTP, or Sendmail to send email.'),
         default => throw new RuntimeException('Unsupported mail transport: ' . $transport),
     };
 }
 
-function mp_mail_send_php_mail(array $message): array
+function bms_mail_send_php_mail(array $message): array
 {
-    $boundary = mp_mail_has_attachments($message) ? mp_mail_boundary() : null;
+    $boundary = bms_mail_has_attachments($message) ? bms_mail_boundary() : null;
 
     if ($boundary !== null) {
         $message['_boundary'] = $boundary;
     }
 
-    $headers = implode("\r\n", mp_mail_build_headers_array($message, false, $boundary, true));
+    $headers = implode("\r\n", bms_mail_build_headers_array($message, false, $boundary, true));
     $to = implode(', ', $message['to'] ?? []);
-    $subject = mp_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
-    $body = mp_mail_render_body($message, $boundary);
+    $subject = bms_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
+    $body = bms_mail_render_body($message, $boundary);
 
     $sent = mail($to, $subject, $body, $headers);
 
@@ -296,7 +296,7 @@ function mp_mail_send_php_mail(array $message): array
     ];
 }
 
-function mp_mail_send_sendmail(array $settings, array $message): array
+function bms_mail_send_sendmail(array $settings, array $message): array
 {
     $path = trim((string)($settings['mail_sendmail_path'] ?? '/usr/sbin/sendmail'));
 
@@ -330,7 +330,7 @@ function mp_mail_send_sendmail(array $settings, array $message): array
         throw new RuntimeException('Could not start sendmail process.');
     }
 
-    $payload = mp_mail_build_full_message($message, false);
+    $payload = bms_mail_build_full_message($message, false);
 
     fwrite($pipes[0], $payload);
     fclose($pipes[0]);
@@ -353,7 +353,7 @@ function mp_mail_send_sendmail(array $settings, array $message): array
     ];
 }
 
-function mp_smtp_read_response($socket): array
+function bms_smtp_read_response($socket): array
 {
     $lines = [];
 
@@ -379,9 +379,9 @@ function mp_smtp_read_response($socket): array
     ];
 }
 
-function mp_smtp_expect($socket, array $expectedCodes, string $context): array
+function bms_smtp_expect($socket, array $expectedCodes, string $context): array
 {
-    $response = mp_smtp_read_response($socket);
+    $response = bms_smtp_read_response($socket);
 
     if (!in_array($response['code'], $expectedCodes, true)) {
         throw new RuntimeException('SMTP error during ' . $context . ': ' . $response['text']);
@@ -390,12 +390,12 @@ function mp_smtp_expect($socket, array $expectedCodes, string $context): array
     return $response;
 }
 
-function mp_smtp_write($socket, string $command): void
+function bms_smtp_write($socket, string $command): void
 {
     fwrite($socket, $command . "\r\n");
 }
 
-function mp_smtp_escape_data(string $data): string
+function bms_smtp_escape_data(string $data): string
 {
     $data = str_replace(["\r\n", "\r"], "\n", $data);
     $lines = explode("\n", $data);
@@ -409,7 +409,7 @@ function mp_smtp_escape_data(string $data): string
     return implode("\r\n", $lines);
 }
 
-function mp_mail_send_smtp(array $settings, array $message): array
+function bms_mail_send_smtp(array $settings, array $message): array
 {
     $host = trim((string)($settings['mail_smtp_host'] ?? ''));
     $port = (int)($settings['mail_smtp_port'] ?? 587);
@@ -439,55 +439,55 @@ function mp_mail_send_smtp(array $settings, array $message): array
     stream_set_timeout($socket, 20);
 
     try {
-        mp_smtp_expect($socket, [220], 'connect');
+        bms_smtp_expect($socket, [220], 'connect');
 
         $serverName = $_SERVER['SERVER_NAME'] ?? 'localhost';
 
-        mp_smtp_write($socket, 'EHLO ' . $serverName);
-        mp_smtp_expect($socket, [250], 'EHLO');
+        bms_smtp_write($socket, 'EHLO ' . $serverName);
+        bms_smtp_expect($socket, [250], 'EHLO');
 
         if ($encryption === 'tls') {
-            mp_smtp_write($socket, 'STARTTLS');
-            mp_smtp_expect($socket, [220], 'STARTTLS');
+            bms_smtp_write($socket, 'STARTTLS');
+            bms_smtp_expect($socket, [220], 'STARTTLS');
 
             if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
                 throw new RuntimeException('Could not enable SMTP TLS encryption.');
             }
 
-            mp_smtp_write($socket, 'EHLO ' . $serverName);
-            mp_smtp_expect($socket, [250], 'EHLO after STARTTLS');
+            bms_smtp_write($socket, 'EHLO ' . $serverName);
+            bms_smtp_expect($socket, [250], 'EHLO after STARTTLS');
         }
 
         if ($username !== '') {
-            mp_smtp_write($socket, 'AUTH LOGIN');
-            mp_smtp_expect($socket, [334], 'AUTH LOGIN');
+            bms_smtp_write($socket, 'AUTH LOGIN');
+            bms_smtp_expect($socket, [334], 'AUTH LOGIN');
 
-            mp_smtp_write($socket, base64_encode($username));
-            mp_smtp_expect($socket, [334], 'SMTP username');
+            bms_smtp_write($socket, base64_encode($username));
+            bms_smtp_expect($socket, [334], 'SMTP username');
 
-            mp_smtp_write($socket, base64_encode($password));
-            mp_smtp_expect($socket, [235], 'SMTP password');
+            bms_smtp_write($socket, base64_encode($password));
+            bms_smtp_expect($socket, [235], 'SMTP password');
         }
 
-        mp_smtp_write($socket, 'MAIL FROM:<' . $message['from_email'] . '>');
-        mp_smtp_expect($socket, [250], 'MAIL FROM');
+        bms_smtp_write($socket, 'MAIL FROM:<' . $message['from_email'] . '>');
+        bms_smtp_expect($socket, [250], 'MAIL FROM');
 
         $recipients = array_merge($message['to'] ?? [], $message['cc'] ?? [], $message['bcc'] ?? []);
 
         foreach ($recipients as $recipient) {
-            mp_smtp_write($socket, 'RCPT TO:<' . $recipient . '>');
-            mp_smtp_expect($socket, [250, 251], 'RCPT TO ' . $recipient);
+            bms_smtp_write($socket, 'RCPT TO:<' . $recipient . '>');
+            bms_smtp_expect($socket, [250, 251], 'RCPT TO ' . $recipient);
         }
 
-        mp_smtp_write($socket, 'DATA');
-        mp_smtp_expect($socket, [354], 'DATA');
+        bms_smtp_write($socket, 'DATA');
+        bms_smtp_expect($socket, [354], 'DATA');
 
-        $payload = mp_mail_build_full_message($message, false);
+        $payload = bms_mail_build_full_message($message, false);
 
-        mp_smtp_write($socket, mp_smtp_escape_data($payload) . "\r\n.");
-        mp_smtp_expect($socket, [250], 'message body');
+        bms_smtp_write($socket, bms_smtp_escape_data($payload) . "\r\n.");
+        bms_smtp_expect($socket, [250], 'message body');
 
-        mp_smtp_write($socket, 'QUIT');
+        bms_smtp_write($socket, 'QUIT');
 
         return [
             'transport' => 'smtp',
@@ -498,15 +498,15 @@ function mp_mail_send_smtp(array $settings, array $message): array
     }
 }
 
-function mp_mail_load_phpmailer(): void
+function bms_mail_load_phpmailer(): void
 {
     if (class_exists('\\PHPMailer\\PHPMailer\\PHPMailer')) {
         return;
     }
 
     $autoloads = [
-        mp_root_path('vendor/autoload.php'),
-        dirname(mp_root_path()) . '/vendor/autoload.php',
+        bms_root_path('vendor/autoload.php'),
+        dirname(bms_root_path()) . '/vendor/autoload.php',
     ];
 
     foreach ($autoloads as $autoload) {
@@ -519,9 +519,9 @@ function mp_mail_load_phpmailer(): void
     }
 }
 
-function mp_mail_send_phpmailer(array $settings, array $message): array
+function bms_mail_send_phpmailer(array $settings, array $message): array
 {
-    mp_mail_load_phpmailer();
+    bms_mail_load_phpmailer();
 
     if (!class_exists('\\PHPMailer\\PHPMailer\\PHPMailer')) {
         throw new RuntimeException('PHPMailer is not installed. Install phpmailer/phpmailer with Composer or choose Native SMTP, PHP Mail, or Sendmail.');
@@ -576,7 +576,7 @@ function mp_mail_send_phpmailer(array $settings, array $message): array
         $mailer->addBCC($recipient);
     }
 
-    $mailer->Subject = mp_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
+    $mailer->Subject = bms_mail_validate_header_value((string)($message['subject'] ?? 'Bonumark Stream'));
 
     if (($message['body_format'] ?? 'plain_text') === 'html') {
         $mailer->isHTML(true);
@@ -604,10 +604,10 @@ function mp_mail_send_phpmailer(array $settings, array $message): array
     ];
 }
 
-function mp_mail_record_test_delivery(array $settings, array $message, string $status, ?string $errorMessage = null): int
+function bms_mail_record_test_delivery(array $settings, array $message, string $status, ?string $errorMessage = null): int
 {
-    $stmt = mp_db()->prepare(
-        'INSERT INTO ' . mp_table('mail_test_deliveries') . '
+    $stmt = bms_db()->prepare(
+        'INSERT INTO ' . bms_table('mail_test_deliveries') . '
             (transport, body_format, recipient_to, subject, status, error_message, sent_at, triggered_by, created_at)
          VALUES
             (:transport, :body_format, :recipient_to, :subject, :status, :error_message, :sent_at, :triggered_by, NOW())'
@@ -621,18 +621,18 @@ function mp_mail_record_test_delivery(array $settings, array $message, string $s
         'status' => in_array($status, ['sent', 'failed'], true) ? $status : 'failed',
         'error_message' => $errorMessage,
         'sent_at' => $status === 'sent' ? date('Y-m-d H:i:s') : null,
-        'triggered_by' => function_exists('mp_current_user') ? (int)(mp_current_user()['id'] ?? 0) : null,
+        'triggered_by' => function_exists('bms_current_user') ? (int)(bms_current_user()['id'] ?? 0) : null,
     ]);
 
-    return (int)mp_db()->lastInsertId();
+    return (int)bms_db()->lastInsertId();
 }
 
-function mp_mail_recent_test_deliveries(int $limit = 8): array
+function bms_mail_recent_test_deliveries(int $limit = 8): array
 {
     $limit = max(1, min(25, $limit));
 
     try {
-        $stmt = mp_db()->query('SELECT * FROM ' . mp_table('mail_test_deliveries') . ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit);
+        $stmt = bms_db()->query('SELECT * FROM ' . bms_table('mail_test_deliveries') . ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit);
         $rows = $stmt->fetchAll();
         return is_array($rows) ? $rows : [];
     } catch (Throwable $e) {

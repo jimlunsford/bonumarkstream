@@ -1,332 +1,308 @@
 # Bonumark Stream
 
-Bonumark Stream is a self-hosted microblog and lightweight publishing system for people who want to own their short-form content, publish quickly, and run their own space on the web.
+**Bonumark Stream is a self-hosted microblog CMS for publishing short-form posts on a site you control.**
 
-It gives you a public timeline, pages, media, comments, profiles, themes, imports, exports, and upgrade tools in one shared-hosting friendly PHP application.
+It is built for people who want the speed and simplicity of a personal stream without handing their words, media, and history to a platform they do not own.
 
-**Demo:** [https://demo.bonumark.org](https://demo.bonumark.org)  
-Current version: **0.3.12**  
-**License:** AGPL-3.0-or-later
+- Homepage: https://bonumark.org
+- Demo: https://demo.bonumark.org
+- Repository: https://github.com/jimlunsford/bonumarkstream
+- Current version: **0.4.5**
 
-## What Bonumark Stream Is
+## What Bonumark Stream is
 
-Bonumark Stream is built for owned short-form publishing.
+Bonumark Stream is a lightweight PHP/MySQL publishing system for short-form posts, pages, media, comments, profiles, likes, feeds, imports, exports, and code-free presentation themes.
 
-It is not trying to replace every full content management system. It is focused on something simpler and sharper:
+It is not a social network. It is not a multi-author publishing platform. It is not a WordPress theme.
 
-- post updates quickly
-- keep your content on your own site
-- publish a timeline instead of depending on a rented social feed
-- create simple pages when a post is not enough
-- export your content in portable formats
-- manage media, comments, profiles, and users from one admin area
+Bonumark Stream is for running your own microblog on your own site.
 
-The live site renders from the database. Markdown remains an ownership, import, and export format. Static HTML export is available when you want a portable copy of the public site.
+## Current foundation
 
-## Why It Exists
+Bonumark Stream v0.4.x is a clean-break public foundation.
 
-A lot of useful writing does not need to become a full article.
+The current model is:
 
-Project notes, field updates, release logs, quick thoughts, images, links, and small announcements often need a clean place to live. Social platforms make that easy, but they also control the feed, the reach, the layout, the rules, and sometimes the future of the account.
+- One Admin account
+- Optional Commenter accounts
+- Admin is the sole publisher
+- Commenters can participate through comments and profile/account features when enabled
+- Database-first normal operation
+- Markdown for import, export, backup, and portability
+- Dynamic rendering by default
+- Static export as optional tooling
+- Code-free presentation themes
+- Midnight Ledger as the bundled reference theme
 
-Bonumark Stream is for people who want that short-form workflow without giving up control of the space.
+## Important upgrade notice
 
-## Demo
+Bonumark Stream v0.4.x is a clean-break release line.
 
-A public demo is available here:
+Direct upgrades from older development packages, including v0.1.x, v0.2.x, and v0.3.x, are not supported.
 
-[https://demo.bonumark.org](https://demo.bonumark.org)
+If you are using an older development package, install Bonumark Stream v0.4.x as a fresh installation.
 
-The demo shows the public side of Bonumark Stream, including:
-
-- the public timeline
-- individual stream posts
-- link previews
-- pages
-- profile surfaces
-- comments
-- the bundled Midnight Ledger theme
-
-## Features
-
-### Publishing
-
-- Stream posts
-- Pages
-- Drafts
-- Publishing controls
-- Generated slugs
-- SEO title and description fields
-- Markdown-based import and export
-- Rich public rendering for headings, lists, tables, quotes, links, and code blocks
-
-### Public Site
-
-- Public stream timeline
-- Single post pages
-- Public pages
-- Author and profile pages
-- Search
-- RSS feed
-- XML sitemap
-- Public likes
-- Public comments
-- Optional public navigation
-- Automatic account links in navigation, with an admin toggle
-
-### Admin
-
-- Dashboard overview
-- Stream post manager
-- Page manager
-- Media library
-- Comment moderation
-- User management
-- Site identity settings
-- Reading and writing settings
-- Mail settings
-- Registration settings
-- Theme management
-- Import and export tools
-- System check
-- Built-in package upgrade screen
-
-### Media
-
-- Media uploads
-- Media records
-- Avatar upload support
-- Image metadata
-- Optimized image variants when GD or Imagick is available
-- Responsive image output when verified variants exist
-- Manual media regeneration tools
-
-### Accounts and Registration
-
-- Admin, User, and Commenter roles
-- Public account page
-- Public profile editing
-- Invite-only registration option
-- Email verification support
-- Admin approval controls
-- Password recovery
-- Admin user management
-- Safe user deletion and owned-record reassignment
-
-### Import and Export
-
-Bonumark Stream supports imports from:
-
-- Markdown
-- Generic JSON
-- WordPress WXR/XML
-- Bonumark Stream export ZIPs
-- Twitter/X archive ZIPs
-- Bluesky/AT Protocol CAR archives
-
-Export options include:
-
-- Markdown export
-- full private backup/export
-- Static Site Export for a portable generated HTML copy
-
-Private exports may include sensitive data such as password hashes, account metadata, reset records, invite records, moderation data, and email addresses. Do not publish private backup ZIP files.
+The built-in upgrader is intended for Bonumark Stream v0.4.0 and newer going forward.
 
 ## Requirements
 
-Bonumark Stream is designed for common shared hosting environments.
+Bonumark Stream is designed for standard shared hosting.
 
-Required:
+Minimum requirements:
 
-- PHP 8.2 or newer
+- PHP 8.1 or newer
 - MySQL or MariaDB
-- PDO MySQL driver
-- writable private directories under `_bonumark_stream/`
+- PDO MySQL extension
+- ZIP extension for package/theme handling
+- Apache or LiteSpeed recommended for included `.htaccess` rules
 
 Recommended:
 
-- ZipArchive for exports, upgrades, and theme ZIP uploads
-- cURL for link previews and remote media imports
-- GD or Imagick for image metadata, avatar optimization, and generated image variants
-- Apache with `.htaccess` support, or equivalent private-directory rules on Nginx, IIS, or custom hosting panels
+- PHP 8.2 or newer
+- HTTPS enabled
+- Regular database and file backups
+- A hosting account that allows writable application directories
 
-## Quick Start
+## Installation
 
-1. Download the latest Bonumark Stream release ZIP.
-2. Upload the package contents to your PHP/MySQL hosting account.
+1. Download the latest release ZIP from GitHub.
+2. Upload the package files to your web server.
 3. Visit `install.php` in your browser.
-4. Enter your database settings.
-5. Create the first administrator account.
-6. Remove or lock the installer when setup is complete.
-7. Sign in at `/admin/`.
-8. Review Site Identity, Reading, Writing, Mail, Registration, Themes, and System Check.
-9. Create a test post and a test page.
+4. Enter your database details.
+5. Create the first Admin account.
+6. Complete installation.
+7. Remove or lock the installer when prompted.
 
-For full setup instructions, see:
+After installation, the stream is available at the site root.
 
-- [`docs/INSTALL.md`](docs/INSTALL.md)
-
-## Upgrading
-
-Bonumark Stream includes an admin upgrade screen for release ZIP packages.
-
-The upgrader checks the package manifest, verifies file hashes, protects private configuration and user data, runs pending migrations, and records upgrade history.
-
-Before upgrading a production site:
-
-1. Back up your files.
-2. Back up your database.
-3. Upload only release ZIP files you created or trust.
-4. Review the upgrade check screen before running the upgrade.
-
-For full upgrade instructions, see:
-
-- [`docs/UPGRADING.md`](docs/UPGRADING.md)
-
-## Documentation
-
-Project documentation lives in the `docs/` directory:
-
-- [`docs/INSTALL.md`](docs/INSTALL.md), installation guide
-- [`docs/UPGRADING.md`](docs/UPGRADING.md), upgrade guide
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), technical architecture
-- [`docs/THEMING.md`](docs/THEMING.md), theme system notes
-- [`docs/IMPORTERS.md`](docs/IMPORTERS.md), importer details
-
-## Architecture
-
-Bonumark Stream follows a simple foundation:
+Example:
 
 ```text
-Database = live source of truth
-Dynamic PHP rendering = normal public site
-Markdown = import/export ownership format
-Static HTML = optional downloadable site export artifact
+https://example.com/
 ```
 
-The live public site does not depend on generated HTML files. Public routes render from database content records. Static Site Export is available as a tool-generated artifact when you want a portable HTML copy.
+The `/stream/` path remains supported as an alias.
 
-Core handles:
-
-- data storage
-- authentication
-- permissions
-- publishing
-- imports
-- exports
-- admin workflows
-- dynamic routing
-
-Themes handle:
-
-- public presentation
-- layout
-- public templates
-- theme assets
-- theme settings
-
-## Public Routes
-
-Common public routes include:
+Example:
 
 ```text
-/
-/stream/
-/stream/page/2/
-/stream/{slug}/
-/pages/{slug}/
-/author/{username}/
-/profile.php?user={username}
-/account.php
-/comments.php
-/search.php
-/feed.xml
-/sitemap.xml
-/robots.txt
+https://example.com/stream/
 ```
 
-## Admin Areas
+## Fresh install behavior
 
-Common admin areas include:
+A new Bonumark Stream install starts clean.
 
-- Dashboard
-- Stream Posts
-- Pages
-- Media
-- Comments
-- Appearance
-- Settings
-- Tools
-- Account
-- Users
-- System Check
-- Upgrade
+By default:
 
-## Bundled Theme
+- No sample posts are created
+- No sample pages are created
+- No public demo content is installed
+- One Admin account is created during installation
+- Registration is disabled or controlled by settings
+- Commenter accounts are optional
+- Midnight Ledger is the active bundled theme
 
-The release package includes **Midnight Ledger** as the default first-party public theme.
+## Admin account
 
-Additional themes can be installed later through the theme installer. Themes are trusted PHP code and should only be installed from sources you control.
+The Admin account is the site owner and sole publisher.
+
+The Admin can:
+
+- Publish posts
+- Create pages
+- Upload and manage media
+- Manage comments
+- Manage commenter accounts
+- Configure site settings
+- Manage themes
+- Run imports and exports
+- Run supported upgrades
+
+Bonumark Stream does not include editor or author roles.
+
+## Commenter accounts
+
+Commenter accounts are for participation, not publishing.
+
+Commenters may be able to:
+
+- Register, if registration is enabled
+- Log in
+- Manage basic profile/account details
+- Comment, if comments are enabled
+- Use password reset and verification flows
+
+Commenters cannot:
+
+- Publish posts
+- Create pages
+- Upload media
+- Access publishing tools
+- Access site settings
+- Manage themes
+- Run imports or upgrades
+
+## Publishing
+
+Bonumark Stream is designed for short-form publishing.
+
+Posts are stored in the database and rendered dynamically. Markdown is available for import, export, backup, and portability, but Markdown files are not the runtime source of truth.
+
+The Admin can publish from the admin area and manage the stream through the included dashboard and editor tools.
+
+## Pages
+
+Bonumark Stream includes basic page support for static content such as:
+
+- About
+- Contact
+- Uses
+- Now
+- Project notes
+
+Pages are managed by the Admin.
+
+## Media
+
+The Admin can upload and manage media through the media library.
+
+Bonumark Stream supports media attachments for posts and pages, with validation handled by the core application.
+
+Commenters cannot upload media.
+
+## Comments
+
+Bonumark Stream supports comments when enabled.
+
+The Admin can moderate comments and manage commenter participation. Commenter accounts can be used to support more controlled participation while keeping publishing authority with the Admin.
+
+## Likes
+
+Public likes are supported and rate-limited.
+
+Likes do not require commenter accounts by default.
+
+## Themes
+
+Bonumark Stream themes are code-free presentation packages.
+
+Themes can provide:
+
+- `theme.json`
+- CSS
+- Images
+- Fonts
+- Screenshots
+- Theme metadata
+- Theme settings
+- Documentation files
+
+Themes cannot provide:
+
+- PHP files
+- JavaScript files
+- HTML templates
+- Routes
+- Database logic
+- Permission logic
+- Publishing behavior
+- Application code
+
+Bonumark Stream core handles rendering and application behavior. Themes control presentation.
+
+The bundled default theme is **Midnight Ledger**. It is also the reference example for how Bonumark Stream themes should be structured.
+
+## Import and export
+
+Bonumark Stream includes import and export tools to support content ownership and portability.
+
+Supported tooling includes:
+
+- Bonumark import/export
+- Markdown import/export
+- Static export
+- Supported external importers included in the package
+
+Export tools are intended to help you keep control of your content and move or back up your work.
+
+## Static export
+
+Normal Bonumark Stream operation is dynamic and database-first.
+
+Static export is optional tooling for portability, backup, or deployment workflows. It is not required for normal publishing.
+
+## Feeds and sitemap
+
+Bonumark Stream includes:
+
+- RSS/feed support
+- Sitemap support
+- Robots.txt handling
+
+These are handled by core.
 
 ## Security
 
-Bonumark Stream uses:
+Bonumark Stream includes protections for:
 
-- sessions
-- CSRF checks
-- role-based permissions
-- upload validation
-- login rate limiting
-- private storage protections
-- explicit admin route capabilities
-- system checks
+- Admin authentication
+- CSRF-protected admin actions
+- Upload validation
+- Private application folders
+- Theme package validation
+- Rate-limited public interactions
+- Protected configuration files
 
-The private `_bonumark_stream/` directory must not be publicly browseable.
+Apache/LiteSpeed protections are included through `.htaccess`.
 
-Apache `.htaccess` denial files are bundled, but Nginx, IIS, and custom hosting panels must be configured with equivalent denial rules.
+If you run Bonumark Stream on Nginx or another server stack, you must configure equivalent private-folder and routing protections yourself.
 
-For security notes, see:
+## Backups
 
-- [`SECURITY.md`](SECURITY.md)
+Before upgrading or making major changes, back up:
 
-## Project Status
+- Database
+- Uploaded media
+- Configuration files
+- Theme files
+- Exported content, if applicable
 
-Bonumark Stream is pre-1.0 software.
+Do not rely on hosting alone. Keep your own backups.
 
-The v0.3.x line is the first public GitHub release line and the current clean database-first baseline. It is suitable for testing, demos, development, and early self-hosted use, but you should still keep backups before running it in production.
+## Upgrading
+
+The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
+
+Older development packages are not supported upgrade sources.
+
+For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.4.x install.
+
+## Project status
+
+Bonumark Stream is under active development.
+
+The v0.4.x line is the clean public foundation. APIs, internals, theme structure, and installer behavior may still change before a stable 1.0 release.
+
+Use caution before running it on mission-critical sites.
+
+## Contributing
+
+Contributions, issue reports, testing notes, and thoughtful feedback are welcome through the GitHub repository:
+
+https://github.com/jimlunsford/bonumarkstream
+
+Before contributing, please keep the project direction in mind:
+
+- Self-hosted
+- Database-first
+- Short-form publishing
+- One Admin publisher
+- Optional commenter participation
+- Code-free themes
+- Shared-hosting compatibility
+- Ownership and portability
 
 ## License
 
-Bonumark Stream is free and open-source software licensed under:
-
-`AGPL-3.0-or-later`
-
-See [`LICENSE`](LICENSE) for the full license text.
-
-## Repository
-
-GitHub repository:
-
-[https://github.com/jimlunsford/bonumarkstream](https://github.com/jimlunsford/bonumarkstream)
-
-## Current release
-
-**0.3.12, SEO Title Output Repair Pass** repairs browser-tab and crawler-facing title output so the home page includes the tagline, content pages append the site title exactly once, and external themes cannot accidentally duplicate title parts.
-
-**0.3.10, Theme-Independent Favicon Output Hotfix** repairs Site Identity favicon output so public favicon tags are injected at the core rendering layer and external themes receive browser icons even when their templates do not print `favicon_tags`.
-
-**0.3.8, Site Identity Favicon Pass** adds a favicon control to Site Identity with Media Library selection, direct upload, preview, remove/reset support, and public/admin browser icon output.
-
-**0.3.7, WordPress Featured Media Import Repair Pass** repairs WordPress WXR imports so featured images stored through `_thumbnail_id` are preserved as `featured_media`, counted in preview, and processed by the media import pipeline during confirmation.
-
-**0.3.6, Load More Archive Routing Repair Pass** repairs Load More routing so paginated stream archive requests cannot be mistaken for single stream post slugs. It uses an explicit `stream_page` query key for the installed index route and removes the redirect-on-AJAX-failure behavior that could dump visitors onto an error page.
-
-**0.3.5, Load More Index Route Repair Pass** repairs Load More pagination by using the existing index.php public route for both AJAX and click fallback behavior instead of relying on a standalone stream-page.php endpoint.
-
-**0.3.4, Load More Archive Endpoint Repair Pass** repairs Load More pagination with a direct archive endpoint so paginated stream output cannot be mistaken for a stream post slug.
-
-## Changelog
-
-For release history, see:
-
-- [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md)
+See `LICENSE` for license information.

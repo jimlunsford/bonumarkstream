@@ -2,14 +2,14 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/importers.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('view_system');
+bms_require_login();
+bms_require_capability('view_system');
 
 $previewResult = null;
 $previewToken = '';
 
 /** @param list<string> $details */
-function mp_import_flash_detail_summary(array $details): string
+function bms_import_flash_detail_summary(array $details): string
 {
     $filtered = [];
     foreach ($details as $detail) {
@@ -28,67 +28,67 @@ function mp_import_flash_detail_summary(array $details): string
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['import_action'] ?? '');
 
     if ($action === 'clear') {
-        mp_import_clear_preview();
-        mp_flash('Import preview cleared.', 'success');
-        mp_redirect(mp_admin_url('import.php'));
+        bms_import_clear_preview();
+        bms_flash('Import preview cleared.', 'success');
+        bms_redirect(bms_admin_url('import.php'));
     }
 
     if ($action === 'preview') {
         $file = $_FILES['import_file'] ?? null;
         if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            mp_flash('Choose a Markdown, JSON, WordPress XML, Bonumark export ZIP, Twitter/X archive ZIP, or Bluesky archive file to import.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('Choose a Markdown, JSON, WordPress XML, Bonumark export ZIP, Twitter/X archive ZIP, or Bluesky archive file to import.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
-        if ((int)($file['size'] ?? 0) > mp_import_max_upload_bytes()) {
-            mp_flash('Import file is too large. Keep imports under the listed import size limit.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+        if ((int)($file['size'] ?? 0) > bms_import_max_upload_bytes()) {
+            bms_flash('Import file is too large. Keep imports under the listed import size limit.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
-        $importer = mp_import_detect_importer($file);
+        $importer = bms_import_detect_importer($file);
         if (!$importer) {
-            mp_flash('Unsupported import file. Use .md, .markdown, .txt, .json, a WordPress .xml export, a Bonumark export .zip, a Twitter/X archive .zip, or a Bluesky archive file.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('Unsupported import file. Use .md, .markdown, .txt, .json, a WordPress .xml export, a Bonumark export .zip, a Twitter/X archive .zip, or a Bluesky archive file.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
         $result = $importer->importPreview($file);
         if ($result->errors) {
-            mp_import_clear_preview();
-            mp_flash(implode(' ', $result->errors), 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_import_clear_preview();
+            bms_flash(implode(' ', $result->errors), 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
         if (!$result->hasItems()) {
-            mp_import_clear_preview();
-            mp_flash('The file was readable, but no importable stream posts were found.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_import_clear_preview();
+            bms_flash('The file was readable, but no importable stream posts were found.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
         try {
-            $previewToken = mp_import_store_preview($result, (string)($file['name'] ?? 'import'));
+            $previewToken = bms_import_store_preview($result, (string)($file['name'] ?? 'import'));
         } catch (Throwable $e) {
-            mp_import_clear_preview();
-            mp_flash('Import preview could not be staged. ' . $e->getMessage(), 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_import_clear_preview();
+            bms_flash('Import preview could not be staged. ' . $e->getMessage(), 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
-        mp_flash('Import preview created. Review the sample before confirming the import.', 'success');
+        bms_flash('Import preview created. Review the sample before confirming the import.', 'success');
     }
 
     if ($action === 'import') {
-        $preview = mp_import_get_preview();
+        $preview = bms_import_get_preview();
         $token = (string)($_POST['preview_token'] ?? '');
         if (!$preview || !hash_equals((string)($preview['token'] ?? ''), $token)) {
-            mp_flash('Import preview expired. Upload the file again and create a fresh preview.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('Import preview expired. Upload the file again and create a fresh preview.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
         $items = $preview['items'] ?? [];
         if (!is_array($items) || !$items) {
-            mp_flash('Import preview has no items to import.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('Import preview has no items to import.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
         $targetStatus = (string)($_POST['target_status'] ?? 'draft');
@@ -99,15 +99,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $defaultStart = max(1, (int)($progress['next_start'] ?? 1));
         $rangeStart = $isBlueskyImport ? 1 : max(1, (int)($_POST['range_start'] ?? $defaultStart));
         $batchSize = $isBlueskyImport ? 0 : max(0, (int)($_POST['batch_size'] ?? ($_POST['range_limit'] ?? 0)));
-        $selectedItems = mp_import_select_items($items, $rangeStart, $batchSize);
+        $selectedItems = bms_import_select_items($items, $rangeStart, $batchSize);
         if (!$selectedItems) {
-            mp_flash('The selected import batch has no items. Adjust the start item or batch size and try again.', 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('The selected import batch has no items. Adjust the start item or batch size and try again.', 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
 
         try {
             $mediaPolicy = $isBlueskyImport ? 'remote' : (string)($_POST['media_policy'] ?? 'remote');
-            $summary = mp_import_commit_items($selectedItems, $targetStatus, $preserveDates, $duplicatePolicy, $mediaPolicy);
+            $summary = bms_import_commit_items($selectedItems, $targetStatus, $preserveDates, $duplicatePolicy, $mediaPolicy);
             $totalItems = count($items);
             $batchCount = count($selectedItems);
             $batchEnd = min($totalItems, $rangeStart + $batchCount - 1);
@@ -126,11 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message .= ' Removed ' . $summary['media_removed'] . ' image reference(s).';
             }
             if (($summary['media_failed'] ?? 0) > 0) {
-                $message .= ' Could not import ' . $summary['media_failed'] . ' image file(s); details: ' . mp_import_flash_detail_summary($summary['details'] ?? []);
+                $message .= ' Could not import ' . $summary['media_failed'] . ' image file(s); details: ' . bms_import_flash_detail_summary($summary['details'] ?? []);
             }
 
             if ($nextStart <= $totalItems) {
-                mp_import_update_preview_progress($preview, [
+                bms_import_update_preview_progress($preview, [
                     'next_start' => $nextStart,
                     'processed_total' => $processedTotal,
                     'imported_total' => $importedTotal,
@@ -143,11 +143,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'last_preserve_dates' => $preserveDates ? 1 : 0,
                 ]);
                 $message .= ' Continue with item ' . $nextStart . ' when ready. Total imported so far: ' . $importedTotal . '.';
-                mp_flash($message, 'success');
-                mp_redirect(mp_admin_url('import.php'));
+                bms_flash($message, 'success');
+                bms_redirect(bms_admin_url('import.php'));
             }
 
-            mp_import_clear_preview();
+            bms_import_clear_preview();
             $message = 'Import complete. Processed all ' . $totalItems . ' prepared item(s). Imported ' . $importedTotal . ' item(s).';
             if ($skippedTotal > 0) {
                 $message .= ' Skipped ' . $skippedTotal . ' duplicate item(s).';
@@ -156,22 +156,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message .= ' Imported ' . $summary['media_imported'] . ' image file(s) in the final batch.';
             }
             if (($summary['media_failed'] ?? 0) > 0) {
-                $message .= ' Some media could not be imported; details: ' . mp_import_flash_detail_summary($summary['details'] ?? []);
+                $message .= ' Some media could not be imported; details: ' . bms_import_flash_detail_summary($summary['details'] ?? []);
             }
-            mp_flash($message, 'success');
+            bms_flash($message, 'success');
             $redirectStatus = $targetStatus === 'original' ? 'all' : ($targetStatus === 'published' ? 'published' : 'draft');
-            mp_redirect(mp_admin_url('content.php' . ($redirectStatus === 'all' ? '' : '?status=' . $redirectStatus)));
+            bms_redirect(bms_admin_url('content.php' . ($redirectStatus === 'all' ? '' : '?status=' . $redirectStatus)));
         } catch (Throwable $e) {
-            mp_flash('Import failed. ' . $e->getMessage(), 'error');
-            mp_redirect(mp_admin_url('import.php'));
+            bms_flash('Import failed. ' . $e->getMessage(), 'error');
+            bms_redirect(bms_admin_url('import.php'));
         }
     }
 }
-$preview = mp_import_get_preview();
-$maxUploadLabel = number_format(mp_import_max_upload_bytes() / 1024 / 1024, 0) . ' MB';
+$preview = bms_import_get_preview();
+$maxUploadLabel = number_format(bms_import_max_upload_bytes() / 1024 / 1024, 0) . ' MB';
 
-mp_admin_header('Import', [
-    ['label' => 'Export', 'href' => mp_admin_url('export.php'), 'style' => 'secondary'],
+bms_admin_header('Import', [
+    ['label' => 'Export', 'href' => bms_admin_url('export.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel page-intro-panel">
@@ -184,7 +184,7 @@ mp_admin_header('Import', [
   <h2>Upload import file</h2>
   <p class="meta">Supported: single Markdown files, generic JSON arrays or objects with post records, WordPress WXR/XML exports, Bonumark Stream export ZIP files, Twitter/X archive ZIP files, and Bluesky CAR exports. Maximum file size: <?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?>.</p>
   <form method="post" enctype="multipart/form-data" class="settings-form import-upload-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="import_action" value="preview">
     <label class="settings-field">
       <span>Import file</span>
@@ -205,13 +205,13 @@ mp_admin_header('Import', [
   foreach ($items as $previewItem) {
       if (is_array($previewItem)) {
           $previewBody = (string)($previewItem['body'] ?? '');
-          $previewRemoteImageCount += count(mp_import_extract_remote_image_urls($previewBody));
-          $previewStagedImageCount += count(mp_import_extract_staged_media_urls($previewBody));
+          $previewRemoteImageCount += count(bms_import_extract_remote_image_urls($previewBody));
+          $previewStagedImageCount += count(bms_import_extract_staged_media_urls($previewBody));
           $previewFeaturedMedia = trim((string)($previewItem['featured_media'] ?? ''));
           if ($previewFeaturedMedia !== '') {
-              if (mp_import_is_staged_media_url($previewFeaturedMedia)) {
+              if (bms_import_is_staged_media_url($previewFeaturedMedia)) {
                   $previewStagedImageCount++;
-              } elseif (mp_import_is_remote_http_url($previewFeaturedMedia)) {
+              } elseif (bms_import_is_remote_http_url($previewFeaturedMedia)) {
                   $previewRemoteImageCount++;
               }
           }
@@ -253,7 +253,7 @@ mp_admin_header('Import', [
         <?php endif; ?>
       </div>
       <form method="post">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="import_action" value="clear">
         <button type="submit" class="button-link secondary">Clear Preview</button>
       </form>
@@ -265,7 +265,7 @@ mp_admin_header('Import', [
 
     <div class="import-options-card">
       <form method="post" class="settings-form import-confirm-form">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="import_action" value="import">
         <input type="hidden" name="preview_token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
         <div class="settings-grid compact-settings-grid">
@@ -333,11 +333,11 @@ mp_admin_header('Import', [
             $excerpt = substr($excerpt, 0, 220);
         }
         $itemWarnings = is_array($item['warnings'] ?? null) ? $item['warnings'] : [];
-        $remoteImages = mp_import_extract_remote_image_urls($body);
-        $stagedImages = mp_import_extract_staged_media_urls($body);
+        $remoteImages = bms_import_extract_remote_image_urls($body);
+        $stagedImages = bms_import_extract_staged_media_urls($body);
         $previewFeaturedMedia = trim((string)($item['featured_media'] ?? ''));
-        $featuredRemoteImage = $previewFeaturedMedia !== '' && mp_import_is_remote_http_url($previewFeaturedMedia);
-        $featuredStagedImage = $previewFeaturedMedia !== '' && mp_import_is_staged_media_url($previewFeaturedMedia);
+        $featuredRemoteImage = $previewFeaturedMedia !== '' && bms_import_is_remote_http_url($previewFeaturedMedia);
+        $featuredStagedImage = $previewFeaturedMedia !== '' && bms_import_is_staged_media_url($previewFeaturedMedia);
         ?>
         <article class="import-preview-item">
           <div class="import-preview-meta">
@@ -378,4 +378,4 @@ mp_admin_header('Import', [
   <p class="meta">The Bluesky importer treats AT Protocol repository <code>.car</code> files as the primary export format. It reads <code>app.bsky.feed.post</code> records, skips replies and repost records, preserves original dates, converts post text into Markdown-style content, turns hashtags into tags, and preserves links found in post text or external link cards. Large Bluesky archives do not need to be split manually; Bonumark stores the full prepared import privately, shows a smaller preview sample, and imports the prepared posts when confirmed. Bluesky CAR exports currently import text, timestamps, hashtags, and links only. Media import is not available from Bluesky CAR exports at this time.</p>
   <p class="meta">The JSON importer accepts an array of posts or an object containing <code>posts</code>, <code>items</code>, <code>entries</code>, <code>data</code>, or <code>records</code>. Common fields like <code>title</code>, <code>slug</code>, <code>body</code>, <code>content</code>, <code>text</code>, <code>date</code>, <code>created_at</code>, <code>status</code>, and <code>tags</code> are normalized.</p>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

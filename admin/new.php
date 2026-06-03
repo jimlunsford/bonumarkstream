@@ -3,12 +3,12 @@ require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/editor.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
 $today = date('Y-m-d');
 $createdAt = date('Y-m-d H:i:s');
 $defaultSlug = '';
-$defaultStatus = function_exists('mp_default_content_status') ? mp_default_content_status() : 'draft';
+$defaultStatus = function_exists('bms_default_content_status') ? bms_default_content_status() : 'draft';
 $defaultSection = $defaultStatus === 'published' ? 'published' : 'drafts';
 $defaultTitle = '';
 $defaultPage = [
@@ -30,21 +30,16 @@ $defaultPage = [
 
 $page = $defaultPage;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $defaultStatus = function_exists('mp_default_content_status') ? mp_default_content_status() : 'draft';
+    $defaultStatus = function_exists('bms_default_content_status') ? bms_default_content_status() : 'draft';
     $submitAction = (string)($_POST['stream_submit_action'] ?? '');
     $requestedStatus = $defaultStatus;
-    $submitForReview = false;
     if ($submitAction === 'publish') {
         $requestedStatus = 'published';
-    } elseif ($submitAction === 'submit_review') {
-        $requestedStatus = 'draft';
-        $submitForReview = true;
     } elseif ($submitAction === 'draft') {
         $requestedStatus = 'draft';
     }
-    if ($requestedStatus === 'published' && !mp_current_user_can('publish_content')) {
+    if ($requestedStatus === 'published' && !bms_current_user_can('publish_content')) {
         $requestedStatus = 'draft';
-        $submitForReview = true;
     }
     $defaultSection = $requestedStatus === 'published' ? 'published' : 'drafts';
     $page = [
@@ -64,62 +59,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'front_matter' => [],
     ];
 
-    mp_verify_csrf();
+    bms_verify_csrf();
 
-    $raw = mp_build_markdown_from_request($requestedStatus === 'published' ? 'published' : 'draft');
+    $raw = bms_build_markdown_from_request($requestedStatus === 'published' ? 'published' : 'draft');
     $raw = str_replace(["\r\n", "\r"], "\n", $raw);
 
     if (trim((string)($_POST['body_markdown'] ?? '')) === '' && trim((string)($_POST['featured_media'] ?? '')) === '') {
-        mp_flash('Stream post cannot be empty.', 'error');
-        mp_redirect(mp_admin_url('new.php'));
+        bms_flash('Stream post cannot be empty.', 'error');
+        bms_redirect(bms_admin_url('new.php'));
     }
 
     if (strlen($raw) > 1024 * 1024 * 2) {
-        mp_flash('Stream post is too large. Keep files under 2 MB.', 'error');
-        mp_redirect(mp_admin_url('new.php'));
+        bms_flash('Stream post is too large. Keep files under 2 MB.', 'error');
+        bms_redirect(bms_admin_url('new.php'));
     }
 
     try {
-        $createdPage = mp_parse_markdown_string($raw);
+        $createdPage = bms_parse_markdown_string($raw);
         $filename = $createdPage['slug'] . '.md';
 
-        if (function_exists('mp_find_database_content_by_slug_status') && (mp_find_database_content_by_slug_status((string)$createdPage['slug'], 'draft', 'stream') || mp_find_database_content_by_slug_status((string)$createdPage['slug'], 'published', 'stream'))) {
-            mp_flash('A stream post with this slug already exists. Change the slug or edit the existing post.', 'error');
-            mp_admin_header('New Stream Post', [mp_editor_screen_controls_action()]);
-            mp_new_content_form($page, $defaultStatus);
-            mp_editor_script_tag();
-            mp_admin_footer();
+        if (function_exists('bms_find_database_content_by_slug_status') && (bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'draft', 'stream') || bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'published', 'stream'))) {
+            bms_flash('A stream post with this slug already exists. Change the slug or edit the existing post.', 'error');
+            bms_admin_header('New Stream Post', [bms_editor_screen_controls_action()]);
+            bms_new_content_form($page, $defaultStatus);
+            bms_editor_script_tag();
+            bms_admin_footer();
             exit;
         }
 
         if ($requestedStatus === 'published') {
-            if (function_exists('mp_sync_stream_metadata')) {
-                mp_sync_stream_metadata($createdPage, 'published', $filename, mp_current_user_id());
+            if (function_exists('bms_sync_stream_metadata')) {
+                bms_sync_stream_metadata($createdPage, 'published', $filename, bms_current_user_id());
             }
-            mp_clear_submitted_autosave();
-            mp_flash('Stream post published. “' . $createdPage['title'] . '” is live through dynamic rendering.', 'success');
-            mp_redirect(mp_admin_url('edit.php?type=published&file=' . urlencode($filename)));
+            bms_clear_submitted_autosave();
+            bms_flash('Stream post published. “' . $createdPage['title'] . '” is live through dynamic rendering.', 'success');
+            bms_redirect(bms_admin_url('edit.php?type=published&file=' . urlencode($filename)));
         }
 
-        if (function_exists('mp_sync_stream_metadata')) {
-            mp_sync_stream_metadata($createdPage, 'drafts', $filename, mp_current_user_id());
+        if (function_exists('bms_sync_stream_metadata')) {
+            bms_sync_stream_metadata($createdPage, 'drafts', $filename, bms_current_user_id());
         }
-        if ($submitForReview && function_exists('mp_mark_draft_pending_review')) {
-            mp_mark_draft_pending_review($filename);
-        }
-        mp_clear_submitted_autosave();
-        mp_flash($submitForReview ? 'Stream post submitted for review. “' . $createdPage['title'] . '” is waiting for an admin.' : 'Draft stream post created. “' . $createdPage['title'] . '” is ready to edit, preview, or publish.', 'success');
-        mp_redirect(mp_admin_url('edit.php?type=draft&file=' . urlencode($filename)));
+        bms_clear_submitted_autosave();
+        bms_flash('Draft stream post created. “' . $createdPage['title'] . '” is ready to edit, preview, or publish.', 'success');
+        bms_redirect(bms_admin_url('edit.php?type=draft&file=' . urlencode($filename)));
     } catch (Throwable $e) {
-        mp_flash('Stream post creation failed. ' . $e->getMessage(), 'error');
+        bms_flash('Stream post creation failed. ' . $e->getMessage(), 'error');
     }
 }
 
-function mp_new_content_form(array $page, string $defaultStatus): void
+function bms_new_content_form(array $page, string $defaultStatus): void
 {
     $section = $defaultStatus === 'published' ? 'published' : 'drafts';
-    $needsReview = function_exists('mp_current_user_requires_post_review') && mp_current_user_requires_post_review();
-    $button = $needsReview ? 'Submit for Review' : ($defaultStatus === 'published' ? 'Publish' : 'Save Draft');
+    $button = $defaultStatus === 'published' ? 'Publish' : 'Save Draft';
     $helper = '';
     $intro = $defaultStatus === 'published'
         ? 'Your Writing setting is set to publish new stream posts immediately.'
@@ -131,24 +122,23 @@ function mp_new_content_form(array $page, string $defaultStatus): void
       </div>
 
       <form id="stream-editor-form" method="post" class="editor-form editor-layout-form">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-        <input type="hidden" name="autosave_key" value="<?= htmlspecialchars(mp_editor_autosave_key('new'), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="autosave_key" value="<?= htmlspecialchars(bms_editor_autosave_key('new'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="autosave_saved_at" value="">
         <div class="editor-workspace">
           <div class="editor-primary-column">
-            <?php mp_stream_title_fields($page); ?>
-            <?php mp_dual_editor((string)($page['body'] ?? '')); ?>
+            <?php bms_stream_title_fields($page); ?>
+            <?php bms_dual_editor((string)($page['body'] ?? '')); ?>
           </div>
           <aside class="editor-sidebar-column">
-            <?php mp_publish_sidebar($section, $button, $helper, [
+            <?php bms_publish_sidebar($section, $button, $helper, [
                 'mode' => 'new',
                 'default_status' => $defaultStatus,
-                'requires_review' => $needsReview,
             ]); ?>
-            <?php mp_stream_url_fields($page, $section); ?>
-            <?php mp_stream_settings_fields($page, $section); ?>
-            <?php mp_stream_media_fields(); ?>
-            <?php mp_stream_revision_fields($page); ?>
+            <?php bms_stream_url_fields($page, $section); ?>
+            <?php bms_stream_settings_fields($page, $section); ?>
+            <?php bms_stream_media_fields(); ?>
+            <?php bms_stream_revision_fields($page); ?>
               </aside>
         </div>
       </form>
@@ -156,7 +146,7 @@ function mp_new_content_form(array $page, string $defaultStatus): void
     <?php
 }
 
-mp_admin_header('New Stream Post', [mp_editor_screen_controls_action()]);
-mp_new_content_form($page, $defaultStatus);
-mp_editor_script_tag();
-mp_admin_footer();
+bms_admin_header('New Stream Post', [bms_editor_screen_controls_action()]);
+bms_new_content_form($page, $defaultStatus);
+bms_editor_script_tag();
+bms_admin_footer();

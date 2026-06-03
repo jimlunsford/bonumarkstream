@@ -1,25 +1,25 @@
 <?php
-function mp_config_path(): string
+function bms_config_path(): string
 {
     return dirname(__DIR__) . '/config.php';
 }
 
-function mp_installed_lock_path(): string
+function bms_installed_lock_path(): string
 {
     return dirname(__DIR__) . '/installed.lock';
 }
 
-function mp_default_config(): array
+function bms_default_config(): array
 {
     return [
         'site_name' => 'Bonumark Stream',
-        'site_tagline' => 'A self-hosted microblog stream for owning short-form publishing.',
+        'site_tagline' => 'A self-hosted microblog CMS for publishing short-form posts on a site you control.',
         'active_public_theme' => 'default',
         'show_powered_by' => '1',
         'site_favicon_media_id' => '0',
         'site_favicon_path' => '',
         'public_navigation_account_links_enabled' => '1',
-        'version' => '0.3.12',
+        'version' => '0.4.5',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -34,20 +34,15 @@ function mp_default_config(): array
         'sitemap_include_pages' => '1',
         'sitemap_include_profiles' => '0',
         'content_storage_mode' => 'database',
-        'database_first_import_complete' => '0',
-        'comments_enabled' => '1',
+                'comments_enabled' => '1',
         'comment_registration_enabled' => '0',
         'comments_default_status' => 'approved',
         'registration_mode' => 'disabled',
         'registration_default_role' => 'commenter',
         'registration_require_email_verification' => '1',
         'registration_require_admin_approval' => '0',
-        'registration_user_role_requires_approval' => '1',
         'registration_honeypot_enabled' => '1',
-        'user_publish_mode' => 'draft_review',
-        'media_limit_administrator_mb' => '32',
-        'media_limit_user_mb' => '8',
-        'media_limit_commenter_mb' => '2',
+        'media_upload_limit_mb' => '32',
         'mail_transport' => 'disabled',
         'mail_from_name' => 'Bonumark Stream',
         'mail_from_email' => '',
@@ -70,21 +65,21 @@ function mp_default_config(): array
     ];
 }
 
-function mp_config_exists(): bool
+function bms_config_exists(): bool
 {
-    return is_file(mp_config_path());
+    return is_file(bms_config_path());
 }
 
-function mp_config(bool $reload = false): array
+function bms_config(bool $reload = false): array
 {
     static $config = null;
     if ($reload) {
         $config = null;
     }
     if ($config === null) {
-        $config = mp_default_config();
-        if (mp_config_exists()) {
-            $loaded = require mp_config_path();
+        $config = bms_default_config();
+        if (bms_config_exists()) {
+            $loaded = require bms_config_path();
             if (is_array($loaded)) {
                 $config = array_replace_recursive($config, $loaded);
             }
@@ -94,34 +89,34 @@ function mp_config(bool $reload = false): array
     return $config;
 }
 
-function mp_is_installed(): bool
+function bms_is_installed(): bool
 {
-    $config = mp_config();
+    $config = bms_config();
     $db = $config['database'] ?? [];
-    return is_file(mp_installed_lock_path()) && is_array($db) && !empty($db['host']) && !empty($db['name']) && !empty($db['user']);
+    return is_file(bms_installed_lock_path()) && is_array($db) && !empty($db['host']) && !empty($db['name']) && !empty($db['user']);
 }
 
-function mp_require_installed(): void
+function bms_require_installed(): void
 {
-    if (!mp_is_installed()) {
-        mp_redirect(mp_url_path('install.php'));
+    if (!bms_is_installed()) {
+        bms_redirect(bms_url_path('install.php'));
     }
 }
 
-function mp_setting_or_config(string $key, mixed $default = ''): mixed
+function bms_setting_or_config(string $key, mixed $default = ''): mixed
 {
-    if (function_exists('mp_setting') && mp_is_installed()) {
+    if (function_exists('bms_setting') && bms_is_installed()) {
         try {
-            return mp_setting($key, mp_config()[$key] ?? $default);
+            return bms_setting($key, bms_config()[$key] ?? $default);
         } catch (Throwable $e) {
-            return mp_config()[$key] ?? $default;
+            return bms_config()[$key] ?? $default;
         }
     }
-    return mp_config()[$key] ?? $default;
+    return bms_config()[$key] ?? $default;
 }
 
 
-function mp_plain_text(string $text): string
+function bms_plain_text(string $text): string
 {
     $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $text = preg_replace('/\s+/', ' ', $text) ?? $text;
@@ -129,14 +124,14 @@ function mp_plain_text(string $text): string
 }
 
 
-function mp_site_identity_text_segment(string $text): string
+function bms_site_identity_text_segment(string $text): string
 {
     $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $text = preg_replace('/\s+/', ' ', $text) ?? $text;
     return $text;
 }
 
-function mp_site_identity_allowed_link_url(string $url): string
+function bms_site_identity_allowed_link_url(string $url): string
 {
     $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     if ($url === '') {
@@ -156,7 +151,7 @@ function mp_site_identity_allowed_link_url(string $url): string
     return filter_var($url, FILTER_VALIDATE_URL) ? $url : '';
 }
 
-function mp_site_identity_anchor_attributes(string $rawAttributes): array
+function bms_site_identity_anchor_attributes(string $rawAttributes): array
 {
     $attributes = [];
     if (preg_match_all('/([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/', $rawAttributes, $matches, PREG_SET_ORDER) !== false) {
@@ -169,7 +164,7 @@ function mp_site_identity_anchor_attributes(string $rawAttributes): array
     return $attributes;
 }
 
-function mp_sanitize_site_identity_html(string $html): string
+function bms_sanitize_site_identity_html(string $html): string
 {
     $html = trim($html);
     if ($html === '') {
@@ -180,23 +175,23 @@ function mp_sanitize_site_identity_html(string $html): string
     $offset = 0;
     $pattern = '/<a\s+([^>]*)>(.*?)<\/a>/is';
     if (preg_match_all($pattern, $html, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === false) {
-        return htmlspecialchars(mp_plain_text($html), ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars(bms_plain_text($html), ENT_QUOTES, 'UTF-8');
     }
 
     foreach ($matches as $match) {
         $start = (int)$match[0][1];
         $length = strlen((string)$match[0][0]);
         $before = substr($html, $offset, $start - $offset);
-        $output .= htmlspecialchars(mp_site_identity_text_segment($before), ENT_QUOTES, 'UTF-8');
+        $output .= htmlspecialchars(bms_site_identity_text_segment($before), ENT_QUOTES, 'UTF-8');
 
-        $attributes = mp_site_identity_anchor_attributes((string)$match[1][0]);
-        $href = mp_site_identity_allowed_link_url((string)($attributes['href'] ?? ''));
-        $label = mp_plain_text((string)$match[2][0]);
+        $attributes = bms_site_identity_anchor_attributes((string)$match[1][0]);
+        $href = bms_site_identity_allowed_link_url((string)($attributes['href'] ?? ''));
+        $label = bms_plain_text((string)$match[2][0]);
         if ($href !== '' && $label !== '') {
-            $title = mp_plain_text((string)($attributes['title'] ?? ''));
+            $title = bms_plain_text((string)($attributes['title'] ?? ''));
             $target = (string)($attributes['target'] ?? '');
             $target = in_array($target, ['_blank', '_self'], true) ? $target : '';
-            $rel = mp_plain_text((string)($attributes['rel'] ?? ''));
+            $rel = bms_plain_text((string)($attributes['rel'] ?? ''));
             $relParts = preg_split('/\s+/', strtolower($rel), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             if ($target === '_blank') {
                 $relParts = array_merge($relParts, ['noopener', 'noreferrer']);
@@ -215,51 +210,51 @@ function mp_sanitize_site_identity_html(string $html): string
             }
             $output .= '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
         } else {
-            $output .= htmlspecialchars($label !== '' ? $label : mp_plain_text((string)$match[0][0]), ENT_QUOTES, 'UTF-8');
+            $output .= htmlspecialchars($label !== '' ? $label : bms_plain_text((string)$match[0][0]), ENT_QUOTES, 'UTF-8');
         }
         $offset = $start + $length;
     }
 
     $remaining = substr($html, $offset);
-    $output .= htmlspecialchars(mp_site_identity_text_segment($remaining), ENT_QUOTES, 'UTF-8');
+    $output .= htmlspecialchars(bms_site_identity_text_segment($remaining), ENT_QUOTES, 'UTF-8');
     $output = preg_replace('/\s+/', ' ', $output) ?? $output;
     return trim($output);
 }
 
-function mp_site_identity_plain_text(string $html): string
+function bms_site_identity_plain_text(string $html): string
 {
-    return mp_plain_text($html);
+    return bms_plain_text($html);
 }
 
-function mp_root_path(string $path = ''): string
+function bms_root_path(string $path = ''): string
 {
     return dirname(__DIR__) . ($path ? '/' . ltrim($path, '/') : '');
 }
 
-function mp_public_path(string $path = ''): string
+function bms_public_path(string $path = ''): string
 {
-    $configured = trim((string)mp_setting_or_config('public_path', ''));
+    $configured = trim((string)bms_setting_or_config('public_path', ''));
     $publicRoot = $configured !== '' ? rtrim($configured, '/\\') : dirname(dirname(__DIR__));
     return $publicRoot . ($path ? '/' . ltrim($path, '/') : '');
 }
 
-function mp_content_path(string $path = ''): string
+function bms_content_path(string $path = ''): string
 {
-    return mp_root_path('content' . ($path ? '/' . ltrim($path, '/') : ''));
+    return bms_root_path('content' . ($path ? '/' . ltrim($path, '/') : ''));
 }
 
-function mp_base_path(): string
+function bms_base_path(): string
 {
-    $basePath = trim((string)mp_setting_or_config('base_path', ''));
+    $basePath = trim((string)bms_setting_or_config('base_path', ''));
     if ($basePath === '' || $basePath === '/') {
         return '';
     }
     return '/' . trim($basePath, '/');
 }
 
-function mp_url_path(string $path = ''): string
+function bms_url_path(string $path = ''): string
 {
-    $base = mp_base_path();
+    $base = bms_base_path();
     $path = str_replace('\\', '/', trim($path));
     if ($path === '' || $path === '/') {
         return $base !== '' ? $base . '/' : '/';
@@ -297,14 +292,14 @@ function mp_url_path(string $path = ''): string
     return $url . $query . $fragment;
 }
 
-function mp_admin_url(string $path = ''): string
+function bms_admin_url(string $path = ''): string
 {
-    return mp_url_path('admin' . ($path ? '/' . ltrim($path, '/') : ''));
+    return bms_url_path('admin' . ($path ? '/' . ltrim($path, '/') : ''));
 }
 
-function mp_stream_safe_return_url(string $returnTo = ''): string
+function bms_stream_safe_return_url(string $returnTo = ''): string
 {
-    $fallback = mp_url_path();
+    $fallback = bms_url_path();
     $returnTo = trim(str_replace('\\', '/', $returnTo));
     if ($returnTo === '') {
         return $fallback;
@@ -314,7 +309,7 @@ function mp_stream_safe_return_url(string $returnTo = ''): string
         return $fallback;
     }
 
-    $base = mp_base_path();
+    $base = bms_base_path();
     $path = parse_url($returnTo, PHP_URL_PATH);
     if (!is_string($path) || $path === '') {
         return $fallback;
@@ -328,61 +323,71 @@ function mp_stream_safe_return_url(string $returnTo = ''): string
     return $path . (is_string($query) && $query !== '' ? '?' . $query : '');
 }
 
-function mp_asset_url(string $path): string
+function bms_asset_url(string $path): string
 {
-    $url = mp_url_path($path);
-    $version = rawurlencode(mp_version());
+    $url = bms_url_path($path);
+    $version = rawurlencode(bms_version());
     return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $version;
 }
 
 
-function mp_stream_relative_directory(string $slug, string $category = ''): string
+function bms_stream_home_url(): string
 {
-    return 'stream/' . mp_slugify($slug);
+    return bms_url_path();
 }
 
-function mp_stream_url(string $slug, string $category = ''): string
+function bms_stream_relative_directory(string $slug, string $category = ''): string
 {
-    return mp_url_path(mp_stream_relative_directory($slug, $category) . '/');
+    $slug = bms_slugify($slug);
+    return $slug !== '' ? 'stream/' . $slug : 'stream';
 }
 
-function mp_stream_relative_directory_for_post(array $page): string
+function bms_stream_url(string $slug, string $category = ''): string
 {
-    return 'stream/' . mp_slugify((string)($page['slug'] ?? ''));
+    $slug = bms_slugify($slug);
+    if ($slug === '') {
+        return bms_stream_home_url();
+    }
+    return bms_url_path(bms_stream_relative_directory($slug, $category) . '/');
 }
 
-function mp_stream_url_for_post(array $page): string
+function bms_stream_relative_directory_for_post(array $page): string
 {
-    return mp_url_path(mp_stream_relative_directory_for_post($page) . '/');
+    return 'stream/' . bms_slugify((string)($page['slug'] ?? ''));
 }
 
-
-function mp_page_relative_directory(string $slug): string
+function bms_stream_url_for_post(array $page): string
 {
-    return 'pages/' . mp_slugify($slug);
-}
-
-function mp_page_relative_directory_for_page(array $page): string
-{
-    return mp_page_relative_directory((string)($page['slug'] ?? ''));
-}
-
-function mp_page_url(string $slug): string
-{
-    return mp_url_path(mp_page_relative_directory($slug) . '/');
-}
-
-function mp_page_url_for_page(array $page): string
-{
-    return mp_page_url((string)($page['slug'] ?? ''));
+    return bms_url_path(bms_stream_relative_directory_for_post($page) . '/');
 }
 
 
-
-
-function mp_static_site_export_root(string $name = ''): string
+function bms_page_relative_directory(string $slug): string
 {
-    $root = mp_root_path('tmp/static-site-exports');
+    return 'pages/' . bms_slugify($slug);
+}
+
+function bms_page_relative_directory_for_page(array $page): string
+{
+    return bms_page_relative_directory((string)($page['slug'] ?? ''));
+}
+
+function bms_page_url(string $slug): string
+{
+    return bms_url_path(bms_page_relative_directory($slug) . '/');
+}
+
+function bms_page_url_for_page(array $page): string
+{
+    return bms_page_url((string)($page['slug'] ?? ''));
+}
+
+
+
+
+function bms_static_site_export_root(string $name = ''): string
+{
+    $root = bms_root_path('tmp/static-site-exports');
     if ($name !== '') {
         $name = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $name) ?? 'export';
         $root .= '/' . trim($name, '-');
@@ -390,33 +395,33 @@ function mp_static_site_export_root(string $name = ''): string
     return $root;
 }
 
-function mp_static_site_export_path(string $path = '', ?string $targetRoot = null): string
+function bms_static_site_export_path(string $path = '', ?string $targetRoot = null): string
 {
     $root = $targetRoot !== null && trim($targetRoot) !== ''
         ? rtrim($targetRoot, '/\\')
-        : mp_static_site_export_root('current');
+        : bms_static_site_export_root('current');
     return $root . ($path !== '' ? '/' . ltrim($path, '/\\') : '');
 }
 
-function mp_stream_export_index_path_for_post(array $page, ?string $targetRoot = null): string
+function bms_stream_export_index_path_for_post(array $page, ?string $targetRoot = null): string
 {
-    return mp_static_site_export_path(mp_stream_relative_directory_for_post($page) . '/index.html', $targetRoot);
+    return bms_static_site_export_path(bms_stream_relative_directory_for_post($page) . '/index.html', $targetRoot);
 }
 
-function mp_page_export_index_path_for_page(array $page, ?string $targetRoot = null): string
+function bms_page_export_index_path_for_page(array $page, ?string $targetRoot = null): string
 {
-    return mp_static_site_export_path(mp_page_relative_directory_for_page($page) . '/index.html', $targetRoot);
+    return bms_static_site_export_path(bms_page_relative_directory_for_page($page) . '/index.html', $targetRoot);
 }
 
-function mp_site_url(string $path = ''): string
+function bms_site_url(string $path = ''): string
 {
-    $base = rtrim((string)mp_setting_or_config('base_url', ''), '/');
-    $urlPath = mp_url_path($path);
+    $base = rtrim((string)bms_setting_or_config('base_url', ''), '/');
+    $urlPath = bms_url_path($path);
     return $base !== '' ? $base . $urlPath : $urlPath;
 }
 
 
-function mp_normalize_username(string $username): string
+function bms_normalize_username(string $username): string
 {
     $username = strtolower(trim($username));
     $username = preg_replace('/[^a-z0-9._-]+/', '-', $username) ?? '';
@@ -424,7 +429,7 @@ function mp_normalize_username(string $username): string
     return $username !== '' ? substr($username, 0, 64) : 'admin';
 }
 
-function mp_slugify(string $text): string
+function bms_slugify(string $text): string
 {
     $text = strtolower(trim($text));
     $text = preg_replace('/[^a-z0-9]+/i', '-', $text);
@@ -432,12 +437,12 @@ function mp_slugify(string $text): string
     return $text !== '' ? $text : 'untitled-' . date('Ymd-His');
 }
 
-function mp_term_slug(string $text): string
+function bms_term_slug(string $text): string
 {
-    return mp_slugify($text);
+    return bms_slugify($text);
 }
 
-function mp_stream_clean_text_for_seo(string $text): string
+function bms_stream_clean_text_for_seo(string $text): string
 {
     $text = preg_replace('/```.*?```/s', ' ', $text) ?? $text;
     $text = preg_replace('/~~~.*?~~~/s', ' ', $text) ?? $text;
@@ -452,18 +457,18 @@ function mp_stream_clean_text_for_seo(string $text): string
     return trim($text);
 }
 
-function mp_stream_first_heading_text(string $body): string
+function bms_stream_first_heading_text(string $body): string
 {
     if (preg_match('/^\s{0,3}#\s+(.+)$/m', $body, $match) !== 1) {
         return '';
     }
 
-    return mp_stream_clean_text_for_seo((string)$match[1]);
+    return bms_stream_clean_text_for_seo((string)$match[1]);
 }
 
-function mp_stream_slug_candidate_from_text(string $text, int $maxWords = 10, int $maxLength = 72): string
+function bms_stream_slug_candidate_from_text(string $text, int $maxWords = 10, int $maxLength = 72): string
 {
-    $text = mp_stream_clean_text_for_seo($text);
+    $text = bms_stream_clean_text_for_seo($text);
     if ($text === '') {
         return '';
     }
@@ -482,7 +487,7 @@ function mp_stream_slug_candidate_from_text(string $text, int $maxWords = 10, in
         }
     }
 
-    $candidate = mp_slugify(implode(' ', $selected));
+    $candidate = bms_slugify(implode(' ', $selected));
     if ($candidate === '' || str_starts_with($candidate, 'untitled-')) {
         return '';
     }
@@ -496,7 +501,7 @@ function mp_stream_slug_candidate_from_text(string $text, int $maxWords = 10, in
     return trim($candidate, '-');
 }
 
-function mp_stream_limit_text(string $text, int $limit, string $suffix = '…'): string
+function bms_stream_limit_text(string $text, int $limit, string $suffix = '…'): string
 {
     $text = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
     if ($text === '' || $limit < 1) {
@@ -514,7 +519,7 @@ function mp_stream_limit_text(string $text, int $limit, string $suffix = '…'):
 }
 
 
-function mp_seo_clean_title(string $title): string
+function bms_seo_clean_title(string $title): string
 {
     $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $title = trim(strip_tags($title));
@@ -522,29 +527,29 @@ function mp_seo_clean_title(string $title): string
     return trim($title);
 }
 
-function mp_seo_site_title(): string
+function bms_seo_site_title(): string
 {
-    $siteTitle = mp_seo_clean_title((string)mp_setting_or_config('site_name', 'Bonumark Stream'));
+    $siteTitle = bms_seo_clean_title((string)bms_setting_or_config('site_name', 'Bonumark Stream'));
     return $siteTitle !== '' ? $siteTitle : 'Bonumark Stream';
 }
 
-function mp_seo_site_tagline(): string
+function bms_seo_site_tagline(): string
 {
-    if (function_exists('mp_site_identity_plain_text')) {
-        return mp_seo_clean_title(mp_site_identity_plain_text((string)mp_setting_or_config('site_tagline', '')));
+    if (function_exists('bms_site_identity_plain_text')) {
+        return bms_seo_clean_title(bms_site_identity_plain_text((string)bms_setting_or_config('site_tagline', '')));
     }
-    return mp_seo_clean_title((string)mp_setting_or_config('site_tagline', ''));
+    return bms_seo_clean_title((string)bms_setting_or_config('site_tagline', ''));
 }
 
-function mp_seo_title_lower(string $title): string
+function bms_seo_title_lower(string $title): string
 {
     return function_exists('mb_strtolower') ? mb_strtolower($title, 'UTF-8') : strtolower($title);
 }
 
-function mp_seo_strip_site_title(string $title, ?string $siteTitle = null): string
+function bms_seo_strip_site_title(string $title, ?string $siteTitle = null): string
 {
-    $title = mp_seo_clean_title($title);
-    $siteTitle = mp_seo_clean_title($siteTitle ?? mp_seo_site_title());
+    $title = bms_seo_clean_title($title);
+    $siteTitle = bms_seo_clean_title($siteTitle ?? bms_seo_site_title());
     if ($title === '' || $siteTitle === '') {
         return $title;
     }
@@ -556,9 +561,9 @@ function mp_seo_strip_site_title(string $title, ?string $siteTitle = null): stri
         foreach ($separators as $separator) {
             $suffix = $separator . $siteTitle;
             $prefix = $siteTitle . $separator;
-            $titleLower = mp_seo_title_lower($title);
-            $suffixLower = mp_seo_title_lower($suffix);
-            $prefixLower = mp_seo_title_lower($prefix);
+            $titleLower = bms_seo_title_lower($title);
+            $suffixLower = bms_seo_title_lower($suffix);
+            $prefixLower = bms_seo_title_lower($prefix);
 
             if (str_ends_with($titleLower, $suffixLower)) {
                 $title = trim((string)(function_exists('mb_substr') ? mb_substr($title, 0, -1 * (function_exists('mb_strlen') ? mb_strlen($suffix) : strlen($suffix)), 'UTF-8') : substr($title, 0, -1 * strlen($suffix))));
@@ -573,14 +578,14 @@ function mp_seo_strip_site_title(string $title, ?string $siteTitle = null): stri
         }
     }
 
-    return mp_seo_title_lower($title) === mp_seo_title_lower($siteTitle) ? '' : $title;
+    return bms_seo_title_lower($title) === bms_seo_title_lower($siteTitle) ? '' : $title;
 }
 
-function mp_seo_join_title_parts(array $parts, int $limit = 70): string
+function bms_seo_join_title_parts(array $parts, int $limit = 70): string
 {
     $clean = [];
     foreach ($parts as $part) {
-        $part = mp_seo_clean_title((string)$part);
+        $part = bms_seo_clean_title((string)$part);
         if ($part !== '') {
             $clean[] = $part;
         }
@@ -590,16 +595,16 @@ function mp_seo_join_title_parts(array $parts, int $limit = 70): string
     }
 
     $title = implode(' | ', $clean);
-    return mp_stream_limit_text($title, $limit, '…');
+    return bms_stream_limit_text($title, $limit, '…');
 }
 
-function mp_seo_document_title(string $primaryTitle = '', int $limit = 70): string
+function bms_seo_document_title(string $primaryTitle = '', int $limit = 70): string
 {
-    $siteTitle = mp_seo_site_title();
-    $primaryTitle = mp_seo_strip_site_title($primaryTitle, $siteTitle);
+    $siteTitle = bms_seo_site_title();
+    $primaryTitle = bms_seo_strip_site_title($primaryTitle, $siteTitle);
 
     if ($primaryTitle === '') {
-        return mp_stream_limit_text($siteTitle, $limit, '…');
+        return bms_stream_limit_text($siteTitle, $limit, '…');
     }
 
     $separator = ' | ';
@@ -608,19 +613,19 @@ function mp_seo_document_title(string $primaryTitle = '', int $limit = 70): stri
     $availableForPrimary = $limit - $siteLength - $separatorLength;
 
     if ($siteTitle !== '' && $availableForPrimary >= 18) {
-        return mp_stream_limit_text($primaryTitle, $availableForPrimary, '…') . $separator . $siteTitle;
+        return bms_stream_limit_text($primaryTitle, $availableForPrimary, '…') . $separator . $siteTitle;
     }
 
-    return mp_stream_limit_text($primaryTitle, $limit, '…');
+    return bms_stream_limit_text($primaryTitle, $limit, '…');
 }
 
-function mp_seo_home_title(int $limit = 70): string
+function bms_seo_home_title(int $limit = 70): string
 {
-    $siteTitle = mp_seo_site_title();
-    $tagline = mp_seo_strip_site_title(mp_seo_site_tagline(), $siteTitle);
+    $siteTitle = bms_seo_site_title();
+    $tagline = bms_seo_strip_site_title(bms_seo_site_tagline(), $siteTitle);
 
     if ($tagline === '') {
-        return mp_stream_limit_text($siteTitle, $limit, '…');
+        return bms_stream_limit_text($siteTitle, $limit, '…');
     }
 
     $separator = ' | ';
@@ -629,24 +634,24 @@ function mp_seo_home_title(int $limit = 70): string
     $availableForTagline = $limit - $siteLength - $separatorLength;
 
     if ($availableForTagline >= 18) {
-        return $siteTitle . $separator . mp_stream_limit_text($tagline, $availableForTagline, '…');
+        return $siteTitle . $separator . bms_stream_limit_text($tagline, $availableForTagline, '…');
     }
 
-    return mp_stream_limit_text($siteTitle, $limit, '…');
+    return bms_stream_limit_text($siteTitle, $limit, '…');
 }
 
-function mp_public_seo_view_data(string $template, array $data): array
+function bms_public_seo_view_data(string $template, array $data): array
 {
     $template = strtolower(trim($template));
-    $siteTitle = mp_seo_site_title();
+    $siteTitle = bms_seo_site_title();
     $primary = '';
     $documentTitle = '';
     $socialTitle = '';
 
-    $providedPrimary = mp_seo_strip_site_title((string)($data['seo_title_primary'] ?? ''), $siteTitle);
+    $providedPrimary = bms_seo_strip_site_title((string)($data['seo_title_primary'] ?? ''), $siteTitle);
 
     if ($template === 'home') {
-        $documentTitle = mp_seo_home_title();
+        $documentTitle = bms_seo_home_title();
         $socialTitle = $siteTitle;
         $primary = $siteTitle;
     } elseif ($providedPrimary !== '') {
@@ -655,25 +660,25 @@ function mp_public_seo_view_data(string $template, array $data): array
         $pageNumber = max(1, (int)($data['page_number'] ?? 1));
         $primary = $pageNumber > 1 ? 'Stream, Page ' . $pageNumber : 'Stream';
     } elseif ($template === 'single') {
-        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Stream post'), $siteTitle);
+        $primary = bms_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Stream post'), $siteTitle);
     } elseif ($template === 'page') {
-        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Page'), $siteTitle);
+        $primary = bms_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? 'Page'), $siteTitle);
     } elseif ($template === 'search') {
         $query = trim((string)($data['query'] ?? ''));
         $primary = $query !== '' ? 'Search results for ' . $query : 'Search';
     } elseif ($template === 'profile') {
-        $primary = mp_seo_strip_site_title((string)($data['display_name'] ?? $data['title'] ?? 'Profile'), $siteTitle);
+        $primary = bms_seo_strip_site_title((string)($data['display_name'] ?? $data['title'] ?? 'Profile'), $siteTitle);
         if ($primary === '') {
             $primary = 'Profile';
         }
     } elseif ($template === 'account') {
         $primary = 'Account';
     } else {
-        $primary = mp_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? ''), $siteTitle);
+        $primary = bms_seo_strip_site_title((string)($data['page_title'] ?? $data['title'] ?? ''), $siteTitle);
     }
 
     if ($documentTitle === '') {
-        $documentTitle = mp_seo_document_title($primary);
+        $documentTitle = bms_seo_document_title($primary);
     }
     if ($socialTitle === '') {
         $socialTitle = $primary !== '' ? $primary : $documentTitle;
@@ -687,9 +692,9 @@ function mp_public_seo_view_data(string $template, array $data): array
     return $data;
 }
 
-function mp_stream_first_sentence(string $body): string
+function bms_stream_first_sentence(string $body): string
 {
-    $text = mp_stream_clean_text_for_seo($body);
+    $text = bms_stream_clean_text_for_seo($body);
     if ($text === '') {
         return '';
     }
@@ -698,10 +703,10 @@ function mp_stream_first_sentence(string $body): string
         return trim($match[1]);
     }
 
-    return mp_stream_limit_text($text, 90, '');
+    return bms_stream_limit_text($text, 90, '');
 }
 
-function mp_stream_title_case(string $text): string
+function bms_stream_title_case(string $text): string
 {
     $text = trim($text);
     if ($text === '') {
@@ -726,12 +731,12 @@ function mp_stream_title_case(string $text): string
     return implode(' ', $out);
 }
 
-function mp_stream_generated_post_title(string $body, string $createdAt = '', string $featuredMedia = '', array $media = [], int $limit = 70): string
+function bms_stream_generated_post_title(string $body, string $createdAt = '', string $featuredMedia = '', array $media = [], int $limit = 70): string
 {
-    $candidate = mp_stream_first_sentence($body);
+    $candidate = bms_stream_first_sentence($body);
     if ($candidate !== '') {
         $candidate = trim($candidate, " \t\n\r\0\x0B.,;:!?");
-        return mp_stream_limit_text($candidate, $limit, '…');
+        return bms_stream_limit_text($candidate, $limit, '…');
     }
 
     $mediaName = trim((string)($media['original_filename'] ?? $media['filename'] ?? ''));
@@ -743,7 +748,7 @@ function mp_stream_generated_post_title(string $body, string $createdAt = '', st
         $mediaName = str_replace(['-', '_'], ' ', $mediaName);
         $mediaName = trim(preg_replace('/\s+/', ' ', $mediaName) ?? $mediaName);
         if ($mediaName !== '') {
-            return mp_stream_limit_text($mediaName, $limit, '…');
+            return bms_stream_limit_text($mediaName, $limit, '…');
         }
     }
 
@@ -751,24 +756,24 @@ function mp_stream_generated_post_title(string $body, string $createdAt = '', st
     return 'Media post from ' . date('M j, Y', $time);
 }
 
-function mp_stream_generated_seo_title(string $body, string $createdAt = '', string $featuredMedia = '', array $media = []): string
+function bms_stream_generated_seo_title(string $body, string $createdAt = '', string $featuredMedia = '', array $media = []): string
 {
-    $postTitle = trim(mp_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70));
+    $postTitle = trim(bms_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70));
     if ($postTitle === '') {
         $postTitle = 'Stream update';
     }
 
-    return mp_stream_limit_text(mp_seo_strip_site_title($postTitle), 70, '…');
+    return bms_stream_limit_text(bms_seo_strip_site_title($postTitle), 70, '…');
 }
 
-function mp_stream_generated_description(string $body, string $createdAt = '', string $featuredMedia = '', int $limit = 160): string
+function bms_stream_generated_description(string $body, string $createdAt = '', string $featuredMedia = '', int $limit = 160): string
 {
-    $text = mp_stream_clean_text_for_seo($body);
+    $text = bms_stream_clean_text_for_seo($body);
     if ($text !== '') {
-        return mp_stream_limit_text($text, $limit, '…');
+        return bms_stream_limit_text($text, $limit, '…');
     }
 
-    $site = (string)mp_setting_or_config('site_name', 'Bonumark Stream');
+    $site = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
     $time = strtotime($createdAt) ?: time();
     if (trim($featuredMedia) !== '') {
         return 'Media post from ' . $site . ' on ' . date('F j, Y', $time) . '.';
@@ -776,27 +781,27 @@ function mp_stream_generated_description(string $body, string $createdAt = '', s
     return 'Short-form stream post from ' . $site . ' on ' . date('F j, Y', $time) . '.';
 }
 
-function mp_stream_slug_base(string $body, string $createdAt = '', array $media = [], string $title = ''): string
+function bms_stream_slug_base(string $body, string $createdAt = '', array $media = [], string $title = ''): string
 {
     $titleCandidate = trim($title);
-    if ($titleCandidate !== '' && !mp_stream_title_needs_generation($titleCandidate)) {
-        $candidate = mp_stream_slug_candidate_from_text($titleCandidate, 10, 72);
+    if ($titleCandidate !== '' && !bms_stream_title_needs_generation($titleCandidate)) {
+        $candidate = bms_stream_slug_candidate_from_text($titleCandidate, 10, 72);
         if ($candidate !== '') {
             return $candidate;
         }
     }
 
-    $headingCandidate = mp_stream_first_heading_text($body);
+    $headingCandidate = bms_stream_first_heading_text($body);
     if ($headingCandidate !== '') {
-        $candidate = mp_stream_slug_candidate_from_text($headingCandidate, 10, 72);
+        $candidate = bms_stream_slug_candidate_from_text($headingCandidate, 10, 72);
         if ($candidate !== '') {
             return $candidate;
         }
     }
 
-    $sentenceCandidate = mp_stream_first_sentence($body);
+    $sentenceCandidate = bms_stream_first_sentence($body);
     if ($sentenceCandidate !== '') {
-        $candidate = mp_stream_slug_candidate_from_text($sentenceCandidate, 10, 72);
+        $candidate = bms_stream_slug_candidate_from_text($sentenceCandidate, 10, 72);
         if ($candidate !== '') {
             return $candidate;
         }
@@ -806,7 +811,7 @@ function mp_stream_slug_base(string $body, string $createdAt = '', array $media 
     if ($mediaName !== '') {
         $mediaName = preg_replace('/\.[A-Za-z0-9]{1,8}$/', '', $mediaName) ?? $mediaName;
         $mediaName = str_replace(['-', '_'], ' ', $mediaName);
-        $candidate = mp_stream_slug_candidate_from_text($mediaName, 10, 72);
+        $candidate = bms_stream_slug_candidate_from_text($mediaName, 10, 72);
         if ($candidate !== '') {
             return $candidate;
         }
@@ -815,20 +820,20 @@ function mp_stream_slug_base(string $body, string $createdAt = '', array $media 
     return 'stream-post';
 }
 
-function mp_stream_unique_slug(string $baseSlug, string $currentSlug = ''): string
+function bms_stream_unique_slug(string $baseSlug, string $currentSlug = ''): string
 {
-    $baseSlug = mp_slugify($baseSlug);
+    $baseSlug = bms_slugify($baseSlug);
     if ($baseSlug === '') {
         $baseSlug = 'stream-post-' . date('Ymd');
     }
 
-    $currentSlug = mp_slugify($currentSlug);
+    $currentSlug = bms_slugify($currentSlug);
     $slug = $baseSlug;
     $counter = 2;
     while (true) {
-        $published = mp_content_path('published/' . $slug . '.md');
-        $draft = mp_content_path('drafts/' . $slug . '.md');
-        $databaseConflict = function_exists('mp_database_slug_exists') && mp_database_slug_exists($slug, $currentSlug, 'stream');
+        $published = bms_content_path('published/' . $slug . '.md');
+        $draft = bms_content_path('drafts/' . $slug . '.md');
+        $databaseConflict = function_exists('bms_database_slug_exists') && bms_database_slug_exists($slug, $currentSlug, 'stream');
         $conflicts = ($currentSlug === '' || $slug !== $currentSlug) && ($databaseConflict || is_file($published) || is_file($draft));
         if (!$conflicts) {
             return $slug;
@@ -838,26 +843,26 @@ function mp_stream_unique_slug(string $baseSlug, string $currentSlug = ''): stri
     }
 }
 
-function mp_page_clean_slug_candidate(string $slug): string
+function bms_page_clean_slug_candidate(string $slug): string
 {
     $slug = strtolower(trim($slug));
     $slug = preg_replace('/[^a-z0-9]+/i', '-', $slug) ?? '';
     return trim($slug, '-');
 }
 
-function mp_page_generated_seo_title(string $title): string
+function bms_page_generated_seo_title(string $title): string
 {
     $pageTitle = trim($title);
     if ($pageTitle === '') {
         $pageTitle = 'Untitled Page';
     }
 
-    return mp_stream_limit_text(mp_seo_strip_site_title($pageTitle), 70, '…');
+    return bms_stream_limit_text(bms_seo_strip_site_title($pageTitle), 70, '…');
 }
 
-function mp_page_unique_slug(string $baseSlug, string $currentSlug = ''): string
+function bms_page_unique_slug(string $baseSlug, string $currentSlug = ''): string
 {
-    $baseSlug = mp_page_clean_slug_candidate($baseSlug);
+    $baseSlug = bms_page_clean_slug_candidate($baseSlug);
     if ($baseSlug === '') {
         $baseSlug = 'page';
     }
@@ -867,15 +872,15 @@ function mp_page_unique_slug(string $baseSlug, string $currentSlug = ''): string
         $baseSlug = 'page-' . $baseSlug;
     }
 
-    $currentSlug = mp_slugify($currentSlug);
+    $currentSlug = bms_slugify($currentSlug);
     $slug = $baseSlug;
     $counter = 2;
     while (true) {
-        $published = mp_content_path('pages/published/' . $slug . '.md');
-        $draft = mp_content_path('pages/drafts/' . $slug . '.md');
-        $streamPublished = mp_content_path('published/' . $slug . '.md');
-        $streamDraft = mp_content_path('drafts/' . $slug . '.md');
-        $databaseConflict = function_exists('mp_database_slug_exists') && (mp_database_slug_exists($slug, $currentSlug, 'page') || mp_database_slug_exists($slug, $currentSlug, 'stream'));
+        $published = bms_content_path('pages/published/' . $slug . '.md');
+        $draft = bms_content_path('pages/drafts/' . $slug . '.md');
+        $streamPublished = bms_content_path('published/' . $slug . '.md');
+        $streamDraft = bms_content_path('drafts/' . $slug . '.md');
+        $databaseConflict = function_exists('bms_database_slug_exists') && (bms_database_slug_exists($slug, $currentSlug, 'page') || bms_database_slug_exists($slug, $currentSlug, 'stream'));
         $conflicts = ($currentSlug === '' || $slug !== $currentSlug) && ($databaseConflict || is_file($published) || is_file($draft) || is_file($streamPublished) || is_file($streamDraft));
         if (!$conflicts) {
             return $slug;
@@ -885,19 +890,19 @@ function mp_page_unique_slug(string $baseSlug, string $currentSlug = ''): string
     }
 }
 
-function mp_page_status_section(string $status): string
+function bms_page_status_section(string $status): string
 {
     return $status === 'published' ? 'pages/published' : 'pages/drafts';
 }
 
-function mp_page_slug_needs_generation(string $slug): bool
+function bms_page_slug_needs_generation(string $slug): bool
 {
     $rawSlug = trim($slug);
     if ($rawSlug === '') {
         return true;
     }
 
-    $cleanSlug = mp_page_clean_slug_candidate($rawSlug);
+    $cleanSlug = bms_page_clean_slug_candidate($rawSlug);
     if ($cleanSlug === '' || in_array($cleanSlug, ['untitled', 'generated-on-save'], true)) {
         return true;
     }
@@ -905,24 +910,24 @@ function mp_page_slug_needs_generation(string $slug): bool
     return preg_match('/^untitled-\d{8}(?:-\d{6})?$/', $cleanSlug) === 1;
 }
 
-function mp_page_prepare_metadata_fields(array $fields, string $body, string $currentSlug = ''): array
+function bms_page_prepare_metadata_fields(array $fields, string $body, string $currentSlug = ''): array
 {
     $title = trim((string)($fields['title'] ?? ''));
     if ($title === '') {
-        $title = mp_first_heading($body) ?: 'Untitled Page';
+        $title = bms_first_heading($body) ?: 'Untitled Page';
     }
 
     $slugInput = trim((string)($fields['slug'] ?? ''));
-    $slug = mp_page_slug_needs_generation($slugInput) ? mp_page_unique_slug($title, $currentSlug) : mp_page_unique_slug($slugInput, $currentSlug);
+    $slug = bms_page_slug_needs_generation($slugInput) ? bms_page_unique_slug($title, $currentSlug) : bms_page_unique_slug($slugInput, $currentSlug);
 
     $seoTitle = trim((string)($fields['seo_title'] ?? ''));
-    if ($seoTitle === mp_page_generated_seo_title($title) || $seoTitle === $title) {
+    if ($seoTitle === bms_page_generated_seo_title($title) || $seoTitle === $title) {
         $seoTitle = '';
     }
 
     $description = trim((string)($fields['description'] ?? ''));
     if ($description === '') {
-        $description = mp_plain_excerpt($body, 160);
+        $description = bms_plain_excerpt($body, 160);
     }
 
     $fields['title'] = $title;
@@ -936,7 +941,7 @@ function mp_page_prepare_metadata_fields(array $fields, string $body, string $cu
     return $fields;
 }
 
-function mp_build_page_markdown_from_request(string $forcedStatus = 'draft', string $currentSlug = ''): string
+function bms_build_page_markdown_from_request(string $forcedStatus = 'draft', string $currentSlug = ''): string
 {
     $body = (string)($_POST['body_markdown'] ?? '');
     $fields = [
@@ -951,24 +956,24 @@ function mp_build_page_markdown_from_request(string $forcedStatus = 'draft', str
         'seo_title' => (string)($_POST['page_seo_title'] ?? ''),
         'robots' => (string)($_POST['page_robots'] ?? ''),
     ];
-    $fields = mp_page_prepare_metadata_fields($fields, $body, $currentSlug);
-    return mp_build_markdown_document($fields, $body);
+    $fields = bms_page_prepare_metadata_fields($fields, $body, $currentSlug);
+    return bms_build_markdown_document($fields, $body);
 }
 
-function mp_list_page_records(string $status = 'published'): array
+function bms_list_page_records(string $status = 'published'): array
 {
     $section = $status === 'published' ? 'pages/published' : 'pages/drafts';
-    return array_values(array_filter(mp_list_content_records($section), function (array $page): bool {
-        return mp_normalize_content_type((string)($page['content_type'] ?? $page['post_type'] ?? 'page')) === 'page';
+    return array_values(array_filter(bms_list_content_records($section), function (array $page): bool {
+        return bms_normalize_content_type((string)($page['content_type'] ?? $page['post_type'] ?? 'page')) === 'page';
     }));
 }
 
 
 
 
-function mp_stream_slug_needs_generation(string $slug): bool
+function bms_stream_slug_needs_generation(string $slug): bool
 {
-    $slug = mp_slugify($slug);
+    $slug = bms_slugify($slug);
     if ($slug === '') {
         return true;
     }
@@ -980,7 +985,7 @@ function mp_stream_slug_needs_generation(string $slug): bool
     return preg_match('/^(stream|stream-post|untitled)-\d{8}(?:-\d{6})?$/', $slug) === 1;
 }
 
-function mp_stream_title_needs_generation(string $title): bool
+function bms_stream_title_needs_generation(string $title): bool
 {
     $title = trim($title);
     if ($title === '' || strtolower($title) === 'untitled') {
@@ -990,7 +995,7 @@ function mp_stream_title_needs_generation(string $title): bool
     return preg_match('/^Stream Post:\s+/i', $title) === 1;
 }
 
-function mp_stream_media_context_from_path(string $featuredMedia): array
+function bms_stream_media_context_from_path(string $featuredMedia): array
 {
     $featuredMedia = trim($featuredMedia);
     if ($featuredMedia === '') {
@@ -1000,33 +1005,33 @@ function mp_stream_media_context_from_path(string $featuredMedia): array
     return ['filename' => basename($featuredMedia)];
 }
 
-function mp_stream_prepare_metadata_fields(array $fields, string $body, string $currentSlug = ''): array
+function bms_stream_prepare_metadata_fields(array $fields, string $body, string $currentSlug = ''): array
 {
     $createdAt = trim((string)($fields['stream_created_at'] ?? $fields['created_at'] ?? $fields['date'] ?? date('Y-m-d H:i:s')));
     $featuredMedia = trim((string)($fields['featured_media'] ?? ''));
-    $mediaContext = mp_stream_media_context_from_path($featuredMedia);
+    $mediaContext = bms_stream_media_context_from_path($featuredMedia);
 
     $manualTitle = trim((string)($fields['title'] ?? ''));
     $title = $manualTitle;
-    if (mp_stream_title_needs_generation($title)) {
-        $title = mp_stream_admin_title_from_body($body, $createdAt, $featuredMedia, $mediaContext);
+    if (bms_stream_title_needs_generation($title)) {
+        $title = bms_stream_admin_title_from_body($body, $createdAt, $featuredMedia, $mediaContext);
     }
 
     $slugInput = trim((string)($fields['slug'] ?? ''));
-    if (mp_stream_slug_needs_generation($slugInput)) {
-        $slug = mp_stream_unique_slug(mp_stream_slug_base($body, $createdAt, $mediaContext, $manualTitle), $currentSlug);
+    if (bms_stream_slug_needs_generation($slugInput)) {
+        $slug = bms_stream_unique_slug(bms_stream_slug_base($body, $createdAt, $mediaContext, $manualTitle), $currentSlug);
     } else {
-        $slug = mp_slugify($slugInput);
+        $slug = bms_slugify($slugInput);
     }
 
     $seoTitle = trim((string)($fields['seo_title'] ?? ''));
     if ($seoTitle === '') {
-        $seoTitle = mp_stream_generated_seo_title($body, $createdAt, $featuredMedia, $mediaContext);
+        $seoTitle = bms_stream_generated_seo_title($body, $createdAt, $featuredMedia, $mediaContext);
     }
 
     $description = trim((string)($fields['description'] ?? ''));
     if ($description === '') {
-        $description = mp_stream_generated_description($body, $createdAt, $featuredMedia);
+        $description = bms_stream_generated_description($body, $createdAt, $featuredMedia);
     }
 
     $fields['title'] = $title;
@@ -1040,16 +1045,16 @@ function mp_stream_prepare_metadata_fields(array $fields, string $body, string $
 
 
 
-function mp_parse_markdown_file(string $file): array
+function bms_parse_markdown_file(string $file): array
 {
     $raw = file_get_contents($file);
     if ($raw === false) {
         throw new RuntimeException('Could not read Markdown file.');
     }
-    return mp_parse_markdown_string($raw);
+    return bms_parse_markdown_string($raw);
 }
 
-function mp_parse_markdown_string(string $raw): array
+function bms_parse_markdown_string(string $raw): array
 {
     $frontMatter = [];
     $body = $raw;
@@ -1057,17 +1062,17 @@ function mp_parse_markdown_string(string $raw): array
     if (preg_match('/\A---\R(.*?)\R---\R?(.*)\z/s', $raw, $matches)) {
         $frontMatterRaw = trim($matches[1]);
         $body = $matches[2];
-        $frontMatter = mp_parse_front_matter($frontMatterRaw);
+        $frontMatter = bms_parse_front_matter($frontMatterRaw);
     }
 
-    $title = $frontMatter['title'] ?? mp_first_heading($body) ?? 'Untitled';
-    $slug = $frontMatter['slug'] ?? mp_slugify($title);
+    $title = $frontMatter['title'] ?? bms_first_heading($body) ?? 'Untitled';
+    $slug = $frontMatter['slug'] ?? bms_slugify($title);
     $description = $frontMatter['description'] ?? '';
     $date = $frontMatter['date'] ?? date('Y-m-d');
     $category = $frontMatter['category'] ?? 'Stream';
     $status = $frontMatter['status'] ?? 'draft';
-    $contentType = mp_normalize_content_type((string)($frontMatter['content_type'] ?? $frontMatter['post_type'] ?? 'stream'));
-    $tags = mp_normalize_terms($frontMatter['tags'] ?? []);
+    $contentType = bms_normalize_content_type((string)($frontMatter['content_type'] ?? $frontMatter['post_type'] ?? 'stream'));
+    $tags = bms_normalize_terms($frontMatter['tags'] ?? []);
     $featuredMedia = trim((string)($frontMatter['featured_media'] ?? ''));
     $streamCreatedAt = trim((string)($frontMatter['stream_created_at'] ?? $frontMatter['created_at'] ?? ''));
     $seoTitle = trim((string)($frontMatter['seo_title'] ?? ''));
@@ -1087,13 +1092,13 @@ function mp_parse_markdown_string(string $raw): array
         'front_matter' => $frontMatter,
         'body' => $body,
         'title' => trim((string)$title),
-        'slug' => mp_slugify((string)$slug),
+        'slug' => bms_slugify((string)$slug),
         'description' => trim((string)$description),
         'date' => trim((string)$date),
         'category' => $category,
-        'category_slug' => mp_term_slug($category),
+        'category_slug' => bms_term_slug($category),
         'tags' => $tags,
-        'tag_slugs' => array_map('mp_term_slug', $tags),
+        'tag_slugs' => array_map('bms_term_slug', $tags),
         'status' => trim((string)$status),
         'content_type' => $contentType,
         'post_type' => $contentType,
@@ -1110,7 +1115,7 @@ function mp_parse_markdown_string(string $raw): array
     ];
 }
 
-function mp_parse_front_matter(string $raw): array
+function bms_parse_front_matter(string $raw): array
 {
     $data = [];
     $lines = preg_split('/\R/', $raw) ?: [];
@@ -1136,7 +1141,7 @@ function mp_parse_front_matter(string $raw): array
     return $data;
 }
 
-function mp_normalize_terms(mixed $value): array
+function bms_normalize_terms(mixed $value): array
 {
     if (is_string($value)) {
         $value = trim($value);
@@ -1170,21 +1175,21 @@ function mp_normalize_terms(mixed $value): array
 }
 
 
-function mp_front_matter_quote(string $value): string
+function bms_front_matter_quote(string $value): string
 {
     $value = str_replace(["\r\n", "\r", "\n"], ' ', trim($value));
     $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
     return '"' . $value . '"';
 }
 
-function mp_build_markdown_document(array $fields, string $body): string
+function bms_build_markdown_document(array $fields, string $body): string
 {
     $title = trim((string)($fields['title'] ?? 'Untitled'));
     if ($title === '') {
         $title = 'Untitled';
     }
 
-    $slug = mp_slugify((string)($fields['slug'] ?? $title));
+    $slug = bms_slugify((string)($fields['slug'] ?? $title));
     $status = trim((string)($fields['status'] ?? 'draft'));
     if (!in_array($status, ['draft', 'published'], true)) {
         $status = 'draft';
@@ -1196,26 +1201,26 @@ function mp_build_markdown_document(array $fields, string $body): string
     }
 
     $description = trim((string)($fields['description'] ?? ''));
-    $contentType = mp_normalize_content_type((string)($fields['content_type'] ?? $fields['post_type'] ?? 'stream'));
+    $contentType = bms_normalize_content_type((string)($fields['content_type'] ?? $fields['post_type'] ?? 'stream'));
     $category = $contentType === 'page' ? 'Page' : 'Stream';
 
-    $tags = mp_normalize_terms($fields['tags'] ?? []);
+    $tags = bms_normalize_terms($fields['tags'] ?? []);
 
     $lines = [
         '---',
-        'title: ' . mp_front_matter_quote($title),
-        'slug: ' . mp_front_matter_quote($slug),
-        'status: ' . mp_front_matter_quote($status),
-        'content_type: ' . mp_front_matter_quote($contentType),
+        'title: ' . bms_front_matter_quote($title),
+        'slug: ' . bms_front_matter_quote($slug),
+        'status: ' . bms_front_matter_quote($status),
+        'content_type: ' . bms_front_matter_quote($contentType),
         'date: ' . $date,
-        'description: ' . mp_front_matter_quote($description),
-        'category: ' . mp_front_matter_quote($category),
+        'description: ' . bms_front_matter_quote($description),
+        'category: ' . bms_front_matter_quote($category),
     ];
 
     if ($tags) {
         $lines[] = 'tags:';
         foreach ($tags as $tag) {
-            $lines[] = '  - ' . mp_front_matter_quote($tag);
+            $lines[] = '  - ' . bms_front_matter_quote($tag);
         }
     } else {
         $lines[] = 'tags: ""';
@@ -1224,7 +1229,7 @@ function mp_build_markdown_document(array $fields, string $body): string
     foreach (['featured_media', 'stream_created_at', 'seo_title', 'robots', 'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name'] as $streamKey) {
         $streamValue = trim((string)($fields[$streamKey] ?? ''));
         if ($streamValue !== '') {
-            $lines[] = $streamKey . ': ' . mp_front_matter_quote($streamValue);
+            $lines[] = $streamKey . ': ' . bms_front_matter_quote($streamValue);
         }
     }
 
@@ -1241,20 +1246,18 @@ function mp_build_markdown_document(array $fields, string $body): string
     return implode("\n", $lines) . "\n\n" . $body . ($body !== '' ? "\n" : '');
 }
 
-function mp_existing_stream_front_matter_for_slug(string $slug): array
+function bms_existing_stream_front_matter_for_slug(string $slug): array
 {
-    $slug = mp_slugify($slug);
-    if ($slug === '') {
+    $slug = bms_slugify($slug);
+    if ($slug === '' || !function_exists('bms_find_database_content_by_slug_status')) {
         return [];
     }
-    foreach (['published', 'drafts'] as $section) {
-        $path = mp_content_path($section . '/' . $slug . '.md');
-        if (!is_file($path)) {
-            continue;
-        }
+    foreach (['published', 'draft'] as $status) {
         try {
-            $page = mp_parse_markdown_file($path);
-            return is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
+            $page = bms_find_database_content_by_slug_status($slug, $status, 'stream');
+            if ($page && is_array($page['front_matter'] ?? null)) {
+                return $page['front_matter'];
+            }
         } catch (Throwable $e) {
             return [];
         }
@@ -1262,7 +1265,7 @@ function mp_existing_stream_front_matter_for_slug(string $slug): array
     return [];
 }
 
-function mp_stream_link_preview_request_fields(string $currentSlug = ''): array
+function bms_stream_link_preview_request_fields(string $currentSlug = ''): array
 {
     $keys = ['link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name'];
     if (array_key_exists('link_preview_enabled', $_POST)) {
@@ -1276,7 +1279,7 @@ function mp_stream_link_preview_request_fields(string $currentSlug = ''): array
         return trim((string)$fields['link_preview_url']) !== '' ? $fields : [];
     }
 
-    $existing = mp_existing_stream_front_matter_for_slug($currentSlug);
+    $existing = bms_existing_stream_front_matter_for_slug($currentSlug);
     $fields = [];
     foreach ($keys as $key) {
         $fields[$key] = trim((string)($existing[$key] ?? ''));
@@ -1284,7 +1287,7 @@ function mp_stream_link_preview_request_fields(string $currentSlug = ''): array
     return trim((string)$fields['link_preview_url']) !== '' ? $fields : [];
 }
 
-function mp_build_markdown_from_request(string $forcedStatus = 'draft', string $currentSlug = ''): string
+function bms_build_markdown_from_request(string $forcedStatus = 'draft', string $currentSlug = ''): string
 {
     $body = (string)($_POST['body_markdown'] ?? '');
     $fields = [
@@ -1301,13 +1304,13 @@ function mp_build_markdown_from_request(string $forcedStatus = 'draft', string $
         'seo_title' => (string)($_POST['stream_seo_title'] ?? ''),
         'robots' => (string)($_POST['stream_robots'] ?? ''),
     ];
-    $fields = array_merge($fields, mp_stream_link_preview_request_fields($currentSlug));
-    $fields = mp_stream_prepare_metadata_fields($fields, $body, $currentSlug);
+    $fields = array_merge($fields, bms_stream_link_preview_request_fields($currentSlug));
+    $fields = bms_stream_prepare_metadata_fields($fields, $body, $currentSlug);
 
-    return mp_build_markdown_document($fields, $body);
+    return bms_build_markdown_document($fields, $body);
 }
 
-function mp_first_heading(string $body): ?string
+function bms_first_heading(string $body): ?string
 {
     if (preg_match('/^#\s+(.+)$/m', $body, $m)) {
         return trim($m[1]);
@@ -1315,9 +1318,9 @@ function mp_first_heading(string $body): ?string
     return null;
 }
 
-function mp_list_legacy_markdown_files(string $section): array
+function bms_list_import_markdown_files(string $section): array
 {
-    $dir = mp_content_path($section);
+    $dir = bms_content_path($section);
     if (!is_dir($dir)) {
         return [];
     }
@@ -1326,11 +1329,11 @@ function mp_list_legacy_markdown_files(string $section): array
     $items = [];
     foreach ($files as $file) {
         try {
-            $parsed = mp_parse_markdown_file($file);
+            $parsed = bms_parse_markdown_file($file);
             $parsed['filename'] = basename($file);
             $parsed['path'] = $file;
             $parsed['section'] = $section;
-            $parsed['content_storage'] = 'legacy-markdown';
+            $parsed['content_storage'] = 'import-markdown';
             $items[] = $parsed;
         } catch (Throwable $e) {
             continue;
@@ -1344,21 +1347,21 @@ function mp_list_legacy_markdown_files(string $section): array
     return $items;
 }
 
-function mp_list_content_records(string $section): array
+function bms_list_content_records(string $section): array
 {
-    if (function_exists('mp_database_content_enabled') && function_exists('mp_database_content_columns_ready') && mp_database_content_enabled() && mp_database_content_columns_ready()) {
+    if (function_exists('bms_database_content_enabled') && function_exists('bms_database_content_columns_ready') && bms_database_content_enabled() && bms_database_content_columns_ready()) {
         try {
-            return mp_list_database_content_for_section($section);
+            return bms_list_database_content_for_section($section);
         } catch (Throwable $e) {
-            // Database content is authoritative. Legacy Markdown files are retained for controlled import and recovery tooling.
+            return [];
         }
     }
 
-    return mp_list_legacy_markdown_files($section);
+    return [];
 }
 
 
-function mp_write_file(string $path, string $contents): void
+function bms_write_file(string $path, string $contents): void
 {
     $dir = dirname($path);
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
@@ -1369,7 +1372,7 @@ function mp_write_file(string $path, string $contents): void
     }
 }
 
-function mp_delete_directory(string $dir): void
+function bms_delete_directory(string $dir): void
 {
     if (!is_dir($dir)) {
         return;
@@ -1377,13 +1380,13 @@ function mp_delete_directory(string $dir): void
     $items = array_diff(scandir($dir) ?: [], ['.', '..']);
     foreach ($items as $item) {
         $path = $dir . '/' . $item;
-        is_dir($path) ? mp_delete_directory($path) : unlink($path);
+        is_dir($path) ? bms_delete_directory($path) : unlink($path);
     }
     rmdir($dir);
 }
 
 
-function mp_normalize_content_type(string $type): string
+function bms_normalize_content_type(string $type): string
 {
     $type = strtolower(trim($type));
     if ($type === 'page') {
@@ -1394,38 +1397,38 @@ function mp_normalize_content_type(string $type): string
 }
 
 
-function mp_homepage_mode(): string
+function bms_homepage_mode(): string
 {
     return 'stream';
 }
 
-function mp_stream_composer_enabled(): bool
+function bms_stream_composer_enabled(): bool
 {
-    return (string)mp_setting_or_config('stream_composer_enabled', '1') === '1';
+    return (string)bms_setting_or_config('stream_composer_enabled', '1') === '1';
 }
 
-function mp_stream_show_dates(): bool
+function bms_stream_show_dates(): bool
 {
-    return (string)mp_setting_or_config('stream_show_dates', '1') === '1';
+    return (string)bms_setting_or_config('stream_show_dates', '1') === '1';
 }
 
-function mp_stream_show_edit_links(): bool
+function bms_stream_show_edit_links(): bool
 {
-    return (string)mp_setting_or_config('stream_show_edit_links', '0') === '1';
+    return (string)bms_setting_or_config('stream_show_edit_links', '0') === '1';
 }
 
 
-function mp_stream_index_policy(): string
+function bms_stream_index_policy(): string
 {
-    $policy = (string)mp_setting_or_config('stream_index_policy', 'smart');
+    $policy = (string)bms_setting_or_config('stream_index_policy', 'smart');
     return in_array($policy, ['all', 'smart', 'noindex'], true) ? $policy : 'smart';
 }
 
 
 
-function mp_stream_posts_per_page(): int
+function bms_stream_posts_per_page(): int
 {
-    $count = (int)mp_setting_or_config('stream_posts_per_page', '20');
+    $count = (int)bms_setting_or_config('stream_posts_per_page', '20');
     if ($count < 1) {
         return 1;
     }
@@ -1435,17 +1438,17 @@ function mp_stream_posts_per_page(): int
     return $count;
 }
 
-function mp_is_stream_post(array $page): bool
+function bms_is_stream_post(array $page): bool
 {
-    return mp_normalize_content_type((string)($page['content_type'] ?? $page['post_type'] ?? 'stream')) === 'stream';
+    return bms_normalize_content_type((string)($page['content_type'] ?? $page['post_type'] ?? 'stream')) === 'stream';
 }
 
-function mp_filter_stream_posts(array $pages): array
+function bms_filter_stream_posts(array $pages): array
 {
-    return array_values(array_filter($pages, 'mp_is_stream_post'));
+    return array_values(array_filter($pages, 'bms_is_stream_post'));
 }
 
-function mp_sort_stream_posts(array $pages): array
+function bms_sort_stream_posts(array $pages): array
 {
     usort($pages, function (array $a, array $b): int {
         $aTime = strtotime((string)($a['stream_created_at'] ?? $a['front_matter']['stream_created_at'] ?? $a['date'] ?? '')) ?: 0;
@@ -1458,47 +1461,47 @@ function mp_sort_stream_posts(array $pages): array
     return $pages;
 }
 
-function mp_apply_stream_reading_settings(array $pages): array
+function bms_apply_stream_reading_settings(array $pages): array
 {
-    return array_slice(mp_sort_stream_posts($pages), 0, mp_stream_posts_per_page());
+    return array_slice(bms_sort_stream_posts($pages), 0, bms_stream_posts_per_page());
 }
 
-function mp_stream_preview_text(array $page, int $limit = 90): string
+function bms_stream_preview_text(array $page, int $limit = 90): string
 {
-    $body = mp_stream_clean_text_for_seo((string)($page['body'] ?? ''));
+    $body = bms_stream_clean_text_for_seo((string)($page['body'] ?? ''));
     if ($body === '') {
         return trim((string)($page['description'] ?? '')) ?: 'Media post';
     }
-    return mp_stream_limit_text($body, $limit, '…');
+    return bms_stream_limit_text($body, $limit, '…');
 }
 
-function mp_stream_admin_title_from_body(string $body, string $createdAt = '', string $featuredMedia = '', array $media = []): string
+function bms_stream_admin_title_from_body(string $body, string $createdAt = '', string $featuredMedia = '', array $media = []): string
 {
-    return mp_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70);
-}
-
-
-function mp_autosave_enabled(): bool
-{
-    return (string)mp_setting_or_config('autosave_enabled', '1') === '1';
+    return bms_stream_generated_post_title($body, $createdAt, $featuredMedia, $media, 70);
 }
 
 
-function mp_default_editor_mode(): string
+function bms_autosave_enabled(): bool
 {
-    $mode = (string)mp_setting_or_config('default_editor_mode', 'visual');
+    return (string)bms_setting_or_config('autosave_enabled', '1') === '1';
+}
+
+
+function bms_default_editor_mode(): string
+{
+    $mode = (string)bms_setting_or_config('default_editor_mode', 'visual');
     return in_array($mode, ['visual', 'markdown'], true) ? $mode : 'visual';
 }
 
 
-function mp_default_content_status(): string
+function bms_default_content_status(): string
 {
-    $status = (string)mp_setting_or_config('default_content_status', 'draft');
+    $status = (string)bms_setting_or_config('default_content_status', 'draft');
     return in_array($status, ['draft', 'published'], true) ? $status : 'draft';
 }
 
 
-function mp_query_string(array $params): string
+function bms_query_string(array $params): string
 {
     $clean = [];
     foreach ($params as $key => $value) {
@@ -1511,9 +1514,9 @@ function mp_query_string(array $params): string
     return $query !== '' ? '?' . $query : '';
 }
 
-function mp_version(): string
+function bms_version(): string
 {
-    $versionFile = mp_root_path('VERSION');
+    $versionFile = bms_root_path('VERSION');
     if (is_file($versionFile)) {
         $version = trim((string)file_get_contents($versionFile));
         if ($version !== '') {
@@ -1521,7 +1524,7 @@ function mp_version(): string
         }
     }
 
-    $configured = trim((string)(mp_config()['version'] ?? ''));
+    $configured = trim((string)(bms_config()['version'] ?? ''));
     if ($configured !== '') {
         return $configured;
     }
@@ -1530,7 +1533,7 @@ function mp_version(): string
 }
 
 
-function mp_abort_request(string $message, int $status = 400): void
+function bms_abort_request(string $message, int $status = 400): void
 {
     http_response_code($status);
     if (!headers_sent()) {
@@ -1540,12 +1543,12 @@ function mp_abort_request(string $message, int $status = 400): void
     exit;
 }
 
-function mp_flash(string $message, string $type = 'info'): void
+function bms_flash(string $message, string $type = 'info'): void
 {
     $_SESSION['flash'][] = ['message' => $message, 'type' => $type];
 }
 
-function mp_get_flash(): array
+function bms_get_flash(): array
 {
     $messages = $_SESSION['flash'] ?? [];
     unset($_SESSION['flash']);
@@ -1553,7 +1556,7 @@ function mp_get_flash(): array
 }
 
 
-function mp_is_https(): bool
+function bms_is_https(): bool
 {
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
         return true;
@@ -1564,7 +1567,7 @@ function mp_is_https(): bool
     return false;
 }
 
-function mp_start_secure_session(): void
+function bms_start_secure_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
@@ -1573,7 +1576,7 @@ function mp_start_secure_session(): void
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
 
-    $secure = mp_is_https();
+    $secure = bms_is_https();
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
@@ -1584,7 +1587,7 @@ function mp_start_secure_session(): void
     session_start();
 }
 
-function mp_send_security_headers(): void
+function bms_send_security_headers(): void
 {
     if (headers_sent()) {
         return;
@@ -1597,7 +1600,7 @@ function mp_send_security_headers(): void
     header("Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self'; script-src 'self'");
 }
 
-function mp_password_policy_error(string $password, string $username = '', string $email = ''): ?string
+function bms_password_policy_error(string $password, string $username = '', string $email = ''): ?string
 {
     $passwordLength = strlen($password);
     if ($passwordLength < 12) {
@@ -1644,24 +1647,24 @@ function mp_password_policy_error(string $password, string $username = '', strin
     return null;
 }
 
-function mp_validate_password_policy(string $password, string $username = '', string $email = ''): void
+function bms_validate_password_policy(string $password, string $username = '', string $email = ''): void
 {
-    $error = mp_password_policy_error($password, $username, $email);
+    $error = bms_password_policy_error($password, $username, $email);
     if ($error !== null) {
         throw new RuntimeException($error);
     }
 }
 
-function mp_request_origin(): string
+function bms_request_origin(): string
 {
-    $scheme = mp_is_https() ? 'https' : 'http';
+    $scheme = bms_is_https() ? 'https' : 'http';
     $host = (string)($_SERVER['HTTP_HOST'] ?? '');
     return $host !== '' ? $scheme . '://' . $host : '';
 }
 
-function mp_install_base_url_from_request(): string
+function bms_install_base_url_from_request(): string
 {
-    $origin = mp_request_origin();
+    $origin = bms_request_origin();
     if ($origin === '') {
         return '';
     }
@@ -1673,14 +1676,14 @@ function mp_install_base_url_from_request(): string
     return $origin . $dir;
 }
 
-function mp_probe_private_folder_exposure(?string $baseUrl = null): array
+function bms_probe_private_folder_exposure(?string $baseUrl = null): array
 {
-    $baseUrl = $baseUrl !== null && trim($baseUrl) !== '' ? rtrim(trim($baseUrl), '/') : mp_install_base_url_from_request();
+    $baseUrl = $baseUrl !== null && trim($baseUrl) !== '' ? rtrim(trim($baseUrl), '/') : bms_install_base_url_from_request();
     $secret = 'bonumark-private-probe-' . bin2hex(random_bytes(16));
-    $probeFile = mp_root_path('security-probe-' . bin2hex(random_bytes(6)) . '.txt');
+    $probeFile = bms_root_path('security-probe-' . bin2hex(random_bytes(6)) . '.txt');
 
     try {
-        mp_write_file($probeFile, $secret);
+        bms_write_file($probeFile, $secret);
         if ($baseUrl === '') {
             return ['status' => 'unknown', 'message' => 'Could not determine the site URL to test private folder exposure.'];
         }
@@ -1713,31 +1716,31 @@ function mp_probe_private_folder_exposure(?string $baseUrl = null): array
     }
 }
 
-function mp_security_status(): array
+function bms_security_status(): array
 {
     $items = [];
     $items[] = [
         'label' => 'PHP version',
-        'status' => version_compare(PHP_VERSION, '8.2.0', '>=') ? 'pass' : 'fail',
-        'message' => PHP_VERSION . (version_compare(PHP_VERSION, '8.2.0', '>=') ? ' is supported.' : ' is below the PHP 8.2 minimum target.'),
+        'status' => version_compare(PHP_VERSION, '8.1.0', '>=') ? 'pass' : 'fail',
+        'message' => PHP_VERSION . (version_compare(PHP_VERSION, '8.2.0', '>=') ? ' is supported.' : (version_compare(PHP_VERSION, '8.1.0', '>=') ? ' is supported. PHP 8.2 or newer is recommended.' : ' is below the PHP 8.1 minimum target.')),
     ];
     $items[] = [
         'label' => 'HTTPS',
-        'status' => mp_is_https() ? 'pass' : 'warn',
-        'message' => mp_is_https() ? 'Admin requests appear to be using HTTPS.' : 'HTTPS was not detected. Use HTTPS for real sites.',
+        'status' => bms_is_https() ? 'pass' : 'warn',
+        'message' => bms_is_https() ? 'Admin requests appear to be using HTTPS.' : 'HTTPS was not detected. Use HTTPS for real sites.',
     ];
     $items[] = [
         'label' => 'PDO MySQL',
-        'status' => function_exists('mp_db_supports_mysql') && mp_db_supports_mysql() ? 'pass' : 'fail',
-        'message' => function_exists('mp_db_supports_mysql') && mp_db_supports_mysql() ? 'PDO MySQL is available.' : 'PDO MySQL is not available.',
+        'status' => function_exists('bms_db_supports_mysql') && bms_db_supports_mysql() ? 'pass' : 'fail',
+        'message' => function_exists('bms_db_supports_mysql') && bms_db_supports_mysql() ? 'PDO MySQL is available.' : 'PDO MySQL is not available.',
     ];
 
     $dbStatus = 'warn';
     $dbMessage = 'Database configuration has not been verified.';
-    if (function_exists('mp_has_database_config') && mp_has_database_config()) {
+    if (function_exists('bms_has_database_config') && bms_has_database_config()) {
         try {
-            if (function_exists('mp_db')) {
-                mp_db()->query('SELECT 1');
+            if (function_exists('bms_db')) {
+                bms_db()->query('SELECT 1');
                 $dbStatus = 'pass';
                 $dbMessage = 'Database connection is working.';
             }
@@ -1750,10 +1753,10 @@ function mp_security_status(): array
 
     $items[] = [
         'label' => 'Config file',
-        'status' => is_file(mp_config_path()) ? 'pass' : 'warn',
-        'message' => is_file(mp_config_path()) ? '_bonumark_stream/config.php exists.' : 'Config file has not been created yet.',
+        'status' => is_file(bms_config_path()) ? 'pass' : 'warn',
+        'message' => is_file(bms_config_path()) ? '_bonumark_stream/config.php exists.' : 'Config file has not been created yet.',
     ];
-    $probe = mp_probe_private_folder_exposure();
+    $probe = bms_probe_private_folder_exposure();
     $items[] = [
         'label' => 'Private folder exposure',
         'status' => $probe['status'] === 'protected' ? 'pass' : ($probe['status'] === 'exposed' ? 'fail' : 'warn'),
@@ -1761,13 +1764,13 @@ function mp_security_status(): array
     ];
 
     $writableChecks = [
-        'Private data writable' => mp_root_path('data'),
-        'Temporary export storage writable' => mp_root_path('tmp/exports'),
-        'Static site export temp writable' => mp_static_site_export_root(),
-        'Public media writable' => mp_public_path('media'),
-        'Upgrade temp writable' => mp_root_path('tmp/upgrades'),
-        'Upgrade backups writable' => mp_root_path('backups/upgrades'),
-        'Legacy Markdown import folder writable' => mp_content_path('legacy-markdown'),
+        'Private data writable' => bms_root_path('data'),
+        'Temporary export storage writable' => bms_root_path('tmp/exports'),
+        'Static site export temp writable' => bms_static_site_export_root(),
+        'Public media writable' => bms_public_path('media'),
+        'Upgrade temp writable' => bms_root_path('tmp/upgrades'),
+        'Upgrade backups writable' => bms_root_path('backups/upgrades'),
+        'Markdown import folder writable' => bms_content_path('import-markdown'),
     ];
     foreach ($writableChecks as $label => $path) {
         if (!is_dir($path)) {
@@ -1803,7 +1806,7 @@ function mp_security_status(): array
     return $items;
 }
 
-function mp_redirect(string $url): never
+function bms_redirect(string $url): never
 {
     header('Location: ' . $url);
     exit;

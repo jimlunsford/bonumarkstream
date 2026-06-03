@@ -1,60 +1,60 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/profiles.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
-$user = mp_current_user();
-$socialLinkDefinitions = function_exists('mp_profile_social_link_definitions') ? mp_profile_social_link_definitions() : [];
-$socialLinkValues = function_exists('mp_profile_social_link_form_values') ? mp_profile_social_link_form_values($user) : [];
+$user = bms_current_user();
+$socialLinkDefinitions = function_exists('bms_profile_social_link_definitions') ? bms_profile_social_link_definitions() : [];
+$socialLinkValues = function_exists('bms_profile_social_link_form_values') ? bms_profile_social_link_form_values($user) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['action'] ?? '');
 
     try {
         if ($action === 'profile') {
-            $user = mp_update_current_user_profile((string)($_POST['username'] ?? ''), (string)($_POST['display_name'] ?? ''), (string)($_POST['email'] ?? ''), (string)($_POST['bio'] ?? ''), (string)($_POST['website'] ?? ''), (string)($_POST['profile_visibility'] ?? 'public'), is_array($_POST['social_links'] ?? null) ? $_POST['social_links'] : []);
-            mp_apply_current_user_avatar_from_request($_FILES, !empty($_POST['remove_avatar']));
-            mp_flash('Profile updated. Your admin display details and profile picture were saved.', 'success');
-            mp_redirect(mp_admin_url('user.php'));
+            $user = bms_update_current_user_profile((string)($_POST['username'] ?? ''), (string)($_POST['display_name'] ?? ''), (string)($_POST['email'] ?? ''), (string)($_POST['bio'] ?? ''), (string)($_POST['website'] ?? ''), (string)($_POST['profile_visibility'] ?? 'public'), is_array($_POST['social_links'] ?? null) ? $_POST['social_links'] : []);
+            bms_apply_current_user_avatar_from_request($_FILES, !empty($_POST['remove_avatar']));
+            bms_flash('Profile updated. Your admin display details and profile picture were saved.', 'success');
+            bms_redirect(bms_admin_url('user.php'));
         }
 
         if ($action === 'password') {
-            mp_update_current_user_password(
+            bms_update_current_user_password(
                 (string)($_POST['current_password'] ?? ''),
                 (string)($_POST['new_password'] ?? ''),
                 (string)($_POST['confirm_password'] ?? '')
             );
-            mp_flash('Password updated. Use the new password the next time you log in.', 'success');
-            mp_redirect(mp_admin_url('user.php'));
+            bms_flash('Password updated. Use the new password the next time you log in.', 'success');
+            bms_redirect(bms_admin_url('user.php'));
         }
 
-        mp_flash('Unknown account action.', 'error');
-        mp_redirect(mp_admin_url('user.php'));
+        bms_flash('Unknown account action.', 'error');
+        bms_redirect(bms_admin_url('user.php'));
     } catch (Throwable $e) {
-        mp_flash($e->getMessage(), 'error');
-        mp_redirect(mp_admin_url('user.php'));
+        bms_flash($e->getMessage(), 'error');
+        bms_redirect(bms_admin_url('user.php'));
     }
 }
 
-mp_admin_header('Account', [
-    ['label' => 'View Profile', 'href' => function_exists('mp_public_profile_url_for_user') ? mp_public_profile_url_for_user($user) : mp_url_path('profile.php?user=' . rawurlencode((string)($user['username'] ?? ''))), 'style' => 'secondary', 'target' => true],
+bms_admin_header('Account', [
+    ['label' => 'View Profile', 'href' => function_exists('bms_public_profile_url_for_user') ? bms_public_profile_url_for_user($user) : bms_url_path('profile.php?user=' . rawurlencode((string)($user['username'] ?? ''))), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel">
   <h2>User profile</h2>
   <p class="meta">Change the login username, display name, and public profile details shown across Bonumark Stream.</p>
   <form method="post" class="settings-form" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="profile">
 
     <div class="admin-avatar-profile-row">
-      <div class="stream-card-avatar admin-avatar-preview"><?= mp_user_avatar_markup($user, 'admin-avatar-image', 192, 192) ?></div>
+      <div class="stream-card-avatar admin-avatar-preview"><?= bms_user_avatar_markup($user, 'admin-avatar-image', 192, 192) ?></div>
       <div>
         <label for="avatar">Profile picture</label>
         <input id="avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp">
         <p class="field-help">Upload a JPG, PNG, GIF, or WebP image under 4 MB. This image appears on your public profile, Stream Posts, and comments.</p>
-        <?php if (function_exists('mp_user_avatar_url') && mp_user_avatar_url($user) !== ''): ?>
+        <?php if (function_exists('bms_user_avatar_url') && bms_user_avatar_url($user) !== ''): ?>
           <label class="checkbox-row"><input type="checkbox" name="remove_avatar" value="1"> Remove current profile picture</label>
         <?php endif; ?>
       </div>
@@ -127,7 +127,7 @@ mp_admin_header('Account', [
   <h2>Change password</h2>
   <p class="meta">Update the password for this admin account. New passwords must be at least 12 characters and pass the stronger Bonumark Stream password policy.</p>
   <form method="post" class="settings-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="password">
 
     <label for="current_password">Current password</label>
@@ -145,7 +145,7 @@ mp_admin_header('Account', [
 
 <section class="panel">
   <h2>Account storage</h2>
-  <p>User accounts are stored in the Bonumark Stream database. Passwords are stored as one-way hashes using PHP password hashing.</p>
+  <p>Admin and commenter accounts are stored in the Bonumark Stream database. Passwords are stored as one-way hashes using PHP password hashing.</p>
   <p class="meta">The database handles users, settings, content records, revisions, upgrade history, and security logs. Markdown is available through import and export tools only.</p>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

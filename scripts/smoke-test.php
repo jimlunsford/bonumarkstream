@@ -160,21 +160,19 @@ foreach (glob($root . '/_bonumark_stream/themes/*/theme.json') ?: [] as $themeMa
         bm_smoke_fail($failures, 'Theme manifest is invalid: ' . $themeName);
         continue;
     }
-    foreach (['name', 'version', 'templates'] as $required) {
+    foreach (['name', 'version', 'assets'] as $required) {
         if (empty($theme[$required])) {
             bm_smoke_fail($failures, 'Theme manifest missing ' . $required . ': ' . $themeName);
         }
     }
-    if (isset($theme['templates']) && is_array($theme['templates'])) {
-        foreach ($theme['templates'] as $template) {
-            $templateName = basename((string)$template);
-            if (!str_ends_with($templateName, '.php')) {
-                $templateName .= '.php';
-            }
-            $templatePath = dirname($themeManifest) . '/templates/' . $templateName;
-            if (!is_file($templatePath)) {
-                bm_smoke_fail($failures, 'Theme template missing: ' . $themeName . '/' . $template);
-            }
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname($themeManifest), FilesystemIterator::SKIP_DOTS)) as $themeFile) {
+        if ($themeFile instanceof SplFileInfo && strtolower($themeFile->getExtension()) === 'php') {
+            bm_smoke_fail($failures, 'Theme package contains PHP code: ' . $themeName . '/' . $themeFile->getFilename());
+        }
+    }
+    foreach (['templates', 'view_slots', 'required_templates'] as $legacyThemeKey) {
+        if (array_key_exists($legacyThemeKey, $theme)) {
+            bm_smoke_fail($failures, 'Theme manifest contains a legacy layout key: ' . $themeName);
         }
     }
 }

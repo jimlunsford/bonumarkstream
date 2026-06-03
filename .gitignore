@@ -2,8 +2,7 @@
 _bonumark_stream/config.php
 _bonumark_stream/installed.lock
 
-# Runtime content and generated data
-_bonumark_stream/content/
+# Runtime generated data
 _bonumark_stream/tmp/
 _bonumark_stream/data/*
 !_bonumark_stream/data/.gitkeep

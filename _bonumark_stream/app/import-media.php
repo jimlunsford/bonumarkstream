@@ -1,13 +1,13 @@
 <?php
 require_once __DIR__ . '/media.php';
 
-function mp_import_remote_image_max_bytes(): int
+function bms_import_remote_image_max_bytes(): int
 {
     return 8 * 1024 * 1024;
 }
 
 /** @return list<string> */
-function mp_import_extract_remote_image_urls(string $body): array
+function bms_import_extract_remote_image_urls(string $body): array
 {
     $urls = [];
     $matched = preg_match_all('/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/', $body, $matches);
@@ -16,14 +16,14 @@ function mp_import_extract_remote_image_urls(string $body): array
     }
     foreach ($matches[1] as $url) {
         $url = trim((string)$url, " \t\n\r\0\x0B\"'");
-        if (mp_import_is_remote_http_url($url)) {
+        if (bms_import_is_remote_http_url($url)) {
             $urls[] = $url;
         }
     }
     return array_values(array_unique($urls));
 }
 
-function mp_import_is_remote_http_url(string $url): bool
+function bms_import_is_remote_http_url(string $url): bool
 {
     $url = trim($url);
     if ($url === '') {
@@ -38,14 +38,14 @@ function mp_import_is_remote_http_url(string $url): bool
     return in_array($scheme, ['http', 'https'], true) && $host !== '';
 }
 
-function mp_import_remote_image_ip_is_public(string $ip): bool
+function bms_import_remote_image_ip_is_public(string $ip): bool
 {
     $ip = trim($ip, " \t\n\r\0\x0B[]");
     return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
 }
 
 /** @return list<string> */
-function mp_import_remote_image_public_host_ips(string $host): array
+function bms_import_remote_image_public_host_ips(string $host): array
 {
     $host = strtolower(trim($host, " \t\n\r\0\x0B.[]"));
     if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')) {
@@ -78,7 +78,7 @@ function mp_import_remote_image_public_host_ips(string $host): array
 
     $public = [];
     foreach (array_unique($ips) as $ip) {
-        if (!mp_import_remote_image_ip_is_public((string)$ip)) {
+        if (!bms_import_remote_image_ip_is_public((string)$ip)) {
             return [];
         }
         $public[] = (string)$ip;
@@ -86,15 +86,15 @@ function mp_import_remote_image_public_host_ips(string $host): array
     return array_values(array_unique($public));
 }
 
-function mp_import_remote_image_host_is_public(string $host): bool
+function bms_import_remote_image_host_is_public(string $host): bool
 {
-    return mp_import_remote_image_public_host_ips($host) !== [];
+    return bms_import_remote_image_public_host_ips($host) !== [];
 }
 
 /** @return array{scheme:string,host:string,port:int,ips:list<string>}|null */
-function mp_import_remote_image_fetch_target(string $url): ?array
+function bms_import_remote_image_fetch_target(string $url): ?array
 {
-    if (!mp_import_is_remote_http_url($url)) {
+    if (!bms_import_is_remote_http_url($url)) {
         return null;
     }
 
@@ -114,7 +114,7 @@ function mp_import_remote_image_fetch_target(string $url): ?array
         return null;
     }
 
-    $ips = mp_import_remote_image_public_host_ips($host);
+    $ips = bms_import_remote_image_public_host_ips($host);
     if ($ips === []) {
         return null;
     }
@@ -122,20 +122,20 @@ function mp_import_remote_image_fetch_target(string $url): ?array
     return ['scheme' => $scheme, 'host' => $host, 'port' => $port, 'ips' => $ips];
 }
 
-function mp_import_remote_image_url_is_safe(string $url): bool
+function bms_import_remote_image_url_is_safe(string $url): bool
 {
-    return mp_import_remote_image_fetch_target($url) !== null;
+    return bms_import_remote_image_fetch_target($url) !== null;
 }
 
 /** Resolve a remote Location header against the current URL. */
-function mp_import_absolute_redirect_url(string $location, string $baseUrl): string
+function bms_import_absolute_redirect_url(string $location, string $baseUrl): string
 {
     $location = trim($location);
     if ($location === '') {
         return '';
     }
 
-    if (mp_import_is_remote_http_url($location)) {
+    if (bms_import_is_remote_http_url($location)) {
         return $location;
     }
 
@@ -167,9 +167,9 @@ function mp_import_absolute_redirect_url(string $location, string $baseUrl): str
 }
 
 /** @return array{status:int,mime:string,location:string,data:string} */
-function mp_import_fetch_remote_image_once(string $url, int $maxBytes): array
+function bms_import_fetch_remote_image_once(string $url, int $maxBytes): array
 {
-    $target = mp_import_remote_image_fetch_target($url);
+    $target = bms_import_remote_image_fetch_target($url);
     if ($target === null) {
         throw new RuntimeException('Remote image URL was rejected for safety.');
     }
@@ -227,7 +227,7 @@ function mp_import_fetch_remote_image_once(string $url, int $maxBytes): array
     $primaryIp = defined('CURLINFO_PRIMARY_IP') ? (string)curl_getinfo($ch, CURLINFO_PRIMARY_IP) : '';
     curl_close($ch);
 
-    if ($primaryIp !== '' && (!mp_import_remote_image_ip_is_public($primaryIp) || !in_array($primaryIp, $resolved, true))) {
+    if ($primaryIp !== '' && (!bms_import_remote_image_ip_is_public($primaryIp) || !in_array($primaryIp, $resolved, true))) {
         throw new RuntimeException('Remote image request connected to an unsafe address.');
     }
     if ($tooLarge) {
@@ -255,24 +255,24 @@ function mp_import_fetch_remote_image_once(string $url, int $maxBytes): array
     return ['status' => $status, 'mime' => $mime, 'location' => $location, 'data' => $buffer];
 }
 
-function mp_import_download_remote_image(string $url): array
+function bms_import_download_remote_image(string $url): array
 {
-    if (!mp_import_remote_image_url_is_safe($url)) {
+    if (!bms_import_remote_image_url_is_safe($url)) {
         throw new RuntimeException('Remote image URL was rejected for safety.');
     }
 
-    $maxBytes = mp_import_remote_image_max_bytes();
+    $maxBytes = bms_import_remote_image_max_bytes();
     $mime = '';
     $finalUrl = $url;
     $data = '';
     $redirects = 0;
 
     while (true) {
-        if (!mp_import_remote_image_url_is_safe($finalUrl)) {
+        if (!bms_import_remote_image_url_is_safe($finalUrl)) {
             throw new RuntimeException('Remote image URL was rejected for safety.');
         }
 
-        $response = mp_import_fetch_remote_image_once($finalUrl, $maxBytes);
+        $response = bms_import_fetch_remote_image_once($finalUrl, $maxBytes);
         $status = (int)$response['status'];
         $mime = strtolower(trim((string)$response['mime']));
 
@@ -281,8 +281,8 @@ function mp_import_download_remote_image(string $url): array
             if ($redirects > 3) {
                 throw new RuntimeException('Remote image redirected too many times.');
             }
-            $nextUrl = mp_import_absolute_redirect_url((string)$response['location'], $finalUrl);
-            if ($nextUrl === '' || !mp_import_remote_image_url_is_safe($nextUrl)) {
+            $nextUrl = bms_import_absolute_redirect_url((string)$response['location'], $finalUrl);
+            if ($nextUrl === '' || !bms_import_remote_image_url_is_safe($nextUrl)) {
                 throw new RuntimeException('Remote image redirect target was rejected for safety.');
             }
             $finalUrl = $nextUrl;
@@ -305,7 +305,7 @@ function mp_import_download_remote_image(string $url): array
         $mime = trim(strstr($mime, ';', true) ?: $mime);
     }
 
-    $tmp = tempnam(sys_get_temp_dir(), 'bms-import-media-');
+    $tmp = tempnam(sys_get_tebms_dir(), 'bms-import-media-');
     if ($tmp === false) {
         throw new RuntimeException('Could not create a temporary file for imported media.');
     }
@@ -319,7 +319,7 @@ function mp_import_download_remote_image(string $url): array
         }
     }
 
-    $extension = mp_import_image_extension_from_url_or_mime($finalUrl, $mime);
+    $extension = bms_import_image_extension_from_url_or_mime($finalUrl, $mime);
     if ($extension === '') {
         @unlink($tmp);
         throw new RuntimeException('Remote file is not a supported image type.');
@@ -327,13 +327,13 @@ function mp_import_download_remote_image(string $url): array
 
     return [
         'path' => $tmp,
-        'mime' => $mime !== '' ? $mime : mp_media_expected_mime_for_extension($extension),
+        'mime' => $mime !== '' ? $mime : bms_media_expected_mime_for_extension($extension),
         'size' => filesize($tmp) ?: strlen($data),
-        'filename' => mp_import_remote_image_filename($finalUrl, $extension),
+        'filename' => bms_import_remote_image_filename($finalUrl, $extension),
     ];
 }
 
-function mp_import_image_extension_from_url_or_mime(string $url, string $mime): string
+function bms_import_image_extension_from_url_or_mime(string $url, string $mime): string
 {
     $path = (string)(parse_url($url, PHP_URL_PATH) ?: '');
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
@@ -350,7 +350,7 @@ function mp_import_image_extension_from_url_or_mime(string $url, string $mime): 
     };
 }
 
-function mp_import_remote_image_filename(string $url, string $extension): string
+function bms_import_remote_image_filename(string $url, string $extension): string
 {
     $query = (string)(parse_url($url, PHP_URL_QUERY) ?: '');
     if ($query !== '') {
@@ -372,9 +372,9 @@ function mp_import_remote_image_filename(string $url, string $extension): string
 }
 
 
-function mp_import_staging_root(string $token = ''): string
+function bms_import_staging_root(string $token = ''): string
 {
-    $root = mp_root_path('import-staging');
+    $root = bms_root_path('import-staging');
     if ($token !== '') {
         $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
         return $root . ($token !== '' ? '/' . $token : '');
@@ -382,12 +382,12 @@ function mp_import_staging_root(string $token = ''): string
     return $root;
 }
 
-function mp_import_staging_token(): string
+function bms_import_staging_token(): string
 {
     return bin2hex(random_bytes(12));
 }
 
-function mp_import_staged_media_url(string $token, string $relativePath): string
+function bms_import_staged_media_url(string $token, string $relativePath): string
 {
     $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
@@ -396,22 +396,22 @@ function mp_import_staged_media_url(string $token, string $relativePath): string
     return 'bms-import-media://' . $token . '/' . rawurlencode($relativePath);
 }
 
-function mp_import_staging_path(string $token, string $relativePath): string
+function bms_import_staging_path(string $token, string $relativePath): string
 {
     $token = preg_replace('/[^a-f0-9]/i', '', $token) ?? '';
     $relativePath = rawurldecode(trim(str_replace('\\', '/', $relativePath), '/'));
     $relativePath = preg_replace('#/+#', '/', $relativePath) ?? $relativePath;
     $relativePath = str_replace(['../', '..\\'], '', $relativePath);
-    return mp_import_staging_root($token) . '/' . basename($relativePath);
+    return bms_import_staging_root($token) . '/' . basename($relativePath);
 }
 
-function mp_import_is_staged_media_url(string $url): bool
+function bms_import_is_staged_media_url(string $url): bool
 {
     return preg_match('#^bms-import-media://[a-f0-9]{24}/[^\s)]+$#i', trim($url)) === 1;
 }
 
 /** @return array{token:string,relative:string,path:string} */
-function mp_import_parse_staged_media_url(string $url): array
+function bms_import_parse_staged_media_url(string $url): array
 {
     $url = trim($url);
     if (preg_match('#^bms-import-media://([a-f0-9]{24})/([^\s)]+)$#i', $url, $match) !== 1) {
@@ -419,11 +419,11 @@ function mp_import_parse_staged_media_url(string $url): array
     }
     $token = strtolower((string)$match[1]);
     $relative = rawurldecode((string)$match[2]);
-    return ['token' => $token, 'relative' => basename($relative), 'path' => mp_import_staging_path($token, $relative)];
+    return ['token' => $token, 'relative' => basename($relative), 'path' => bms_import_staging_path($token, $relative)];
 }
 
 /** @return list<string> */
-function mp_import_extract_staged_media_urls(string $body): array
+function bms_import_extract_staged_media_urls(string $body): array
 {
     $urls = [];
     $matched = preg_match_all('/!?\[[^\]]*\]\((bms-import-media:\/\/[^)\r\n]+)(?:\s+"[^"]*")?\)/', $body, $matches);
@@ -432,7 +432,7 @@ function mp_import_extract_staged_media_urls(string $body): array
     }
     foreach ($matches[1] as $url) {
         $url = trim((string)$url);
-        if (mp_import_is_staged_media_url($url)) {
+        if (bms_import_is_staged_media_url($url)) {
             $urls[] = $url;
         }
     }
@@ -440,7 +440,7 @@ function mp_import_extract_staged_media_urls(string $body): array
 }
 
 /** @return list<string> */
-function mp_import_extract_staging_tokens_from_preview(?array $preview): array
+function bms_import_extract_staging_tokens_from_preview(?array $preview): array
 {
     if (!is_array($preview)) {
         return [];
@@ -451,13 +451,13 @@ function mp_import_extract_staging_tokens_from_preview(?array $preview): array
         if (!is_array($item)) {
             continue;
         }
-        $candidateUrls = mp_import_extract_staged_media_urls((string)($item['body'] ?? ''));
+        $candidateUrls = bms_import_extract_staged_media_urls((string)($item['body'] ?? ''));
         $featuredMedia = trim((string)($item['featured_media'] ?? ''));
-        if ($featuredMedia !== '' && mp_import_is_staged_media_url($featuredMedia)) {
+        if ($featuredMedia !== '' && bms_import_is_staged_media_url($featuredMedia)) {
             $candidateUrls[] = $featuredMedia;
         }
         foreach ($candidateUrls as $url) {
-            $parsed = mp_import_parse_staged_media_url($url);
+            $parsed = bms_import_parse_staged_media_url($url);
             if ($parsed['token'] !== '') {
                 $tokens[] = $parsed['token'];
             }
@@ -466,9 +466,9 @@ function mp_import_extract_staging_tokens_from_preview(?array $preview): array
     return array_values(array_unique($tokens));
 }
 
-function mp_import_cleanup_staging_token(string $token): void
+function bms_import_cleanup_staging_token(string $token): void
 {
-    $dir = mp_import_staging_root($token);
+    $dir = bms_import_staging_root($token);
     if (!is_dir($dir)) {
         return;
     }
@@ -488,21 +488,21 @@ function mp_import_cleanup_staging_token(string $token): void
     @rmdir($dir);
 }
 
-function mp_import_staged_file_to_media(string $url, string $alt): string
+function bms_import_staged_file_to_media(string $url, string $alt): string
 {
-    $parsed = mp_import_parse_staged_media_url($url);
+    $parsed = bms_import_parse_staged_media_url($url);
     $path = $parsed['path'];
     if ($path === '' || !is_file($path)) {
         throw new RuntimeException('Staged archive media file was not found. Recreate the import preview and try again.');
     }
 
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-    $allowed = mp_allowed_media_extensions();
+    $allowed = bms_allowed_media_extensions();
     if (!isset($allowed[$extension])) {
         throw new RuntimeException('Staged archive media was not a supported media type.');
     }
 
-    $mime = mp_media_expected_mime_for_extension($extension);
+    $mime = bms_media_expected_mime_for_extension($extension);
     if (function_exists('finfo_open')) {
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         if ($finfo) {
@@ -514,7 +514,7 @@ function mp_import_staged_file_to_media(string $url, string $alt): string
         }
     }
 
-    $media = mp_media_upload([
+    $media = bms_media_upload([
         'name' => basename($path),
         'type' => $mime,
         'tmp_name' => $path,
@@ -522,7 +522,7 @@ function mp_import_staged_file_to_media(string $url, string $alt): string
         'size' => filesize($path) ?: 0,
     ], $alt !== '' ? $alt : 'Imported media', 'Imported from archive', ['generate_derivatives' => false]);
 
-    $localUrl = mp_media_public_url_for_item($media);
+    $localUrl = bms_media_public_url_for_item($media);
     if ($localUrl === '') {
         throw new RuntimeException('Imported archive media did not return a public URL.');
     }
@@ -530,7 +530,7 @@ function mp_import_staged_file_to_media(string $url, string $alt): string
 }
 
 /** @param array<string,string> $cache @return array{body:string,imported:int,removed:int,failed:int,warnings:list<string>} */
-function mp_import_local_url_to_media_path(string $url): string
+function bms_import_local_url_to_media_path(string $url): string
 {
     $url = trim(str_replace('\\', '/', $url));
     if ($url === '') {
@@ -538,7 +538,7 @@ function mp_import_local_url_to_media_path(string $url): string
     }
     $path = (string)(parse_url($url, PHP_URL_PATH) ?: $url);
     $path = rawurldecode(str_replace('\\', '/', $path));
-    $basePath = function_exists('mp_base_path') ? mp_base_path() : '';
+    $basePath = function_exists('bms_base_path') ? bms_base_path() : '';
     if ($basePath !== '' && str_starts_with($path, $basePath . '/')) {
         $path = substr($path, strlen($basePath));
     }
@@ -554,7 +554,7 @@ function mp_import_local_url_to_media_path(string $url): string
 }
 
 /** @param array<string,string> $cache @return array{body:string,imported:int,removed:int,failed:int,warnings:list<string>} */
-function mp_import_apply_media_policy_to_body(string $body, string $mediaPolicy, array &$cache): array
+function bms_import_apply_media_policy_to_body(string $body, string $mediaPolicy, array &$cache): array
 {
     $mediaPolicy = in_array($mediaPolicy, ['remote', 'import', 'skip'], true) ? $mediaPolicy : 'remote';
     $summary = ['body' => $body, 'imported' => 0, 'removed' => 0, 'failed' => 0, 'warnings' => []];
@@ -564,8 +564,8 @@ function mp_import_apply_media_policy_to_body(string $body, string $mediaPolicy,
         $alt = trim((string)($matches[2] ?? ''));
         $url = trim((string)($matches[3] ?? ''));
         $isImageMarkup = $prefix === '!';
-        $isRemote = $isImageMarkup && mp_import_is_remote_http_url($url);
-        $isStaged = mp_import_is_staged_media_url($url);
+        $isRemote = $isImageMarkup && bms_import_is_remote_http_url($url);
+        $isStaged = bms_import_is_staged_media_url($url);
 
         if (!$isRemote && !$isStaged) {
             return (string)$matches[0];
@@ -583,11 +583,11 @@ function mp_import_apply_media_policy_to_body(string $body, string $mediaPolicy,
         try {
             if (!isset($cache[$url])) {
                 if ($isStaged) {
-                    $localUrl = mp_import_staged_file_to_media($url, $alt);
+                    $localUrl = bms_import_staged_file_to_media($url, $alt);
                 } else {
-                    $download = mp_import_download_remote_image($url);
+                    $download = bms_import_download_remote_image($url);
                     try {
-                        $media = mp_media_upload([
+                        $media = bms_media_upload([
                             'name' => $download['filename'],
                             'type' => $download['mime'],
                             'tmp_name' => $download['path'],
@@ -599,7 +599,7 @@ function mp_import_apply_media_policy_to_body(string $body, string $mediaPolicy,
                             @unlink($download['path']);
                         }
                     }
-                    $localUrl = mp_media_public_url_for_item($media);
+                    $localUrl = bms_media_public_url_for_item($media);
                     if ($localUrl === '') {
                         throw new RuntimeException('Imported media did not return a public URL.');
                     }

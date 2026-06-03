@@ -1,6 +1,6 @@
 <?php
 
-class MP_WordPressWxrImporter implements MP_ImporterInterface
+class BMS_WordPressWxrImporter implements BMS_ImporterInterface
 {
     private const MAX_IMPORT_ITEMS = 5000;
 
@@ -17,7 +17,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
         }
 
         $path = (string)($file['tmp_name'] ?? '');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             return false;
         }
 
@@ -33,12 +33,12 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             || str_contains($sample, '<wp:post_type>');
     }
 
-    public function importPreview(array $file): MP_ImportResult
+    public function importPreview(array $file): BMS_ImportResult
     {
-        $result = new MP_ImportResult($this->label());
+        $result = new BMS_ImportResult($this->label());
         $path = (string)($file['tmp_name'] ?? '');
         $name = (string)($file['name'] ?? 'wordpress-export.xml');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             $result->addError('Uploaded WordPress export file could not be read.');
             return $result;
         }
@@ -86,12 +86,12 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             $item = $this->postToItem($xmlItem, $attachments, $name, $index + 1);
             if ($item->featuredMedia !== '') {
                 $featuredImageCount++;
-                if (function_exists('mp_import_is_remote_http_url') && mp_import_is_remote_http_url($item->featuredMedia)) {
+                if (function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($item->featuredMedia)) {
                     $remoteImageReferenceCount++;
                 }
             }
-            if (function_exists('mp_import_extract_remote_image_urls')) {
-                $remoteImageReferenceCount += count(mp_import_extract_remote_image_urls($item->body));
+            if (function_exists('bms_import_extract_remote_image_urls')) {
+                $remoteImageReferenceCount += count(bms_import_extract_remote_image_urls($item->body));
             }
 
             if (trim($item->body) === '' && trim($item->featuredMedia) === '') {
@@ -169,7 +169,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
     }
 
     /** @param array<string,array{url:string,title:string,alt:string}> $attachments */
-    private function postToItem(string $xmlItem, array $attachments, string $sourceName, int $index): MP_ImportItem
+    private function postToItem(string $xmlItem, array $attachments, string $sourceName, int $index): BMS_ImportItem
     {
         $postId = trim($this->childValue($xmlItem, 'wp:post_id'));
         $title = trim($this->childValue($xmlItem, 'title'));
@@ -206,12 +206,12 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             $source .= ' ' . $index;
         }
 
-        $item = mp_import_make_item([
+        $item = bms_import_make_item([
             'title' => $title,
             'slug' => $slug,
             'body' => $body,
-            'date' => mp_import_normalize_date($dateRaw),
-            'created_at' => mp_import_normalize_datetime($dateRaw),
+            'date' => bms_import_normalize_date($dateRaw),
+            'created_at' => bms_import_normalize_datetime($dateRaw),
             'description' => $description,
             'status' => $status,
             'source' => $source,
@@ -219,7 +219,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             'tags' => $terms,
         ]);
 
-        $remoteImages = function_exists('mp_import_extract_remote_image_urls') ? mp_import_extract_remote_image_urls($body) : [];
+        $remoteImages = function_exists('bms_import_extract_remote_image_urls') ? bms_import_extract_remote_image_urls($body) : [];
         if ($remoteImages) {
             $item->warnings[] = count($remoteImages) . ' inline remote image reference(s) detected. Choose Import media into Media during confirmation to copy supported images into Bonumark Stream.';
         }
@@ -272,7 +272,7 @@ class MP_WordPressWxrImporter implements MP_ImporterInterface
             }
             $terms[] = $term;
         }
-        return mp_normalize_terms($terms);
+        return bms_normalize_terms($terms);
     }
 
     /** @param array<string,array{url:string,title:string,alt:string}> $attachments */

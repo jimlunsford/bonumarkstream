@@ -1,6 +1,6 @@
 <?php
 
-class MP_ImportItem
+class BMS_ImportItem
 {
     public string $title;
     public string $slug;

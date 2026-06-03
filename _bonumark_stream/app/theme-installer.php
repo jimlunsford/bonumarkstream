@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/themes.php';
 
-function mp_theme_installer_remove_directory(string $path): void
+function bms_theme_installer_remove_directory(string $path): void
 {
     if (!is_dir($path)) {
         return;
@@ -21,7 +21,7 @@ function mp_theme_installer_remove_directory(string $path): void
     @rmdir($path);
 }
 
-function mp_theme_installer_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
+function bms_theme_installer_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
 {
     if (!method_exists($zip, 'getExternalAttributesIndex')) {
         return false;
@@ -41,11 +41,19 @@ function mp_theme_installer_zip_entry_is_symlink(ZipArchive $zip, int $index): b
     return false;
 }
 
-function mp_theme_installer_is_allowed_file(string $relative): bool
+function bms_theme_installer_is_allowed_file(string $relative): bool
 {
-    $relative = str_replace('\\', '/', $relative);
+    $relative = str_replace('\\', '/', trim($relative));
     $basename = strtolower(basename($relative));
-    if ($basename === '.htaccess' || str_starts_with($basename, '.user') || str_starts_with($basename, 'php.ini')) {
+    if ($relative === '' || $basename === '') {
+        return false;
+    }
+
+    if (str_starts_with($basename, '.') || $basename === '.htaccess' || str_starts_with($basename, '.user') || str_starts_with($basename, 'php.ini')) {
+        return false;
+    }
+
+    if (preg_match('#(^|/)(templates?|views?|app|admin|vendor|node_modules|\.git)(/|$)#i', $relative) === 1) {
         return false;
     }
 
@@ -54,19 +62,11 @@ function mp_theme_installer_is_allowed_file(string $relative): bool
     }
 
     $extension = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
-    $allowed = ['php', 'json', 'md', 'txt', 'css', 'js', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'woff', 'woff2', 'ico'];
-    if (!in_array($extension, $allowed, true)) {
-        return false;
-    }
-
-    if ($extension === 'php' && !preg_match('#(^|/)templates/[^/]+\.php$#i', $relative)) {
-        return false;
-    }
-
-    return true;
+    $allowed = ['json', 'md', 'txt', 'css', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'woff', 'woff2', 'ico'];
+    return in_array($extension, $allowed, true);
 }
 
-function mp_theme_installer_safe_extract(ZipArchive $zip, string $destination): void
+function bms_theme_installer_safe_extract(ZipArchive $zip, string $destination): void
 {
     $maxFiles = 250;
     $maxTotalBytes = 15 * 1024 * 1024;
@@ -91,7 +91,7 @@ function mp_theme_installer_safe_extract(ZipArchive $zip, string $destination): 
         if (strlen($normalized) > 240 || $depth > 10) {
             throw new RuntimeException('Theme package contains paths that are too deep or too long.');
         }
-        if (mp_theme_installer_zip_entry_is_symlink($zip, $i)) {
+        if (bms_theme_installer_zip_entry_is_symlink($zip, $i)) {
             throw new RuntimeException('Theme package contains a symbolic link, which is not allowed.');
         }
         if ($size > $maxSingleBytes) {
@@ -102,7 +102,7 @@ function mp_theme_installer_safe_extract(ZipArchive $zip, string $destination): 
             throw new RuntimeException('Theme package expands beyond the allowed size limit.');
         }
 
-        if (!str_ends_with($normalized, '/') && !mp_theme_installer_is_allowed_file($normalized)) {
+        if (!str_ends_with($normalized, '/') && !bms_theme_installer_is_allowed_file($normalized)) {
             throw new RuntimeException('Theme package contains a file type or path that is not allowed: ' . basename($normalized));
         }
     }
@@ -119,10 +119,13 @@ function mp_theme_installer_safe_extract(ZipArchive $zip, string $destination): 
         if ($item->isLink()) {
             throw new RuntimeException('Theme package extracted a symbolic link, which is not allowed.');
         }
+        if ($item->isFile() && !bms_theme_installer_is_allowed_file(substr(str_replace('\\', '/', $item->getPathname()), strlen(str_replace('\\', '/', $destination)) + 1))) {
+            throw new RuntimeException('Theme package extracted a file that is not allowed: ' . $item->getBasename());
+        }
     }
 }
 
-function mp_theme_installer_find_manifest_candidates(string $extractRoot): array
+function bms_theme_installer_find_manifest_candidates(string $extractRoot): array
 {
     $candidates = [];
     $extractRoot = rtrim($extractRoot, '/\\');
@@ -136,8 +139,7 @@ function mp_theme_installer_find_manifest_candidates(string $extractRoot): array
         ];
     }
 
-    $children = array_diff(scandir($extractRoot) ?: [], ['.', '..']);
-    foreach ($children as $child) {
+    foreach (array_diff(scandir($extractRoot) ?: [], ['.', '..']) as $child) {
         $path = $extractRoot . '/' . $child;
         if (is_dir($path) && is_file($path . '/theme.json')) {
             $candidates[] = [
@@ -168,7 +170,7 @@ function mp_theme_installer_find_manifest_candidates(string $extractRoot): array
     return $candidates;
 }
 
-function mp_theme_installer_asset_source_candidates(string $packageRoot, string $privateRoot, string $publicRoot, string $asset): array
+function bms_theme_installer_asset_source_candidates(string $packageRoot, string $privateRoot, string $publicRoot, string $asset): array
 {
     $asset = ltrim(str_replace('\\', '/', $asset), '/');
     return array_values(array_unique([
@@ -180,7 +182,7 @@ function mp_theme_installer_asset_source_candidates(string $packageRoot, string 
     ]));
 }
 
-function mp_theme_installer_copy_file(string $source, string $destination): void
+function bms_theme_installer_copy_file(string $source, string $destination): void
 {
     if (!is_file($source)) {
         throw new RuntimeException('Theme package is missing a required file: ' . basename($destination));
@@ -194,24 +196,43 @@ function mp_theme_installer_copy_file(string $source, string $destination): void
     }
 }
 
-function mp_theme_installer_copy_optional_doc_files(string $sourceRoot, string $destinationRoot): void
+function bms_theme_installer_copy_optional_doc_files(string $sourceRoot, string $destinationRoot): void
 {
     foreach (['README.md', 'README.txt', 'LICENSE', 'LICENSE.txt', 'CHANGELOG.md'] as $file) {
         $source = rtrim($sourceRoot, '/\\') . '/' . $file;
         if (is_file($source)) {
-            mp_theme_installer_copy_file($source, rtrim($destinationRoot, '/\\') . '/' . $file);
+            bms_theme_installer_copy_file($source, rtrim($destinationRoot, '/\\') . '/' . $file);
         }
     }
 }
 
-function mp_theme_installer_install_candidate(array $candidate, bool $replaceExisting = false, bool $activate = false): array
+function bms_theme_installer_manifest_asset_refs(array $manifest): array
 {
-    $manifest = mp_read_theme_manifest_file((string)$candidate['manifest']);
+    $refs = [];
+    $assets = is_array($manifest['assets'] ?? null) ? $manifest['assets'] : [];
+    foreach (['css', 'images', 'fonts'] as $type) {
+        foreach ((array)($assets[$type] ?? []) as $asset) {
+            $asset = bms_theme_asset_reference((string)$asset);
+            if ($asset !== '') {
+                $refs[] = $asset;
+            }
+        }
+    }
+    $screenshot = bms_theme_asset_reference((string)($manifest['screenshot'] ?? ''));
+    if ($screenshot !== '') {
+        $refs[] = $screenshot;
+    }
+    return array_values(array_unique($refs));
+}
+
+function bms_theme_installer_install_candidate(array $candidate, bool $replaceExisting = false, bool $activate = false): array
+{
+    $manifest = bms_read_theme_manifest_file((string)$candidate['manifest']);
     if (!is_array($manifest)) {
         throw new RuntimeException('The uploaded theme has an invalid theme.json manifest.');
     }
 
-    $slug = mp_theme_slug_or_empty((string)($manifest['slug'] ?? ''));
+    $slug = bms_theme_slug_or_empty((string)($manifest['slug'] ?? ''));
     if ($slug === '' || !preg_match('/^[a-z0-9][a-z0-9_-]{1,63}$/', $slug)) {
         throw new RuntimeException('The uploaded theme slug is missing or invalid.');
     }
@@ -224,10 +245,10 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
     $publicRoot = rtrim((string)$candidate['public_root'], '/\\');
     $packageRoot = rtrim((string)$candidate['package_root'], '/\\');
 
-    $assetStage = mp_root_path('tmp/theme-install-assets-' . bin2hex(random_bytes(4)));
-    $privateStage = mp_root_path('tmp/theme-install-private-' . bin2hex(random_bytes(4)));
-    $targetPrivate = mp_themes_path($slug);
-    $targetAssets = mp_public_theme_asset_path($slug);
+    $assetStage = bms_root_path('tmp/theme-install-assets-' . bin2hex(random_bytes(4)));
+    $privateStage = bms_root_path('tmp/theme-install-private-' . bin2hex(random_bytes(4)));
+    $targetPrivate = bms_themes_path($slug);
+    $targetAssets = bms_public_theme_asset_path($slug);
     $backupPrivate = '';
     $backupAssets = '';
     $installedPrivate = false;
@@ -241,31 +262,12 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
             throw new RuntimeException('Could not prepare theme asset staging area.');
         }
 
-        mp_theme_installer_copy_file($privateRoot . '/theme.json', $privateStage . '/theme.json');
-        mp_theme_installer_copy_optional_doc_files($privateRoot, $privateStage);
+        bms_theme_installer_copy_file($privateRoot . '/theme.json', $privateStage . '/theme.json');
+        bms_theme_installer_copy_optional_doc_files($privateRoot, $privateStage);
 
-        foreach (mp_public_theme_installable_templates($manifest) as $template) {
-            mp_theme_installer_copy_file($privateRoot . '/templates/' . $template . '.php', $privateStage . '/templates/' . $template . '.php');
-        }
-
-        $assetRefs = [];
-        foreach (['css', 'js'] as $type) {
-            foreach ((array)($manifest['assets'][$type] ?? []) as $asset) {
-                $asset = mp_theme_asset_reference((string)$asset);
-                if ($asset !== '') {
-                    $assetRefs[] = $asset;
-                }
-            }
-        }
-        $screenshot = mp_theme_asset_reference((string)($manifest['screenshot'] ?? ''));
-        if ($screenshot !== '') {
-            $assetRefs[] = $screenshot;
-        }
-        $assetRefs = array_values(array_unique($assetRefs));
-
-        foreach ($assetRefs as $asset) {
+        foreach (bms_theme_installer_manifest_asset_refs($manifest) as $asset) {
             $source = '';
-            foreach (mp_theme_installer_asset_source_candidates($packageRoot, $privateRoot, $publicRoot, $asset) as $candidatePath) {
+            foreach (bms_theme_installer_asset_source_candidates($packageRoot, $privateRoot, $publicRoot, $asset) as $candidatePath) {
                 if (is_file($candidatePath)) {
                     $source = $candidatePath;
                     break;
@@ -274,10 +276,10 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
             if ($source === '') {
                 throw new RuntimeException('Theme package is missing a declared asset: ' . $asset);
             }
-            mp_theme_installer_copy_file($source, $assetStage . '/' . $asset);
+            bms_theme_installer_copy_file($source, $assetStage . '/' . $asset);
         }
 
-        $health = mp_public_theme_package_health_at_paths($manifest, $privateStage, $assetStage);
+        $health = bms_public_theme_package_health_at_paths($manifest, $privateStage, $assetStage);
         if (empty($health['valid'])) {
             $errors = is_array($health['errors'] ?? null) ? $health['errors'] : ['Theme did not pass validation.'];
             throw new RuntimeException('Theme did not pass validation: ' . implode(' ', $errors));
@@ -289,13 +291,13 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
 
         if ($replaceExisting) {
             if (is_dir($targetPrivate)) {
-                $backupPrivate = mp_root_path('tmp/theme-backup-private-' . $slug . '-' . bin2hex(random_bytes(4)));
+                $backupPrivate = bms_root_path('tmp/theme-backup-private-' . $slug . '-' . bin2hex(random_bytes(4)));
                 if (!rename($targetPrivate, $backupPrivate)) {
-                    throw new RuntimeException('Could not prepare existing theme template backup.');
+                    throw new RuntimeException('Could not prepare existing theme metadata backup.');
                 }
             }
             if (is_dir($targetAssets)) {
-                $backupAssets = mp_root_path('tmp/theme-backup-assets-' . $slug . '-' . bin2hex(random_bytes(4)));
+                $backupAssets = bms_root_path('tmp/theme-backup-assets-' . $slug . '-' . bin2hex(random_bytes(4)));
                 if (!rename($targetAssets, $backupAssets)) {
                     throw new RuntimeException('Could not prepare existing theme asset backup.');
                 }
@@ -310,7 +312,7 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
         }
 
         if (!rename($privateStage, $targetPrivate)) {
-            throw new RuntimeException('Could not install theme templates.');
+            throw new RuntimeException('Could not install theme metadata.');
         }
         $installedPrivate = true;
         if (!rename($assetStage, $targetAssets)) {
@@ -318,24 +320,24 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
         }
         $installedAssets = true;
 
-        $installed = mp_read_theme_manifest($slug);
+        $installed = bms_read_theme_manifest($slug);
         if (!is_array($installed)) {
             throw new RuntimeException('Installed theme manifest could not be read.');
         }
-        $installedHealth = mp_public_theme_package_health($installed);
+        $installedHealth = bms_public_theme_package_health($installed);
         if (empty($installedHealth['valid'])) {
             throw new RuntimeException('Installed theme did not pass final validation.');
         }
 
         if ($backupPrivate !== '') {
-            mp_theme_installer_remove_directory($backupPrivate);
+            bms_theme_installer_remove_directory($backupPrivate);
         }
         if ($backupAssets !== '') {
-            mp_theme_installer_remove_directory($backupAssets);
+            bms_theme_installer_remove_directory($backupAssets);
         }
 
         if ($activate) {
-            mp_set_setting('active_public_theme', $slug);
+            bms_set_setting('active_public_theme', $slug);
         }
 
         return [
@@ -345,13 +347,13 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
             'activated' => $activate,
         ];
     } catch (Throwable $e) {
-        mp_theme_installer_remove_directory($privateStage);
-        mp_theme_installer_remove_directory($assetStage);
+        bms_theme_installer_remove_directory($privateStage);
+        bms_theme_installer_remove_directory($assetStage);
         if ($installedPrivate) {
-            mp_theme_installer_remove_directory($targetPrivate);
+            bms_theme_installer_remove_directory($targetPrivate);
         }
         if ($installedAssets) {
-            mp_theme_installer_remove_directory($targetAssets);
+            bms_theme_installer_remove_directory($targetAssets);
         }
         if ($backupPrivate !== '' && is_dir($backupPrivate) && !is_dir($targetPrivate)) {
             @rename($backupPrivate, $targetPrivate);
@@ -363,64 +365,52 @@ function mp_theme_installer_install_candidate(array $candidate, bool $replaceExi
     }
 }
 
-function mp_install_public_theme_zip(array $file, bool $replaceExisting = false, bool $activate = false): array
+function bms_install_public_theme_zip(array $file, bool $replaceExisting = false, bool $activate = false): array
 {
     if (!class_exists('ZipArchive')) {
-        throw new RuntimeException('Theme installation requires PHP ZipArchive. Ask the host to enable it.');
+        throw new RuntimeException('Theme ZIP installation requires the PHP Zip extension.');
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Theme upload failed.');
     }
 
-    if ((int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('Theme ZIP upload failed.');
+    $tmp = (string)($file['tmp_name'] ?? '');
+    $name = (string)($file['name'] ?? 'theme.zip');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        throw new RuntimeException('Theme upload is missing.');
+    }
+    if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== 'zip') {
+        throw new RuntimeException('Theme packages must be uploaded as ZIP files.');
     }
 
-    $name = strtolower((string)($file['name'] ?? ''));
-    if (!str_ends_with($name, '.zip')) {
-        throw new RuntimeException('Theme packages must be uploaded as .zip files.');
-    }
-
-    $uploadedPath = (string)($file['tmp_name'] ?? '');
-    if ($uploadedPath === '' || !is_file($uploadedPath)) {
-        throw new RuntimeException('Uploaded theme ZIP was not found.');
-    }
-
-    $extractRoot = mp_root_path('tmp/theme-upload-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)));
-    if (!is_dir($extractRoot) && !mkdir($extractRoot, 0755, true)) {
+    $extractRoot = bms_root_path('tmp/theme-upload-' . bin2hex(random_bytes(6)));
+    if (!mkdir($extractRoot, 0755, true)) {
         throw new RuntimeException('Could not prepare theme upload directory.');
     }
 
     $zip = new ZipArchive();
-    $zipIsOpen = false;
     try {
-        $openResult = $zip->open($uploadedPath);
-        if ($openResult !== true) {
-            throw new RuntimeException('Could not open uploaded theme ZIP.');
+        if ($zip->open($tmp) !== true) {
+            throw new RuntimeException('Could not open the uploaded theme ZIP.');
         }
-        $zipIsOpen = true;
+        bms_theme_installer_safe_extract($zip, $extractRoot);
+        $zip->close();
 
-        mp_theme_installer_safe_extract($zip, $extractRoot);
-
-        if ($zipIsOpen) {
-            $zip->close();
-            $zipIsOpen = false;
-        }
-
-        $candidates = mp_theme_installer_find_manifest_candidates($extractRoot);
+        $candidates = bms_theme_installer_find_manifest_candidates($extractRoot);
         if (!$candidates) {
-            throw new RuntimeException('Theme package must contain theme.json and a templates folder.');
+            throw new RuntimeException('Theme package must contain a theme.json manifest.');
         }
         if (count($candidates) > 1) {
-            throw new RuntimeException('Theme package contains more than one theme. Upload one theme ZIP at a time.');
+            throw new RuntimeException('Theme package contains multiple theme.json manifests. Upload one theme at a time.');
         }
 
-        return mp_theme_installer_install_candidate($candidates[0], $replaceExisting, $activate);
-    } finally {
-        if ($zipIsOpen) {
-            try {
-                $zip->close();
-            } catch (Throwable $e) {
-                // Ignore cleanup-only ZIP close failures after an earlier installer error.
-            }
+        return bms_theme_installer_install_candidate($candidates[0], $replaceExisting, $activate);
+    } catch (Throwable $e) {
+        if ($zip instanceof ZipArchive) {
+            @$zip->close();
         }
-        mp_theme_installer_remove_directory($extractRoot);
+        throw $e;
+    } finally {
+        bms_theme_installer_remove_directory($extractRoot);
     }
 }

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/profiles.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
-function mp_admin_action_link(array $action): string
+function bms_admin_action_link(array $action): string
 {
     if (isset($action['html']) && is_string($action['html'])) {
         $class = 'admin-page-action-custom';
@@ -21,11 +21,11 @@ function mp_admin_action_link(array $action): string
     return '<a class="' . $class . '" href="' . $href . '"' . $target . '>' . $label . '</a>';
 }
 
-function mp_view_site_action(string $label = 'View Site'): array
+function bms_view_site_action(string $label = 'View Site'): array
 {
     return [
         'label' => $label,
-        'href' => mp_url_path(),
+        'href' => bms_url_path(),
         'style' => 'secondary',
         'target' => true,
         'class' => 'view-site-action',
@@ -33,11 +33,11 @@ function mp_view_site_action(string $label = 'View Site'): array
 }
 
 
-function mp_view_stream_post_action(array $page, string $label = 'View Post'): array
+function bms_view_stream_post_action(array $page, string $label = 'View Post'): array
 {
     return [
         'label' => $label,
-        'href' => mp_stream_url((string)($page['slug'] ?? ''), (string)($page['category'] ?? '')),
+        'href' => bms_stream_url((string)($page['slug'] ?? ''), (string)($page['category'] ?? '')),
         'style' => 'secondary',
         'target' => true,
         'class' => 'view-stream-post-action',
@@ -45,86 +45,86 @@ function mp_view_stream_post_action(array $page, string $label = 'View Post'): a
 }
 
 
-function mp_admin_error_page(string $title, string $message, int $status = 404, array $actions = []): void
+function bms_admin_error_page(string $title, string $message, int $status = 404, array $actions = []): void
 {
     http_response_code($status);
     if (!$actions) {
         $actions = [
-            ['label' => 'Dashboard', 'href' => mp_admin_url(), 'style' => 'secondary'],
-            ['label' => 'Stream Posts', 'href' => mp_admin_url('content.php'), 'style' => 'primary'],
+            ['label' => 'Dashboard', 'href' => bms_admin_url(), 'style' => 'secondary'],
+            ['label' => 'Stream Posts', 'href' => bms_admin_url('content.php'), 'style' => 'primary'],
         ];
     }
-    mp_admin_header($title, $actions);
+    bms_admin_header($title, $actions);
     echo '<section class="panel admin-error-panel">';
     echo '<p class="eyebrow">Needs attention</p>';
     echo '<h2>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</h2>';
     echo '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>';
     echo '</section>';
-    mp_admin_footer();
+    bms_admin_footer();
     exit;
 }
 
-function mp_admin_header(string $title, array $actions = []): void
+function bms_admin_header(string $title, array $actions = []): void
 {
-    mp_send_security_headers();
+    bms_send_security_headers();
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
-    $styleUrl = htmlspecialchars(mp_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
-    $adminStyleUrl = htmlspecialchars(mp_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
-    $adminScriptUrl = htmlspecialchars(mp_asset_url('assets/admin.js'), ENT_QUOTES, 'UTF-8');
-    $siteUrl = htmlspecialchars(mp_url_path(), ENT_QUOTES, 'UTF-8');
-    $dashboardUrl = htmlspecialchars(mp_admin_url(), ENT_QUOTES, 'UTF-8');
-    $contentUrl = htmlspecialchars(mp_admin_url('content.php'), ENT_QUOTES, 'UTF-8');
-    $addNewUrl = htmlspecialchars(mp_admin_url('new.php'), ENT_QUOTES, 'UTF-8');
-    $pagesUrl = htmlspecialchars(mp_admin_url('pages.php'), ENT_QUOTES, 'UTF-8');
-    $pageNewUrl = htmlspecialchars(mp_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8');
-    $pageTrashUrl = htmlspecialchars(mp_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8');
-    $trashUrl = htmlspecialchars(mp_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8');
-    $revisionsUrl = htmlspecialchars(mp_admin_url('revisions.php'), ENT_QUOTES, 'UTF-8');
-    $mediaUrl = htmlspecialchars(mp_admin_url('media.php'), ENT_QUOTES, 'UTF-8');
-    $mediaUploadUrl = htmlspecialchars(mp_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8');
-    $mediaTrashUrl = htmlspecialchars(mp_admin_url('media.php?status=trash'), ENT_QUOTES, 'UTF-8');
-    $appearanceUrl = htmlspecialchars(mp_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
-    $themeUrl = htmlspecialchars(mp_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
-    $themeInstallUrl = htmlspecialchars(mp_admin_url('theme-install.php'), ENT_QUOTES, 'UTF-8');
-    $themeSettingsUrl = htmlspecialchars(mp_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8');
-    $navigationUrl = htmlspecialchars(mp_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8');
-    $siteIdentityUrl = htmlspecialchars(mp_admin_url('site-identity.php'), ENT_QUOTES, 'UTF-8');
-    $usersUrl = htmlspecialchars(mp_admin_url('users.php'), ENT_QUOTES, 'UTF-8');
-    $commentsUrl = htmlspecialchars(mp_admin_url('comments.php'), ENT_QUOTES, 'UTF-8');
-    $settingsUrl = htmlspecialchars(mp_admin_url('settings.php'), ENT_QUOTES, 'UTF-8');
-    $writingUrl = htmlspecialchars(mp_admin_url('settings-writing.php'), ENT_QUOTES, 'UTF-8');
-    $readingUrl = htmlspecialchars(mp_admin_url('settings-reading.php'), ENT_QUOTES, 'UTF-8');
-    $registrationUrl = htmlspecialchars(mp_admin_url('registration.php'), ENT_QUOTES, 'UTF-8');
-    $mailUrl = htmlspecialchars(mp_admin_url('mail.php'), ENT_QUOTES, 'UTF-8');
-    $toolsUrl = htmlspecialchars(mp_admin_url('tools.php'), ENT_QUOTES, 'UTF-8');
-    $upgradeUrl = htmlspecialchars(mp_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8');
-    $exportUrl = htmlspecialchars(mp_admin_url('export.php'), ENT_QUOTES, 'UTF-8');
-    $importUrl = htmlspecialchars(mp_admin_url('import.php'), ENT_QUOTES, 'UTF-8');
-    $helpUrl = htmlspecialchars(mp_admin_url('help.php'), ENT_QUOTES, 'UTF-8');
-    $systemCheckUrl = htmlspecialchars(mp_admin_url('system-check.php'), ENT_QUOTES, 'UTF-8');
-    $accountUrl = htmlspecialchars(mp_admin_url('user.php'), ENT_QUOTES, 'UTF-8');
-    $logoutUrl = htmlspecialchars(mp_admin_url('logout.php'), ENT_QUOTES, 'UTF-8');
-    $csrf = function_exists('mp_csrf_token') ? htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') : '';
+    $styleUrl = htmlspecialchars(bms_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
+    $adminStyleUrl = htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
+    $adminScriptUrl = htmlspecialchars(bms_asset_url('assets/admin.js'), ENT_QUOTES, 'UTF-8');
+    $siteUrl = htmlspecialchars(bms_url_path(), ENT_QUOTES, 'UTF-8');
+    $dashboardUrl = htmlspecialchars(bms_admin_url(), ENT_QUOTES, 'UTF-8');
+    $contentUrl = htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8');
+    $addNewUrl = htmlspecialchars(bms_admin_url('new.php'), ENT_QUOTES, 'UTF-8');
+    $pagesUrl = htmlspecialchars(bms_admin_url('pages.php'), ENT_QUOTES, 'UTF-8');
+    $pageNewUrl = htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8');
+    $pageTrashUrl = htmlspecialchars(bms_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8');
+    $trashUrl = htmlspecialchars(bms_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8');
+    $revisionsUrl = htmlspecialchars(bms_admin_url('revisions.php'), ENT_QUOTES, 'UTF-8');
+    $mediaUrl = htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8');
+    $mediaUploadUrl = htmlspecialchars(bms_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8');
+    $mediaTrashUrl = htmlspecialchars(bms_admin_url('media.php?status=trash'), ENT_QUOTES, 'UTF-8');
+    $appearanceUrl = htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
+    $themeUrl = htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
+    $themeInstallUrl = htmlspecialchars(bms_admin_url('theme-install.php'), ENT_QUOTES, 'UTF-8');
+    $themeSettingsUrl = htmlspecialchars(bms_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8');
+    $navigationUrl = htmlspecialchars(bms_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8');
+    $siteIdentityUrl = htmlspecialchars(bms_admin_url('site-identity.php'), ENT_QUOTES, 'UTF-8');
+    $usersUrl = htmlspecialchars(bms_admin_url('users.php'), ENT_QUOTES, 'UTF-8');
+    $commentsUrl = htmlspecialchars(bms_admin_url('comments.php'), ENT_QUOTES, 'UTF-8');
+    $settingsUrl = htmlspecialchars(bms_admin_url('settings.php'), ENT_QUOTES, 'UTF-8');
+    $writingUrl = htmlspecialchars(bms_admin_url('settings-writing.php'), ENT_QUOTES, 'UTF-8');
+    $readingUrl = htmlspecialchars(bms_admin_url('settings-reading.php'), ENT_QUOTES, 'UTF-8');
+    $registrationUrl = htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8');
+    $mailUrl = htmlspecialchars(bms_admin_url('mail.php'), ENT_QUOTES, 'UTF-8');
+    $toolsUrl = htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8');
+    $upgradeUrl = htmlspecialchars(bms_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8');
+    $exportUrl = htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8');
+    $importUrl = htmlspecialchars(bms_admin_url('import.php'), ENT_QUOTES, 'UTF-8');
+    $helpUrl = htmlspecialchars(bms_admin_url('help.php'), ENT_QUOTES, 'UTF-8');
+    $systemCheckUrl = htmlspecialchars(bms_admin_url('system-check.php'), ENT_QUOTES, 'UTF-8');
+    $accountUrl = htmlspecialchars(bms_admin_url('user.php'), ENT_QUOTES, 'UTF-8');
+    $logoutUrl = htmlspecialchars(bms_admin_url('logout.php'), ENT_QUOTES, 'UTF-8');
+    $csrf = function_exists('bms_csrf_token') ? htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') : '';
     $currentAdminFile = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
     $sectionOpen = static function (array $files) use ($currentAdminFile): string {
         return in_array($currentAdminFile, $files, true) ? ' open' : '';
     };
     $can = static function (string $capability): bool {
-        return function_exists('mp_current_user_can') && mp_current_user_can($capability);
+        return function_exists('bms_current_user_can') && bms_current_user_can($capability);
     };
 
     $displayName = 'Admin';
     $username = 'admin';
-    $adminProfileUrl = mp_admin_url('user.php');
-    $publicProfileUrl = mp_url_path('profile.php');
-    if (function_exists('mp_is_logged_in') && mp_is_logged_in()) {
-        $user = mp_current_user();
+    $adminProfileUrl = bms_admin_url('user.php');
+    $publicProfileUrl = bms_url_path('profile.php');
+    if (function_exists('bms_is_logged_in') && bms_is_logged_in()) {
+        $user = bms_current_user();
         $displayName = (string)($user['display_name'] ?? 'Admin');
         $username = (string)($user['username'] ?? 'admin');
-        if (function_exists('mp_public_profile_url_for_user')) {
-            $publicProfileUrl = mp_public_profile_url_for_user($user);
+        if (function_exists('bms_public_profile_url_for_user')) {
+            $publicProfileUrl = bms_public_profile_url_for_user($user);
         } elseif (trim($username) !== '') {
-            $publicProfileUrl = mp_url_path('profile.php?user=' . rawurlencode($username));
+            $publicProfileUrl = bms_url_path('profile.php?user=' . rawurlencode($username));
         }
     }
     $safeDisplayName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
@@ -134,10 +134,10 @@ function mp_admin_header(string $title, array $actions = []): void
     $safePublicProfileUrl = htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8');
     $profileOwnerLabel = trim($displayName) !== '' ? $displayName : (trim($username) !== '' ? $username : 'current user');
     $safeProfileOwnerLabel = htmlspecialchars($profileOwnerLabel, ENT_QUOTES, 'UTF-8');
-    $adminFaviconTags = function_exists('mp_site_favicon_tags') ? mp_site_favicon_tags() : '';
+    $adminFaviconTags = function_exists('bms_site_favicon_tags') ? bms_site_favicon_tags() : '';
     $adminAvatarMarkup = '';
-    if (function_exists('mp_is_logged_in') && mp_is_logged_in() && function_exists('mp_user_avatar_markup')) {
-        $adminAvatarMarkup = '<span class="admin-user-avatar">' . mp_user_avatar_markup(mp_current_user(), 'admin-user-avatar-image', 96, 96, false) . '</span>';
+    if (function_exists('bms_is_logged_in') && bms_is_logged_in() && function_exists('bms_user_avatar_markup')) {
+        $adminAvatarMarkup = '<span class="admin-user-avatar">' . bms_user_avatar_markup(bms_current_user(), 'admin-user-avatar-image', 96, 96, false) . '</span>';
     }
 
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . '<link rel="stylesheet" href="' . $styleUrl . '">
@@ -148,10 +148,6 @@ function mp_admin_header(string $title, array $actions = []): void
 
     echo '<details class="admin-nav-section"' . $sectionOpen(['content.php', 'new.php', 'edit.php', 'preview.php', 'publish.php', 'unpublish.php', 'quick-edit.php', 'revisions.php', 'compare-revision.php', 'restore-revision.php', 'restore.php', 'delete.php', 'delete-permanent.php']) . '><summary class="admin-nav-heading">Stream Posts</summary><div class="admin-nav-links">';
     echo '<a href="' . $contentUrl . '">All Stream Posts</a>';
-    if ($can('publish_content') && !mp_current_user_has_standard_user_role() && function_exists('mp_review_queue_count')) {
-        $reviewQueueCount = mp_review_queue_count();
-        echo '<a href="' . htmlspecialchars(mp_admin_url('content.php?status=review'), ENT_QUOTES, 'UTF-8') . '">Review Queue' . ($reviewQueueCount > 0 ? ' <span class="nav-count">' . (int)$reviewQueueCount . '</span>' : '') . '</a>';
-    }
     echo '<a href="' . $addNewUrl . '">New Stream Post</a>';
     echo '<a href="' . $trashUrl . '">Trash</a>';
     echo '<a href="' . $revisionsUrl . '">Revisions</a>';
@@ -191,7 +187,7 @@ function mp_admin_header(string $title, array $actions = []): void
 
     echo '<details class="admin-nav-section"' . $sectionOpen(['users.php', 'user.php']) . '><summary class="admin-nav-heading">Account</summary><div class="admin-nav-links">';
     if ($can('manage_users')) {
-        echo '<a href="' . $usersUrl . '">All Users</a>';
+        echo '<a href="' . $usersUrl . '">Accounts</a>';
     }
     echo '<a href="' . $accountUrl . '">Profile</a>';
     echo '</div></details>';
@@ -228,7 +224,7 @@ function mp_admin_header(string $title, array $actions = []): void
 
     echo '<section class="admin-main"><header class="admin-topbar"><div class="admin-topbar-title">' . $safeTitle . '</div><div class="admin-user">' . $adminAvatarMarkup . '<span>Signed in as</span> <a class="admin-user-name" href="' . $safeAdminProfileUrl . '" aria-label="Edit profile for ' . $safeProfileOwnerLabel . '"><strong>' . $safeDisplayName . '</strong></a> <a class="admin-user-handle" href="' . $safePublicProfileUrl . '" target="_blank" rel="noopener" aria-label="View public profile for ' . $safeProfileOwnerLabel . '">' . $safeHandleLabel . '</a></div></header><main class="admin-content">';
 
-    $flashes = mp_get_flash();
+    $flashes = bms_get_flash();
     if ($flashes) {
         echo '<div class="notice-stack" aria-live="polite">';
         foreach ($flashes as $flash) {
@@ -252,22 +248,13 @@ function mp_admin_header(string $title, array $actions = []): void
         }
         echo '</div>';
     }
-    if ($can('manage_users') && function_exists('mp_user_pending_counts')) {
-        $pendingCounts = mp_user_pending_counts();
+    if ($can('manage_users') && function_exists('bms_user_pending_counts')) {
+        $pendingCounts = bms_user_pending_counts();
         $pendingApproval = (int)($pendingCounts['pending_approval'] ?? 0);
         if ($pendingApproval > 0) {
-            $usersLink = htmlspecialchars(mp_admin_url('users.php'), ENT_QUOTES, 'UTF-8');
+            $usersLink = htmlspecialchars(bms_admin_url('users.php'), ENT_QUOTES, 'UTF-8');
             $plural = $pendingApproval === 1 ? 'account is' : 'accounts are';
-            echo '<div class="notice-stack" aria-live="polite"><div class="flash notice warning" role="status"><span class="notice-icon" aria-hidden="true">!</span><div class="notice-copy"><strong>Approval needed</strong><p>' . $pendingApproval . ' ' . $plural . ' waiting for admin approval. <a href="' . $usersLink . '">Review pending users</a>.</p></div></div></div>';
-        }
-    }
-
-    if ($can('publish_content') && !mp_current_user_has_standard_user_role() && function_exists('mp_review_queue_count')) {
-        $reviewQueueCount = mp_review_queue_count();
-        if ($reviewQueueCount > 0) {
-            $reviewLink = htmlspecialchars(mp_admin_url('content.php?status=review'), ENT_QUOTES, 'UTF-8');
-            $plural = $reviewQueueCount === 1 ? 'post is' : 'posts are';
-            echo '<div class="notice-stack" aria-live="polite"><div class="flash notice warning" role="status"><span class="notice-icon" aria-hidden="true">!</span><div class="notice-copy"><strong>Review queue</strong><p>' . $reviewQueueCount . ' user-submitted ' . $plural . ' waiting for review. <a href="' . $reviewLink . '">Open review queue</a>.</p></div></div></div>';
+            echo '<div class="notice-stack" aria-live="polite"><div class="flash notice warning" role="status"><span class="notice-icon" aria-hidden="true">!</span><div class="notice-copy"><strong>Approval needed</strong><p>' . $pendingApproval . ' ' . $plural . ' waiting for admin approval. <a href="' . $usersLink . '">Review pending commenters</a>.</p></div></div></div>';
         }
     }
 
@@ -275,15 +262,15 @@ function mp_admin_header(string $title, array $actions = []): void
     if ($actions) {
         echo '<div class="admin-page-actions">';
         foreach ($actions as $action) {
-            echo mp_admin_action_link($action);
+            echo bms_admin_action_link($action);
         }
         echo '</div>';
     }
     echo '</div>';
 }
 
-function mp_admin_footer(): void
+function bms_admin_footer(): void
 {
-    $version = htmlspecialchars(mp_version(), ENT_QUOTES, 'UTF-8');
+    $version = htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8');
     echo '<footer class="admin-footer">Bonumark Stream v' . $version . '</footer></main></section></div></body></html>';
 }

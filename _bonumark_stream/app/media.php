@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/database.php';
 
-function mp_allowed_media_extensions(): array
+function bms_allowed_media_extensions(): array
 {
     return [
         'jpg' => 'image/jpeg',
@@ -23,49 +23,49 @@ function mp_allowed_media_extensions(): array
     ];
 }
 
-function mp_allowed_media_accept_attribute(): string
+function bms_allowed_media_accept_attribute(): string
 {
     return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt';
 }
 
-function mp_allowed_media_extensions_label(): string
+function bms_allowed_media_extensions_label(): string
 {
     return 'JPG, PNG, GIF, WebP, MP3, M4A, WAV, OGG, MP4, WebM, MOV, PDF, DOC, DOCX, and TXT';
 }
 
-function mp_media_public_root(string $path = ''): string
+function bms_media_public_root(string $path = ''): string
 {
-    return mp_public_path('media' . ($path ? '/' . ltrim($path, '/') : ''));
+    return bms_public_path('media' . ($path ? '/' . ltrim($path, '/') : ''));
 }
 
-function mp_media_url(string $relativePath): string
+function bms_media_url(string $relativePath): string
 {
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
     if (str_starts_with($relativePath, 'media/')) {
-        return mp_url_path($relativePath);
+        return bms_url_path($relativePath);
     }
-    return mp_url_path('media/' . $relativePath);
+    return bms_url_path('media/' . $relativePath);
 }
 
-function mp_media_safe_name(string $originalName): string
+function bms_media_safe_name(string $originalName): string
 {
     $name = pathinfo($originalName, PATHINFO_FILENAME);
-    $slug = mp_slugify($name !== '' ? $name : 'media');
+    $slug = bms_slugify($name !== '' ? $name : 'media');
     return $slug !== '' ? $slug : 'media';
 }
 
-function mp_media_file_hash(string $path): string
+function bms_media_file_hash(string $path): string
 {
     return is_file($path) ? hash_file('sha256', $path) : '';
 }
 
-function mp_media_expected_mime_for_extension(string $extension): string
+function bms_media_expected_mime_for_extension(string $extension): string
 {
-    $allowed = mp_allowed_media_extensions();
+    $allowed = bms_allowed_media_extensions();
     return (string)($allowed[strtolower($extension)] ?? 'application/octet-stream');
 }
 
-function mp_media_mime_matches_extension(string $extension, string $mime): bool
+function bms_media_mime_matches_extension(string $extension, string $mime): bool
 {
     $extension = strtolower($extension);
     $mime = strtolower(trim($mime));
@@ -73,7 +73,7 @@ function mp_media_mime_matches_extension(string $extension, string $mime): bool
         return true;
     }
 
-    $expected = strtolower(mp_media_expected_mime_for_extension($extension));
+    $expected = strtolower(bms_media_expected_mime_for_extension($extension));
     if ($mime === $expected) {
         return true;
     }
@@ -95,35 +95,18 @@ function mp_media_mime_matches_extension(string $extension, string $mime): bool
 }
 
 
-function mp_media_role_upload_limit_mb(string $role): int
+function bms_current_media_upload_limit_mb(): int
 {
-    $role = function_exists('mp_normalize_role') ? mp_normalize_role($role) : strtolower(trim($role));
-    $key = match ($role) {
-        'administrator' => 'media_limit_administrator_mb',
-        'commenter' => 'media_limit_commenter_mb',
-        default => 'media_limit_user_mb',
-    };
-    $fallback = match ($role) {
-        'administrator' => 32,
-        'commenter' => 2,
-        default => 8,
-    };
-    $mb = (int)mp_setting_or_config($key, (string)$fallback);
+    $mb = (int)bms_setting_or_config('media_upload_limit_mb', '32');
     return max(1, min(128, $mb));
 }
 
-function mp_current_media_upload_limit_mb(): int
+function bms_current_media_upload_limit_bytes(): int
 {
-    $user = function_exists('mp_current_user') ? mp_current_user() : ['role' => 'user'];
-    return mp_media_role_upload_limit_mb((string)($user['role'] ?? 'user'));
+    return bms_current_media_upload_limit_mb() * 1024 * 1024;
 }
 
-function mp_current_media_upload_limit_bytes(): int
-{
-    return mp_current_media_upload_limit_mb() * 1024 * 1024;
-}
-
-function mp_media_validate_upload(array $file): array
+function bms_media_validate_upload(array $file): array
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         throw new RuntimeException('Upload failed. Choose a media file and try again.');
@@ -131,18 +114,18 @@ function mp_media_validate_upload(array $file): array
 
     $originalName = (string)($file['name'] ?? '');
     $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    $allowed = mp_allowed_media_extensions();
+    $allowed = bms_allowed_media_extensions();
     if (!isset($allowed[$extension])) {
-        throw new RuntimeException('Unsupported media type. Allowed formats: ' . mp_allowed_media_extensions_label() . '.');
+        throw new RuntimeException('Unsupported media type. Allowed formats: ' . bms_allowed_media_extensions_label() . '.');
     }
 
     $size = (int)($file['size'] ?? 0);
     if ($size <= 0) {
         throw new RuntimeException('The uploaded media file was empty.');
     }
-    $limitBytes = mp_current_media_upload_limit_bytes();
+    $limitBytes = bms_current_media_upload_limit_bytes();
     if ($size > $limitBytes) {
-        throw new RuntimeException('Media file is too large. Keep uploads under ' . mp_media_human_size($limitBytes) . ' for your role.');
+        throw new RuntimeException('Media file is too large. Keep uploads under ' . bms_media_human_size($limitBytes) . '.');
     }
 
     $tmp = (string)($file['tmp_name'] ?? '');
@@ -173,7 +156,7 @@ function mp_media_validate_upload(array $file): array
         }
     }
 
-    if (!mp_media_mime_matches_extension($extension, $mime)) {
+    if (!bms_media_mime_matches_extension($extension, $mime)) {
         throw new RuntimeException('Media type did not match the file extension.');
     }
 
@@ -193,13 +176,13 @@ function mp_media_validate_upload(array $file): array
     ];
 }
 
-function mp_media_unique_relative_path(string $originalName, string $extension): string
+function bms_media_unique_relative_path(string $originalName, string $extension): string
 {
     $folder = date('Y/m');
-    $base = mp_media_safe_name($originalName);
+    $base = bms_media_safe_name($originalName);
     $relative = $folder . '/' . $base . '.' . $extension;
     $counter = 2;
-    while (is_file(mp_media_public_root($relative))) {
+    while (is_file(bms_media_public_root($relative))) {
         $relative = $folder . '/' . $base . '-' . $counter . '.' . $extension;
         $counter++;
     }
@@ -207,41 +190,34 @@ function mp_media_unique_relative_path(string $originalName, string $extension):
 }
 
 
-function mp_media_user_can_manage_item(array $media): bool
+function bms_media_user_can_manage_item(array $media): bool
 {
-    if (!function_exists('mp_current_user')) {
+    if (!function_exists('bms_current_user')) {
         return false;
     }
 
-    $user = mp_current_user();
-    $role = function_exists('mp_normalize_role') ? mp_normalize_role((string)($user['role'] ?? 'user')) : (string)($user['role'] ?? 'user');
-    if ($role === 'administrator') {
-        return true;
-    }
-
-    $ownerId = (int)($media['uploaded_by'] ?? 0);
-    return $role === 'user' && $ownerId > 0 && $ownerId === (int)($user['id'] ?? 0);
+    return function_exists('bms_current_user_can') && bms_current_user_can('manage_media');
 }
 
-function mp_require_media_item_access(array $media): void
+function bms_require_media_item_access(array $media): void
 {
-    if (!mp_media_user_can_manage_item($media)) {
-        mp_abort_request('You do not have permission to manage this media item.', 403);
+    if (!bms_media_user_can_manage_item($media)) {
+        bms_abort_request('You do not have permission to manage this media item.', 403);
     }
 }
 
-function mp_media_normalize_status(string $status): string
+function bms_media_normalize_status(string $status): string
 {
     $status = strtolower(trim($status));
     return in_array($status, ['active', 'trash', 'all'], true) ? $status : 'active';
 }
 
-function mp_media_is_trashed(array $media): bool
+function bms_media_is_trashed(array $media): bool
 {
     return trim((string)($media['trashed_at'] ?? '')) !== '';
 }
 
-function mp_media_ids_from_request(array $source): array
+function bms_media_ids_from_request(array $source): array
 {
     $raw = $source['media_ids'] ?? [];
     if (!is_array($raw)) {
@@ -258,26 +234,21 @@ function mp_media_ids_from_request(array $source): array
     return array_values($ids);
 }
 
-function mp_media_user_scope_sql(string $alias = ''): array
+function bms_media_user_scope_sql(string $alias = ''): array
 {
-    if (!function_exists('mp_current_user_has_standard_user_role') || !mp_current_user_has_standard_user_role()) {
-        return ['', []];
-    }
-
-    $prefix = $alias !== '' ? rtrim($alias, '.') . '.' : '';
-    return [$prefix . 'uploaded_by = :current_media_user', ['current_media_user' => (int)(mp_current_user()['id'] ?? 0)]];
+    return ['', []];
 }
 
-function mp_media_upload(array $file, string $altText = '', string $caption = '', array $options = []): array
+function bms_media_upload(array $file, string $altText = '', string $caption = '', array $options = []): array
 {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         throw new RuntimeException('Bonumark Stream must be installed before uploading media.');
     }
 
-    $valid = mp_media_validate_upload($file);
+    $valid = bms_media_validate_upload($file);
     $generateDerivatives = array_key_exists('generate_derivatives', $options) ? (bool)$options['generate_derivatives'] : true;
-    $relative = mp_media_unique_relative_path((string)$valid['original_name'], (string)$valid['extension']);
-    $destination = mp_media_public_root($relative);
+    $relative = bms_media_unique_relative_path((string)$valid['original_name'], (string)$valid['extension']);
+    $destination = bms_media_public_root($relative);
     $dir = dirname($destination);
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
         throw new RuntimeException('Could not create the media upload folder.');
@@ -293,7 +264,7 @@ function mp_media_upload(array $file, string $altText = '', string $caption = ''
     $altText = trim($altText);
     $caption = trim($caption);
     if ($altText === '') {
-        $altText = str_replace('-', ' ', mp_media_safe_name((string)$valid['original_name']));
+        $altText = str_replace('-', ' ', bms_media_safe_name((string)$valid['original_name']));
     }
 
     $storedSize = is_file($destination) ? (int)filesize($destination) : (int)$valid['size'];
@@ -309,11 +280,11 @@ function mp_media_upload(array $file, string $altText = '', string $caption = ''
 
     $imageVariants = [];
     if ($generateDerivatives && str_starts_with((string)$valid['mime'], 'image/')) {
-        $imageVariants = mp_media_generate_upload_derivatives('media/' . $relative);
+        $imageVariants = bms_media_generate_upload_derivatives('media/' . $relative);
     }
     $imageVariantsJson = $imageVariants ? json_encode($imageVariants, JSON_UNESCAPED_SLASHES) : null;
 
-    $stmt = mp_db()->prepare('INSERT INTO ' . mp_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, NOW(), NOW())');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, NOW(), NOW())');
     $stmt->execute([
         'filename' => basename($relative),
         'original_filename' => (string)$valid['original_name'],
@@ -324,24 +295,24 @@ function mp_media_upload(array $file, string $altText = '', string $caption = ''
         'height' => $storedHeight > 0 ? $storedHeight : null,
         'alt_text' => $altText,
         'caption' => $caption,
-        'uploaded_by' => mp_current_user_id(),
-        'file_hash' => mp_media_file_hash($destination),
+        'uploaded_by' => bms_current_user_id(),
+        'file_hash' => bms_media_file_hash($destination),
         'image_variants_json' => $imageVariantsJson,
     ]);
 
-    return mp_media_find((int)mp_db()->lastInsertId()) ?? [];
+    return bms_media_find((int)bms_db()->lastInsertId()) ?? [];
 }
 
-function mp_media_list(int $limit = 100, string $search = '', string $status = 'active'): array
+function bms_media_list(int $limit = 100, string $search = '', string $status = 'active'): array
 {
     try {
         $limit = max(1, min(500, $limit));
-        $status = mp_media_normalize_status($status);
-        $sql = 'SELECT * FROM ' . mp_table('media');
+        $status = bms_media_normalize_status($status);
+        $sql = 'SELECT * FROM ' . bms_table('media');
         $params = [];
         $where = [];
 
-        [$ownerWhere, $ownerParams] = mp_media_user_scope_sql();
+        [$ownerWhere, $ownerParams] = bms_media_user_scope_sql();
         if ($ownerWhere !== '') {
             $where[] = $ownerWhere;
             $params = array_merge($params, $ownerParams);
@@ -366,7 +337,7 @@ function mp_media_list(int $limit = 100, string $search = '', string $status = '
         $sql .= $status === 'trash'
             ? ' ORDER BY trashed_at DESC, updated_at DESC, id DESC LIMIT ' . $limit
             : ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit;
-        $stmt = mp_db()->prepare($sql);
+        $stmt = bms_db()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll() ?: [];
     } catch (Throwable $e) {
@@ -374,13 +345,13 @@ function mp_media_list(int $limit = 100, string $search = '', string $status = '
     }
 }
 
-function mp_media_find(int $id): ?array
+function bms_media_find(int $id): ?array
 {
     if ($id <= 0) {
         return null;
     }
     try {
-        $stmt = mp_db()->prepare('SELECT * FROM ' . mp_table('media') . ' WHERE id = :id LIMIT 1');
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('media') . ' WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return is_array($row) ? $row : null;
@@ -389,9 +360,9 @@ function mp_media_find(int $id): ?array
     }
 }
 
-function mp_media_find_by_public_path(string $publicPath): ?array
+function bms_media_find_by_public_path(string $publicPath): ?array
 {
-    $relative = mp_media_public_relative_from_url($publicPath);
+    $relative = bms_media_public_relative_from_url($publicPath);
     if ($relative === '') {
         $relative = trim(str_replace('\\', '/', html_entity_decode($publicPath, ENT_QUOTES | ENT_HTML5, 'UTF-8')), '/');
     }
@@ -402,12 +373,12 @@ function mp_media_find_by_public_path(string $publicPath): ?array
     if (preg_match('#(^|/)\.\.(/|$)#', $relative) === 1 || preg_match('/[\r\n]/', $relative) === 1) {
         return null;
     }
-    if (function_exists('mp_is_installed') && !mp_is_installed()) {
+    if (function_exists('bms_is_installed') && !bms_is_installed()) {
         return null;
     }
 
     try {
-        $stmt = mp_db()->prepare('SELECT * FROM ' . mp_table('media') . ' WHERE public_path = :public_path LIMIT 1');
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('media') . ' WHERE public_path = :public_path LIMIT 1');
         $stmt->execute(['public_path' => $relative]);
         $row = $stmt->fetch();
         return is_array($row) ? $row : null;
@@ -416,17 +387,17 @@ function mp_media_find_by_public_path(string $publicPath): ?array
     }
 }
 
-function mp_media_update(int $id, string $altText, string $caption): void
+function bms_media_update(int $id, string $altText, string $caption): void
 {
     if ($id <= 0) {
         throw new RuntimeException('Invalid media item.');
     }
-    $media = mp_media_find($id);
+    $media = bms_media_find($id);
     if (!$media) {
         throw new RuntimeException('Media item not found.');
     }
-    mp_require_media_item_access($media);
-    $stmt = mp_db()->prepare('UPDATE ' . mp_table('media') . ' SET alt_text = :alt_text, caption = :caption, updated_at = NOW() WHERE id = :id');
+    bms_require_media_item_access($media);
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('media') . ' SET alt_text = :alt_text, caption = :caption, updated_at = NOW() WHERE id = :id');
     $stmt->execute([
         'alt_text' => trim($altText),
         'caption' => trim($caption),
@@ -434,69 +405,69 @@ function mp_media_update(int $id, string $altText, string $caption): void
     ]);
 }
 
-function mp_media_trash(int $id): void
+function bms_media_trash(int $id): void
 {
-    $media = mp_media_find($id);
+    $media = bms_media_find($id);
     if (!$media) {
         throw new RuntimeException('Media item not found.');
     }
-    mp_require_media_item_access($media);
-    if (mp_media_is_trashed($media)) {
+    bms_require_media_item_access($media);
+    if (bms_media_is_trashed($media)) {
         return;
     }
 
-    $stmt = mp_db()->prepare('UPDATE ' . mp_table('media') . ' SET trashed_at = NOW(), trashed_by = :trashed_by, updated_at = NOW() WHERE id = :id');
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('media') . ' SET trashed_at = NOW(), trashed_by = :trashed_by, updated_at = NOW() WHERE id = :id');
     $stmt->execute([
-        'trashed_by' => function_exists('mp_current_user_id') ? mp_current_user_id() : null,
+        'trashed_by' => function_exists('bms_current_user_id') ? bms_current_user_id() : null,
         'id' => $id,
     ]);
 }
 
-function mp_media_restore(int $id): void
+function bms_media_restore(int $id): void
 {
-    $media = mp_media_find($id);
+    $media = bms_media_find($id);
     if (!$media) {
         throw new RuntimeException('Media item not found.');
     }
-    mp_require_media_item_access($media);
-    if (!mp_media_is_trashed($media)) {
+    bms_require_media_item_access($media);
+    if (!bms_media_is_trashed($media)) {
         return;
     }
 
-    $stmt = mp_db()->prepare('UPDATE ' . mp_table('media') . ' SET trashed_at = NULL, trashed_by = NULL, updated_at = NOW() WHERE id = :id');
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('media') . ' SET trashed_at = NULL, trashed_by = NULL, updated_at = NOW() WHERE id = :id');
     $stmt->execute(['id' => $id]);
 }
 
-function mp_media_delete_permanently(int $id): void
+function bms_media_delete_permanently(int $id): void
 {
-    $media = mp_media_find($id);
+    $media = bms_media_find($id);
     if (!$media) {
         throw new RuntimeException('Media item not found.');
     }
-    mp_require_media_item_access($media);
-    if (!mp_media_is_trashed($media)) {
+    bms_require_media_item_access($media);
+    if (!bms_media_is_trashed($media)) {
         throw new RuntimeException('Move this media item to trash before permanent deletion.');
     }
 
     $publicPath = trim((string)($media['public_path'] ?? ''));
     if ($publicPath !== '' && str_starts_with($publicPath, 'media/')) {
-        $file = mp_public_path($publicPath);
+        $file = bms_public_path($publicPath);
         if (is_file($file)) {
             @unlink($file);
         }
-        mp_media_delete_recorded_variants($media);
-        mp_media_delete_generated_variants($publicPath);
+        bms_media_delete_recorded_variants($media);
+        bms_media_delete_generated_variants($publicPath);
     }
-    $stmt = mp_db()->prepare('DELETE FROM ' . mp_table('media') . ' WHERE id = :id');
+    $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('media') . ' WHERE id = :id');
     $stmt->execute(['id' => $id]);
 }
 
-function mp_media_delete(int $id): void
+function bms_media_delete(int $id): void
 {
-    mp_media_trash($id);
+    bms_media_trash($id);
 }
 
-function mp_media_bulk_action(array $ids, string $action): array
+function bms_media_bulk_action(array $ids, string $action): array
 {
     $action = strtolower(trim($action));
     $results = [
@@ -511,11 +482,11 @@ function mp_media_bulk_action(array $ids, string $action): array
         }
         try {
             if ($action === 'trash') {
-                mp_media_trash($id);
+                bms_media_trash($id);
             } elseif ($action === 'restore') {
-                mp_media_restore($id);
+                bms_media_restore($id);
             } elseif ($action === 'delete_permanently') {
-                mp_media_delete_permanently($id);
+                bms_media_delete_permanently($id);
             } else {
                 throw new RuntimeException('Unsupported bulk media action.');
             }
@@ -529,7 +500,7 @@ function mp_media_bulk_action(array $ids, string $action): array
     return $results;
 }
 
-function mp_media_bulk_action_label(string $action): string
+function bms_media_bulk_action_label(string $action): string
 {
     return match (strtolower(trim($action))) {
         'trash' => 'moved to trash',
@@ -539,17 +510,17 @@ function mp_media_bulk_action_label(string $action): string
     };
 }
 
-function mp_media_public_url_for_item(array $media): string
+function bms_media_public_url_for_item(array $media): string
 {
     $publicPath = trim((string)($media['public_path'] ?? ''));
     if (str_starts_with($publicPath, 'media/')) {
-        return mp_url_path($publicPath);
+        return bms_url_path($publicPath);
     }
-    return mp_media_url($publicPath);
+    return bms_media_url($publicPath);
 }
 
 
-function mp_media_filename_lookup_key(string $filename): string
+function bms_media_filename_lookup_key(string $filename): string
 {
     $filename = basename(rawurldecode(str_replace('\\', '/', html_entity_decode(trim($filename), ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
     if ($filename === '') {
@@ -558,7 +529,7 @@ function mp_media_filename_lookup_key(string $filename): string
 
     $extension = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
     $name = (string)pathinfo($filename, PATHINFO_FILENAME);
-    $slug = function_exists('mp_slugify') ? mp_slugify($name) : strtolower((string)preg_replace('/[^A-Za-z0-9]+/', '-', $name));
+    $slug = function_exists('bms_slugify') ? bms_slugify($name) : strtolower((string)preg_replace('/[^A-Za-z0-9]+/', '-', $name));
     $slug = trim($slug, '-');
     if ($slug === '') {
         return '';
@@ -567,9 +538,9 @@ function mp_media_filename_lookup_key(string $filename): string
     return $slug . ($extension !== '' ? '.' . $extension : '');
 }
 
-function mp_media_filename_lookup_stem(string $filename): string
+function bms_media_filename_lookup_stem(string $filename): string
 {
-    $key = mp_media_filename_lookup_key($filename);
+    $key = bms_media_filename_lookup_key($filename);
     if ($key === '') {
         return '';
     }
@@ -582,7 +553,7 @@ function mp_media_filename_lookup_stem(string $filename): string
     return $stem;
 }
 
-function mp_media_candidate_public_paths_from_url(string $url): array
+function bms_media_candidate_public_paths_from_url(string $url): array
 {
     $url = trim(str_replace('\\', '/', html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     if ($url === '' || str_contains($url, "\0")) {
@@ -593,7 +564,7 @@ function mp_media_candidate_public_paths_from_url(string $url): array
     $path = (string)(parse_url($url, PHP_URL_PATH) ?: $url);
     $path = rawurldecode(str_replace('\\', '/', $path));
     $path = ltrim($path, '/');
-    $basePath = function_exists('mp_base_path') ? trim(mp_base_path(), '/') : '';
+    $basePath = function_exists('bms_base_path') ? trim(bms_base_path(), '/') : '';
     if ($basePath !== '' && str_starts_with($path, $basePath . '/')) {
         $path = substr($path, strlen($basePath) + 1);
     }
@@ -609,7 +580,7 @@ function mp_media_candidate_public_paths_from_url(string $url): array
 
     $basename = basename($path);
     if ($basename !== '') {
-        $normalized = mp_media_filename_lookup_key($basename);
+        $normalized = bms_media_filename_lookup_key($basename);
         $extension = strtolower((string)pathinfo($normalized !== '' ? $normalized : $basename, PATHINFO_EXTENSION));
         if (preg_match('#(?:^|/)(\d{4})/(\d{2})/#', $path, $match) === 1) {
             $folder = $match[1] . '/' . $match[2] . '/';
@@ -638,19 +609,19 @@ function mp_media_candidate_public_paths_from_url(string $url): array
     return array_values(array_unique($safe));
 }
 
-function mp_media_find_existing_public_path_by_filename(string $filename): string
+function bms_media_find_existing_public_path_by_filename(string $filename): string
 {
     $filename = basename(rawurldecode(str_replace('\\', '/', html_entity_decode(trim($filename), ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
     if ($filename === '') {
         return '';
     }
 
-    $normalized = mp_media_filename_lookup_key($filename);
-    $stem = mp_media_filename_lookup_stem($filename);
+    $normalized = bms_media_filename_lookup_key($filename);
+    $stem = bms_media_filename_lookup_stem($filename);
     $extension = strtolower((string)pathinfo($normalized !== '' ? $normalized : $filename, PATHINFO_EXTENSION));
     $directNames = array_values(array_unique(array_filter([$filename, $normalized])));
 
-    if (function_exists('mp_is_installed') && mp_is_installed()) {
+    if (function_exists('bms_is_installed') && bms_is_installed()) {
         try {
             $conditions = [];
             $params = [];
@@ -669,13 +640,13 @@ function mp_media_find_existing_public_path_by_filename(string $filename): strin
             }
 
             if ($conditions) {
-                $sql = 'SELECT public_path, filename, original_filename FROM ' . mp_table('media') . ' WHERE ' . implode(' OR ', $conditions) . ' ORDER BY id DESC LIMIT 50';
-                $stmt = mp_db()->prepare($sql);
+                $sql = 'SELECT public_path, filename, original_filename FROM ' . bms_table('media') . ' WHERE ' . implode(' OR ', $conditions) . ' ORDER BY id DESC LIMIT 50';
+                $stmt = bms_db()->prepare($sql);
                 $stmt->execute($params);
                 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
                 foreach ($rows as $row) {
                     $publicPath = trim((string)($row['public_path'] ?? ''));
-                    if ($publicPath !== '' && str_starts_with($publicPath, 'media/') && is_file(mp_public_path($publicPath))) {
+                    if ($publicPath !== '' && str_starts_with($publicPath, 'media/') && is_file(bms_public_path($publicPath))) {
                         return $publicPath;
                     }
                 }
@@ -687,14 +658,14 @@ function mp_media_find_existing_public_path_by_filename(string $filename): strin
 
     $patterns = [];
     foreach ($directNames as $name) {
-        $patterns[] = mp_public_path('media/*/*/' . $name);
-        $patterns[] = mp_public_path('media/*/' . $name);
-        $patterns[] = mp_public_path('media/' . $name);
+        $patterns[] = bms_public_path('media/*/*/' . $name);
+        $patterns[] = bms_public_path('media/*/' . $name);
+        $patterns[] = bms_public_path('media/' . $name);
     }
     if ($stem !== '' && $extension !== '') {
-        $patterns[] = mp_public_path('media/*/*/' . $stem . '*.' . $extension);
-        $patterns[] = mp_public_path('media/*/' . $stem . '*.' . $extension);
-        $patterns[] = mp_public_path('media/' . $stem . '*.' . $extension);
+        $patterns[] = bms_public_path('media/*/*/' . $stem . '*.' . $extension);
+        $patterns[] = bms_public_path('media/*/' . $stem . '*.' . $extension);
+        $patterns[] = bms_public_path('media/' . $stem . '*.' . $extension);
     }
 
     foreach ($patterns as $pattern) {
@@ -706,7 +677,7 @@ function mp_media_find_existing_public_path_by_filename(string $filename): strin
             if (!is_file($file)) {
                 continue;
             }
-            $relative = str_replace('\\', '/', substr($file, strlen(rtrim(mp_public_path(), '/\\')) + 1));
+            $relative = str_replace('\\', '/', substr($file, strlen(rtrim(bms_public_path(), '/\\')) + 1));
             if (str_starts_with($relative, 'media/')) {
                 return $relative;
             }
@@ -716,11 +687,11 @@ function mp_media_find_existing_public_path_by_filename(string $filename): strin
     return '';
 }
 
-function mp_media_resolve_existing_public_relative_from_url(string $url): string
+function bms_media_resolve_existing_public_relative_from_url(string $url): string
 {
-    $candidates = mp_media_candidate_public_paths_from_url($url);
+    $candidates = bms_media_candidate_public_paths_from_url($url);
     foreach ($candidates as $candidate) {
-        if (is_file(mp_public_path($candidate))) {
+        if (is_file(bms_public_path($candidate))) {
             return $candidate;
         }
     }
@@ -731,12 +702,12 @@ function mp_media_resolve_existing_public_relative_from_url(string $url): string
         return '';
     }
 
-    return mp_media_find_existing_public_path_by_filename($basename);
+    return bms_media_find_existing_public_path_by_filename($basename);
 }
 
 
 
-function mp_media_public_relative_from_url(string $url): string
+function bms_media_public_relative_from_url(string $url): string
 {
     $url = trim(str_replace('\\', '/', html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     if ($url === '' || str_contains($url, "\0")) {
@@ -746,7 +717,7 @@ function mp_media_public_relative_from_url(string $url): string
     $path = $url;
     $externalHost = false;
     if (preg_match('#^https?://#i', $url) === 1) {
-        $site = function_exists('mp_site_url') ? rtrim(mp_site_url(''), '/') : '';
+        $site = function_exists('bms_site_url') ? rtrim(bms_site_url(''), '/') : '';
         if ($site !== '' && str_starts_with($url, $site . '/')) {
             $path = substr($url, strlen($site) + 1);
         } else {
@@ -758,7 +729,7 @@ function mp_media_public_relative_from_url(string $url): string
 
     $pathOnly = parse_url($path, PHP_URL_PATH);
     $path = is_string($pathOnly) ? $pathOnly : $path;
-    $basePath = function_exists('mp_base_path') ? trim(mp_base_path(), '/') : '';
+    $basePath = function_exists('bms_base_path') ? trim(bms_base_path(), '/') : '';
     $path = ltrim(rawurldecode($path), '/');
     if ($basePath !== '' && str_starts_with($path, $basePath . '/')) {
         $path = substr($path, strlen($basePath) + 1);
@@ -779,21 +750,21 @@ function mp_media_public_relative_from_url(string $url): string
         return '';
     }
 
-    if ($externalHost && !is_file(mp_public_path($path))) {
+    if ($externalHost && !is_file(bms_public_path($path))) {
         return '';
     }
 
     return $path;
 }
 
-function mp_media_image_dimensions_for_public_path(string $relativePath): array
+function bms_media_image_dimensions_for_public_path(string $relativePath): array
 {
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
     if ($relativePath === '' || !str_starts_with($relativePath, 'media/')) {
         return [];
     }
 
-    $file = mp_public_path($relativePath);
+    $file = bms_public_path($relativePath);
     if (!is_file($file)) {
         return [];
     }
@@ -811,7 +782,7 @@ function mp_media_image_dimensions_for_public_path(string $relativePath): array
     ];
 }
 
-function mp_media_resize_capability(string $mime): array
+function bms_media_resize_capability(string $mime): array
 {
     return match (strtolower($mime)) {
         'image/jpeg', 'image/pjpeg' => ['load' => 'imagecreatefromjpeg', 'save' => 'imagejpeg', 'quality' => 82],
@@ -821,7 +792,7 @@ function mp_media_resize_capability(string $mime): array
     };
 }
 
-function mp_media_generated_relative_path(string $relativePath, int $targetWidth): string
+function bms_media_generated_relative_path(string $relativePath, int $targetWidth): string
 {
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
     if (str_starts_with($relativePath, 'media/')) {
@@ -837,7 +808,7 @@ function mp_media_generated_relative_path(string $relativePath, int $targetWidth
     return 'media/_generated/' . $directory . $filename . '-' . $targetWidth . 'w.' . $extension;
 }
 
-function mp_media_generate_responsive_variant(string $relativePath, int $targetWidth, array $dimensions): string
+function bms_media_generate_responsive_variant(string $relativePath, int $targetWidth, array $dimensions): string
 {
     $sourceWidth = (int)($dimensions['width'] ?? 0);
     $sourceHeight = (int)($dimensions['height'] ?? 0);
@@ -848,8 +819,8 @@ function mp_media_generate_responsive_variant(string $relativePath, int $targetW
         return '';
     }
 
-    $generatedRelative = mp_media_generated_relative_path($relativePath, $targetWidth);
-    $generatedFile = mp_public_path($generatedRelative);
+    $generatedRelative = bms_media_generated_relative_path($relativePath, $targetWidth);
+    $generatedFile = bms_public_path($generatedRelative);
     if (is_file($generatedFile)) {
         return $generatedRelative;
     }
@@ -862,7 +833,7 @@ function mp_media_generate_responsive_variant(string $relativePath, int $targetW
     $targetHeight = max(1, (int)round($sourceHeight * ($targetWidth / $sourceWidth)));
     $saved = false;
 
-    $capability = mp_media_resize_capability($mime);
+    $capability = bms_media_resize_capability($mime);
     if ($capability && function_exists($capability['load']) && function_exists($capability['save']) && function_exists('imagecreatetruecolor')) {
         $source = @$capability['load']($sourceFile);
         if ($source) {
@@ -918,7 +889,7 @@ function mp_media_generate_responsive_variant(string $relativePath, int $targetW
 }
 
 
-function mp_media_upload_derivative_widths(): array
+function bms_media_upload_derivative_widths(): array
 {
     return [
         'small' => 480,
@@ -927,26 +898,26 @@ function mp_media_upload_derivative_widths(): array
     ];
 }
 
-function mp_media_variant_metadata(string $relativePath): array
+function bms_media_variant_metadata(string $relativePath): array
 {
     $relativePath = trim(str_replace('\\', '/', $relativePath), '/');
     if ($relativePath === '' || !str_starts_with($relativePath, 'media/')) {
         return [];
     }
 
-    $file = mp_public_path($relativePath);
+    $file = bms_public_path($relativePath);
     if (!is_file($file)) {
         return [];
     }
 
-    $dimensions = mp_media_image_dimensions_for_public_path($relativePath);
+    $dimensions = bms_media_image_dimensions_for_public_path($relativePath);
     if (!$dimensions) {
         return [];
     }
 
     return [
         'path' => $relativePath,
-        'url' => mp_url_path($relativePath),
+        'url' => bms_url_path($relativePath),
         'width' => (int)$dimensions['width'],
         'height' => (int)$dimensions['height'],
         'mime' => (string)($dimensions['mime'] ?? ''),
@@ -954,20 +925,20 @@ function mp_media_variant_metadata(string $relativePath): array
     ];
 }
 
-function mp_media_generate_upload_derivatives(string $publicPath): array
+function bms_media_generate_upload_derivatives(string $publicPath): array
 {
-    $relative = mp_media_public_relative_from_url($publicPath);
+    $relative = bms_media_public_relative_from_url($publicPath);
     if ($relative === '' || str_starts_with($relative, 'media/_generated/')) {
         return [];
     }
 
-    $dimensions = mp_media_image_dimensions_for_public_path($relative);
+    $dimensions = bms_media_image_dimensions_for_public_path($relative);
     if (!$dimensions) {
         return [];
     }
 
     $mime = strtolower((string)($dimensions['mime'] ?? ''));
-    if (!mp_media_resize_capability($mime)) {
+    if (!bms_media_resize_capability($mime)) {
         return [];
     }
 
@@ -977,16 +948,16 @@ function mp_media_generate_upload_derivatives(string $publicPath): array
     }
 
     $variants = [];
-    foreach (mp_media_upload_derivative_widths() as $label => $targetWidth) {
+    foreach (bms_media_upload_derivative_widths() as $label => $targetWidth) {
         $targetWidth = (int)$targetWidth;
         if ($targetWidth < 1 || $targetWidth >= $sourceWidth) {
             continue;
         }
-        $generated = mp_media_generate_responsive_variant($relative, $targetWidth, $dimensions);
+        $generated = bms_media_generate_responsive_variant($relative, $targetWidth, $dimensions);
         if ($generated === '') {
             continue;
         }
-        $metadata = mp_media_variant_metadata($generated);
+        $metadata = bms_media_variant_metadata($generated);
         if ($metadata) {
             $variants[(string)$label] = $metadata;
         }
@@ -996,10 +967,10 @@ function mp_media_generate_upload_derivatives(string $publicPath): array
 }
 
 
-function mp_media_derivative_environment(string $mime = ''): array
+function bms_media_derivative_environment(string $mime = ''): array
 {
     $mime = strtolower(trim($mime));
-    $capability = $mime !== '' ? mp_media_resize_capability($mime) : [];
+    $capability = $mime !== '' ? bms_media_resize_capability($mime) : [];
     $gdReady = false;
     if ($capability) {
         $gdReady = function_exists((string)$capability['load'])
@@ -1008,7 +979,7 @@ function mp_media_derivative_environment(string $mime = ''): array
             && function_exists('imagecopyresampled');
     }
 
-    $generatedRoot = mp_public_path('media/_generated');
+    $generatedRoot = bms_public_path('media/_generated');
     $generatedParent = is_dir($generatedRoot) ? $generatedRoot : dirname($generatedRoot);
     $generatedWritable = is_dir($generatedRoot) ? is_writable($generatedRoot) : (is_dir($generatedParent) && is_writable($generatedParent));
 
@@ -1027,28 +998,28 @@ function mp_media_derivative_environment(string $mime = ''): array
     ];
 }
 
-function mp_media_image_variant_status(array $media): array
+function bms_media_image_variant_status(array $media): array
 {
     $publicPath = trim(str_replace('\\', '/', (string)($media['public_path'] ?? '')), '/');
     $mime = strtolower((string)($media['mime_type'] ?? ''));
     $isImage = str_starts_with($mime, 'image/');
-    $relative = mp_media_public_relative_from_url($publicPath);
-    $sourceFile = $relative !== '' ? mp_public_path($relative) : '';
+    $relative = bms_media_public_relative_from_url($publicPath);
+    $sourceFile = $relative !== '' ? bms_public_path($relative) : '';
     $sourceExists = $sourceFile !== '' && is_file($sourceFile);
-    $dimensions = $sourceExists ? mp_media_image_dimensions_for_public_path($relative) : [];
+    $dimensions = $sourceExists ? bms_media_image_dimensions_for_public_path($relative) : [];
     $sourceWidth = (int)($dimensions['width'] ?? ($media['width'] ?? 0));
     $sourceHeight = (int)($dimensions['height'] ?? ($media['height'] ?? 0));
-    $environment = mp_media_derivative_environment((string)($dimensions['mime'] ?? $mime));
-    $recorded = mp_media_decode_image_variants($media);
+    $environment = bms_media_derivative_environment((string)($dimensions['mime'] ?? $mime));
+    $recorded = bms_media_decode_image_variants($media);
     $targets = [];
 
-    foreach (mp_media_upload_derivative_widths() as $label => $targetWidth) {
+    foreach (bms_media_upload_derivative_widths() as $label => $targetWidth) {
         $targetWidth = (int)$targetWidth;
         $variant = is_array($recorded[$label] ?? null) ? $recorded[$label] : [];
         $recordedPath = trim(str_replace('\\', '/', (string)($variant['path'] ?? '')), '/');
-        $expectedPath = $relative !== '' ? mp_media_generated_relative_path($relative, $targetWidth) : '';
+        $expectedPath = $relative !== '' ? bms_media_generated_relative_path($relative, $targetWidth) : '';
         $path = $recordedPath !== '' ? $recordedPath : $expectedPath;
-        $file = $path !== '' ? mp_public_path($path) : '';
+        $file = $path !== '' ? bms_public_path($path) : '';
         $exists = $file !== '' && is_file($file);
         $reason = '';
 
@@ -1100,7 +1071,7 @@ function mp_media_image_variant_status(array $media): array
         $summary = 'Generated folder not writable';
     } elseif ($sourceWidth > 0 && $created < 1) {
         $hasEligible = false;
-        foreach (mp_media_upload_derivative_widths() as $targetWidth) {
+        foreach (bms_media_upload_derivative_widths() as $targetWidth) {
             if ((int)$targetWidth < $sourceWidth) {
                 $hasEligible = true;
                 break;
@@ -1127,65 +1098,65 @@ function mp_media_image_variant_status(array $media): array
     ];
 }
 
-function mp_media_regenerate_image_variants(int $id): array
+function bms_media_regenerate_image_variants(int $id): array
 {
-    $media = mp_media_find($id);
+    $media = bms_media_find($id);
     if (!$media) {
         throw new RuntimeException('Media item not found.');
     }
-    if (!mp_media_is_image_item($media)) {
+    if (!bms_media_is_image_item($media)) {
         throw new RuntimeException('Only image media can generate optimized variants.');
     }
 
     $publicPath = trim(str_replace('\\', '/', (string)($media['public_path'] ?? '')), '/');
-    $relative = mp_media_public_relative_from_url($publicPath);
+    $relative = bms_media_public_relative_from_url($publicPath);
     if ($relative === '') {
         throw new RuntimeException('The original image path could not be resolved.');
     }
-    $file = mp_public_path($relative);
+    $file = bms_public_path($relative);
     if (!is_file($file)) {
         throw new RuntimeException('The original image file is missing on disk.');
     }
 
-    mp_media_delete_recorded_variants($media);
-    mp_media_delete_generated_variants($publicPath);
+    bms_media_delete_recorded_variants($media);
+    bms_media_delete_generated_variants($publicPath);
 
-    $variants = mp_media_generate_upload_derivatives($publicPath);
-    $dimensions = mp_media_image_dimensions_for_public_path($relative);
+    $variants = bms_media_generate_upload_derivatives($publicPath);
+    $dimensions = bms_media_image_dimensions_for_public_path($relative);
     $json = $variants ? json_encode($variants, JSON_UNESCAPED_SLASHES) : null;
 
-    $stmt = mp_db()->prepare('UPDATE ' . mp_table('media') . ' SET file_size = :file_size, width = :width, height = :height, mime_type = :mime_type, file_hash = :file_hash, image_variants_json = :image_variants_json, updated_at = NOW() WHERE id = :id');
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('media') . ' SET file_size = :file_size, width = :width, height = :height, mime_type = :mime_type, file_hash = :file_hash, image_variants_json = :image_variants_json, updated_at = NOW() WHERE id = :id');
     $stmt->execute([
         'file_size' => (int)filesize($file),
         'width' => !empty($dimensions['width']) ? (int)$dimensions['width'] : null,
         'height' => !empty($dimensions['height']) ? (int)$dimensions['height'] : null,
         'mime_type' => (string)($dimensions['mime'] ?? ($media['mime_type'] ?? '')),
-        'file_hash' => mp_media_file_hash($file),
+        'file_hash' => bms_media_file_hash($file),
         'image_variants_json' => $json,
         'id' => $id,
     ]);
 
-    $updated = mp_media_find($id) ?? $media;
-    $report = mp_media_image_variant_status($updated);
+    $updated = bms_media_find($id) ?? $media;
+    $report = bms_media_image_variant_status($updated);
     $report['generated_now'] = count($variants);
     return $report;
 }
 
 
-function mp_media_regeneration_batch_size(): int
+function bms_media_regeneration_batch_size(): int
 {
     return 5;
 }
 
-function mp_media_regeneration_mode(string $mode): string
+function bms_media_regeneration_mode(string $mode): string
 {
     $mode = strtolower(trim($mode));
     return in_array($mode, ['missing', 'all'], true) ? $mode : 'missing';
 }
 
-function mp_media_regeneration_candidate_sql(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
+function bms_media_regeneration_candidate_sql(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
 {
-    $mode = mp_media_regeneration_mode($mode);
+    $mode = bms_media_regeneration_mode($mode);
     $afterId = max(0, $afterId);
     $limit = max(1, min(25, $limit));
 
@@ -1207,18 +1178,18 @@ function mp_media_regeneration_candidate_sql(string $mode = 'missing', int $afte
         $where[] = "(image_variants_json IS NULL OR image_variants_json = '' OR image_variants_json = '[]')";
     }
 
-    $sql = 'SELECT * FROM ' . mp_table('media') . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY id ASC LIMIT ' . $limit;
+    $sql = 'SELECT * FROM ' . bms_table('media') . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY id ASC LIMIT ' . $limit;
     return [$sql, $params];
 }
 
-function mp_media_regeneration_candidates(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
+function bms_media_regeneration_candidates(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
 {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         return [];
     }
-    [$sql, $params] = mp_media_regeneration_candidate_sql($mode, $afterId, $limit);
+    [$sql, $params] = bms_media_regeneration_candidate_sql($mode, $afterId, $limit);
     try {
-        $stmt = mp_db()->prepare($sql);
+        $stmt = bms_db()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll() ?: [];
     } catch (Throwable $e) {
@@ -1226,12 +1197,12 @@ function mp_media_regeneration_candidates(string $mode = 'missing', int $afterId
     }
 }
 
-function mp_media_regeneration_count(string $mode = 'missing'): int
+function bms_media_regeneration_count(string $mode = 'missing'): int
 {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         return 0;
     }
-    $mode = mp_media_regeneration_mode($mode);
+    $mode = bms_media_regeneration_mode($mode);
     $where = [
         'trashed_at IS NULL',
         'mime_type LIKE :image_mime',
@@ -1248,7 +1219,7 @@ function mp_media_regeneration_count(string $mode = 'missing'): int
     }
 
     try {
-        $stmt = mp_db()->prepare('SELECT COUNT(*) FROM ' . mp_table('media') . ' WHERE ' . implode(' AND ', $where));
+        $stmt = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('media') . ' WHERE ' . implode(' AND ', $where));
         $stmt->execute($params);
         return (int)$stmt->fetchColumn();
     } catch (Throwable $e) {
@@ -1256,16 +1227,16 @@ function mp_media_regeneration_count(string $mode = 'missing'): int
     }
 }
 
-function mp_media_regeneration_summary(): array
+function bms_media_regeneration_summary(): array
 {
-    if (!mp_is_installed()) {
+    if (!bms_is_installed()) {
         return ['total_images' => 0, 'with_variants' => 0, 'missing_variants' => 0, 'all_candidates' => 0];
     }
 
     try {
-        $base = 'FROM ' . mp_table('media') . " WHERE trashed_at IS NULL AND mime_type LIKE 'image/%' AND public_path LIKE 'media/%' AND public_path NOT LIKE 'media/_generated/%'";
-        $total = (int)mp_db()->query('SELECT COUNT(*) ' . $base)->fetchColumn();
-        $with = (int)mp_db()->query("SELECT COUNT(*) " . $base . " AND image_variants_json IS NOT NULL AND image_variants_json <> '' AND image_variants_json <> '[]'")->fetchColumn();
+        $base = 'FROM ' . bms_table('media') . " WHERE trashed_at IS NULL AND mime_type LIKE 'image/%' AND public_path LIKE 'media/%' AND public_path NOT LIKE 'media/_generated/%'";
+        $total = (int)bms_db()->query('SELECT COUNT(*) ' . $base)->fetchColumn();
+        $with = (int)bms_db()->query("SELECT COUNT(*) " . $base . " AND image_variants_json IS NOT NULL AND image_variants_json <> '' AND image_variants_json <> '[]'")->fetchColumn();
         return [
             'total_images' => $total,
             'with_variants' => $with,
@@ -1277,11 +1248,11 @@ function mp_media_regeneration_summary(): array
     }
 }
 
-function mp_media_regeneration_run_batch(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
+function bms_media_regeneration_run_batch(string $mode = 'missing', int $afterId = 0, int $limit = 5): array
 {
-    $mode = mp_media_regeneration_mode($mode);
+    $mode = bms_media_regeneration_mode($mode);
     $limit = max(1, min(25, $limit));
-    $items = mp_media_regeneration_candidates($mode, max(0, $afterId), $limit);
+    $items = bms_media_regeneration_candidates($mode, max(0, $afterId), $limit);
     $result = [
         'mode' => $mode,
         'limit' => $limit,
@@ -1303,10 +1274,10 @@ function mp_media_regeneration_run_batch(string $mode = 'missing', int $afterId 
         }
         $name = (string)($media['original_filename'] ?? $media['filename'] ?? ('Media #' . $id));
         try {
-            $report = mp_media_regenerate_image_variants($id);
+            $report = bms_media_regenerate_image_variants($id);
             $generated = (int)($report['generated_now'] ?? 0);
             $created = (int)($report['created_count'] ?? 0);
-            $summary = mp_media_variant_status_text($report);
+            $summary = bms_media_variant_status_text($report);
             $result['processed']++;
             if ($generated > 0 || $created > 0) {
                 $result['generated']++;
@@ -1331,13 +1302,13 @@ function mp_media_regeneration_run_batch(string $mode = 'missing', int $afterId 
         }
     }
 
-    $next = mp_media_regeneration_candidates($mode, (int)$result['last_id'], 1);
+    $next = bms_media_regeneration_candidates($mode, (int)$result['last_id'], 1);
     $result['has_more'] = !empty($next);
-    $result['remaining_estimate'] = mp_media_regeneration_count($mode);
+    $result['remaining_estimate'] = bms_media_regeneration_count($mode);
     return $result;
 }
 
-function mp_media_variant_status_text(array $report): string
+function bms_media_variant_status_text(array $report): string
 {
     $summary = trim((string)($report['summary'] ?? ''));
     $created = (int)($report['created_count'] ?? 0);
@@ -1347,7 +1318,7 @@ function mp_media_variant_status_text(array $report): string
     return $created > 0 ? ($created . ' variant' . ($created === 1 ? '' : 's') . ' available') : 'No variants available';
 }
 
-function mp_media_decode_image_variants(array $media): array
+function bms_media_decode_image_variants(array $media): array
 {
     $raw = trim((string)($media['image_variants_json'] ?? ''));
     if ($raw === '') {
@@ -1357,9 +1328,9 @@ function mp_media_decode_image_variants(array $media): array
     return is_array($decoded) ? $decoded : [];
 }
 
-function mp_media_delete_recorded_variants(array $media): void
+function bms_media_delete_recorded_variants(array $media): void
 {
-    foreach (mp_media_decode_image_variants($media) as $variant) {
+    foreach (bms_media_decode_image_variants($media) as $variant) {
         if (!is_array($variant)) {
             continue;
         }
@@ -1367,20 +1338,20 @@ function mp_media_delete_recorded_variants(array $media): void
         if ($path === '' || !str_starts_with($path, 'media/_generated/') || str_contains($path, '..')) {
             continue;
         }
-        $file = mp_public_path($path);
+        $file = bms_public_path($path);
         if (is_file($file)) {
             @unlink($file);
         }
     }
 }
 
-function mp_media_responsive_image_data(string $url, string $alt = '', array $options = []): array
+function bms_media_responsive_image_data(string $url, string $alt = '', array $options = []): array
 {
     $url = trim($url);
-    if (function_exists('mp_media_resolve_existing_public_relative_from_url')) {
-        $resolved = mp_media_resolve_existing_public_relative_from_url($url);
+    if (function_exists('bms_media_resolve_existing_public_relative_from_url')) {
+        $resolved = bms_media_resolve_existing_public_relative_from_url($url);
         if ($resolved !== '') {
-            $url = mp_url_path($resolved);
+            $url = bms_url_path($resolved);
         }
     }
 
@@ -1402,14 +1373,14 @@ function mp_media_responsive_image_data(string $url, string $alt = '', array $op
         'fetchpriority' => (string)($options['fetchpriority'] ?? ''),
     ];
 
-    $relative = mp_media_public_relative_from_url($url);
+    $relative = bms_media_public_relative_from_url($url);
     if ($relative === '') {
         return $data;
     }
 
-    $data['src'] = mp_url_path($relative);
+    $data['src'] = bms_url_path($relative);
 
-    $dimensions = mp_media_image_dimensions_for_public_path($relative);
+    $dimensions = bms_media_image_dimensions_for_public_path($relative);
     if (!$dimensions) {
         return $data;
     }
@@ -1419,12 +1390,12 @@ function mp_media_responsive_image_data(string $url, string $alt = '', array $op
     $data['width'] = $sourceWidth;
     $data['height'] = $sourceHeight;
 
-    $media = mp_media_find_by_public_path($relative);
+    $media = bms_media_find_by_public_path($relative);
     if (!$media) {
         return $data;
     }
 
-    $recorded = mp_media_decode_image_variants($media);
+    $recorded = bms_media_decode_image_variants($media);
     if (!$recorded) {
         return $data;
     }
@@ -1445,15 +1416,15 @@ function mp_media_responsive_image_data(string $url, string $alt = '', array $op
         if ($sourceWidth > 0 && $width >= $sourceWidth) {
             continue;
         }
-        $file = mp_public_path($path);
+        $file = bms_public_path($path);
         if (!is_file($file)) {
             continue;
         }
-        $variantDimensions = mp_media_image_dimensions_for_public_path($path);
+        $variantDimensions = bms_media_image_dimensions_for_public_path($path);
         if (!$variantDimensions || (int)$variantDimensions['width'] !== $width) {
             continue;
         }
-        $candidates[$width] = mp_url_path($path) . ' ' . $width . 'w';
+        $candidates[$width] = bms_url_path($path) . ' ' . $width . 'w';
     }
 
     if (!$candidates) {
@@ -1462,14 +1433,14 @@ function mp_media_responsive_image_data(string $url, string $alt = '', array $op
 
     ksort($candidates, SORT_NUMERIC);
     if ($sourceWidth > 0) {
-        $candidates[$sourceWidth] = mp_url_path($relative) . ' ' . $sourceWidth . 'w';
+        $candidates[$sourceWidth] = bms_url_path($relative) . ' ' . $sourceWidth . 'w';
     }
 
     $data['srcset'] = implode(', ', array_values(array_unique($candidates)));
     return $data;
 }
 
-function mp_media_image_attributes(string $url, string $alt = '', array $options = []): string
+function bms_media_image_attributes(string $url, string $alt = '', array $options = []): string
 {
     // Display-first rendering: the original image remains the fallback src.
     // Responsive output is added only when Bonumark has recorded derivative
@@ -1481,24 +1452,24 @@ function mp_media_image_attributes(string $url, string $alt = '', array $options
     $src = '';
     $resolvedRelative = '';
 
-    if (function_exists('mp_media_resolve_existing_public_relative_from_url') && function_exists('mp_url_path')) {
-        $resolved = mp_media_resolve_existing_public_relative_from_url($rawUrl);
+    if (function_exists('bms_media_resolve_existing_public_relative_from_url') && function_exists('bms_url_path')) {
+        $resolved = bms_media_resolve_existing_public_relative_from_url($rawUrl);
         if ($resolved !== '') {
             $resolvedRelative = $resolved;
-            $src = mp_url_path($resolved);
+            $src = bms_url_path($resolved);
         }
     }
 
-    if ($src === '' && function_exists('mp_media_public_relative_from_url') && function_exists('mp_url_path')) {
-        $relative = mp_media_public_relative_from_url($rawUrl);
+    if ($src === '' && function_exists('bms_media_public_relative_from_url') && function_exists('bms_url_path')) {
+        $relative = bms_media_public_relative_from_url($rawUrl);
         if ($relative !== '') {
             $resolvedRelative = $relative;
-            $src = mp_url_path($relative);
+            $src = bms_url_path($relative);
         }
     }
 
     if ($src === '') {
-        $clean = function_exists('mp_clean_url') ? mp_clean_url($rawUrl) : $rawUrl;
+        $clean = function_exists('bms_clean_url') ? bms_clean_url($rawUrl) : $rawUrl;
         $src = $clean !== '#' ? $clean : '';
     }
 
@@ -1523,8 +1494,8 @@ function mp_media_image_attributes(string $url, string $alt = '', array $options
     if ($explicitWidth > 0 && $explicitHeight > 0) {
         $attributes['width'] = (string)$explicitWidth;
         $attributes['height'] = (string)$explicitHeight;
-    } elseif ($resolvedRelative !== '' && function_exists('mp_media_image_dimensions_for_public_path')) {
-        $dimensions = mp_media_image_dimensions_for_public_path($resolvedRelative);
+    } elseif ($resolvedRelative !== '' && function_exists('bms_media_image_dimensions_for_public_path')) {
+        $dimensions = bms_media_image_dimensions_for_public_path($resolvedRelative);
         if (!empty($dimensions['width']) && !empty($dimensions['height'])) {
             $attributes['width'] = (string)(int)$dimensions['width'];
             $attributes['height'] = (string)(int)$dimensions['height'];
@@ -1538,8 +1509,8 @@ function mp_media_image_attributes(string $url, string $alt = '', array $options
         && $explicitHeight <= 0
         && $resolvedRelative !== ''
         && !str_starts_with($resolvedRelative, 'media/_generated/');
-    if ($responsiveAllowed && function_exists('mp_media_responsive_image_data')) {
-        $responsive = mp_media_responsive_image_data($src, $alt, $options);
+    if ($responsiveAllowed && function_exists('bms_media_responsive_image_data')) {
+        $responsive = bms_media_responsive_image_data($src, $alt, $options);
         $srcset = trim((string)($responsive['srcset'] ?? ''));
         if ($srcset !== '') {
             $attributes['srcset'] = $srcset;
@@ -1564,14 +1535,14 @@ function mp_media_image_attributes(string $url, string $alt = '', array $options
     return implode(' ', $html);
 }
 
-function mp_media_delete_generated_variants(string $publicPath): void
+function bms_media_delete_generated_variants(string $publicPath): void
 {
-    $relative = mp_media_public_relative_from_url($publicPath);
+    $relative = bms_media_public_relative_from_url($publicPath);
     if ($relative === '') {
         return;
     }
 
-    $pattern = mp_public_path(mp_media_generated_relative_path($relative, 999999));
+    $pattern = bms_public_path(bms_media_generated_relative_path($relative, 999999));
     $pattern = preg_replace('/-999999w\.[^.]+$/', '-*w.*', $pattern) ?? '';
     if ($pattern === '') {
         return;
@@ -1585,19 +1556,19 @@ function mp_media_delete_generated_variants(string $publicPath): void
 }
 
 
-function mp_media_mime_type(array $media): string
+function bms_media_mime_type(array $media): string
 {
     return strtolower(trim((string)($media['mime_type'] ?? '')));
 }
 
-function mp_media_is_image_item(array $media): bool
+function bms_media_is_image_item(array $media): bool
 {
-    return str_starts_with(mp_media_mime_type($media), 'image/');
+    return str_starts_with(bms_media_mime_type($media), 'image/');
 }
 
-function mp_media_kind_label(array $media): string
+function bms_media_kind_label(array $media): string
 {
-    $mime = mp_media_mime_type($media);
+    $mime = bms_media_mime_type($media);
     if (str_starts_with($mime, 'image/')) {
         return 'Image';
     }
@@ -1619,23 +1590,23 @@ function mp_media_kind_label(array $media): string
     return 'File';
 }
 
-function mp_media_file_label(array $media): string
+function bms_media_file_label(array $media): string
 {
     return trim((string)($media['original_filename'] ?? $media['filename'] ?? 'Media file'));
 }
 
 
-function mp_media_markdown(array $media): string
+function bms_media_markdown(array $media): string
 {
     $label = trim((string)($media['alt_text'] ?? ''));
     if ($label === '') {
-        $label = mp_media_file_label($media);
+        $label = bms_media_file_label($media);
     }
     $label = str_replace(["\n", "\r", '[', ']'], [' ', ' ', '', ''], $label);
-    $url = mp_media_public_url_for_item($media);
+    $url = bms_media_public_url_for_item($media);
 
-    $mime = mp_media_mime_type($media);
-    if (mp_media_is_image_item($media)) {
+    $mime = bms_media_mime_type($media);
+    if (bms_media_is_image_item($media)) {
         return '![' . $label . '](' . $url . ')';
     }
     if (str_starts_with($mime, 'audio/')) {
@@ -1648,14 +1619,14 @@ function mp_media_markdown(array $media): string
     return '[' . $label . '](' . $url . ')';
 }
 
-function mp_media_count(string $status = 'active'): int
+function bms_media_count(string $status = 'active'): int
 {
     try {
-        $status = mp_media_normalize_status($status);
-        $sql = 'SELECT COUNT(*) FROM ' . mp_table('media');
+        $status = bms_media_normalize_status($status);
+        $sql = 'SELECT COUNT(*) FROM ' . bms_table('media');
         $params = [];
         $where = [];
-        [$ownerWhere, $ownerParams] = mp_media_user_scope_sql();
+        [$ownerWhere, $ownerParams] = bms_media_user_scope_sql();
         if ($ownerWhere !== '') {
             $where[] = $ownerWhere;
             $params = $ownerParams;
@@ -1668,7 +1639,7 @@ function mp_media_count(string $status = 'active'): int
         if ($where) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
-        $stmt = mp_db()->prepare($sql);
+        $stmt = bms_db()->prepare($sql);
         $stmt->execute($params);
         return (int)$stmt->fetchColumn();
     } catch (Throwable $e) {
@@ -1676,7 +1647,7 @@ function mp_media_count(string $status = 'active'): int
     }
 }
 
-function mp_media_usage_references(array $media, int $limit = 20): array
+function bms_media_usage_references(array $media, int $limit = 20): array
 {
     $publicPath = trim((string)($media['public_path'] ?? ''));
     if ($publicPath === '') {
@@ -1686,14 +1657,14 @@ function mp_media_usage_references(array $media, int $limit = 20): array
     $needles = array_values(array_unique(array_filter([
         $publicPath,
         '/' . ltrim($publicPath, '/'),
-        function_exists('mp_url_path') ? mp_url_path($publicPath) : '',
-        function_exists('mp_media_public_url_for_item') ? mp_media_public_url_for_item($media) : '',
+        function_exists('bms_url_path') ? bms_url_path($publicPath) : '',
+        function_exists('bms_media_public_url_for_item') ? bms_media_public_url_for_item($media) : '',
         basename($publicPath),
     ])));
 
     $references = [];
 
-    if (function_exists('mp_db') && function_exists('mp_table')) {
+    if (function_exists('bms_db') && function_exists('bms_table')) {
         try {
             $where = [];
             $params = [];
@@ -1706,15 +1677,15 @@ function mp_media_usage_references(array $media, int $limit = 20): array
                 $params[$param] = '%' . addcslashes($needle, "\\%_") . '%';
             }
             if ($where) {
-                $sql = 'SELECT id, title, slug, status, post_type FROM ' . mp_table('posts') . ' WHERE ' . implode(' OR ', $where) . ' ORDER BY updated_at DESC LIMIT ' . max(1, $limit);
-                $stmt = mp_db()->prepare($sql);
+                $sql = 'SELECT id, title, slug, status, post_type FROM ' . bms_table('posts') . ' WHERE ' . implode(' OR ', $where) . ' ORDER BY updated_at DESC LIMIT ' . max(1, $limit);
+                $stmt = bms_db()->prepare($sql);
                 $stmt->execute($params);
                 foreach ($stmt->fetchAll() ?: [] as $row) {
                     $postType = (string)($row['post_type'] ?? 'stream') === 'page' ? 'Page' : 'Stream Post';
                     $status = (string)($row['status'] ?? 'draft') === 'published' ? 'Published' : 'Draft';
                     $slug = (string)($row['slug'] ?? '');
                     $path = $slug !== ''
-                        ? (($postType === 'Page') ? mp_url_path('pages/' . $slug . '/') : mp_url_path('stream/' . $slug . '/'))
+                        ? (($postType === 'Page') ? bms_url_path('pages/' . $slug . '/') : bms_url_path('stream/' . $slug . '/'))
                         : 'database record #' . (int)($row['id'] ?? 0);
                     $references[] = [
                         'label' => $status . ' ' . $postType,
@@ -1727,17 +1698,17 @@ function mp_media_usage_references(array $media, int $limit = 20): array
                 }
             }
         } catch (Throwable $e) {
-            // Fall through to legacy Markdown fallback below.
+            // Database content is authoritative; explicit Markdown import tooling handles old files.
         }
     }
 
     $roots = [];
-    if (function_exists('mp_content_path')) {
+    if (function_exists('bms_content_path')) {
         $roots = [
-            'Legacy draft Markdown' => mp_content_path('drafts'),
-            'Legacy published Markdown' => mp_content_path('published'),
-            'Legacy page draft Markdown' => mp_content_path('pages/drafts'),
-            'Legacy published page Markdown' => mp_content_path('pages/published'),
+            'Draft Markdown import' => bms_content_path('drafts'),
+            'Published Markdown import' => bms_content_path('published'),
+            'Page draft Markdown import' => bms_content_path('pages/drafts'),
+            'Published page Markdown import' => bms_content_path('pages/published'),
         ];
     }
 
@@ -1773,9 +1744,9 @@ function mp_media_usage_references(array $media, int $limit = 20): array
     return $references;
 }
 
-function mp_media_usage_summary(array $media): string
+function bms_media_usage_summary(array $media): string
 {
-    $references = mp_media_usage_references($media, 5);
+    $references = bms_media_usage_references($media, 5);
     $count = count($references);
     if ($count === 0) {
         return 'No database content references found.';
@@ -1786,7 +1757,7 @@ function mp_media_usage_summary(array $media): string
     return 'Referenced in at least ' . $count . ' content records.';
 }
 
-function mp_media_human_size(int $bytes): string
+function bms_media_human_size(int $bytes): string
 {
     if ($bytes >= 1024 * 1024) {
         return round($bytes / 1024 / 1024, 1) . ' MB';

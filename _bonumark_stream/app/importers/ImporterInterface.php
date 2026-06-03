@@ -1,6 +1,6 @@
 <?php
 
-interface MP_ImporterInterface
+interface BMS_ImporterInterface
 {
     public function label(): string;
 
@@ -8,5 +8,5 @@ interface MP_ImporterInterface
     public function canImport(array $file): bool;
 
     /** @param array<string,mixed> $file */
-    public function importPreview(array $file): MP_ImportResult;
+    public function importPreview(array $file): BMS_ImportResult;
 }

@@ -1,67 +1,28 @@
 # Security Policy
 
-Bonumark Stream is pre-1.0 software. Security reports are taken seriously, but this project is not yet offered as a production-supported public platform.
-
-## License and supported use
-
-Bonumark Stream is licensed under `AGPL-3.0-or-later`. Security fixes should remain compatible with that license. Commercial installation, support, training, and custom development services may be offered separately, but those services do not change the software license.
+Bonumark Stream v0.4.5 builds on the v0.4.0 fresh-install foundation for a shared-hosting friendly PHP/MySQL microblog CMS.
 
 ## Supported versions
 
-Only the latest development release is reviewed for security fixes.
+| Version | Supported |
+|---|---|
+| 0.4.x | Yes |
+| Earlier development builds | No |
 
-| Version | Status |
-| --- | --- |
-| 0.3.x latest | Reviewed |
-| older 0.3.x releases | Not maintained |
-| 0.2.x and older | Not maintained |
+## Security model
 
-## Reporting a vulnerability
+- Admin routes require login and capability checks.
+- Mutating admin actions use CSRF protection.
+- Public likes are unauthenticated but rate-limited.
+- Registration is disabled by default unless enabled in settings.
+- SVG uploads are blocked.
+- Theme packages are code-free. PHP, JavaScript, HTML files, server configuration files, symlinks, and executable code are rejected during theme ZIP installation.
+- `_bonumark_stream/` is protected by `.htaccess` on Apache and LiteSpeed.
 
-Do not open a public issue for a suspected vulnerability.
+Nginx users must add equivalent deny rules for private folders and config files.
 
-Send a private report to the project maintainer with:
+Report security problems privately before public disclosure.
 
-- affected version
-- affected file or feature
-- reproduction steps
-- expected impact
-- relevant logs or screenshots
-- whether the issue requires authentication
+## Account model
 
-Do not include live credentials, private user data, database dumps, or full private content exports unless specifically requested through a secure channel. Database and full export ZIPs are private backups that may contain password hashes, account records, security logs, invites, reset tokens, and email addresses.
-
-## Security-sensitive areas
-
-Please give special attention to:
-
-- authentication and sessions
-- CSRF protection
-- password reset tokens
-- public registration and invites
-- media uploads
-- importers
-- theme ZIP installation
-- admin ZIP upgrades
-- path traversal and archive extraction
-- database migrations
-- static site export output
-
-Public likes are anonymous public interactions. They do not require CSRF tokens because they are intentionally available to public visitors, but they are rate-limited and should not expose internal exception messages.
-
-## Disclosure
-
-The maintainer will review valid reports, prioritize fixes, and include a security note in the changelog when appropriate.
-
-
-## Server configuration assumptions
-
-The release package includes Apache `.htaccess` files to deny direct browser access to `_bonumark_stream/`, but security still depends on the web server honoring those rules. Hosts using Nginx, IIS, reverse proxies, or custom control-panel routing must apply equivalent deny rules. Treat a publicly browseable `_bonumark_stream/config.php`, backup, export, or temporary file as a critical misconfiguration.
-
-## Trusted code boundaries
-
-Admin ZIP upgrades and theme ZIP installation are trusted-code operations. Only administrators should use them, and only packages from controlled sources should be installed. Theme templates are PHP code and are not sandboxed.
-
-## Remote fetch boundaries
-
-Link previews and remote media import reject private/reserved hosts and require cURL for pinned remote fetches with connected-IP validation. Report any bypass that causes the server to fetch private network, loopback, metadata-service, local file, or non-HTTP resources.
+Bonumark Stream uses two account types: Admin, the sole publisher and site manager, and Commenter, for comment participation and profile/account features. Commenters cannot publish posts, upload media, or access the admin publishing system.

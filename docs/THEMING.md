@@ -1,80 +1,91 @@
-# Bonumark Stream Theming
+# Bonumark Stream Themes
 
-Bonumark Stream separates public presentation from core application behavior. Themes control the public-facing experience. Core controls data, authentication, publishing, imports, upgrades, and admin behavior.
+Bonumark Stream v0.4.5 uses Midnight Ledger as the working example for code-free presentation themes.
 
-## Theme location
 
-Bundled and installed themes live under:
+## Copying Midnight Ledger
+
+To create a theme, copy `_bonumark_stream/themes/default/`, rename the folder and slug, update `theme.json`, replace `assets/images/screenshot.svg`, edit the design tokens at the top of `assets/css/theme.css`, zip the folder, and upload it from Appearance.
+
+## Rule
+
+Core runs the code. Themes provide presentation.
+
+Bonumark Stream core owns routing, data preparation, permissions, database writes, rendering execution, forms, comments, media, importers, feeds, sitemaps, static export, and upgrades.
+
+A theme package may include:
+
+- `theme.json`
+- metadata
+- supports declarations
+- editable settings schema
+- screenshot
+- CSS assets
+- image assets
+- font assets
+- documentation
+
+A theme package may not include:
+
+- PHP files
+- JavaScript files
+- HTML files
+- route handlers
+- database writes
+- permission logic
+- business logic
+- server config files
+- symlinks
+- arbitrary executable code
+
+## Rendering boundary
+
+Themes do not provide public markup files or rendering logic. Bonumark Stream core renders the public site, and the active theme supplies presentation assets and settings.
+
+Midnight Ledger is the reference package for the current code-free theme format. Copy it, rename it, update the manifest, and edit the CSS.
+
+## Reference theme structure
 
 ```text
-_bonumark_stream/themes/{theme-name}/
+_bonumark_stream/themes/default/
+  theme.json
+  README.md
+  THEME-DATA.md
+  assets/
+    css/theme.css
+    images/screenshot.svg
 ```
 
-Theme assets may be served from:
+## theme.json example
 
-```text
-assets/themes/{theme-name}/
+```json
+{
+  "name": "My Theme",
+  "slug": "my-theme",
+  "version": "1.0.0",
+  "author": "Theme Author",
+  "description": "A code-free Bonumark Stream presentation theme.",
+  "screenshot": "assets/images/screenshot.svg",
+  "assets": {
+    "css": ["assets/css/theme.css"],
+    "images": ["assets/images/screenshot.svg"]
+  },
+  "settings": {
+    "accent": {
+      "type": "select",
+      "label": "Accent",
+      "default": "blue",
+      "options": {
+        "blue": "Blue",
+        "green": "Green"
+      }
+    }
+  }
+}
 ```
 
-## Required theme files
+## Installation
 
-A public theme should include a `theme.json` manifest and the templates required by the current theme system. Current required templates are:
+Theme ZIP installation is enabled for code-free presentation themes. Upload one theme at a time from **Admin → Themes → Install Theme**.
 
-- `layout.php`
-- `header.php`
-- `footer.php`
-- `home.php`
-- `archive.php`
-- `single.php`
-- `page.php`
-- `profile.php`
-- `account.php`
-- `comments.php`
-- `comments-mount.php`
-- `search.php`
-- `card.php`
-- `link-preview.php`
-- `media.php`
-- `composer.php`
-- `pagination.php`
-- `empty.php`
-
-## Theme manifest
-
-The manifest identifies the theme, version, templates, assets, screenshot, supported features, and optional settings. The theme installer validates manifests, copies every declared template, and refuses activation when required templates or declared assets are missing.
-
-## Navigation
-
-Themes render navigation only when core provides navigation data. They should not create forced Home, RSS, page, sign-in, registration, dashboard, profile, or sign-out links on their own. Admin → Navigation controls whether public header navigation is displayed and which custom items appear. When public navigation is enabled, core can append account-aware links for the current visitor state. Admin → Navigation includes a separate toggle for those automatic account links. Public footers do not render the navigation menu. Site Identity tagline and footer text links are sanitized by core and provided to bundled templates as trusted HTML.
-
-## Trusted theme code
-
-Bonumark Stream themes are PHP templates. Treat every installed theme as trusted server-side code, not as untrusted user content. Only administrators should install themes, and themes should come from sources you control or have reviewed. Manifest validation confirms required files and declared assets, but it does not sandbox PHP.
-
-## Theme rules
-
-Themes should:
-
-- escape public output
-- avoid database writes
-- avoid authentication logic
-- avoid admin-only behavior
-- use data provided by core
-- keep public layout and public assets theme-owned
-
-Themes should not:
-
-- replace core routes
-- bypass core permission checks
-- execute arbitrary uploaded PHP outside approved templates
-- assume a specific install path
-- depend on private runtime files
-
-## Bundled themes
-
-Bonumark Stream currently ships with the default first-party public theme, Midnight Ledger. Optional themes can be installed from validated theme ZIP packages and are not bundled into the shared-hosting release package.
-
-
-## Bundled Page date setting
-
-Bundled themes may expose `show_page_updated_date` as a checkbox setting. The bundled default is off. When enabled, public Page templates display the updated date under the Page title. When disabled, the public Page keeps the same title, body, SEO metadata, canonical URL, and Open Graph data, but hides the visible updated date line.
+Bonumark Stream validates the ZIP before installation and rejects packages with PHP, JavaScript, HTML files, server configuration files, symlinks, unsafe paths, missing declared assets, invalid manifests, or protected bundled slugs.

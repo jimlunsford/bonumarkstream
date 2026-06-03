@@ -2,10 +2,10 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
 
     $streamComposer = !empty($_POST['stream_composer_enabled']) ? '1' : '0';
     $streamDates = !empty($_POST['stream_show_dates']) ? '1' : '0';
@@ -27,35 +27,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        mp_set_setting('homepage_mode', 'stream');
-        mp_set_setting('stream_composer_enabled', $streamComposer);
-        mp_set_setting('stream_posts_per_page', (string)$streamCount);
-        mp_set_setting('stream_show_dates', $streamDates);
-        mp_set_setting('stream_show_edit_links', $streamEditLinks);
-        mp_set_setting('stream_index_policy', $streamIndexPolicy);
-        mp_set_setting('sitemap_enabled', $sitemapEnabled);
-        mp_set_setting('sitemap_include_stream_posts', $sitemapStreamPosts);
-        mp_set_setting('sitemap_include_pages', $sitemapPages);
-        mp_set_setting('sitemap_include_profiles', $sitemapProfiles);
-        mp_flash('Reading settings saved. Dynamic public routes use the updated stream settings immediately.', 'success');
-        mp_redirect(mp_admin_url('settings-reading.php'));
+        bms_set_setting('homepage_mode', 'stream');
+        bms_set_setting('stream_composer_enabled', $streamComposer);
+        bms_set_setting('stream_posts_per_page', (string)$streamCount);
+        bms_set_setting('stream_show_dates', $streamDates);
+        bms_set_setting('stream_show_edit_links', $streamEditLinks);
+        bms_set_setting('stream_index_policy', $streamIndexPolicy);
+        bms_set_setting('sitemap_enabled', $sitemapEnabled);
+        bms_set_setting('sitemap_include_stream_posts', $sitemapStreamPosts);
+        bms_set_setting('sitemap_include_pages', $sitemapPages);
+        bms_set_setting('sitemap_include_profiles', $sitemapProfiles);
+        bms_flash('Reading settings saved. Dynamic public routes use the updated stream settings immediately.', 'success');
+        bms_redirect(bms_admin_url('settings-reading.php'));
     } catch (Throwable $e) {
-        mp_flash('Could not save reading settings: ' . $e->getMessage(), 'error');
+        bms_flash('Could not save reading settings: ' . $e->getMessage(), 'error');
     }
 }
 
-$streamCount = mp_stream_posts_per_page();
-$streamComposer = mp_stream_composer_enabled();
-$streamDates = mp_stream_show_dates();
-$streamEditLinks = mp_stream_show_edit_links();
-$streamIndexPolicy = mp_stream_index_policy();
-$sitemapEnabled = (string)mp_setting_or_config('sitemap_enabled', '1') === '1';
-$sitemapStreamPosts = (string)mp_setting_or_config('sitemap_include_stream_posts', '1') === '1';
-$sitemapPages = (string)mp_setting_or_config('sitemap_include_pages', '1') === '1';
-$sitemapProfiles = (string)mp_setting_or_config('sitemap_include_profiles', '0') === '1';
-$sitemapUrl = mp_site_url('sitemap.xml');
-$robotsUrl = mp_site_url('robots.txt');
-mp_admin_header('Reading Settings', []);
+$streamCount = bms_stream_posts_per_page();
+$streamComposer = bms_stream_composer_enabled();
+$streamDates = bms_stream_show_dates();
+$streamEditLinks = bms_stream_show_edit_links();
+$streamIndexPolicy = bms_stream_index_policy();
+$sitemapEnabled = (string)bms_setting_or_config('sitemap_enabled', '1') === '1';
+$sitemapStreamPosts = (string)bms_setting_or_config('sitemap_include_stream_posts', '1') === '1';
+$sitemapPages = (string)bms_setting_or_config('sitemap_include_pages', '1') === '1';
+$sitemapProfiles = (string)bms_setting_or_config('sitemap_include_profiles', '0') === '1';
+$sitemapUrl = bms_site_url('sitemap.xml');
+$robotsUrl = bms_site_url('robots.txt');
+bms_admin_header('Reading Settings', []);
 ?>
 <section class="panel page-intro-panel">
   <p class="eyebrow">Settings</p>
@@ -64,7 +64,7 @@ mp_admin_header('Reading Settings', []);
 </section>
 <section class="panel settings-panel">
   <form method="post">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <label class="checkbox-line" for="stream_composer_enabled">
       <input id="stream_composer_enabled" type="checkbox" name="stream_composer_enabled" value="1" <?= $streamComposer ? 'checked' : '' ?>>
@@ -121,4 +121,4 @@ mp_admin_header('Reading Settings', []);
     <button type="submit">Save Reading Settings</button>
   </form>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

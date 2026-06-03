@@ -1,17 +1,17 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
-    mp_set_setting('welcome_dismissed', '1');
-    mp_flash('Welcome panel dismissed. You can still use the dashboard quick actions anytime.', 'success');
-    mp_redirect(mp_admin_url());
+    bms_verify_csrf();
+    bms_set_setting('welcome_dismissed', '1');
+    bms_flash('Welcome panel dismissed. You can still use the dashboard quick actions anytime.', 'success');
+    bms_redirect(bms_admin_url());
 }
 
-mp_admin_header('Welcome to Bonumark Stream', [
-    ['label' => 'New Stream Post', 'href' => mp_admin_url('new.php'), 'style' => 'primary'],
+bms_admin_header('Welcome to Bonumark Stream', [
+    ['label' => 'New Stream Post', 'href' => bms_admin_url('new.php'), 'style' => 'primary'],
 ]);
 ?>
 <section class="panel welcome-panel big-welcome-panel">
@@ -21,10 +21,10 @@ mp_admin_header('Welcome to Bonumark Stream', [
 </section>
 
 <section class="dashboard-stats welcome-steps" aria-label="Welcome steps">
-  <a class="stat-card" href="<?= htmlspecialchars(mp_url_path(), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><span>1</span><strong>Post from the stream</strong></a>
-  <a class="stat-card" href="<?= htmlspecialchars(mp_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8') ?>"><span>2</span><strong>Upload media</strong></a>
-  <a class="stat-card" href="<?= htmlspecialchars(mp_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8') ?>"><span>3</span><strong>Set navigation</strong></a>
-  <a class="stat-card" href="<?= htmlspecialchars(mp_admin_url('system-check.php'), ENT_QUOTES, 'UTF-8') ?>"><span>4</span><strong>Check system status</strong></a>
+  <a class="stat-card" href="<?= htmlspecialchars(bms_url_path(), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><span>1</span><strong>Post from the stream</strong></a>
+  <a class="stat-card" href="<?= htmlspecialchars(bms_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8') ?>"><span>2</span><strong>Upload media</strong></a>
+  <a class="stat-card" href="<?= htmlspecialchars(bms_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8') ?>"><span>3</span><strong>Set navigation</strong></a>
+  <a class="stat-card" href="<?= htmlspecialchars(bms_admin_url('system-check.php'), ENT_QUOTES, 'UTF-8') ?>"><span>4</span><strong>Check system status</strong></a>
 </section>
 
 <section class="panel">
@@ -38,9 +38,9 @@ mp_admin_header('Welcome to Bonumark Stream', [
 
 <section class="panel">
   <form method="post" class="form-actions-row">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <button type="submit">Do not show welcome on dashboard</button>
-    <a class="button-link secondary" href="<?= htmlspecialchars(mp_admin_url(), ENT_QUOTES, 'UTF-8') ?>">Back to Dashboard</a>
+    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url(), ENT_QUOTES, 'UTF-8') ?>">Back to Dashboard</a>
   </form>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

@@ -2,33 +2,33 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/mail.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
-mp_require_capability('manage_settings');
+bms_require_login();
+bms_require_capability('manage_settings');
 
-function mp_admin_mail_clean_transport(string $transport): string
+function bms_admin_mail_clean_transport(string $transport): string
 {
-    return array_key_exists($transport, mp_mail_transport_options()) ? $transport : 'disabled';
+    return array_key_exists($transport, bms_mail_transport_options()) ? $transport : 'disabled';
 }
 
-function mp_admin_mail_clean_encryption(string $encryption): string
+function bms_admin_mail_clean_encryption(string $encryption): string
 {
-    return array_key_exists($encryption, mp_mail_encryption_options()) ? $encryption : 'tls';
+    return array_key_exists($encryption, bms_mail_encryption_options()) ? $encryption : 'tls';
 }
 
-$settings = mp_mail_settings();
+$settings = bms_mail_settings();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    mp_verify_csrf();
+    bms_verify_csrf();
     $action = (string)($_POST['mail_action'] ?? 'save');
 
     if ($action === 'save') {
-        $transport = mp_admin_mail_clean_transport((string)($_POST['mail_transport'] ?? 'disabled'));
+        $transport = bms_admin_mail_clean_transport((string)($_POST['mail_transport'] ?? 'disabled'));
         $fromName = trim((string)($_POST['mail_from_name'] ?? 'Bonumark Stream'));
         $fromEmail = trim((string)($_POST['mail_from_email'] ?? ''));
         $replyTo = trim((string)($_POST['mail_reply_to'] ?? ''));
         $smtpHost = trim((string)($_POST['mail_smtp_host'] ?? ''));
         $smtpPort = (int)($_POST['mail_smtp_port'] ?? 587);
-        $smtpEncryption = mp_admin_mail_clean_encryption((string)($_POST['mail_smtp_encryption'] ?? 'tls'));
+        $smtpEncryption = bms_admin_mail_clean_encryption((string)($_POST['mail_smtp_encryption'] ?? 'tls'));
         $smtpUsername = trim((string)($_POST['mail_smtp_username'] ?? ''));
         $smtpPassword = (string)($_POST['mail_smtp_password'] ?? '');
         $sendmailPath = trim((string)($_POST['mail_sendmail_path'] ?? '/usr/sbin/sendmail'));
@@ -39,85 +39,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($fromEmail !== '' && !filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
-            mp_flash('Enter a valid From Email address or leave it blank until you are ready to send mail.', 'error');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_flash('Enter a valid From Email address or leave it blank until you are ready to send mail.', 'error');
+            bms_redirect(bms_admin_url('mail.php'));
         }
 
         if ($replyTo !== '' && !filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
-            mp_flash('Enter a valid Reply-To Email address or leave it blank.', 'error');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_flash('Enter a valid Reply-To Email address or leave it blank.', 'error');
+            bms_redirect(bms_admin_url('mail.php'));
         }
 
         if ($smtpPort <= 0 || $smtpPort > 65535) {
-            mp_flash('SMTP port must be between 1 and 65535.', 'error');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_flash('SMTP port must be between 1 and 65535.', 'error');
+            bms_redirect(bms_admin_url('mail.php'));
         }
 
         try {
-            mp_set_setting('mail_transport', $transport);
-            mp_set_setting('mail_from_name', $fromName);
-            mp_set_setting('mail_from_email', $fromEmail);
-            mp_set_setting('mail_reply_to', $replyTo);
-            mp_set_setting('mail_smtp_host', $smtpHost);
-            mp_set_setting('mail_smtp_port', (string)$smtpPort);
-            mp_set_setting('mail_smtp_encryption', $smtpEncryption);
-            mp_set_setting('mail_smtp_username', $smtpUsername);
+            bms_set_setting('mail_transport', $transport);
+            bms_set_setting('mail_from_name', $fromName);
+            bms_set_setting('mail_from_email', $fromEmail);
+            bms_set_setting('mail_reply_to', $replyTo);
+            bms_set_setting('mail_smtp_host', $smtpHost);
+            bms_set_setting('mail_smtp_port', (string)$smtpPort);
+            bms_set_setting('mail_smtp_encryption', $smtpEncryption);
+            bms_set_setting('mail_smtp_username', $smtpUsername);
             if ($clearPassword) {
-                mp_set_setting('mail_smtp_password', '');
+                bms_set_setting('mail_smtp_password', '');
             } elseif ($smtpPassword !== '') {
-                mp_set_setting('mail_smtp_password', $smtpPassword);
+                bms_set_setting('mail_smtp_password', $smtpPassword);
             }
-            mp_set_setting('mail_sendmail_path', $sendmailPath !== '' ? $sendmailPath : '/usr/sbin/sendmail');
-            mp_flash('Mail settings saved.', 'success');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_set_setting('mail_sendmail_path', $sendmailPath !== '' ? $sendmailPath : '/usr/sbin/sendmail');
+            bms_flash('Mail settings saved.', 'success');
+            bms_redirect(bms_admin_url('mail.php'));
         } catch (Throwable $e) {
-            mp_flash('Could not save mail settings: ' . $e->getMessage(), 'error');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_flash('Could not save mail settings: ' . $e->getMessage(), 'error');
+            bms_redirect(bms_admin_url('mail.php'));
         }
     }
 
     if ($action === 'test') {
         $recipient = trim((string)($_POST['test_recipient'] ?? ''));
         if ($recipient === '') {
-            $recipient = (string)(mp_current_user()['email'] ?? '');
+            $recipient = (string)(bms_current_user()['email'] ?? '');
         }
 
         try {
-            $settings = mp_mail_settings();
-            $siteName = (string)mp_setting_or_config('site_name', 'Bonumark Stream');
+            $settings = bms_mail_settings();
+            $siteName = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
             $body = "This is a Bonumark Stream test email.\n\n";
             $body .= 'Site: ' . $siteName . "\n";
-            $body .= 'Version: ' . mp_version() . "\n";
-            $body .= 'Transport: ' . mp_mail_transport_label((string)($settings['mail_transport'] ?? 'disabled')) . "\n";
+            $body .= 'Version: ' . bms_version() . "\n";
+            $body .= 'Transport: ' . bms_mail_transport_label((string)($settings['mail_transport'] ?? 'disabled')) . "\n";
             $body .= 'Sent at: ' . date('Y-m-d H:i:s T') . "\n";
             $body .= "\nIf you received this, Bonumark Stream can send mail with the current configuration.";
-            $message = mp_mail_message_from_settings($settings, $recipient, 'Bonumark Stream Test Email', $body, 'plain_text');
-            $result = mp_mail_send($settings, $message);
-            mp_mail_record_test_delivery($settings, $message, 'sent');
-            mp_flash('Test email sent. ' . (string)($result['message'] ?? ''), 'success');
-            mp_redirect(mp_admin_url('mail.php'));
+            $message = bms_mail_message_from_settings($settings, $recipient, 'Bonumark Stream Test Email', $body, 'plain_text');
+            $result = bms_mail_send($settings, $message);
+            bms_mail_record_test_delivery($settings, $message, 'sent');
+            bms_flash('Test email sent. ' . (string)($result['message'] ?? ''), 'success');
+            bms_redirect(bms_admin_url('mail.php'));
         } catch (Throwable $e) {
             try {
                 if (isset($message) && is_array($message)) {
-                    mp_mail_record_test_delivery($settings ?? mp_mail_settings(), $message, 'failed', $e->getMessage());
+                    bms_mail_record_test_delivery($settings ?? bms_mail_settings(), $message, 'failed', $e->getMessage());
                 }
             } catch (Throwable $ignore) {
             }
-            mp_flash('Test email failed: ' . $e->getMessage(), 'error');
-            mp_redirect(mp_admin_url('mail.php'));
+            bms_flash('Test email failed: ' . $e->getMessage(), 'error');
+            bms_redirect(bms_admin_url('mail.php'));
         }
     }
 }
 
-$settings = mp_mail_settings();
+$settings = bms_mail_settings();
 $transport = (string)($settings['mail_transport'] ?? 'disabled');
 $encryption = (string)($settings['mail_smtp_encryption'] ?? 'tls');
 $hasPassword = trim((string)($settings['mail_smtp_password'] ?? '')) !== '';
-$recentTests = mp_mail_recent_test_deliveries(8);
-$defaultTestRecipient = (string)(mp_current_user()['email'] ?? '');
+$recentTests = bms_mail_recent_test_deliveries(8);
+$defaultTestRecipient = (string)(bms_current_user()['email'] ?? '');
 
-mp_admin_header('Mail Settings', [
-    ['label' => 'General Settings', 'href' => mp_admin_url('settings.php'), 'style' => 'secondary'],
+bms_admin_header('Mail Settings', [
+    ['label' => 'General Settings', 'href' => bms_admin_url('settings.php'), 'style' => 'secondary'],
 ]);
 ?>
 <section class="panel page-intro-panel">
@@ -129,12 +129,12 @@ mp_admin_header('Mail Settings', [
 <section class="panel settings-panel">
   <h2>Transport settings</h2>
   <form method="post" class="settings-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="mail_action" value="save">
 
     <label for="mail_transport">Mail transport</label>
     <select id="mail_transport" name="mail_transport">
-      <?php foreach (mp_mail_transport_options() as $value => $label): ?>
+      <?php foreach (bms_mail_transport_options() as $value => $label): ?>
         <option value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>" <?= $value === $transport ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
       <?php endforeach; ?>
     </select>
@@ -162,7 +162,7 @@ mp_admin_header('Mail Settings', [
 
     <label for="mail_smtp_encryption">SMTP encryption</label>
     <select id="mail_smtp_encryption" name="mail_smtp_encryption">
-      <?php foreach (mp_mail_encryption_options() as $value => $label): ?>
+      <?php foreach (bms_mail_encryption_options() as $value => $label): ?>
         <option value="<?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>" <?= $value === $encryption ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
       <?php endforeach; ?>
     </select>
@@ -187,7 +187,7 @@ mp_admin_header('Mail Settings', [
   <h2>Send test email</h2>
   <p class="meta">Send a plain-text test message using the saved mail settings.</p>
   <form method="post" class="settings-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(mp_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="mail_action" value="test">
     <label for="test_recipient">Recipient</label>
     <input type="email" id="test_recipient" name="test_recipient" value="<?= htmlspecialchars($defaultTestRecipient, ENT_QUOTES, 'UTF-8') ?>" maxlength="190" required>
@@ -208,7 +208,7 @@ mp_admin_header('Mail Settings', [
             <tr>
               <td><?= htmlspecialchars((string)($test['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
               <td><?= htmlspecialchars((string)($test['recipient_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= htmlspecialchars(mp_mail_transport_label((string)($test['transport'] ?? 'disabled')), ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars(bms_mail_transport_label((string)($test['transport'] ?? 'disabled')), ENT_QUOTES, 'UTF-8') ?></td>
               <td><?= htmlspecialchars((string)($test['status'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
               <td><?= htmlspecialchars((string)($test['error_message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
             </tr>
@@ -218,4 +218,4 @@ mp_admin_header('Mail Settings', [
     </div>
   <?php endif; ?>
 </section>
-<?php mp_admin_footer(); ?>
+<?php bms_admin_footer(); ?>

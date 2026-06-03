@@ -1,6 +1,6 @@
 <?php
 
-class MP_BlueskyArchiveImporter implements MP_ImporterInterface
+class BMS_BlueskyArchiveImporter implements BMS_ImporterInterface
 {
     private const MAX_CAR_BYTES = 128_000_000;
     private const MAX_BLOCK_BYTES = 8_000_000;
@@ -14,7 +14,7 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
     {
         $name = strtolower((string)($file['name'] ?? ''));
         $path = (string)($file['tmp_name'] ?? '');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             return false;
         }
 
@@ -50,13 +50,13 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
         return false;
     }
 
-    public function importPreview(array $file): MP_ImportResult
+    public function importPreview(array $file): BMS_ImportResult
     {
-        $result = new MP_ImportResult($this->label());
+        $result = new BMS_ImportResult($this->label());
         $path = (string)($file['tmp_name'] ?? '');
         $name = (string)($file['name'] ?? 'bluesky-archive');
 
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             $result->addError('Uploaded Bluesky archive could not be read.');
             return $result;
         }
@@ -106,7 +106,7 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
         return $data;
     }
 
-    private function previewZipArchive(string $path, string $sourceName, MP_ImportResult $result): void
+    private function previewZipArchive(string $path, string $sourceName, BMS_ImportResult $result): void
     {
         if (!class_exists('ZipArchive')) {
             $result->addError('ZipArchive is required to import Bluesky ZIP archives.');
@@ -154,7 +154,7 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
         }
     }
 
-    private function previewCarBytes(string $car, string $sourceName, MP_ImportResult $result): void
+    private function previewCarBytes(string $car, string $sourceName, BMS_ImportResult $result): void
     {
         $parsed = $this->parseCarRecords($car);
         if (!$parsed['valid']) {
@@ -534,11 +534,11 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
         return $output;
     }
 
-    private function postRecordToItem(array $record, string $sourceName, int &$imageRefs): MP_ImportItem
+    private function postRecordToItem(array $record, string $sourceName, int &$imageRefs): BMS_ImportItem
     {
         $text = str_replace(["\r\n", "\r"], "\n", (string)($record['text'] ?? ''));
         $createdAt = (string)($record['createdAt'] ?? '');
-        $date = mp_import_normalize_date($createdAt);
+        $date = bms_import_normalize_date($createdAt);
         $body = $this->applyFacetsToText($text, is_array($record['facets'] ?? null) ? $record['facets'] : []);
         $tags = $this->tagsFromPost($record, $text);
         $warnings = [];
@@ -562,12 +562,12 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
             $titleText = substr($titleText, 0, 72);
         }
 
-        return new MP_ImportItem(
+        return new BMS_ImportItem(
             $titleText !== '' ? $titleText : 'Bluesky post ' . $hash,
             $slug,
             trim($body),
             $date,
-            mp_import_normalize_datetime($createdAt),
+            bms_import_normalize_datetime($createdAt),
             '',
             'published',
             $sourceName,
@@ -637,7 +637,7 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
                 }
             }
         }
-        return mp_normalize_terms(array_values(array_unique($tags)));
+        return bms_normalize_terms(array_values(array_unique($tags)));
     }
 
     private function embedExternalUrl(array $record): string
@@ -677,7 +677,7 @@ class MP_BlueskyArchiveImporter implements MP_ImporterInterface
         return [];
     }
 
-    private function addZipDiagnostics(ZipArchive $zip, MP_ImportResult $result): void
+    private function addZipDiagnostics(ZipArchive $zip, BMS_ImportResult $result): void
     {
         $entries = [];
         for ($i = 0; $i < min(20, $zip->numFiles); $i++) {

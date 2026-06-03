@@ -1743,14 +1743,14 @@
       function clearBrowserAutosave() {
         try {
           const currentKey = autosaveKeyValue();
-          const legacyPathKey = 'bonumark-autosave:' + location.pathname;
+          const oldPathKey = 'bonumark-autosave:' + location.pathname;
           localStorage.removeItem(currentKey);
           // Older pre-session builds used the pathname directly. Clear it too so a stale browser copy cannot reappear.
-          localStorage.removeItem(legacyPathKey);
+          localStorage.removeItem(oldPathKey);
           for (let index = localStorage.length - 1; index >= 0; index -= 1) {
             const key = localStorage.key(index);
             if (!key || key.indexOf('bonumark-autosave:') !== 0) { continue; }
-            if (key === currentKey || key === legacyPathKey || key.indexOf(location.pathname) !== -1) {
+            if (key === currentKey || key === oldPathKey || key.indexOf(location.pathname) !== -1) {
               localStorage.removeItem(key);
             }
           }

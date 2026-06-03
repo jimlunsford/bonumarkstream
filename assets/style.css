@@ -200,7 +200,7 @@ img {
 }
 
 
-/* v0.2.55: comment sign-in prompts should read as links, not pills. */
+/* Comment sign-in prompts should read as links, not pills. */
 .comment-note .comment-inline-link {
   color: var(--accent, #c7895b);
   font-weight: 700;

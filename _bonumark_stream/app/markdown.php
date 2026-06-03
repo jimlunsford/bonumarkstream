@@ -1,14 +1,14 @@
 <?php
-function mp_markdown_normalize_public_spacing(string $text): string
+function bms_markdown_normalize_public_spacing(string $text): string
 {
     return str_replace(["\xC2\xA0", '&nbsp;', '&#160;', '&#xA0;', '&#xa0;'], ' ', $text);
 }
 
-function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): string
+function bms_markdown_to_html(string $markdown, bool $stripFirstH1 = true): string
 {
     $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
-    $markdown = mp_markdown_normalize_public_spacing($markdown);
-    $markdown = mp_markdown_normalize_imported_html_images($markdown);
+    $markdown = bms_markdown_normalize_public_spacing($markdown);
+    $markdown = bms_markdown_normalize_imported_html_images($markdown);
 
     if ($stripFirstH1) {
         $markdown = preg_replace('/\A\s*#\s+.+\n?/', '', $markdown, 1) ?? $markdown;
@@ -44,8 +44,8 @@ function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): strin
         if (preg_match('/^(#{1,6})\s+(.+)$/', $line, $m)) {
             $level = strlen($m[1]);
             $text = trim($m[2]);
-            $id = mp_heading_id($text);
-            $html[] = '<h' . $level . ' id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '">' . mp_inline_markdown($text) . '</h' . $level . '>';
+            $id = bms_heading_id($text);
+            $html[] = '<h' . $level . ' id="' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '">' . bms_inline_markdown($text) . '</h' . $level . '>';
             $i++;
             continue;
         }
@@ -56,8 +56,8 @@ function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): strin
             continue;
         }
 
-        if (mp_is_table_start($lines, $i)) {
-            [$tableHtml, $next] = mp_parse_table($lines, $i);
+        if (bms_is_table_start($lines, $i)) {
+            [$tableHtml, $next] = bms_parse_table($lines, $i);
             $html[] = $tableHtml;
             $i = $next;
             continue;
@@ -69,14 +69,14 @@ function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): strin
                 $quote[] = $m[1];
                 $i++;
             }
-            $html[] = '<blockquote>' . mp_markdown_to_html(implode("\n", $quote), false) . '</blockquote>';
+            $html[] = '<blockquote>' . bms_markdown_to_html(implode("\n", $quote), false) . '</blockquote>';
             continue;
         }
 
         if (preg_match('/^\s*[-*+]\s+(.+)$/', $line)) {
             $items = [];
             while ($i < $count && preg_match('/^\s*[-*+]\s+(.+)$/', rtrim($lines[$i]), $m)) {
-                $items[] = '<li>' . mp_inline_markdown(trim($m[1])) . '</li>';
+                $items[] = '<li>' . bms_inline_markdown(trim($m[1])) . '</li>';
                 $i++;
             }
             $html[] = '<ul>' . implode('', $items) . '</ul>';
@@ -86,7 +86,7 @@ function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): strin
         if (preg_match('/^\s*\d+\.\s+(.+)$/', $line)) {
             $items = [];
             while ($i < $count && preg_match('/^\s*\d+\.\s+(.+)$/', rtrim($lines[$i]), $m)) {
-                $items[] = '<li>' . mp_inline_markdown(trim($m[1])) . '</li>';
+                $items[] = '<li>' . bms_inline_markdown(trim($m[1])) . '</li>';
                 $i++;
             }
             $html[] = '<ol>' . implode('', $items) . '</ol>';
@@ -101,20 +101,20 @@ function mp_markdown_to_html(string $markdown, bool $stripFirstH1 = true): strin
                 $i++;
                 break;
             }
-            if (preg_match('/^(#{1,6})\s+/', $next) || preg_match('/^```/', trim($next)) || preg_match('/^>\s?/', $next) || preg_match('/^\s*[-*+]\s+/', $next) || preg_match('/^\s*\d+\.\s+/', $next) || mp_is_table_start($lines, $i)) {
+            if (preg_match('/^(#{1,6})\s+/', $next) || preg_match('/^```/', trim($next)) || preg_match('/^>\s?/', $next) || preg_match('/^\s*[-*+]\s+/', $next) || preg_match('/^\s*\d+\.\s+/', $next) || bms_is_table_start($lines, $i)) {
                 break;
             }
             $paragraph[] = $next;
             $i++;
         }
-        $html[] = '<p>' . mp_inline_markdown(implode(' ', array_map('trim', $paragraph))) . '</p>';
+        $html[] = '<p>' . bms_inline_markdown(implode(' ', array_map('trim', $paragraph))) . '</p>';
     }
 
     return implode("\n", $html);
 }
 
 
-function mp_media_type_from_url(string $url): string
+function bms_media_type_from_url(string $url): string
 {
     $path = strtolower((string)(parse_url($url, PHP_URL_PATH) ?? $url));
     if (preg_match('/\.(mp3|m4a|wav|ogg)$/', $path)) {
@@ -126,14 +126,14 @@ function mp_media_type_from_url(string $url): string
     return 'file';
 }
 
-function mp_media_label_text(string $label, string $fallback = 'Media'): string
+function bms_media_label_text(string $label, string $fallback = 'Media'): string
 {
     $label = trim(preg_replace('/[\r\n\[\]]+/', ' ', $label) ?? $label);
     return $label !== '' ? $label : $fallback;
 }
 
 
-function mp_autolink_plain_urls(string $html): string
+function bms_autolink_plain_urls(string $html): string
 {
     $parts = preg_split('/(<[^>]+>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
     if (!is_array($parts)) {
@@ -172,7 +172,7 @@ function mp_autolink_plain_urls(string $html): string
                 $urlText = substr($urlText, 0, strlen($urlText) - 1);
             }
 
-            $href = mp_clean_url(htmlspecialchars_decode($urlText, ENT_QUOTES));
+            $href = bms_clean_url(htmlspecialchars_decode($urlText, ENT_QUOTES));
             if ($href === '#') {
                 return $urlText . $trailing;
             }
@@ -185,17 +185,17 @@ function mp_autolink_plain_urls(string $html): string
 }
 
 
-function mp_markdown_image_source_from_attributes(string $attributes): string
+function bms_markdown_image_source_from_attributes(string $attributes): string
 {
     $candidates = ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-full-url', 'data-large-file'];
     foreach ($candidates as $name) {
-        $value = mp_markdown_attribute_value($attributes, $name);
+        $value = bms_markdown_attribute_value($attributes, $name);
         if ($value !== '') {
             return $value;
         }
     }
 
-    $srcset = mp_markdown_attribute_value($attributes, 'srcset');
+    $srcset = bms_markdown_attribute_value($attributes, 'srcset');
     if ($srcset !== '') {
         $parts = array_filter(array_map('trim', explode(',', $srcset)));
         foreach ($parts as $part) {
@@ -209,7 +209,7 @@ function mp_markdown_image_source_from_attributes(string $attributes): string
     return '';
 }
 
-function mp_markdown_normalize_imported_html_images(string $markdown): string
+function bms_markdown_normalize_imported_html_images(string $markdown): string
 {
     $markdown = preg_replace('#<!--\s*/?wp:image[^>]*-->#i', '', $markdown) ?? $markdown;
     $markdown = preg_replace('#<noscript\b[^>]*>.*?</noscript>#is', '', $markdown) ?? $markdown;
@@ -243,7 +243,7 @@ function mp_markdown_normalize_imported_html_images(string $markdown): string
     return $markdown;
 }
 
-function mp_html_image_with_priority(string $imageHtml, string $loading = 'eager', string $fetchPriority = 'high'): string
+function bms_html_image_with_priority(string $imageHtml, string $loading = 'eager', string $fetchPriority = 'high'): string
 {
     if (preg_match('#^<img\b#i', trim($imageHtml)) !== 1) {
         return $imageHtml;
@@ -259,29 +259,29 @@ function mp_html_image_with_priority(string $imageHtml, string $loading = 'eager
     return preg_replace('/\s*\/?>$/', ' loading="' . $loading . '" fetchpriority="' . $fetchPriority . '" decoding="async">', trim($imageHtml), 1) ?? $imageHtml;
 }
 
-function mp_markdown_prioritize_first_image(string $html): string
+function bms_markdown_prioritize_first_image(string $html): string
 {
     return preg_replace_callback('#<img\b[^>]*>#i', static function (array $matches): string {
-        return mp_html_image_with_priority((string)$matches[0], 'eager', 'high');
+        return bms_html_image_with_priority((string)$matches[0], 'eager', 'high');
     }, $html, 1) ?? $html;
 }
 
-function mp_markdown_image_html(string $src, string $alt = '', string $title = ''): string
+function bms_markdown_image_html(string $src, string $alt = '', string $title = ''): string
 {
     $rawSrc = html_entity_decode(trim($src), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $cleanSrc = mp_clean_url($rawSrc);
+    $cleanSrc = bms_clean_url($rawSrc);
 
-    if (function_exists('mp_media_resolve_existing_public_relative_from_url') && function_exists('mp_url_path')) {
-        $resolved = mp_media_resolve_existing_public_relative_from_url($rawSrc);
+    if (function_exists('bms_media_resolve_existing_public_relative_from_url') && function_exists('bms_url_path')) {
+        $resolved = bms_media_resolve_existing_public_relative_from_url($rawSrc);
         if ($resolved !== '') {
-            $cleanSrc = mp_url_path($resolved);
+            $cleanSrc = bms_url_path($resolved);
         }
     }
 
-    if ($cleanSrc === '#' && function_exists('mp_media_public_relative_from_url')) {
-        $relative = mp_media_public_relative_from_url($rawSrc);
-        if ($relative !== '' && function_exists('mp_url_path')) {
-            $cleanSrc = mp_url_path($relative);
+    if ($cleanSrc === '#' && function_exists('bms_media_public_relative_from_url')) {
+        $relative = bms_media_public_relative_from_url($rawSrc);
+        if ($relative !== '' && function_exists('bms_url_path')) {
+            $cleanSrc = bms_url_path($relative);
         }
     }
 
@@ -292,8 +292,8 @@ function mp_markdown_image_html(string $src, string $alt = '', string $title = '
         return '';
     }
 
-    if (function_exists('mp_media_image_attributes')) {
-        $attributes = mp_media_image_attributes($cleanSrc, html_entity_decode($altEscaped, ENT_QUOTES, 'UTF-8'), [
+    if (function_exists('bms_media_image_attributes')) {
+        $attributes = bms_media_image_attributes($cleanSrc, html_entity_decode($altEscaped, ENT_QUOTES, 'UTF-8'), [
             'loading' => 'lazy',
             'decoding' => 'async',
             'sizes' => '(max-width: 720px) calc(100vw - 2rem), min(100vw - 4rem, 900px)',
@@ -304,7 +304,7 @@ function mp_markdown_image_html(string $src, string $alt = '', string $title = '
     return '<img src="' . htmlspecialchars($cleanSrc, ENT_QUOTES, 'UTF-8') . '" alt="' . $altEscaped . '" loading="lazy" decoding="async"' . $titleAttr . '>';
 }
 
-function mp_markdown_attribute_value(string $attributes, string $name): string
+function bms_markdown_attribute_value(string $attributes, string $name): string
 {
     if (preg_match('/\b' . preg_quote($name, '/') . '\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $attributes, $match) !== 1) {
         return '';
@@ -312,23 +312,23 @@ function mp_markdown_attribute_value(string $attributes, string $name): string
     return html_entity_decode((string)($match[2] ?? $match[3] ?? $match[4] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-function mp_markdown_normalize_raw_images(string $text, array &$placeholders): string
+function bms_markdown_normalize_raw_images(string $text, array &$placeholders): string
 {
     return preg_replace_callback('#<img\b([^>]*)>#i', static function (array $matches) use (&$placeholders): string {
         $attributes = (string)($matches[1] ?? '');
-        $src = mp_markdown_image_source_from_attributes($attributes);
+        $src = bms_markdown_image_source_from_attributes($attributes);
         if ($src === '') {
             return '';
         }
-        $alt = mp_markdown_attribute_value($attributes, 'alt');
-        $title = mp_markdown_attribute_value($attributes, 'title');
+        $alt = bms_markdown_attribute_value($attributes, 'alt');
+        $title = bms_markdown_attribute_value($attributes, 'title');
         $key = '%%RAWIMAGE' . count($placeholders) . '%%';
-        $placeholders[$key] = mp_markdown_image_html($src, $alt !== '' ? $alt : 'Imported image', $title);
+        $placeholders[$key] = bms_markdown_image_html($src, $alt !== '' ? $alt : 'Imported image', $title);
         return $key;
     }, $text) ?? $text;
 }
 
-function mp_inline_markdown(string $text): string
+function bms_inline_markdown(string $text): string
 {
     $placeholders = [];
     $text = preg_replace_callback('/`([^`]+)`/', function ($m) use (&$placeholders) {
@@ -337,7 +337,7 @@ function mp_inline_markdown(string $text): string
         return $key;
     }, $text) ?? $text;
 
-    $text = mp_markdown_normalize_raw_images($text, $placeholders);
+    $text = bms_markdown_normalize_raw_images($text, $placeholders);
 
     $text = htmlspecialchars($text, ENT_NOQUOTES, 'UTF-8');
 
@@ -346,13 +346,13 @@ function mp_inline_markdown(string $text): string
         if (str_starts_with($src, '<') && str_ends_with($src, '>')) {
             $src = substr($src, 1, -1);
         }
-        return mp_markdown_image_html($src, (string)$m[1], isset($m[3]) ? (string)$m[3] : '');
+        return bms_markdown_image_html($src, (string)$m[1], isset($m[3]) ? (string)$m[3] : '');
     }, $text) ?? $text;
 
     $text = preg_replace_callback('/\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/', function ($m) {
-        $label = mp_media_label_text((string)$m[1]);
-        $href = mp_clean_url(htmlspecialchars_decode($m[2], ENT_QUOTES));
-        $type = mp_media_type_from_url($href);
+        $label = bms_media_label_text((string)$m[1]);
+        $href = bms_clean_url(htmlspecialchars_decode($m[2], ENT_QUOTES));
+        $type = bms_media_type_from_url($href);
         if ($type === 'audio') {
             return '<audio controls preload="metadata" src="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '"></audio>';
         }
@@ -363,7 +363,7 @@ function mp_inline_markdown(string $text): string
         return '<a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '"' . $title . '>' . $label . '</a>';
     }, $text) ?? $text;
 
-    $text = mp_autolink_plain_urls($text);
+    $text = bms_autolink_plain_urls($text);
 
     $text = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $text) ?? $text;
     $text = preg_replace('/__([^_]+)__/', '<strong>$1</strong>', $text) ?? $text;
@@ -377,7 +377,7 @@ function mp_inline_markdown(string $text): string
     return $text;
 }
 
-function mp_clean_url(string $url): string
+function bms_clean_url(string $url): string
 {
     $url = trim(str_replace('\\', '/', $url));
     if ($url === '' || str_contains($url, "\0") || preg_match('/[\r\n]/', $url)) {
@@ -411,14 +411,14 @@ function mp_clean_url(string $url): string
     return '#';
 }
 
-function mp_heading_id(string $text): string
+function bms_heading_id(string $text): string
 {
     $text = strip_tags($text);
     $text = preg_replace('/[^A-Za-z0-9]+/', '-', $text) ?? $text;
     return strtolower(trim($text, '-')) ?: 'section';
 }
 
-function mp_is_table_start(array $lines, int $i): bool
+function bms_is_table_start(array $lines, int $i): bool
 {
     if (!isset($lines[$i + 1])) {
         return false;
@@ -426,27 +426,27 @@ function mp_is_table_start(array $lines, int $i): bool
     return str_contains($lines[$i], '|') && preg_match('/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/', $lines[$i + 1]);
 }
 
-function mp_parse_table(array $lines, int $i): array
+function bms_parse_table(array $lines, int $i): array
 {
-    $headers = mp_split_table_row($lines[$i]);
+    $headers = bms_split_table_row($lines[$i]);
     $i += 2;
     $rows = [];
     $count = count($lines);
     while ($i < $count && trim($lines[$i]) !== '' && str_contains($lines[$i], '|')) {
-        $rows[] = mp_split_table_row($lines[$i]);
+        $rows[] = bms_split_table_row($lines[$i]);
         $i++;
     }
 
     $html = '<div class="markdown-table-wrap"><table><thead><tr>';
     foreach ($headers as $header) {
-        $html .= '<th>' . mp_inline_markdown(trim($header)) . '</th>';
+        $html .= '<th>' . bms_inline_markdown(trim($header)) . '</th>';
     }
     $html .= '</tr></thead><tbody>';
     foreach ($rows as $row) {
         $html .= '<tr>';
         foreach ($headers as $index => $_) {
             $cell = $row[$index] ?? '';
-            $html .= '<td>' . mp_inline_markdown(trim($cell)) . '</td>';
+            $html .= '<td>' . bms_inline_markdown(trim($cell)) . '</td>';
         }
         $html .= '</tr>';
     }
@@ -455,7 +455,7 @@ function mp_parse_table(array $lines, int $i): array
     return [$html, $i];
 }
 
-function mp_split_table_row(string $line): array
+function bms_split_table_row(string $line): array
 {
     $line = trim($line);
     $line = trim($line, '|');

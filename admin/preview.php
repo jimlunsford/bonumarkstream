@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/preview.php';
 require_once __DIR__ . '/_layout.php';
-mp_require_login();
+bms_require_login();
 
 $type = $_GET['type'] ?? 'draft';
 $file = basename($_GET['file'] ?? '');
@@ -16,35 +16,27 @@ if ($type === 'page-published') {
 }
 
 if ($file === '') {
-    mp_admin_error_page('Content not found', 'The requested content record could not be found.', 404);
+    bms_admin_error_page('Content not found', 'The requested content record could not be found.', 404);
 }
 
 $page = null;
-if (function_exists('mp_find_database_content_by_markdown_path')) {
-    $page = mp_find_database_content_by_markdown_path($section, $file);
+if (function_exists('bms_find_database_content_by_markdown_path')) {
+    $page = bms_find_database_content_by_markdown_path($section, $file);
 }
 
 if (!$page) {
-    $path = mp_content_path($section . '/' . $file);
-    if (!is_file($path)) {
-        mp_admin_error_page('Content not found', 'The requested database record or legacy Markdown source could not be found.', 404);
-    }
-    $page = mp_parse_markdown_file($path);
-    $page['filename'] = $file;
-    $page['section'] = $section;
-    $page['content_storage'] = 'legacy-markdown';
+    bms_admin_error_page('Content not found', 'The requested database record could not be found.', 404);
 }
 
+
 if ($isPagePreview) {
-    mp_require_capability('manage_pages');
+    bms_require_capability('manage_pages');
 } else {
-    mp_require_content_file_access($section, $file, 'edit_content', $page);
+    bms_require_content_file_access($section, $file, 'edit_content', $page);
 }
 
 header('X-Robots-Tag: noindex, nofollow', true);
-$editUrl = $isPagePreview ? mp_admin_url('page-edit.php?type=' . ($section === 'pages/published' ? 'published' : 'draft') . '&file=' . urlencode($file)) : mp_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file));
-$label = ($page['content_storage'] ?? '') === 'database'
-    ? (str_contains($section, 'published') ? 'Saved published database record' : 'Saved draft database record')
-    : (str_contains($section, 'published') ? 'Legacy published Markdown source' : 'Legacy draft Markdown source');
-echo mp_admin_preview_document($page, $label, $editUrl);
+$editUrl = $isPagePreview ? bms_admin_url('page-edit.php?type=' . ($section === 'pages/published' ? 'published' : 'draft') . '&file=' . urlencode($file)) : bms_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file));
+$label = str_contains($section, 'published') ? 'Saved published database record' : 'Saved draft database record';
+echo bms_admin_preview_document($page, $label, $editUrl);
 exit;

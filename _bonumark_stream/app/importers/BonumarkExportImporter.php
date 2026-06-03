@@ -1,6 +1,6 @@
 <?php
 
-class MP_BonumarkExportImporter implements MP_ImporterInterface
+class BMS_BonumarkExportImporter implements BMS_ImporterInterface
 {
     private const MAX_MARKDOWN_BYTES = 4194304;
     private const MAX_STAGED_MEDIA_BYTES = 134217728;
@@ -20,7 +20,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
             return false;
         }
         $path = (string)($file['tmp_name'] ?? '');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             return false;
         }
 
@@ -33,16 +33,16 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
         return stripos($export, 'Bonumark Stream export') !== false;
     }
 
-    public function importPreview(array $file): MP_ImportResult
+    public function importPreview(array $file): BMS_ImportResult
     {
-        $result = new MP_ImportResult($this->label());
+        $result = new BMS_ImportResult($this->label());
         if (!class_exists('ZipArchive')) {
             $result->addError('Bonumark export restore requires PHP ZipArchive. Ask the host to enable it.');
             return $result;
         }
 
         $path = (string)($file['tmp_name'] ?? '');
-        if ($path === '' || !mp_import_uploaded_file_is_readable($path)) {
+        if ($path === '' || !bms_import_uploaded_file_is_readable($path)) {
             $result->addError('Uploaded Bonumark export ZIP could not be read.');
             return $result;
         }
@@ -72,7 +72,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
                 return $result;
             }
 
-            $stagingToken = mp_import_staging_token();
+            $stagingToken = bms_import_staging_token();
             $stagedMap = [];
             $stagedBytes = 0;
             $contentCount = 0;
@@ -83,7 +83,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
                     continue;
                 }
 
-                $parsed = mp_parse_markdown_string($raw);
+                $parsed = bms_parse_markdown_string($raw);
                 $entryInfo = $this->contentEntryInfo($entry);
                 $section = $entryInfo['status'];
                 $contentType = $entryInfo['content_type'];
@@ -101,12 +101,12 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
                     $title = $contentType === 'page' ? 'Restored Bonumark Page' : 'Restored Bonumark Post';
                 }
                 $slug = trim((string)($parsed['slug'] ?? pathinfo($entry, PATHINFO_FILENAME)));
-                $date = mp_import_normalize_date((string)($parsed['date'] ?? ''));
-                $createdAt = mp_import_normalize_datetime((string)($parsed['stream_created_at'] ?? $parsed['date'] ?? ''));
+                $date = bms_import_normalize_date((string)($parsed['date'] ?? ''));
+                $createdAt = bms_import_normalize_datetime((string)($parsed['stream_created_at'] ?? $parsed['date'] ?? ''));
                 $description = trim((string)($parsed['description'] ?? ''));
                 $tags = isset($parsed['tags']) && is_array($parsed['tags']) ? $parsed['tags'] : [];
 
-                $result->addItem(mp_import_make_item([
+                $result->addItem(bms_import_make_item([
                     'title' => $title,
                     'slug' => $slug,
                     'body' => $body,
@@ -124,7 +124,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
             }
 
             if ($contentCount === 0) {
-                mp_import_cleanup_staging_token($stagingToken);
+                bms_import_cleanup_staging_token($stagingToken);
                 $result->addWarning('No readable Markdown content entries were found in this Bonumark export.');
             }
 
@@ -288,7 +288,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
             $warnings[] = 'Skipped empty media file in export: ' . basename($entry) . '.';
             return '';
         }
-        if ($size > mp_import_remote_image_max_bytes()) {
+        if ($size > bms_import_remote_image_max_bytes()) {
             $warnings[] = 'Skipped oversized media file in export: ' . basename($entry) . '.';
             return '';
         }
@@ -298,20 +298,20 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
         }
 
         $extension = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-        $allowed = mp_allowed_media_extensions();
+        $allowed = bms_allowed_media_extensions();
         if (!isset($allowed[$extension])) {
             $warnings[] = 'Skipped unsupported media file in export: ' . basename($entry) . '.';
             return '';
         }
 
-        $data = $this->readZipEntry($zip, $entry, mp_import_remote_image_max_bytes());
+        $data = $this->readZipEntry($zip, $entry, bms_import_remote_image_max_bytes());
         if ($data === '') {
             $warnings[] = 'Could not read media file from export: ' . basename($entry) . '.';
             return '';
         }
 
         $safeName = substr(sha1($entry), 0, 12) . '-' . preg_replace('/[^a-z0-9._-]/i', '-', basename($entry));
-        $destination = mp_import_staging_path($token, $safeName);
+        $destination = bms_import_staging_path($token, $safeName);
         $dir = dirname($destination);
         if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
             $warnings[] = 'Could not create import staging folder for Bonumark media.';
@@ -320,7 +320,7 @@ class MP_BonumarkExportImporter implements MP_ImporterInterface
         file_put_contents($destination, $data);
         @chmod($destination, 0600);
         $stagedBytes += strlen($data);
-        $stagedMap[$entry] = mp_import_staged_media_url($token, $safeName);
+        $stagedMap[$entry] = bms_import_staged_media_url($token, $safeName);
         return $stagedMap[$entry];
     }
 
