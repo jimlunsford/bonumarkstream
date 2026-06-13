@@ -7,8 +7,10 @@ $like = is_array($data['like'] ?? null) ? $data['like'] : [];
 $comments = is_array($data['comments'] ?? null) ? $data['comments'] : [];
 $likeLabel = (string)($like['label'] ?? '0 likes');
 $likeAction = (string)($like['action_label'] ?? 'Like this post.');
+$previewMode = !empty($data['preview_mode']);
+$backLabel = (string)($data['back_label'] ?? 'Back to stream');
 ?>
-<article class="<?= htmlspecialchars($cardClasses, ENT_QUOTES, 'UTF-8') ?>" data-stream-card data-stream-url="<?= htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') ?>">
+<article class="<?= htmlspecialchars($cardClasses, ENT_QUOTES, 'UTF-8') ?>" data-stream-card data-stream-url="<?= htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $previewMode ? ' data-preview-mode="1"' : '' ?>>
   <div class="stream-card-inner">
     <div class="stream-card-avatar"><?= (string)($data['avatar_html'] ?? '') ?></div>
     <div class="stream-card-main">
@@ -33,7 +35,9 @@ $likeAction = (string)($like['action_label'] ?? 'Like this post.');
       <div class="stream-card-meta">
         <div class="stream-card-tags"></div>
         <div class="stream-card-actions">
-          <button type="button" class="stream-like-button stream-meta-pill<?= !empty($like['liked']) ? ' is-liked' : '' ?>" data-stream-like data-like-slug="<?= htmlspecialchars((string)($like['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-like-endpoint="<?= htmlspecialchars((string)($like['endpoint'] ?? 'stream-like.php'), ENT_QUOTES, 'UTF-8') ?>" data-like-endpoint-alt="<?= htmlspecialchars((string)($like['endpoint_alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-like-count="<?= (int)($like['count'] ?? 0) ?>" aria-pressed="<?= !empty($like['liked']) ? 'true' : 'false' ?>" aria-label="<?= htmlspecialchars($likeAction . ' ' . $likeLabel, ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span class="screen-reader-text stream-like-sr-text"><?= htmlspecialchars($likeAction, ENT_QUOTES, 'UTF-8') ?></span><span class="stream-like-text"><?= htmlspecialchars($likeLabel, ENT_QUOTES, 'UTF-8') ?></span></button>
+          <?php if (!empty($like['enabled'])): ?>
+            <button type="button" class="stream-like-button stream-meta-pill<?= !empty($like['liked']) ? ' is-liked' : '' ?>" data-stream-like data-like-slug="<?= htmlspecialchars((string)($like['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-like-endpoint="<?= htmlspecialchars((string)($like['endpoint'] ?? 'stream-like.php'), ENT_QUOTES, 'UTF-8') ?>" data-like-endpoint-alt="<?= htmlspecialchars((string)($like['endpoint_alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" data-like-count="<?= (int)($like['count'] ?? 0) ?>" aria-pressed="<?= !empty($like['liked']) ? 'true' : 'false' ?>" aria-label="<?= htmlspecialchars($likeAction . ' ' . $likeLabel, ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span class="screen-reader-text stream-like-sr-text"><?= htmlspecialchars($likeAction, ENT_QUOTES, 'UTF-8') ?></span><span class="stream-like-text"><?= htmlspecialchars($likeLabel, ENT_QUOTES, 'UTF-8') ?></span></button>
+          <?php endif; ?>
           <?php if (!empty($comments['enabled'])): ?>
             <a class="stream-meta-pill" href="<?= htmlspecialchars((string)($comments['url'] ?? '#comments'), ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span><?= htmlspecialchars((string)($comments['label'] ?? '0 Comments'), ENT_QUOTES, 'UTF-8') ?></span></a>
           <?php endif; ?>
@@ -44,7 +48,7 @@ $likeAction = (string)($like['action_label'] ?? 'Like this post.');
                   $backUrl = function_exists('bms_stream_home_url') ? bms_stream_home_url() : '/';
               }
             ?>
-            <a class="stream-meta-pill" href="<?= htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span>Back to stream</span></a>
+            <a class="stream-meta-pill" href="<?= htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span><?= htmlspecialchars($backLabel, ENT_QUOTES, 'UTF-8') ?></span></a>
           <?php endif; ?>
           <?php if ((string)($data['edit_url'] ?? '') !== ''): ?>
             <a class="stream-meta-pill" href="<?= htmlspecialchars((string)$data['edit_url'], ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span>Edit</span></a>

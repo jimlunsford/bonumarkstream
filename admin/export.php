@@ -79,6 +79,7 @@ function bms_export_database_tables(): array
             'upgrade_history', 'migrations', 'media', 'trash', 'autosaves', 'stream_likes',
             'stream_like_attempts', 'comments', 'mail_test_deliveries', 'registration_invites',
             'password_reset_tokens', 'password_reset_attempts', 'email_verification_attempts',
+            'api_tokens', 'api_audit_log', 'api_rate_limit_attempts', 'api_idempotency_keys',
         ];
         return array_map('bms_table', $fallback);
     }
@@ -87,7 +88,7 @@ function bms_export_database_tables(): array
 function bms_export_database_sql(): string
 {
     $tables = bms_export_database_tables();
-    $sql = "-- Bonumark Stream database export\n-- Generated: " . date('c') . "\n-- Warning: this private backup may contain password hashes, email addresses, session-adjacent security logs, and account data.\n\n";
+    $sql = "-- Bonumark Stream database export\n-- Generated: " . date('c') . "\n-- Warning: this private backup may contain password hashes, email addresses, API token hashes, security logs, and account data.\n\n";
     foreach ($tables as $table) {
         $safeTable = preg_replace('/[^A-Za-z0-9_]/', '', $table) ?: '';
         if ($safeTable === '' || !str_starts_with($safeTable, bms_table_prefix())) {
@@ -171,7 +172,7 @@ bms_admin_header('Export', [
   <p class="eyebrow">Ownership tools</p>
   <h2>Your work goes in clean. Your work comes out clean.</h2>
   <p class="meta">Export Markdown from database content, optional static site output, media, database records, or a full Bonumark Stream package for backup and portability.</p>
-  <p class="notice warning"><strong>Private backup warning:</strong> Database and full exports may contain password hashes, email addresses, account metadata, security logs, invites, reset tokens, and other sensitive records. Do not publish or share these ZIP files.</p>
+  <p class="notice warning"><strong>Private backup warning:</strong> Database and full exports may contain password hashes, email addresses, account metadata, API token hashes, security logs, invites, reset tokens, and other sensitive records. Do not publish or share these ZIP files.</p>
 </section>
 <section class="dashboard-actions-grid">
   <?php foreach ([

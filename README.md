@@ -7,7 +7,7 @@ It is built for people who want the speed and simplicity of a personal stream wi
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.4.5**
+- Current version: **0.5.0**
 
 ## What Bonumark Stream is
 
@@ -17,9 +17,20 @@ It is not a social network. It is not a multi-author publishing platform. It is 
 
 Bonumark Stream is for running your own microblog on your own site.
 
+## Who it is for
+
+Bonumark Stream is for people who want:
+
+- A self-hosted place for short posts, notes, updates, links, photos, and public thoughts
+- Ownership of their posts, media, comments, and publishing history
+- A smaller publishing system that can run on normal shared hosting
+- A site where the owner remains the only publisher
+- Optional commenter participation without turning the site into a multiuser publishing platform
+- A code-free theme system where themes control presentation, not application behavior
+
 ## Current foundation
 
-Bonumark Stream v0.4.x is a clean-break public foundation.
+Bonumark Stream v0.5.0 is a public development release built on the clean-break v0.4.0+ foundation.
 
 The current model is:
 
@@ -34,15 +45,89 @@ The current model is:
 - Code-free presentation themes
 - Midnight Ledger as the bundled reference theme
 
+## Major features
+
+Bonumark Stream currently includes:
+
+- Stream posts
+- Drafts, published posts, trash, revisions, and previews
+- Basic pages
+- Media library and validated media uploads
+- Public comments and comment moderation
+- Public likes with rate limiting
+- Admin dashboard and publishing tools
+- Admin-only imports and exports
+- RSS/feed support
+- Sitemap and robots.txt handling
+- Public profiles and optional commenter accounts
+- Password reset and verification flows
+- Code-free theme installation and management
+- Dynamic database-first rendering
+- Optional static export
+- Remote Posting API for trusted external clients
+
+## Remote Posting API
+
+Bonumark Stream includes an optional Remote Posting API for trusted external tools.
+
+In v0.5.0, the API includes:
+
+- Disabled-by-default API setting
+- Admin-created scoped API tokens
+- Hashed token storage
+- Token revocation
+- API audit logging
+- API rate limiting
+- `GET /api/v1/status` status endpoint
+- `POST /api/v1/stream/posts` stream post endpoint
+- Draft creation by default
+- Optional direct publishing
+- `stream:publish` token scope
+- Default remote status setting
+- Publish confirmation behavior
+- Idempotency keys to prevent duplicate posts
+- Edit URL returned after remote creation
+- Public URL returned after direct publish
+- OpenAPI schema and ChatGPT Actions documentation
+- Remote Posting client examples for PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier, Make, IFTTT, and generic no-code tools
+- Optional remote image uploads through `POST /api/v1/media`
+- `media:upload` token scope
+- Remote media audit logging
+- Returned media URL and Markdown image embed
+- Safe remote image import through `POST /api/v1/media/import`
+- Guardrails that reject known fake placeholder media uploads
+- Stream post requests can embed existing media by media ID or media URL
+- Stream post requests can upload image media and embed it in the same request
+- Remote post responses include embedded media details
+- Media embedding persistence so media IDs and media URLs are written into the saved post body
+- Imported media rendering protection so responsive image metadata does not appear as post text
+- GPT Actions-compatible OpenAPI schema cleanup
+
+Remote posting is disabled by default. Site owners must create scoped tokens and enable the API from the admin area before external clients can post.
+
+## Documentation
+
+Package documentation is included under `docs/`:
+
+- `docs/INSTALL.md` for installation
+- `docs/UPGRADING.md` for supported upgrades
+- `docs/API.md` for Remote Posting API endpoint details
+- `docs/REMOTE-POSTING.md` for Remote Posting API setup and security notes
+- `docs/REMOTE-POSTING-CLIENTS.md` for PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier, Make, IFTTT, and generic no-code client examples
+- `docs/CHATGPT-ACTIONS.md` for ChatGPT Actions setup
+- `docs/IMPORTERS.md` for importer behavior
+- `docs/THEMING.md` for code-free theme development
+- `docs/ARCHITECTURE.md` for system architecture notes
+
 ## Important upgrade notice
 
-Bonumark Stream v0.4.x is a clean-break release line.
+Bonumark Stream v0.5.0 continues the v0.4.0+ clean-break upgrade line.
+
+The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Direct upgrades from older development packages, including v0.1.x, v0.2.x, and v0.3.x, are not supported.
 
-If you are using an older development package, install Bonumark Stream v0.4.x as a fresh installation.
-
-The built-in upgrader is intended for Bonumark Stream v0.4.0 and newer going forward.
+If you are using an older development package, install Bonumark Stream v0.5.0 as a fresh installation.
 
 ## Requirements
 
@@ -253,6 +338,7 @@ Bonumark Stream includes protections for:
 - Theme package validation
 - Rate-limited public interactions
 - Protected configuration files
+- Scoped and hashed API tokens for Remote Posting
 
 Apache/LiteSpeed protections are included through `.htaccess`.
 
@@ -276,13 +362,13 @@ The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Older development packages are not supported upgrade sources.
 
-For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.4.x install.
+For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.0 install.
 
 ## Project status
 
 Bonumark Stream is under active development.
 
-The v0.4.x line is the clean public foundation. APIs, internals, theme structure, and installer behavior may still change before a stable 1.0 release.
+The v0.5.x line is the current public development release line. APIs, internals, installer behavior, and other pre-1.0 details may still change before a stable 1.0 release.
 
 Use caution before running it on mission-critical sites.
 

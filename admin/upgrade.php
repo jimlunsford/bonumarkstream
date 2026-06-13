@@ -351,7 +351,7 @@ function bms_upgrade_cleanup_managed_path(string $relative): bool
 {
     $relative = str_replace('\\', '/', ltrim($relative, '/'));
 
-    foreach (['admin/', 'assets/', 'docs/', 'scripts/', '_bonumark_stream/app/', '_bonumark_stream/migrations/', '_bonumark_stream/themes/', '_bonumark_stream/tools/'] as $prefix) {
+    foreach (['admin/', 'api/', 'assets/', 'docs/', 'scripts/', '_bonumark_stream/app/', '_bonumark_stream/migrations/', '_bonumark_stream/themes/', '_bonumark_stream/tools/'] as $prefix) {
         if (str_starts_with($relative, $prefix)) {
             return true;
         }
@@ -469,35 +469,64 @@ function bms_upgrade_record_history(string $fromVersion, string $toVersion, arra
 
 function bms_upgrade_software_items(string $packageRoot): array
 {
-    $items = [
-        'admin',
-        'assets',
-        '.htaccess',
-        '.gitignore',
-        'LICENSE',
-        'README.md',
-        'CONTRIBUTING.md',
-        'SECURITY.md',
-        'VERSION',
-        'docs',
-        'scripts',
-        'install.php',
-        'index.php',
-        'page.php',
-        'account.php',
-        'profile.php',
-        'comments.php',
-        'search.php',
-        'stream-like.php',
-    ];
+    $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
+    $items = [];
 
-    $privateRoot = $packageRoot . '/_bonumark_stream';
-    $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'data' => true, 'backups' => true, 'tmp' => true];
-    foreach (array_diff(scandir($privateRoot) ?: [], ['.', '..']) as $item) {
-        if (isset($skipPrivate[$item])) {
-            continue;
+    if ($manifestFiles) {
+        $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'data' => true, 'backups' => true, 'tmp' => true];
+        foreach (array_keys($manifestFiles) as $relative) {
+            $relative = str_replace('\\', '/', ltrim((string)$relative, '/'));
+            if ($relative === '') {
+                continue;
+            }
+            if (str_starts_with($relative, '_bonumark_stream/')) {
+                $parts = explode('/', $relative, 3);
+                $privateItem = (string)($parts[1] ?? '');
+                if ($privateItem === '' || isset($skipPrivate[$privateItem])) {
+                    continue;
+                }
+                $items[] = '_bonumark_stream/' . $privateItem;
+                continue;
+            }
+            $topLevel = explode('/', $relative, 2)[0];
+            if ($topLevel !== '') {
+                $items[] = $topLevel;
+            }
         }
-        $items[] = '_bonumark_stream/' . $item;
+    }
+
+    if (!$items) {
+        $items = [
+            'admin',
+            'api',
+            'assets',
+            '.htaccess',
+            '.gitignore',
+            'LICENSE',
+            'README.md',
+            'CONTRIBUTING.md',
+            'SECURITY.md',
+            'VERSION',
+            'docs',
+            'scripts',
+            'install.php',
+            'index.php',
+            'page.php',
+            'account.php',
+            'profile.php',
+            'comments.php',
+            'search.php',
+            'stream-like.php',
+        ];
+
+        $privateRoot = $packageRoot . '/_bonumark_stream';
+        $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'data' => true, 'backups' => true, 'tmp' => true];
+        foreach (array_diff(scandir($privateRoot) ?: [], ['.', '..']) as $item) {
+            if (isset($skipPrivate[$item])) {
+                continue;
+            }
+            $items[] = '_bonumark_stream/' . $item;
+        }
     }
 
     $items = array_values(array_unique($items));
@@ -644,7 +673,7 @@ function bms_upgrade_pending_migrations_from_package(string $packageRoot): array
 function bms_upgrade_assert_supported_current_version(string $currentVersion): void
 {
     if ($currentVersion !== 'unknown' && version_compare($currentVersion, '0.4.0', '<')) {
-        throw new RuntimeException('Bonumark Stream v0.4.x supports admin ZIP upgrades from v0.4.0 and newer only.');
+        throw new RuntimeException('Bonumark Stream v0.5.0 supports admin ZIP upgrades from v0.4.0 and newer only.');
     }
 }
 

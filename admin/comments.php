@@ -39,7 +39,7 @@ bms_admin_header('Comments', []);
   <h2>Review Stream Post comments.</h2>
   <p class="meta">Comment accounts can respond to published Stream Posts. Admins can approve, hold, trash, or delete comments here.</p>
 </section>
-<section class="panel">
+<section class="panel comments-list-panel">
   <div class="filter-tabs">
     <?php foreach (['approved' => 'Approved', 'pending' => 'Pending', 'trash' => 'Trash'] as $key => $label): ?>
       <a class="button-link secondary <?= $status === $key ? 'is-active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('comments.php?status=' . $key), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a>

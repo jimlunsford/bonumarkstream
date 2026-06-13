@@ -1,11 +1,27 @@
 <?php
 require_once __DIR__ . '/_bonumark_stream/app/functions.php';
 
+$route = (string)($_GET['__bonumark_route'] ?? '');
+if (in_array($route, ['api_status', 'api_stream_posts', 'api_media', 'api_media_import'], true)) {
+    require_once __DIR__ . '/_bonumark_stream/app/api.php';
+    if ($route === 'api_status') {
+        bms_api_handle_status_endpoint();
+    }
+    if ($route === 'api_stream_posts') {
+        bms_api_handle_stream_posts_endpoint();
+    }
+    if ($route === 'api_media') {
+        bms_api_handle_media_endpoint();
+    }
+    if ($route === 'api_media_import') {
+        bms_api_handle_media_import_endpoint();
+    }
+}
+
 if (!bms_is_installed()) {
     bms_redirect(bms_url_path('install.php'));
 }
 
-$route = (string)($_GET['__bonumark_route'] ?? '');
 if ($route === '' && isset($_GET['stream_page'])) {
     // Load More uses this explicit query key so shared-hosting installs do not
     // need a separate endpoint or a successful clean URL rewrite to page the stream.

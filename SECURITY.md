@@ -1,23 +1,26 @@
 # Security Policy
 
-Bonumark Stream v0.4.5 builds on the v0.4.0 fresh-install foundation for a shared-hosting friendly PHP/MySQL microblog CMS.
+Bonumark Stream v0.5.0 is a shared-hosting friendly PHP/MySQL microblog CMS built on the v0.4.0+ clean-break foundation.
 
 ## Supported versions
 
 | Version | Supported |
 |---|---|
-| 0.4.x | Yes |
+| 0.5.x | Yes |
+| 0.4.x | Upgrade source only |
 | Earlier development builds | No |
 
 ## Security model
 
 - Admin routes require login and capability checks.
 - Mutating admin actions use CSRF protection.
+- Public comments use CSRF protection.
 - Public likes are unauthenticated but rate-limited.
 - Registration is disabled by default unless enabled in settings.
 - SVG uploads are blocked.
 - Theme packages are code-free. PHP, JavaScript, HTML files, server configuration files, symlinks, and executable code are rejected during theme ZIP installation.
 - `_bonumark_stream/` is protected by `.htaccess` on Apache and LiteSpeed.
+- Remote Posting API tokens are scoped and stored as hashes.
 
 Nginx users must add equivalent deny rules for private folders and config files.
 

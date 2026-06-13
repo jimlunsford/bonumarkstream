@@ -1,6 +1,6 @@
 # Bonumark Stream Themes
 
-Bonumark Stream v0.4.5 uses Midnight Ledger as the working example for code-free presentation themes.
+Bonumark Stream v0.5.0 uses Midnight Ledger as the working example for code-free presentation themes.
 
 
 ## Copying Midnight Ledger

@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.4.5 is a fresh-install foundation.
+Bonumark Stream v0.5.0 is a fresh-install public development release.
 
 ## Requirements
 

@@ -358,7 +358,7 @@ if ($step === 'welcome') {
     bm_installer_header('Welcome to Bonumark Stream');
     ?>
     <section class="panel">
-      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v0.4.x installer creates a clean empty database-first site.</p>
+      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v0.5.0 installer creates a clean empty database-first site.</p>
       <ol>
         <li>Create a database and database user in your hosting control panel.</li>
         <li>Enter the database details.</li>

@@ -272,7 +272,7 @@ function bms_admin_route_capability(string $script): ?string
         'comments.php' => 'manage_comments',
         'revisions.php', 'compare-revision.php', 'restore-revision.php' => 'restore_revisions',
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
-        'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php' => 'manage_settings',
+        'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php' => 'manage_settings',
         'users.php', 'user-edit.php' => 'manage_users',
         'tools.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php', 'security.php' => 'view_system',
         default => null,
@@ -558,6 +558,7 @@ function bms_admin_delete_user(int $id, int $reassignToUserId, string $confirmat
             ['autosaves', 'user_id'],
             ['registration_invites', 'created_by'],
             ['password_reset_tokens', 'user_id'],
+            ['api_tokens', 'created_by'],
         ];
         foreach ($nullUpdates as [$table, $column]) {
             try {

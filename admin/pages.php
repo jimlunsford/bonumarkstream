@@ -92,7 +92,7 @@ bms_admin_header($title, [
     </div>
   <?php else: ?>
     <div class="table-wrap">
-      <table class="content-table">
+      <table class="admin-table content-table pages-table">
         <thead><tr><th>Title</th><th>Status</th><th>URL</th><th><?= $status === 'trash' ? 'Deleted' : 'Updated' ?></th><th>Actions</th></tr></thead>
         <tbody>
         <?php foreach ($items as $item):
@@ -122,7 +122,7 @@ bms_admin_header($title, [
                 <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-restore.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="trash_id" value="<?= (int)($item['trash_id'] ?? 0) ?>">
-                  <button type="submit" class="link-button">Restore</button>
+                  <button type="submit" class="link-button state-link">Restore</button>
                 </form>
                 <span>|</span>
                 <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">

@@ -341,12 +341,14 @@ function bms_inline_markdown(string $text): string
 
     $text = htmlspecialchars($text, ENT_NOQUOTES, 'UTF-8');
 
-    $text = preg_replace_callback('/!\[([^\]]*)\]\((<[^>]+>|[^\r\n)]+?)(?:\s+"([^"]*)")?\)/', function ($m) {
+    $text = preg_replace_callback('/!\[([^\]]*)\]\((<[^>]+>|[^\r\n)]+?)(?:\s+"([^"]*)")?\)/', function ($m) use (&$placeholders) {
         $src = trim((string)$m[2]);
         if (str_starts_with($src, '<') && str_ends_with($src, '>')) {
             $src = substr($src, 1, -1);
         }
-        return bms_markdown_image_html($src, (string)$m[1], isset($m[3]) ? (string)$m[3] : '');
+        $key = '%%IMAGE' . count($placeholders) . '%%';
+        $placeholders[$key] = bms_markdown_image_html($src, (string)$m[1], isset($m[3]) ? (string)$m[3] : '');
+        return $key;
     }, $text) ?? $text;
 
     $text = preg_replace_callback('/\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/', function ($m) {

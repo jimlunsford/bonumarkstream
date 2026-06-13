@@ -1,6 +1,6 @@
 <?php
 return [
-    'version' => '0.4.5',
+    'version' => '0.5.0',
     'site_name' => 'Bonumark Stream',
     'site_tagline' => 'A self-hosted microblog CMS for publishing short-form posts on a site you control.',
     'active_public_theme' => 'default',
@@ -8,6 +8,12 @@ return [
     'site_favicon_media_id' => '0',
     'site_favicon_path' => '',
     'public_navigation_account_links_enabled' => '1',
+    'remote_posting_enabled' => '0',
+    'remote_posting_direct_publish_enabled' => '0',
+    'remote_posting_default_status' => 'draft',
+    'remote_posting_publish_confirmation_required' => '1',
+    'remote_posting_rate_limit_per_minute' => '60',
+    'remote_media_upload_enabled' => '0',
     'author_name' => 'Admin',
     'base_path' => '',
     'base_url' => '',

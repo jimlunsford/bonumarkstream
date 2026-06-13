@@ -1,4 +1,26 @@
 <?php
+
+function bms_set_public_preview_mode(bool $enabled): void
+{
+    $GLOBALS['bms_public_preview_mode'] = $enabled;
+}
+
+function bms_public_preview_mode(): bool
+{
+    return !empty($GLOBALS['bms_public_preview_mode']);
+}
+
+function bms_with_public_preview_mode(callable $callback): mixed
+{
+    $previous = !empty($GLOBALS['bms_public_preview_mode']);
+    $GLOBALS['bms_public_preview_mode'] = true;
+    try {
+        return $callback();
+    } finally {
+        $GLOBALS['bms_public_preview_mode'] = $previous;
+    }
+}
+
 function bms_config_path(): string
 {
     return dirname(__DIR__) . '/config.php';
@@ -19,7 +41,13 @@ function bms_default_config(): array
         'site_favicon_media_id' => '0',
         'site_favicon_path' => '',
         'public_navigation_account_links_enabled' => '1',
-        'version' => '0.4.5',
+        'remote_posting_enabled' => '0',
+        'remote_posting_direct_publish_enabled' => '0',
+        'remote_posting_default_status' => 'draft',
+        'remote_posting_publish_confirmation_required' => '1',
+        'remote_posting_rate_limit_per_minute' => '60',
+        'remote_media_upload_enabled' => '0',
+        'version' => '0.5.0',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -54,6 +82,7 @@ function bms_default_config(): array
         'mail_smtp_password' => '',
         'mail_sendmail_path' => '/usr/sbin/sendmail',
         'timezone' => 'UTC',
+        'security_salt' => '',
         'database' => [
             'host' => '',
             'name' => '',

@@ -246,6 +246,9 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
     }
 
     $valid = bms_media_validate_upload($file);
+    if (!empty($options['image_only']) && !str_starts_with((string)$valid['mime'], 'image/')) {
+        throw new RuntimeException('Remote media uploads currently support image files only.');
+    }
     $generateDerivatives = array_key_exists('generate_derivatives', $options) ? (bool)$options['generate_derivatives'] : true;
     $relative = bms_media_unique_relative_path((string)$valid['original_name'], (string)$valid['extension']);
     $destination = bms_media_public_root($relative);
@@ -295,7 +298,7 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
         'height' => $storedHeight > 0 ? $storedHeight : null,
         'alt_text' => $altText,
         'caption' => $caption,
-        'uploaded_by' => bms_current_user_id(),
+        'uploaded_by' => array_key_exists('uploaded_by', $options) ? ($options['uploaded_by'] !== null ? (int)$options['uploaded_by'] : null) : bms_current_user_id(),
         'file_hash' => bms_media_file_hash($destination),
         'image_variants_json' => $imageVariantsJson,
     ]);

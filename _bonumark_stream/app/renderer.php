@@ -406,7 +406,8 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $authorName = (string)($authorUser['display_name'] ?? bms_setting_or_config('author_name', 'Admin'));
     $avatarMarkup = function_exists('bms_user_avatar_markup') ? bms_user_avatar_markup($authorUser, '', 96, 96, false) : '<span class="stream-author-avatar stream-author-initials">' . htmlspecialchars(bms_stream_author_initials(), ENT_QUOTES, 'UTF-8') . '</span>';
     $authorProfileUrl = ((int)($authorUser['id'] ?? 0) > 0 && (string)($authorUser['profile_visibility'] ?? 'public') === 'public' && function_exists('bms_public_profile_url_for_user')) ? bms_public_profile_url_for_user($authorUser) : '';
-    $pageUrl = bms_stream_url_for_post($page);
+    $previewMode = function_exists('bms_public_preview_mode') && bms_public_preview_mode();
+    $pageUrl = $previewMode ? '#preview' : bms_stream_url_for_post($page);
     $body = trim((string)($page['body'] ?? ''));
     $bodyHtml = $body !== '' ? bms_markdown_to_html($body) : '';
     $mediaOptions = [
@@ -416,10 +417,10 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $mediaHtml = bms_render_stream_media_attachment($page, $mediaOptions);
     $linkPreviewHtml = bms_render_stream_link_preview($page);
     $slug = (string)($page['slug'] ?? '');
-    $likeCount = function_exists('bms_stream_like_count_for_slug') ? bms_stream_like_count_for_slug($slug) : 0;
-    $liked = function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
+    $likeCount = !$previewMode && function_exists('bms_stream_like_count_for_slug') ? bms_stream_like_count_for_slug($slug) : 0;
+    $liked = !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
     $likeLabel = function_exists('bms_stream_like_label') ? bms_stream_like_label($likeCount) : ((string)$likeCount . ' likes');
-    $commentCount = function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
+    $commentCount = !$previewMode && function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
     $editUrl = '';
     if (function_exists('bms_is_logged_in') && bms_is_logged_in() && bms_stream_show_edit_links()) {
@@ -442,6 +443,11 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     if ($bodyHtml === '') {
         $classes[] = 'has-no-text';
     }
+    if ($previewMode) {
+        $classes[] = 'is-preview-mode';
+    }
+
+    $previewEditUrl = $previewMode ? bms_stream_edit_url($page) : '';
 
     return [
         'page' => $page,
@@ -450,6 +456,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
         'title' => $title,
         'show_title' => false,
         'page_url' => $pageUrl,
+        'preview_mode' => $previewMode,
         'body_html' => $bodyHtml,
         'media_html' => $mediaHtml,
         'link_preview_html' => $linkPreviewHtml,
@@ -462,6 +469,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
         'date_iso' => $dateIso,
         'show_dates' => bms_stream_show_dates(),
         'like' => [
+            'enabled' => !$previewMode,
             'slug' => $slug,
             'count' => $likeCount,
             'label' => $likeLabel,
@@ -474,10 +482,11 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
             'count' => $commentCount,
             'label' => $commentLabel,
             'url' => $single ? '#comments' : $pageUrl . '#comments',
-            'enabled' => function_exists('bms_comment_count_for_slug') && function_exists('bms_comment_label'),
+            'enabled' => !$previewMode && function_exists('bms_comment_count_for_slug') && function_exists('bms_comment_label'),
         ],
-        'back_url' => $single ? (function_exists('bms_stream_home_url') ? bms_stream_home_url() : bms_url_path()) : '',
-        'edit_url' => $editUrl,
+        'back_url' => $single ? ($previewMode && $previewEditUrl !== '' ? $previewEditUrl : (function_exists('bms_stream_home_url') ? bms_stream_home_url() : bms_url_path())) : '',
+        'back_label' => $previewMode ? 'Back to editor' : 'Back to stream',
+        'edit_url' => $previewMode ? '' : $editUrl,
     ];
 }
 
@@ -586,6 +595,8 @@ function bms_render_stream_single(array $page): string
     $robotsDirective = bms_stream_robots_directive($page);
     $robotsMeta = $robotsDirective !== '' ? '<meta name="robots" content="' . htmlspecialchars($robotsDirective, ENT_QUOTES, 'UTF-8') . '">' : '';
 
+    $previewMode = function_exists('bms_public_preview_mode') && bms_public_preview_mode();
+
     $view = [
         'site_name' => $siteNameRaw,
         'title' => $titleRaw,
@@ -600,9 +611,10 @@ function bms_render_stream_single(array $page): string
         'theme_stylesheet_links' => bms_public_theme_stylesheet_links(),
         'favicon_tags' => function_exists('bms_site_favicon_tags') ? bms_site_favicon_tags() : '',
         'theme_script_tags' => bms_public_theme_script_tags(),
-        'body_class' => bms_public_theme_class('stream-single'),
-        'header_html' => bms_render_public_header('stream-single', null, bms_stream_relative_directory_for_post($page) . '/'),
-        'footer_html' => bms_render_public_footer(bms_stream_relative_directory_for_post($page) . '/'),
+        'body_class' => bms_public_theme_class($previewMode ? 'stream-preview' : 'stream-single'),
+        'preview_mode' => $previewMode,
+        'header_html' => bms_render_public_header($previewMode ? 'preview' : 'stream-single', null, $previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
+        'footer_html' => bms_render_public_footer($previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
         'card_html' => bms_render_stream_card($page, true),
         'comments_html' => function_exists('bms_render_comments_mount') ? bms_render_comments_mount($page) : '',
         'page' => $page,

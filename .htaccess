@@ -1,6 +1,10 @@
 Options -Indexes
 DirectoryIndex index.php index.html
 
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
 
 <IfModule mod_expires.c>
   ExpiresActive On
@@ -41,6 +45,10 @@ DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteRule ^api/v1/status/?$ index.php?__bonumark_route=api_status [L,QSA]
+  RewriteRule ^api/v1/stream/posts/?$ index.php?__bonumark_route=api_stream_posts [L,QSA]
+  RewriteRule ^api/v1/media/import/?$ index.php?__bonumark_route=api_media_import [L,QSA]
+  RewriteRule ^api/v1/media/?$ index.php?__bonumark_route=api_media [L,QSA]
   RewriteRule ^profile\.php$ index.php?__bonumark_route=profile [L,QSA]
   RewriteRule ^profile/?$ index.php?__bonumark_route=profile [L,QSA]
   RewriteRule ^profile/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=profile&user=$1 [L,QSA]

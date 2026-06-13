@@ -81,14 +81,14 @@ bms_admin_header($title, [
                 <form class="inline-form row-form" method="post" action="<?= htmlspecialchars(bms_admin_url('restore-revision.php'), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="revision_id" value="<?= (int)$revision['id'] ?>">
-                  <button type="submit" class="link-button">Restore as Draft</button>
+                  <button type="submit" class="link-button state-link">Restore as Draft</button>
                 </form>
                 <span>|</span>
                 <form class="inline-form row-form" method="post" action="<?= htmlspecialchars(bms_admin_url('restore-revision.php'), ENT_QUOTES, 'UTF-8') ?>" data-confirm="Restore this revision over the current content? Bonumark Stream will archive the current version first.">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="revision_id" value="<?= (int)$revision['id'] ?>">
                   <input type="hidden" name="restore_mode" value="current">
-                  <button type="submit" class="link-button">Restore Current</button>
+                  <button type="submit" class="link-button state-link">Restore Current</button>
                 </form>
               <?php endif; ?>
             </div>

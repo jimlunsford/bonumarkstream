@@ -1,6 +1,6 @@
 # Importers
 
-Bonumark Stream v0.4.5 includes importer tools for bringing owned content into the database-first publishing system.
+Bonumark Stream v0.5.0 includes importer tools for bringing owned content into the database-first publishing system.
 
 Supported importer families:
 

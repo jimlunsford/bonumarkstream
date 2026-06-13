@@ -81,7 +81,7 @@ try {
         throw new RuntimeException("Migration ledger count mismatch. Expected " . count($executed) . ", got {$count}.");
     }
 
-    $requiredTables = ['users', 'settings', 'posts', 'migrations', 'media', 'comments', 'upgrade_history'];
+    $requiredTables = ['users', 'settings', 'posts', 'migrations', 'media', 'comments', 'upgrade_history', 'api_tokens', 'api_audit_log', 'api_rate_limit_attempts', 'api_idempotency_keys'];
     foreach ($requiredTables as $table) {
         $stmt = $pdo->prepare('SHOW TABLES LIKE :table_name');
         $stmt->execute(['table_name' => $prefix . $table]);

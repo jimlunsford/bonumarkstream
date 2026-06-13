@@ -1,0 +1,956 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bonumark Stream API",
+    "version": "0.5.0",
+    "description": "Optional Remote Posting API for Bonumark Stream with status, post creation, media upload, media import, and media embedding."
+  },
+  "servers": [
+    {
+      "url": "https://example.com",
+      "description": "Replace with your Bonumark Stream site URL."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/status": {
+      "get": {
+        "operationId": "getApiStatus",
+        "summary": "Get Remote Posting API status",
+        "description": "Returns API status, endpoint URLs, and token metadata when a bearer token is supplied.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Status payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/stream/posts": {
+      "post": {
+        "operationId": "createStreamPost",
+        "summary": "Create a stream post",
+        "description": "Creates a draft by default. Direct publishing requires Admin approval, stream:publish scope, and publish confirmation when required. Can embed existing media or upload/embed JSON image media with media:upload.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique request key used to prevent duplicate posts on retry.",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStreamPostRequest"
+              },
+              "examples": {
+                "draft": {
+                  "summary": "Create a draft",
+                  "value": {
+                    "content": "This is a remote draft created from a trusted client.",
+                    "status": "draft",
+                    "client_request_id": "example-draft-001"
+                  }
+                },
+                "published": {
+                  "summary": "Create a published post",
+                  "value": {
+                    "content": "This is a remote post published from a trusted client.",
+                    "status": "published",
+                    "confirm_publish": true,
+                    "client_request_id": "example-published-001"
+                  }
+                },
+                "withExistingMedia": {
+                  "summary": "Create a draft with existing media embedded",
+                  "value": {
+                    "content": "This post includes an existing image from the media library.",
+                    "status": "draft",
+                    "media_ids": [
+                      42
+                    ],
+                    "media_position": "after",
+                    "client_request_id": "example-embed-existing-001"
+                  }
+                },
+                "withUploadedMedia": {
+                  "summary": "Create a draft with uploaded media embedded",
+                  "value": {
+                    "content": "This post includes a newly uploaded image.",
+                    "status": "draft",
+                    "media_uploads": [
+                      {
+                        "filename": "example.png",
+                        "content_base64": "BASE64_IMAGE_CONTENT_HERE",
+                        "alt_text": "Example uploaded image",
+                        "caption": "Optional caption"
+                      }
+                    ],
+                    "media_position": "after",
+                    "client_request_id": "example-embed-upload-001"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stream post created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateStreamPostResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "413": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "428": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "429": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/media": {
+      "post": {
+        "operationId": "uploadMedia",
+        "summary": "Upload image media",
+        "description": "Uploads an image to the Bonumark Stream media library when remote media uploads are enabled and the token has media:upload scope. This pass supports image files only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadMediaMultipartRequest"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadMediaJsonRequest"
+              },
+              "examples": {
+                "base64Image": {
+                  "summary": "Upload a base64 image",
+                  "value": {
+                    "filename": "example.png",
+                    "content_base64": "BASE64_IMAGE_CONTENT_HERE",
+                    "alt_text": "Example uploaded image",
+                    "caption": "Optional caption",
+                    "client_request_id": "example-media-001"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media uploaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadMediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "413": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "415": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "429": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/media/import": {
+      "post": {
+        "operationId": "importMedia",
+        "summary": "Import image media by URL",
+        "description": "Imports a public image URL into Bonumark Media when remote media uploads are enabled.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMediaRequest"
+              },
+              "examples": {
+                "imageUrl": {
+                  "summary": "Import a public image URL",
+                  "value": {
+                    "image_url": "https://example.com/image.jpg",
+                    "alt_text": "Imported image alt text",
+                    "caption": "Optional caption",
+                    "client_request_id": "example-media-import-001"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media imported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadMediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "429": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Bonumark Stream API token"
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "API error response.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "StatusResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "api",
+          "version",
+          "remote_posting_enabled",
+          "authenticated",
+          "endpoints"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "api": {
+            "type": "string",
+            "const": "bonumark-stream"
+          },
+          "version": {
+            "type": "string"
+          },
+          "remote_posting_enabled": {
+            "type": "boolean"
+          },
+          "authenticated": {
+            "type": "boolean"
+          },
+          "direct_publish_enabled": {
+            "type": "boolean"
+          },
+          "default_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publish_confirmation_required": {
+            "type": "boolean"
+          },
+          "idempotency": {
+            "$ref": "#/components/schemas/IdempotencyInfo"
+          },
+          "endpoints": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "format": "uri"
+              },
+              "stream_posts": {
+                "type": "string",
+                "format": "uri"
+              },
+              "media": {
+                "type": "string",
+                "format": "uri"
+              },
+              "media_import": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "token": {
+            "$ref": "#/components/schemas/TokenInfo"
+          },
+          "remote_media_upload_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "IdempotencyInfo": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "header": {
+            "type": "string"
+          },
+          "payload_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TokenInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "status:read",
+                "stream:draft",
+                "stream:publish",
+                "media:upload"
+              ]
+            }
+          },
+          "expires_at": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateStreamPostRequest": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Markdown or plain text content for the stream post.",
+            "maxLength": 5000
+          },
+          "body": {
+            "type": "string",
+            "description": "Alias for content.",
+            "maxLength": 5000
+          },
+          "body_markdown": {
+            "type": "string",
+            "description": "Alias for content.",
+            "maxLength": 5000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ],
+            "description": "Defaults to the site Remote Posting setting when omitted."
+          },
+          "confirm_publish": {
+            "type": "boolean",
+            "description": "Required for published requests when publish confirmation is enabled."
+          },
+          "confirmation": {
+            "type": "string",
+            "description": "Alternative confirmation value. Use publish when confirmation is required."
+          },
+          "client_request_id": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Client request ID. Also used as an idempotency key when Idempotency-Key is not sent."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Payload idempotency key. Header is preferred."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 190
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 190
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "excerpt": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "seo_title": {
+            "type": "string",
+            "maxLength": 190
+          },
+          "robots": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "media_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Single existing media library item to embed."
+          },
+          "media_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Existing media library item IDs to embed."
+          },
+          "media_url": {
+            "type": "string",
+            "description": "URL or public path for a single existing Bonumark media library item to embed."
+          },
+          "media_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "URLs or public paths for existing Bonumark media library items to embed."
+          },
+          "public_path": {
+            "type": "string",
+            "description": "Alias for a single existing Bonumark media public path."
+          },
+          "public_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Existing Bonumark media public paths to embed."
+          },
+          "media_position": {
+            "type": "string",
+            "enum": [
+              "before",
+              "after"
+            ],
+            "description": "Where to place embedded media relative to the post content. Defaults to after."
+          },
+          "media_items": {
+            "type": "array",
+            "description": "Structured existing media references with optional alt text or caption overrides.",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedMediaReference"
+            }
+          },
+          "media_upload": {
+            "$ref": "#/components/schemas/EmbeddedMediaUpload",
+            "description": "Base64 image upload to store and embed. Do not use fake placeholder base64."
+          },
+          "media_uploads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedMediaUpload"
+            },
+            "description": "JSON image uploads to store in the media library and embed in the same post request."
+          },
+          "media_import_url": {
+            "type": "string",
+            "description": "Public image URL to import and embed in this post."
+          },
+          "remote_image_url": {
+            "type": "string",
+            "description": "Alias for media_import_url."
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Public image URL to import and embed in this post."
+          },
+          "media_import": {
+            "$ref": "#/components/schemas/ImportMediaRequest"
+          },
+          "media_imports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportMediaRequest"
+            },
+            "description": "Public image URLs to import and embed in the same post request."
+          }
+        },
+        "additionalProperties": true
+      },
+      "CreateStreamPostResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "post"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "post": {
+            "$ref": "#/components/schemas/StreamPost"
+          }
+        }
+      },
+      "StreamPost": {
+        "type": "object",
+        "required": [
+          "post_id",
+          "status",
+          "slug",
+          "title",
+          "filename",
+          "edit_url",
+          "public_url",
+          "embedded_media",
+          "media_position"
+        ],
+        "properties": {
+          "post_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "edit_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "public_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "embedded_media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedMediaItem"
+            }
+          },
+          "media_position": {
+            "type": "string",
+            "enum": [
+              "before",
+              "after"
+            ]
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "UploadMediaMultipartRequest": {
+        "type": "object",
+        "required": [
+          "media_file"
+        ],
+        "properties": {
+          "media_file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Image file to upload. JPG, PNG, GIF, or WebP depending on the site media rules."
+          },
+          "alt_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "client_request_id": {
+            "type": "string",
+            "maxLength": 80
+          }
+        }
+      },
+      "UploadMediaJsonRequest": {
+        "type": "object",
+        "required": [
+          "filename",
+          "content_base64"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Original filename with image extension."
+          },
+          "content_base64": {
+            "type": "string",
+            "description": "Base64-encoded image file content. Data URLs are accepted."
+          },
+          "file_base64": {
+            "type": "string",
+            "description": "Alias for content_base64."
+          },
+          "alt_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "client_request_id": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "additionalProperties": true
+      },
+      "UploadMediaResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "media"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaItem"
+          }
+        }
+      },
+      "MediaItem": {
+        "type": "object",
+        "required": [
+          "media_id",
+          "url",
+          "filename",
+          "alt_text",
+          "markdown"
+        ],
+        "properties": {
+          "media_id": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "public_path": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "file_size": {
+            "type": "integer"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "alt_text": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "edit_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Original remote URL when media was imported by URL."
+          }
+        }
+      },
+      "EmbeddedMediaReference": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "media_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "media_url": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "public_path": {
+            "type": "string"
+          },
+          "alt_text": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
+      "EmbeddedMediaUpload": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "filename",
+          "content_base64"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "content_base64": {
+            "type": "string",
+            "description": "Base64-encoded image content. Data URLs are also accepted."
+          },
+          "alt_text": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      },
+      "EmbeddedMediaItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MediaItem"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "library",
+                  "uploaded"
+                ]
+              }
+            },
+            "required": [
+              "source"
+            ]
+          }
+        ]
+      },
+      "ImportMediaRequest": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "image_url"
+        ],
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Public HTTP/HTTPS image URL to import."
+          },
+          "media_import_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Alias for image_url."
+          },
+          "remote_image_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Alias for image_url."
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Alias for image_url."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Alias for image_url."
+          },
+          "filename": {
+            "type": "string",
+            "description": "Optional filename override."
+          },
+          "alt_text": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "client_request_id": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      }
+    }
+  }
+}

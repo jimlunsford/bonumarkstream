@@ -1,6 +1,6 @@
 # Bonumark Stream Architecture
 
-Bonumark Stream v0.4.5 is a dynamic database-first microblog CMS.
+Bonumark Stream v0.5.0 is a dynamic database-first microblog CMS.
 
 ## Source of truth
 

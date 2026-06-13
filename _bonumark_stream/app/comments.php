@@ -195,6 +195,33 @@ function bms_render_comments_panel(string $slug, string $notice = ''): string
     return bms_render_public_theme_template('comments', bms_comments_view_data($slug, $notice));
 }
 
+
+function bms_comments_preview_view_data(array $page): array
+{
+    $slug = bms_slugify((string)($page['slug'] ?? ''));
+    return [
+        'page' => $page,
+        'slug' => $slug,
+        'notice' => 'Comments are disabled in draft preview. Publish the post before using public comments.',
+        'comments_enabled' => false,
+        'count' => 0,
+        'label' => 'Comments',
+        'comments' => [],
+        'can_comment' => false,
+        'can_create_comment_account' => false,
+        'login_url' => '#',
+        'register_url' => '#',
+        'csrf' => '',
+        'comments_url' => '#',
+        'preview_mode' => true,
+    ];
+}
+
+function bms_render_comments_preview_panel(array $page): string
+{
+    return bms_render_public_theme_template('comments', bms_comments_preview_view_data($page));
+}
+
 function bms_comments_mount_view_data(array $page): ?array
 {
     if (!bms_comments_enabled()) {
@@ -217,6 +244,9 @@ function bms_comments_mount_view_data(array $page): ?array
 
 function bms_render_comments_mount(array $page): string
 {
+    if (function_exists('bms_public_preview_mode') && bms_public_preview_mode()) {
+        return bms_render_comments_preview_panel($page);
+    }
     $view = bms_comments_mount_view_data($page);
     if ($view === null) {
         return '';

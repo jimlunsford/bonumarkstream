@@ -32,7 +32,11 @@ function bms_public_theme_class(string $context = ''): string
     $themeSlug = function_exists('bms_active_public_theme_slug') ? bms_active_public_theme_slug() : 'default';
     $themeSlug = preg_replace('/[^a-z0-9_-]+/i', '-', $themeSlug) ?: 'default';
     $context = preg_replace('/[^a-z0-9_-]+/i', '-', $context) ?: 'site';
-    return trim('bonumark-public public-theme-' . strtolower($themeSlug) . ' context-' . strtolower($context));
+    $classes = 'bonumark-public public-theme-' . strtolower($themeSlug) . ' context-' . strtolower($context);
+    if (function_exists('bms_public_preview_mode') && bms_public_preview_mode()) {
+        $classes .= ' bonumark-preview-mode is-preview-mode';
+    }
+    return trim($classes);
 }
 
 function bms_homepage_eyebrow(): string
@@ -626,33 +630,73 @@ function bms_render_public_header(string $context = 'page', ?int $streamPostCoun
     $taglineRaw = (string)bms_setting_or_config('site_tagline', '');
     $taglineHtml = function_exists('bms_sanitize_site_identity_html') ? bms_sanitize_site_identity_html($taglineRaw) : htmlspecialchars($taglineRaw, ENT_QUOTES, 'UTF-8');
     $homeUrlRaw = bms_url_path();
-    $count = bms_stream_published_count($streamPostCount);
-    $countLabelRaw = bms_stream_count_label($count);
-    $navHtml = bms_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath);
+    $previewMode = function_exists('bms_public_preview_mode') && bms_public_preview_mode();
+    $count = $previewMode ? 0 : bms_stream_published_count($streamPostCount);
+    $countLabelRaw = $previewMode ? '' : bms_stream_count_label($count);
+    $navHtml = $previewMode ? '' : bms_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath);
     $titleTag = $context === 'home' ? 'h1' : 'p';
 
     return bms_render_public_theme_template('header', [
-        'context' => $context,
+        'context' => $previewMode ? 'preview' : $context,
+        'preview_mode' => $previewMode,
+        'preview_header_state' => $previewMode,
         'site_name' => $siteNameRaw,
         'tagline' => $taglineRaw,
         'tagline_html' => $taglineHtml,
         'home_url' => $homeUrlRaw,
         'count' => $count,
         'count_label' => $countLabelRaw,
-        'navigation_html' => $navHtml,
+        'show_count_chip' => !$previewMode,
+        'show_public_menu' => !$previewMode,
+        'navigation_html' => $previewMode ? '' : $navHtml,
+        'navigation_current_path' => $previewMode ? null : $currentPath,
         'title_tag' => $titleTag,
         'theme_settings' => bms_public_theme_settings(),
     ]);
 }
 
+function bms_public_footer_items(): array
+{
+    $items = [];
+
+    $footerText = trim(bms_site_footer_text());
+    $footerPlainText = function_exists('bms_site_identity_plain_text') ? trim(bms_site_identity_plain_text($footerText)) : trim(strip_tags($footerText));
+    $footerHtml = function_exists('bms_sanitize_site_identity_html') ? bms_sanitize_site_identity_html($footerText) : htmlspecialchars($footerText, ENT_QUOTES, 'UTF-8');
+    if ($footerPlainText !== '' && trim(strip_tags($footerHtml, '<a>')) !== '') {
+        $items[] = [
+            'key' => 'custom',
+            'text' => $footerPlainText,
+            'html' => $footerHtml,
+        ];
+    }
+
+    if (bms_show_powered_by()) {
+        $items[] = [
+            'key' => 'powered',
+            'text' => 'Published with Bonumark Stream.',
+            'html' => 'Published with <a href="https://bonumark.org" target="_blank" rel="noopener noreferrer">Bonumark Stream</a>.',
+        ];
+    }
+
+    return $items;
+}
+
 function bms_render_public_footer(?string $currentPath = null): string
 {
-    $footerText = trim(bms_site_footer_text());
-    $footerHtml = function_exists('bms_sanitize_site_identity_html') ? bms_sanitize_site_identity_html($footerText) : htmlspecialchars($footerText, ENT_QUOTES, 'UTF-8');
+    $footerItems = bms_public_footer_items();
+    $customItem = null;
+    foreach ($footerItems as $item) {
+        if (($item['key'] ?? '') === 'custom') {
+            $customItem = $item;
+            break;
+        }
+    }
 
     return bms_render_public_theme_template('footer', [
-        'footer_text' => bms_site_identity_plain_text($footerText),
-        'footer_html' => $footerHtml,
+        'footer_text' => (string)($customItem['text'] ?? ''),
+        'footer_html' => (string)($customItem['html'] ?? ''),
+        'footer_items' => $footerItems,
+        'footer_separator' => '',
         'show_powered_by' => bms_show_powered_by(),
     ]);
 }

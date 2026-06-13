@@ -96,6 +96,7 @@ function bms_admin_header(string $title, array $actions = []): void
     $readingUrl = htmlspecialchars(bms_admin_url('settings-reading.php'), ENT_QUOTES, 'UTF-8');
     $registrationUrl = htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8');
     $mailUrl = htmlspecialchars(bms_admin_url('mail.php'), ENT_QUOTES, 'UTF-8');
+    $remotePostingUrl = htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8');
     $toolsUrl = htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8');
     $upgradeUrl = htmlspecialchars(bms_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8');
     $exportUrl = htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8');
@@ -193,12 +194,13 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '</div></details>';
 
     if ($can('manage_settings')) {
-        echo '<details class="admin-nav-section"' . $sectionOpen(['settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php']) . '><summary class="admin-nav-heading">Settings</summary><div class="admin-nav-links">';
+        echo '<details class="admin-nav-section"' . $sectionOpen(['settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php']) . '><summary class="admin-nav-heading">Settings</summary><div class="admin-nav-links">';
         echo '<a href="' . $settingsUrl . '">General</a>';
         echo '<a href="' . $writingUrl . '">Writing</a>';
         echo '<a href="' . $readingUrl . '">Stream</a>';
         echo '<a href="' . $registrationUrl . '">Registration</a>';
         echo '<a href="' . $mailUrl . '">Mail</a>';
+        echo '<a href="' . $remotePostingUrl . '">Remote Posting</a>';
         echo '</div></details>';
     }
 

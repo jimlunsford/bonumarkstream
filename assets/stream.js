@@ -7,6 +7,11 @@
     callback();
   }
 
+
+  function isPreviewMode() {
+    return document.body && (document.body.classList.contains('bonumark-preview-mode') || document.body.classList.contains('is-preview-mode'));
+  }
+
   function setupMenu() {
     var navToggle = document.querySelector('[data-stream-menu-toggle], .site-nav-toggle');
     var siteNav = document.getElementById('site-primary-nav');
@@ -1057,11 +1062,13 @@
     setupMenu();
     setupComposer(document);
     loadComposerMounts();
-    setupLikes(document);
     setupCopyLinks(document);
     setupLinkPreviewImages(document);
-    setupCards(document);
-    setupComments(document);
-    setupLoadMore();
+    if (!isPreviewMode()) {
+      setupLikes(document);
+      setupCards(document);
+      setupComments(document);
+      setupLoadMore();
+    }
   });
 }());

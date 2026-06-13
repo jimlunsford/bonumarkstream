@@ -5,7 +5,11 @@ require_once __DIR__ . '/pages.php';
 function bms_admin_preview_document(array $page, string $label = 'Preview', string $editUrl = ''): string
 {
     $contentType = function_exists('bms_normalize_content_type') ? bms_normalize_content_type((string)($page['content_type'] ?? $page['post_type'] ?? 'stream')) : 'stream';
-    $html = $contentType === 'page' && function_exists('bms_render_page') ? bms_render_page($page) : bms_render_public_content_page($page);
+    $html = function_exists('bms_with_public_preview_mode')
+        ? bms_with_public_preview_mode(static function () use ($contentType, $page): string {
+            return $contentType === 'page' && function_exists('bms_render_page') ? bms_render_page($page) : bms_render_public_content_page($page);
+        })
+        : ($contentType === 'page' && function_exists('bms_render_page') ? bms_render_page($page) : bms_render_public_content_page($page));
     $labelSafe = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
     $editSafe = $editUrl !== '' ? htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') : '';
     $stylesheet = '<link rel="stylesheet" href="' . htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8') . '">';

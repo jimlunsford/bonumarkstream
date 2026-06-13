@@ -305,7 +305,7 @@ function bms_import_download_remote_image(string $url): array
         $mime = trim(strstr($mime, ';', true) ?: $mime);
     }
 
-    $tmp = tempnam(sys_get_tebms_dir(), 'bms-import-media-');
+    $tmp = tempnam(sys_get_temp_dir(), 'bms-import-media-');
     if ($tmp === false) {
         throw new RuntimeException('Could not create a temporary file for imported media.');
     }

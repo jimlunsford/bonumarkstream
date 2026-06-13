@@ -246,7 +246,7 @@ bms_admin_header($title, $actions);
       </div>
     </form>
 
-    <table class="admin-table content-table">
+    <table class="admin-table content-table stream-posts-table">
       <thead>
         <tr>
           <th class="check-column"><label class="select-all-label"><input type="checkbox" data-select-all aria-label="Select all stream posts"> <span>Select</span></label></th>
@@ -283,7 +283,7 @@ bms_admin_header($title, $actions);
                 <form method="post" action="<?= htmlspecialchars(bms_admin_url('restore.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                   <input type="hidden" name="trash_id" value="<?= (int)$item['trash_id'] ?>">
-                  <button type="submit" class="link-button">Restore</button>
+                  <button type="submit" class="link-button state-link">Restore</button>
                 </form>
                 <span>|</span>
                 <form method="post" action="<?= htmlspecialchars(bms_admin_url('delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
@@ -312,7 +312,7 @@ bms_admin_header($title, $actions);
                     <form method="post" action="<?= htmlspecialchars(bms_admin_url('unpublish.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
                       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
-                      <button type="submit" class="link-button">Move to Drafts</button>
+                      <button type="submit" class="link-button state-link">Move to Drafts</button>
                     </form>
                   <?php endif; ?>
                 <?php else: ?>
@@ -322,7 +322,7 @@ bms_admin_header($title, $actions);
                       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="return" value="content">
-                      <button type="submit" class="link-button">Publish</button>
+                      <button type="submit" class="link-button state-link">Publish</button>
                     </form>
                   <?php endif; ?>
                 <?php endif; ?>
