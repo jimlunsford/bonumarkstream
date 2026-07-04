@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
+require_once __DIR__ . '/../_bonumark_stream/app/pwa.php';
 
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

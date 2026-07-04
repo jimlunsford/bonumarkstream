@@ -89,7 +89,7 @@ if (!function_exists('ml_document_head')) {
   <?= (string)($data['published_meta'] ?? '') ?>
   <?= (string)($data['image_meta'] ?? '') ?>
   <?= (string)($data['robots_meta'] ?? '') ?>
-  <?= (string)($data['favicon_tags'] ?? '') ?>  <link rel="stylesheet" href="<?= ml_h((string)($data['style_url'] ?? '')) ?>">
+  <?= (string)($data['favicon_tags'] ?? '') ?><?= (string)($data['pwa_tags'] ?? '') ?>  <link rel="stylesheet" href="<?= ml_h((string)($data['style_url'] ?? '')) ?>">
 <?= (string)($data['theme_stylesheet_links'] ?? '') ?></head>
 <?php
     }

@@ -59,7 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_redirect(bms_admin_url('remote-posting.php'));
         }
     } catch (Throwable $e) {
-        bms_flash('Remote posting action failed: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('remote-posting', $e);
+
+        bms_flash('Remote posting action failed. Please try again.', 'error');
     }
 }
 
@@ -119,7 +121,7 @@ bms_admin_header('Remote Posting', [
       <option value="draft" <?= $defaultStatus === 'draft' ? 'selected' : '' ?>>Draft</option>
       <option value="published" <?= $defaultStatus === 'published' ? 'selected' : '' ?> <?= $directPublishEnabled ? '' : 'disabled' ?>>Published</option>
     </select>
-    <p class="field-help">Clients can still request draft or published explicitly. Published requests require the publishing setting and a token with the publish scope.</p>
+    <p class="field-help">Clients can still request draft, published, or scheduled explicitly. Published and scheduled requests require the publishing setting and a token with the publish scope.</p>
 
     <label class="checkbox-row" for="remote_posting_publish_confirmation_required">
       <input type="checkbox" id="remote_posting_publish_confirmation_required" name="remote_posting_publish_confirmation_required" value="1" <?= $publishConfirmationRequired ? 'checked' : '' ?>>

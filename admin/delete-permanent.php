@@ -20,6 +20,8 @@ try {
         bms_flash('Permanently deleted “' . ($item['title'] ?? 'content') . '”.', 'success');
     }
 } catch (Throwable $e) {
-    bms_flash('Permanent delete failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('delete-permanent', $e);
+
+    bms_flash('Permanent delete failed. Please try again.', 'error');
 }
 bms_redirect(bms_admin_url('content.php?status=trash'));

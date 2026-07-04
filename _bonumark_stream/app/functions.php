@@ -47,7 +47,17 @@ function bms_default_config(): array
         'remote_posting_publish_confirmation_required' => '1',
         'remote_posting_rate_limit_per_minute' => '60',
         'remote_media_upload_enabled' => '0',
-        'version' => '0.5.0',
+        'pwa_enabled' => '1',
+        'pwa_share_target_enabled' => '1',
+        'pwa_theme_color' => '#111827',
+        'pwa_background_color' => '#0f172a',
+        'remember_login_enabled' => '1',
+        'remember_login_days' => '30',
+        'scheduled_tasks_expected_interval_minutes' => '5',
+        'scheduled_tasks_public_traffic_enabled' => '1',
+        'scheduled_tasks_heartbeat_enabled' => '1',
+        'scheduled_tasks_web_cron_enabled' => '0',
+        'version' => '0.5.30',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -143,6 +153,142 @@ function bms_setting_or_config(string $key, mixed $default = ''): mixed
     }
     return bms_config()[$key] ?? $default;
 }
+
+function bms_site_timezone_name(): string
+{
+    $timezone = trim((string)bms_setting_or_config('timezone', date_default_timezone_get() ?: 'UTC'));
+    if ($timezone === '') {
+        $timezone = 'UTC';
+    }
+    try {
+        new DateTimeZone($timezone);
+        return $timezone;
+    } catch (Throwable $e) {
+        return 'UTC';
+    }
+}
+
+/**
+ * Make PHP's runtime clock match the persisted site timezone.
+ *
+ * The database remains on UTC for canonical timestamps. This only controls
+ * local authoring defaults and legacy date()/strtotime() call sites.
+ */
+function bms_apply_site_timezone(?string $timezone = null): string
+{
+    $timezone = trim($timezone ?? bms_site_timezone_name());
+    if ($timezone === '') {
+        $timezone = 'UTC';
+    }
+    try {
+        new DateTimeZone($timezone);
+    } catch (Throwable $e) {
+        $timezone = 'UTC';
+    }
+    date_default_timezone_set($timezone);
+    return $timezone;
+}
+
+/**
+ * Timestamp storage changed in v0.5.23. Earlier published_at values were
+ * written as site-local clock values, while v0.5.23+ values are canonical UTC.
+ * The one-time migration records the upgrade boundary without rewriting posts.
+ */
+function bms_stream_published_at_utc_cutover(): string
+{
+    $value = trim((string)bms_setting_or_config('stream_published_at_utc_cutover', '1970-01-01 00:00:00'));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+        return '1970-01-01 00:00:00';
+    }
+    try {
+        return (new DateTimeImmutable($value, bms_utc_timezone()))->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        return '1970-01-01 00:00:00';
+    }
+}
+
+function bms_stream_published_at_is_utc(array $page): bool
+{
+    $publishedAt = trim((string)($page['published_at'] ?? ''));
+    if ($publishedAt === '') {
+        return false;
+    }
+    try {
+        $published = new DateTimeImmutable($publishedAt, bms_utc_timezone());
+        $cutover = new DateTimeImmutable(bms_stream_published_at_utc_cutover(), bms_utc_timezone());
+        return $published->getTimestamp() >= $cutover->getTimestamp();
+    } catch (Throwable $e) {
+        // Preserve the historical local-time behavior for malformed legacy values.
+        return false;
+    }
+}
+
+function bms_site_timezone(): DateTimeZone
+{
+    return new DateTimeZone(bms_site_timezone_name());
+}
+
+function bms_utc_timezone(): DateTimeZone
+{
+    return new DateTimeZone('UTC');
+}
+
+function bms_scheduled_input_to_utc(string $value): ?string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+    $value = str_replace('T', ' ', $value);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/', $value)) {
+        throw new RuntimeException('Enter a valid schedule date and time.');
+    }
+    try {
+        $local = new DateTimeImmutable($value, bms_site_timezone());
+    } catch (Throwable $e) {
+        throw new RuntimeException('Enter a valid schedule date and time.');
+    }
+    $utc = $local->setTimezone(bms_utc_timezone());
+    if ($utc->getTimestamp() <= time() + 60) {
+        throw new RuntimeException('Scheduled time must be in the future.');
+    }
+    return $utc->format('Y-m-d H:i:s');
+}
+
+function bms_utc_to_scheduled_input(string $utc): string
+{
+    $utc = trim($utc);
+    if ($utc === '' || $utc === '0000-00-00 00:00:00') {
+        return '';
+    }
+    try {
+        $date = new DateTimeImmutable($utc, bms_utc_timezone());
+        return $date->setTimezone(bms_site_timezone())->format('Y-m-d\TH:i');
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+function bms_format_scheduled_datetime(string $utc): string
+{
+    $utc = trim($utc);
+    if ($utc === '' || $utc === '0000-00-00 00:00:00') {
+        return '';
+    }
+    try {
+        $date = new DateTimeImmutable($utc, bms_utc_timezone());
+        return $date->setTimezone(bms_site_timezone())->format('M j, Y g:i A') . ' ' . bms_site_timezone_name();
+    } catch (Throwable $e) {
+        return $utc . ' UTC';
+    }
+}
+
+function bms_scheduled_status_label(array $page): string
+{
+    $scheduledAt = (string)($page['scheduled_at'] ?? ($page['front_matter']['scheduled_at'] ?? ''));
+    return $scheduledAt !== '' ? bms_format_scheduled_datetime($scheduledAt) : '';
+}
+
 
 
 function bms_plain_text(string $text): string
@@ -1220,7 +1366,7 @@ function bms_build_markdown_document(array $fields, string $body): string
 
     $slug = bms_slugify((string)($fields['slug'] ?? $title));
     $status = trim((string)($fields['status'] ?? 'draft'));
-    if (!in_array($status, ['draft', 'published'], true)) {
+    if (!in_array($status, ['draft', 'published', 'scheduled'], true)) {
         $status = 'draft';
     }
 
@@ -1255,7 +1401,7 @@ function bms_build_markdown_document(array $fields, string $body): string
         $lines[] = 'tags: ""';
     }
 
-    foreach (['featured_media', 'stream_created_at', 'seo_title', 'robots', 'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name'] as $streamKey) {
+    foreach (['featured_media', 'stream_created_at', 'scheduled_at', 'seo_title', 'robots', 'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name'] as $streamKey) {
         $streamValue = trim((string)($fields[$streamKey] ?? ''));
         if ($streamValue !== '') {
             $lines[] = $streamKey . ': ' . bms_front_matter_quote($streamValue);
@@ -1281,7 +1427,7 @@ function bms_existing_stream_front_matter_for_slug(string $slug): array
     if ($slug === '' || !function_exists('bms_find_database_content_by_slug_status')) {
         return [];
     }
-    foreach (['published', 'draft'] as $status) {
+    foreach (['published', 'scheduled', 'draft'] as $status) {
         try {
             $page = bms_find_database_content_by_slug_status($slug, $status, 'stream');
             if ($page && is_array($page['front_matter'] ?? null)) {
@@ -1330,6 +1476,7 @@ function bms_build_markdown_from_request(string $forcedStatus = 'draft', string 
         'tags' => '',
         'featured_media' => (string)($_POST['featured_media'] ?? ''),
         'stream_created_at' => (string)($_POST['stream_created_at'] ?? ($_POST['stream_date'] ?? date('Y-m-d H:i:s'))),
+        'scheduled_at' => (string)($_POST['stream_scheduled_at_utc'] ?? ''),
         'seo_title' => (string)($_POST['stream_seo_title'] ?? ''),
         'robots' => (string)($_POST['stream_robots'] ?? ''),
     ];
@@ -1477,11 +1624,51 @@ function bms_filter_stream_posts(array $pages): array
     return array_values(array_filter($pages, 'bms_is_stream_post'));
 }
 
+function bms_datetime_sort_timestamp(string $raw, ?DateTimeZone $timezone = null): int
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return 0;
+    }
+
+    try {
+        $date = $timezone instanceof DateTimeZone ? new DateTimeImmutable($raw, $timezone) : new DateTimeImmutable($raw);
+        return $date->getTimestamp();
+    } catch (Throwable $e) {
+        $time = strtotime($raw);
+        return $time === false ? 0 : (int)$time;
+    }
+}
+
+function bms_stream_sort_timestamp(array $page): int
+{
+    $status = (string)($page['content_status'] ?? $page['status'] ?? '');
+    $scheduledAt = trim((string)($page['scheduled_at'] ?? ($page['front_matter']['scheduled_at'] ?? '')));
+    $publishedAt = trim((string)($page['published_at'] ?? ''));
+
+    if (($status === 'scheduled' || $status === 'published') && $scheduledAt !== '') {
+        return bms_datetime_sort_timestamp($scheduledAt, bms_utc_timezone());
+    }
+
+    if ($status === 'published' && $publishedAt !== '') {
+        return bms_datetime_sort_timestamp(
+            $publishedAt,
+            bms_stream_published_at_is_utc($page) ? bms_utc_timezone() : bms_site_timezone()
+        );
+    }
+
+    $raw = trim((string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? ''));
+    if ($raw === '') {
+        $raw = $publishedAt !== '' ? $publishedAt : (string)($page['date'] ?? '');
+    }
+    return bms_datetime_sort_timestamp($raw);
+}
+
 function bms_sort_stream_posts(array $pages): array
 {
     usort($pages, function (array $a, array $b): int {
-        $aTime = strtotime((string)($a['stream_created_at'] ?? $a['front_matter']['stream_created_at'] ?? $a['date'] ?? '')) ?: 0;
-        $bTime = strtotime((string)($b['stream_created_at'] ?? $b['front_matter']['stream_created_at'] ?? $b['date'] ?? '')) ?: 0;
+        $aTime = bms_stream_sort_timestamp($a);
+        $bTime = bms_stream_sort_timestamp($b);
         if ($aTime !== $bTime) {
             return $bTime <=> $aTime;
         }
@@ -1596,6 +1783,59 @@ function bms_is_https(): bool
     return false;
 }
 
+function bms_session_cookie_path(): string
+{
+    $base = bms_base_path();
+    return $base !== '' ? rtrim($base, '/') . '/' : '/';
+}
+
+function bms_session_cookie_name(): string
+{
+    $base = bms_base_path();
+    if ($base === '') {
+        return 'bms_session_root';
+    }
+    return 'bms_session_' . substr(hash('sha256', $base), 0, 16);
+}
+
+/**
+ * Accept same-site browser requests and browser/OS handoffs with no Origin.
+ * A hostile cross-site form supplies an untrusted Origin or Sec-Fetch-Site.
+ */
+function bms_request_origin_is_same_site_or_absent(): bool
+{
+    $origin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
+    if ($origin === '') {
+        $fetchSite = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '')));
+        return $fetchSite !== 'cross-site';
+    }
+
+    $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
+    if ($host === '') {
+        return false;
+    }
+    $scheme = bms_is_https() ? 'https' : 'http';
+    $expected = $scheme . '://' . $host;
+    return hash_equals($expected, rtrim($origin, '/'));
+}
+
+function bms_log_sanitized_exception(string $context, Throwable $e): void
+{
+    $context = preg_replace('/[^a-z0-9._-]+/i', '-', trim($context)) ?: 'application';
+    $message = str_replace(["\r", "\n"], ' ', trim($e->getMessage()));
+    $message = preg_replace('/\b(password|pass|token|secret|api[_ -]?key|cron[_ -]?key|authorization|cookie|session(?:[_ -]?id)?)\s*[:=]\s*(?:"[^"]*"|\'[^\']*\'|[^\s,;]+)/i', '$1=[redacted]', $message) ?? $message;
+    $message = preg_replace('/\b(?:bms[a-z0-9_-]{10,}|[a-f0-9]{48,})\b/i', '[redacted]', $message) ?? $message;
+    if (strlen($message) > 900) {
+        $message = substr($message, 0, 900) . '…';
+    }
+    error_log('Bonumark Stream admin error [' . $context . ']: ' . $message);
+}
+
+function bms_log_admin_exception(string $context, Throwable $e): void
+{
+    bms_log_sanitized_exception($context, $e);
+}
+
 function bms_start_secure_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -1606,9 +1846,10 @@ function bms_start_secure_session(): void
     ini_set('session.use_only_cookies', '1');
 
     $secure = bms_is_https();
+    session_name(bms_session_cookie_name());
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/',
+        'path' => bms_session_cookie_path(),
         'secure' => $secure,
         'httponly' => true,
         'samesite' => 'Lax',

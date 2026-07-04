@@ -25,7 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Writing settings saved. New stream posts will use these defaults.', 'success');
         bms_redirect(bms_admin_url('settings-writing.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not save writing settings: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('settings-writing', $e);
+
+        bms_flash('Could not save writing settings. Please try again.', 'error');
     }
 }
 

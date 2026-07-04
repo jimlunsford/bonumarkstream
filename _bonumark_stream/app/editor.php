@@ -398,12 +398,48 @@ function bms_editor_screen_controls(): void
     <?php
 }
 
+function bms_stream_schedule_fields(array $page = [], array $options = []): void
+{
+    $scheduledAt = (string)($page['scheduled_at'] ?? ($page['front_matter']['scheduled_at'] ?? ''));
+    $inputValue = function_exists('bms_utc_to_scheduled_input') ? bms_utc_to_scheduled_input($scheduledAt) : '';
+    $timezone = function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : (date_default_timezone_get() ?: 'UTC');
+    $isScheduled = !empty($options['is_scheduled']);
+    $open = !empty($options['open']);
+    $summaryLabel = (string)($options['summary_label'] ?? ($isScheduled ? 'Reschedule' : 'Schedule for later'));
+    $submitLabel = (string)($options['submit_label'] ?? ($isScheduled ? 'Reschedule' : 'Schedule'));
+    $scheduledLabel = '';
+    if ($isScheduled && $scheduledAt !== '' && function_exists('bms_format_scheduled_datetime')) {
+        $scheduledLabel = bms_format_scheduled_datetime($scheduledAt);
+    }
+    $classes = 'schedule-fields schedule-fields-polished' . ($isScheduled ? ' is-scheduled' : '');
+    ?>
+    <div class="<?= htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') ?>" data-schedule-fields>
+      <?php if ($isScheduled && $scheduledLabel !== ''): ?>
+        <div class="scheduled-time-summary" aria-label="Scheduled publish time">
+          <span>Scheduled for</span>
+          <strong><?= htmlspecialchars($scheduledLabel, ENT_QUOTES, 'UTF-8') ?></strong>
+        </div>
+      <?php endif; ?>
+      <details class="schedule-disclosure"<?= $open ? ' open' : '' ?>>
+        <summary><?= htmlspecialchars($summaryLabel, ENT_QUOTES, 'UTF-8') ?></summary>
+        <div class="schedule-disclosure-body">
+          <label for="stream_scheduled_at">Publish time</label>
+          <input type="datetime-local" id="stream_scheduled_at" name="stream_scheduled_at" value="<?= htmlspecialchars($inputValue, ENT_QUOTES, 'UTF-8') ?>">
+          <p class="field-help">Uses site timezone: <strong><?= htmlspecialchars($timezone, ENT_QUOTES, 'UTF-8') ?></strong>. Choose a future date and time.</p>
+          <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button schedule-submit-button" data-editor-submit-button name="stream_submit_action" value="schedule"><?= htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8') ?></button>
+        </div>
+      </details>
+    </div>
+    <?php
+}
+
 function bms_publish_sidebar(string $section, string $buttonLabel, string $helperText, array $context = []): void
 {
     $isPublished = str_contains($section, 'published');
+    $isScheduled = trim($section, '/') === 'scheduled';
     $contentType = (string)($context['content_type'] ?? 'stream');
     $isPageContent = $contentType === 'page';
-    $statusLabel = $isPublished ? 'Published' : 'Draft';
+    $statusLabel = $isPublished ? 'Published' : ($isScheduled ? 'Scheduled' : 'Draft');
     $mode = (string)($context['mode'] ?? 'edit');
     $file = (string)($context['file'] ?? '');
     $page = is_array($context['page'] ?? null) ? $context['page'] : [];
@@ -413,11 +449,20 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
     if (!$isNew && $file !== '' && function_exists('bms_content_subject_for_file') && function_exists('bms_current_user_can')) {
         $canPublishThis = bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page));
     }
-    $previewType = $isPageContent ? ($isPublished ? 'page-published' : 'page-draft') : ($isPublished ? 'published' : 'draft');
+    $previewType = $isPageContent ? ($isPublished ? 'page-published' : 'page-draft') : ($isPublished ? 'published' : ($isScheduled ? 'scheduled' : 'draft'));
+    $showScheduleControls = !$isPageContent && $canPublishThis && !$isPublished;
     ?>
     <section class="side-card publish-card" data-editor-card="publish" aria-label="Publish settings">
       <h3>Publish</h3>
       <div class="status-line"><span>Status</span><strong><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
+
+      <?php if ($isScheduled && $showScheduleControls): ?>
+        <?php bms_stream_schedule_fields($page, [
+            'is_scheduled' => true,
+            'summary_label' => 'Reschedule',
+            'submit_label' => 'Reschedule',
+        ]); ?>
+      <?php endif; ?>
 
       <?php if ($isNew): ?>
         <div class="publish-card-actions publish-card-new-actions" aria-label="New content actions">
@@ -428,6 +473,14 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
             <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
           <?php endif; ?>
         </div>
+        <?php if ($showScheduleControls): ?>
+          <?php bms_stream_schedule_fields($page, [
+              'is_scheduled' => false,
+              'open' => $newDefaultStatus === 'scheduled',
+              'summary_label' => 'Schedule for later',
+              'submit_label' => 'Schedule',
+          ]); ?>
+        <?php endif; ?>
       <?php else: ?>
         <div class="publish-card-actions" aria-label="Post actions">
           <?php if ($file !== ''): ?>
@@ -437,6 +490,15 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
           <?php if ($isPublished && $page): ?>
             <a class="button-link secondary full-width-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'View Page' : 'View Post' ?></a>
           <?php endif; ?>
+          <?php if ($isPublished && !$isPageContent && $file !== '' && $canPublishThis && function_exists('bms_is_pinned_stream_post')): ?>
+            <form method="post" action="<?= htmlspecialchars(bms_admin_url('pin.php'), ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+              <input type="hidden" name="action" value="<?= bms_is_pinned_stream_post($page) ? 'unpin' : 'pin' ?>">
+              <input type="hidden" name="return_to" value="<?= htmlspecialchars(bms_admin_url('edit.php?type=published&file=' . rawurlencode($file)), ENT_QUOTES, 'UTF-8') ?>">
+              <button type="submit" class="secondary-button full-width-button"><?= bms_is_pinned_stream_post($page) ? 'Unpin from Stream' : 'Pin to Stream' ?></button>
+            </form>
+          <?php endif; ?>
 
           <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
 
@@ -444,8 +506,11 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
             <?php if ($canPublishThis): ?>
               <button type="submit" class="secondary-button full-width-button" form="publish-draft-action-form"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
             <?php endif; ?>
-            <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Draft Page to Trash' : 'Move Draft to Trash' ?></button>
-            <p class="field-help publish-card-note">Preview uses the saved draft. Save changes first if you edited the post.</p>
+            <?php if ($isScheduled && $canPublishThis): ?>
+              <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Cancel Schedule</button>
+            <?php endif; ?>
+            <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Draft Page to Trash' : ($isScheduled ? 'Move Scheduled Post to Trash' : 'Move Draft to Trash') ?></button>
+            <p class="field-help publish-card-note">Preview uses the saved record. Save changes first if you edited the post.</p>
           <?php else: ?>
             <?php if ($canPublishThis): ?>
               <button type="submit" class="secondary-button full-width-button" form="unpublish-post-action-form"><?= $isPageContent ? 'Move Page to Drafts' : 'Move to Drafts' ?></button>
@@ -453,6 +518,13 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
             <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Page to Trash' : 'Move Post to Trash' ?></button>
           <?php endif; ?>
         </div>
+        <?php if ($showScheduleControls && !$isScheduled): ?>
+          <?php bms_stream_schedule_fields($page, [
+              'is_scheduled' => false,
+              'summary_label' => 'Schedule for later',
+              'submit_label' => 'Schedule',
+          ]); ?>
+        <?php endif; ?>
       <?php endif; ?>
     </section>
     <?php

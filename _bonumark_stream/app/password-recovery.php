@@ -226,6 +226,9 @@ function bms_password_recovery_reset_password(string $token, string $newPassword
 
         $stmt = $pdo->prepare('UPDATE ' . bms_table('password_reset_tokens') . ' SET used_at = NOW() WHERE user_id = :user_id AND used_at IS NULL');
         $stmt->execute(['user_id' => (int)$row['user_id']]);
+        if (function_exists('bms_revoke_user_remember_tokens')) {
+            bms_revoke_user_remember_tokens((int)$row['user_id']);
+        }
 
         if ($startedTransaction && $pdo->inTransaction()) {
             $pdo->commit();

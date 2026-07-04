@@ -395,7 +395,7 @@ body.bonumark-public .stream-compose-inner {
 
 body.bonumark-public .stream-compose-inner {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.75rem;
   padding: var(--ledger-card-padding);
   border: 1px solid var(--ledger-line);
   border-left: 3px solid var(--ledger-accent);
@@ -420,8 +420,22 @@ body.bonumark-public select {
 }
 
 body.bonumark-public .stream-compose-textarea {
-  min-height: 116px;
+  min-height: 96px;
   resize: vertical;
+  border-color: transparent;
+  border-radius: calc(var(--ledger-radius-sm) + 2px);
+  background: transparent;
+  padding: 0.2rem 0.1rem 0.4rem;
+  box-shadow: none;
+}
+
+body.bonumark-public .stream-compose-textarea:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+body.bonumark-public .stream-compose-textarea::placeholder {
+  color: var(--ledger-dim);
 }
 
 body.bonumark-public input:focus,
@@ -433,10 +447,21 @@ body.bonumark-public select:focus {
 
 body.bonumark-public .stream-compose-footer {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--ledger-line);
+}
+
+body.bonumark-public .stream-compose-left,
+body.bonumark-public .stream-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
 }
 
 body.bonumark-public .stream-compose-attach,
@@ -460,6 +485,41 @@ body.bonumark-public .account-form button {
   cursor: pointer;
 }
 
+body.bonumark-public .stream-compose-tool {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ledger-muted);
+}
+
+body.bonumark-public .stream-compose-tool:hover,
+body.bonumark-public .stream-compose-tool:focus-visible,
+body.bonumark-public .stream-compose-tool.is-active {
+  border-color: var(--ledger-accent-line);
+  background: var(--ledger-accent-soft);
+  color: var(--ledger-accent);
+  outline: none;
+}
+
+body.bonumark-public .stream-compose-tool-icon,
+body.bonumark-public .stream-compose-tool svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+body.bonumark-public .stream-compose-tool svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 body.bonumark-public .stream-compose-submit,
 body.bonumark-public .public-search-form button,
 body.bonumark-public .comment-form button,
@@ -467,6 +527,16 @@ body.bonumark-public .account-form button {
   background: var(--ledger-accent);
   color: #0b0d10;
   border-color: transparent;
+}
+
+body.bonumark-public .stream-compose-submit {
+  min-width: 76px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+body.bonumark-public .stream-compose-form.is-scheduling .stream-compose-submit {
+  min-width: 104px;
 }
 
 body.bonumark-public .stream-compose-file {
@@ -477,6 +547,39 @@ body.bonumark-public .stream-compose-file {
   pointer-events: none;
 }
 
+body.bonumark-public .stream-compose-schedule-panel {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-radius-sm);
+  background: var(--ledger-panel-soft);
+}
+
+body.bonumark-public .stream-compose-schedule-panel[hidden] {
+  display: none;
+}
+
+body.bonumark-public .stream-compose-schedule-fields {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+body.bonumark-public .stream-compose-schedule-label {
+  color: var(--ledger-text);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+body.bonumark-public .stream-compose-schedule-input {
+  max-width: 19rem;
+}
+
+body.bonumark-public .stream-compose-schedule-timezone,
 body.bonumark-public .stream-compose-hint,
 body.bonumark-public .stream-compose-preview,
 body.bonumark-public .meta,
@@ -488,6 +591,38 @@ body.bonumark-public .comment-notice {
   font-size: 0.9rem;
 }
 
+body.bonumark-public .stream-compose-help-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+body.bonumark-public .stream-compose-schedule-cancel {
+  min-height: 38px;
+  padding: 0.5rem 0.78rem;
+  border-color: var(--ledger-line);
+  background: transparent;
+  color: var(--ledger-muted);
+  white-space: nowrap;
+}
+
+body.bonumark-public .stream-compose-schedule-cancel:hover,
+body.bonumark-public .stream-compose-schedule-cancel:focus-visible {
+  border-color: var(--ledger-accent-line);
+  color: var(--ledger-text);
+  outline: none;
+}
+
+body.bonumark-public .stream-compose-preview:empty {
+  display: none;
+}
+
 body.bonumark-public .stream-compose-notice,
 body.bonumark-public .account-notice {
   padding: 0.85rem 1rem;
@@ -497,14 +632,91 @@ body.bonumark-public .account-notice {
   color: var(--ledger-text);
 }
 
+@media (max-width: 640px) {
+  body.bonumark-public .stream-compose-schedule-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-public .stream-compose-schedule-input {
+    max-width: none;
+  }
+
+  body.bonumark-public .stream-compose-schedule-cancel {
+    align-self: flex-start;
+  }
+}
+
+/* Pinned posts */
+body.bonumark-public .stream-pinned-posts {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 1.2rem;
+}
+body.bonumark-public .stream-pinned-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+body.bonumark-public .stream-pinned-heading::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--ledger-line);
+}
+body.bonumark-public .stream-pinned-label {
+  color: var(--ledger-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+body.bonumark-public .stream-pinned-feed {
+  display: grid;
+  gap: 0.85rem;
+}
+body.bonumark-public .stream-card-pinned {
+  border-color: var(--ledger-accent-line);
+}
+body.bonumark-public .stream-pin-form {
+  display: inline-flex;
+  margin: 0;
+}
+body.bonumark-public .stream-pin-button {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+body.bonumark-public .stream-public-notices {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+}
+body.bonumark-public .stream-public-notice {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-radius-sm);
+  background: var(--ledger-panel-soft);
+  color: var(--ledger-text);
+}
+body.bonumark-public .stream-public-notice.is-success { border-color: var(--ledger-success); }
+body.bonumark-public .stream-public-notice.is-error { border-color: #c86a6a; }
+
 /* Cards */
 body.bonumark-public .stream-card {
+  position: relative;
   margin: 0;
   border: 1px solid var(--ledger-line);
   border-radius: var(--ledger-radius);
   background: linear-gradient(145deg, var(--ledger-card), var(--ledger-card-2));
   box-shadow: var(--ledger-shadow);
-  overflow: hidden;
+  /* Keep card media clipped by its own wrapper. The card itself must allow its post-options menu to open below the action row. */
+  overflow: visible;
+}
+
+body.bonumark-public .stream-card:has(.stream-post-actions-menu[open]) {
+  z-index: 10;
 }
 
 body.bonumark-public .stream-card:hover {
@@ -649,6 +861,105 @@ body.bonumark-public .stream-card-actions {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* Quiet admin-only post actions. Reader actions stay visible; Edit and Pin live in this menu. */
+body.bonumark-public .stream-post-actions-menu {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  margin: 0;
+}
+
+body.bonumark-public .stream-post-actions-menu[open] {
+  z-index: 31;
+}
+
+body.bonumark-public .stream-post-actions-toggle {
+  width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid var(--ledger-line);
+  border-radius: 999px;
+  background: var(--ledger-panel-soft);
+  color: var(--ledger-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+body.bonumark-public .stream-post-actions-toggle::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-public .stream-post-actions-toggle::marker {
+  content: '';
+}
+
+body.bonumark-public .stream-post-actions-toggle:hover,
+body.bonumark-public .stream-post-actions-toggle:focus-visible,
+body.bonumark-public .stream-post-actions-menu[open] .stream-post-actions-toggle {
+  border-color: var(--ledger-accent-line);
+  background: var(--ledger-accent-soft);
+  color: var(--ledger-text);
+}
+
+body.bonumark-public .stream-post-actions-dots {
+  display: block;
+  margin-top: -0.2rem;
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  line-height: 1;
+}
+
+body.bonumark-public .stream-post-actions-popover {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  bottom: auto;
+  min-width: 10.75rem;
+  overflow: hidden;
+  border: 1px solid var(--ledger-line);
+  border-radius: 0.75rem;
+  background: var(--ledger-panel-strong);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
+}
+
+body.bonumark-public .stream-post-action-form {
+  display: block;
+  margin: 0;
+}
+
+body.bonumark-public .stream-post-action-item {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* Keep button and link actions aligned. */
+  box-sizing: border-box;
+  padding: 0.68rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--ledger-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+body.bonumark-public .stream-post-action-item:hover,
+body.bonumark-public .stream-post-action-item:focus-visible {
+  background: var(--ledger-accent-soft);
+  color: var(--ledger-text);
+  text-decoration: none;
 }
 
 body.bonumark-public .stream-like-button.is-liked {

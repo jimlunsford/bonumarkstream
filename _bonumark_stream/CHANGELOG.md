@@ -1,3 +1,330 @@
+## 0.5.30 - GitHub Release Hardening Pass
+
+Bonumark Stream v0.5.30 prepares the current v0.5.x line for public GitHub distribution without adding product features or changing runtime behavior.
+
+- Aligns release version markers, package metadata, public documentation, OpenAPI metadata, API examples, and installer copy.
+- Makes the installer render its version dynamically from the packaged version marker so future releases cannot leave the welcome screen stale.
+- Adds a public root changelog, expanded contribution guidance, and explicit GitHub private vulnerability-reporting guidance.
+- Uses a clean single-root release ZIP for predictable GitHub downloads and cPanel extraction.
+- Does not modify the database schema, migrations, posts, pages, dates, times, users, comments, media, themes, settings, uploads, backups, cron history, API tokens, or existing installations.
+
+## 0.5.29 - PWA Direct Favicon Fallback Fix
+
+Bonumark Stream v0.5.29 fixes the v0.5.28 PWA icon fallback on shared-hosting PHP builds without GD or Imagick.
+
+- Keeps generated square PNG PWA icons when GD or Imagick is available.
+- Uses the selected Site Identity favicon directly, with its native MIME type and dimensions, when the host cannot generate a resized PNG.
+- Ensures the PWA manifest and Apple app-icon metadata use the selected favicon instead of falling back to the bundled Bonumark B solely because an image extension is unavailable.
+- Keeps the bundled Bonumark B only when no valid Site Identity favicon is selected or its public file cannot be read.
+- Rotates the service-worker cache name so installed apps can refresh their PWA metadata after upgrading.
+- Does not change posts, users, media records, themes, settings, database schema, or content.
+
+## 0.5.28 - PWA Site Identity Icon Pass
+
+Bonumark Stream v0.5.28 makes installed PWA icons follow the favicon selected in Site Identity.
+
+- Uses the existing Site Identity favicon as the source for versioned 192 × 192 and 512 × 512 PNG PWA icon responses.
+- Adds the managed `pwa-icon.php` endpoint, which center-crops the selected image into a square icon and falls back to the bundled Bonumark B when no usable favicon or image processor is available.
+- Updates the dynamic web app manifest and Apple mobile app metadata to use the selected favicon-derived icon instead of hardcoded bundled icons.
+- Removes hardcoded app icons from the service-worker precache so a changed favicon gets a new versioned icon URL instead of a stale cached install icon.
+- Keeps existing Site Identity settings, uploads, media records, themes, posts, users, and PWA settings unchanged. No database migration is required.
+
+## 0.5.27 - MariaDB Upgrade Compatibility Hotfix
+
+Bonumark Stream v0.5.27 fixes a confirmed MariaDB upgrade failure without adding product features.
+
+- Replaces the parameterized `SHOW TABLES LIKE :table_name` migration safety check with MariaDB-compatible quoted SQL. MariaDB rejects placeholders in this `SHOW` statement, which caused the v0.5.25 upgrader to fail after safely copying files and before recording upgrade completion.
+- Makes the optional database smoke test use the same MariaDB-compatible quoted `SHOW TABLES`, `SHOW COLUMNS`, and `SHOW INDEX` checks.
+- Adds package smoke-test coverage so a parameterized `SHOW` statement cannot quietly return in a future release.
+- Does not change posts, dates, times, settings, users, themes, media, uploads, API tokens, cron history, or public behavior.
+
+## 0.5.26 - Upgrade Recovery and UTC Consistency Pass
+
+Bonumark Stream v0.5.26 resolves confirmed release-audit findings without adding product features.
+
+- Makes future admin ZIP upgrades forward-only once the database migration phase begins. Failures before that phase restore the previous software files. Failures after it retain the newer compatible files, write a private recovery marker, record recovery-required history, and allow the exact package to resume safely.
+- Stores remember-device expiry and rotation timestamps in canonical UTC. Admin-entered invite expirations are interpreted in the configured site timezone, converted to UTC for storage, validated as UTC, and rendered back in the site timezone.
+- Aligns nearby database-bound account verification, comment approval, initial admin verification, and mail-test timestamps with UTC storage.
+- Makes package smoke and migration-recovery scripts CLI-only in addition to the existing Apache/LiteSpeed directory denial.
+- Adds a server-side, locked, salted-IP-hash throttle for PWA Web Share Target submissions. The payload remains session-bound and never publishes automatically.
+- Removes legacy GET logout behavior. Sign-out now remains a CSRF-protected POST action only.
+- Keeps public Stream post dates and times displayed in the configured site timezone. Visitor-local conversion is intentionally not added.
+
+## 0.5.25 - Release Audit Remediation Pass
+
+Bonumark Stream v0.5.25 resolves confirmed release-audit findings without adding product features.
+
+- Repairs the legacy `1970-01-01 00:00:00` published-timestamp cutover fallback through a safe upgrade preflight plus corrective migration. Valid cutovers remain untouched, direct legacy upgrades receive the actual upgrade boundary, and fresh UTC-era installs use their install boundary.
+- Changes the PWA Web Share Target from GET to POST so shared text and URLs do not enter browser-visible URLs, access logs, or redirect query strings. Shared content remains session-bound and lands only in the front-end composer after login and publish-capability checks.
+- Treats MySQL/MariaDB DDL migrations as resumable rather than transactional. Failed DDL migrations are not marked complete and retry through existing idempotent safeguards.
+- Scopes a Bonumark session cookie name and path to each installation, including subdirectory installs.
+- Adds same-origin protection for anonymous browser like requests while retaining public likes and rate limiting.
+- Classifies root `manifest.php` and `sw.js` as managed upgrade files so future removed PWA root files are cleaned safely.
+- Replaces raw admin exception messages with sanitized server-side logging and generic UI notices.
+- Updates stale release wording and release validation coverage.
+
+## 0.5.24 - Legacy Published Timestamp Compatibility Hotfix
+
+Bonumark Stream v0.5.24 corrects the v0.5.23 regression that shifted pre-existing published Stream posts by the site timezone offset.
+
+- Records the exact v0.5.23 upgrade time from existing upgrade history, without modifying posts.
+- Treats published timestamps before that boundary as legacy site-local values, preserving the display they had before today’s timezone work.
+- Keeps published timestamps created after the v0.5.23 boundary as canonical UTC values, so new posts remain correct.
+- Corrects public Stream cards, single posts, admin content date labels, and chronological Stream sorting through one shared compatibility rule.
+- Does not rewrite post records, titles, bodies, media, date fields, scheduled posts, drafts, pages, or imports.
+
+## 0.5.23 - Timezone Runtime and UTC Canonicalization Hotfix
+
+Bonumark Stream v0.5.23 fixes Stream post timestamps displaying four hours ahead when the saved **General Settings** timezone differed from the original `config.php` timezone.
+
+- Makes the persisted site timezone the active PHP runtime timezone after installation, instead of leaving `config.php` as the long-term display authority.
+- Locks every PDO MySQL/MariaDB connection to UTC so `NOW()` writes remain canonical regardless of the database server timezone.
+- Renders public Stream post dates, account activity dates, dashboard timestamps, and ISO timestamps explicitly in the saved site timezone, without depending on PHP's incidental default timezone.
+- Uses UTC when creating direct published-at database values, keeping new posts aligned with scheduled-post and cron behavior.
+- Existing post data corrects on display immediately. No migration, content rewrite, or manual timestamp repair is required.
+
+## 0.5.22 - Post Update PDO Binding Compatibility Hotfix
+
+Bonumark Stream v0.5.22 fixes the remaining **Save failed. SQLSTATE[HY093]: Invalid parameter number** error when updating an existing Stream post on MySQL/MariaDB hosting environments that still reject the long named-parameter update statement.
+
+- Replaces the complete existing-post database update bind set with ordered positional PDO placeholders.
+- Covers existing draft, published, scheduled, renamed, and pinned Stream posts through the shared database-first save path.
+- Leaves the post fields, pin state rules, schedule handling, author preservation, revisions, themes, API behavior, PWA behavior, cron, and public output unchanged.
+- Requires no database migration, content rewrite, or configuration change.
+
+## 0.5.21 - Post Update Save Hotfix
+
+Bonumark Stream v0.5.21 fixes the **Save failed. SQLSTATE[HY093]: Invalid parameter number** error when updating an existing post on MySQL/MariaDB installations using native PDO prepared statements.
+
+- Replaces repeated named placeholders in the existing-post update query with distinct bound parameter names.
+- Restores normal saves for existing draft, published, scheduled, and pinned stream posts.
+- Fixes the same native-prepared-statement compatibility issue in comment-status updates.
+- Requires no database migration, content rewrite, or configuration change.
+- Leaves cron behavior, scheduled-task history, post timestamps, theme structure, API behavior, PWA behavior, and public output unchanged.
+
+## 0.5.20 - Scheduled Tasks UTC Timestamp Hotfix
+
+Bonumark Stream v0.5.20 fixes the **Admin → Settings → Scheduled Tasks → Run history** time display for server-cron, web-cron, and manual runs.
+
+- Parses stored scheduled-task history timestamps explicitly as UTC before converting them to the configured site timezone.
+- Corrects incorrect local times caused by PHP interpreting UTC database values in the server or application default timezone.
+- Applies to existing history rows immediately, with no database migration or data rewrite required.
+- Leaves cron execution, CLI behavior, web cron keys, task history storage, fallback checks, scheduled-post timing, API behavior, and theme structure unchanged.
+
+## 0.5.19 - Scheduled Tasks Run History Alignment Hotfix
+
+Bonumark Stream v0.5.19 fixes the **Admin → Settings → Scheduled Tasks → Run history** table so each header lines up with the correct value.
+
+- Replaces the reused six-column Stream Posts table pattern with a dedicated five-column task-history table.
+- Defines stable column widths for When, Source, Result, Published, and Details.
+- Keeps manual, server-cron, and web-cron history data unchanged.
+- Improves mobile task-history readability by labeling each stacked value.
+- Leaves the reusable task runner, cron paths, keys, fallbacks, scheduled-post timing, permissions, API behavior, and theme structure unchanged.
+
+## 0.5.18 - Scheduled Tasks and Cron Foundation Pass
+
+Bonumark Stream v0.5.18 turns the existing scheduled-post checks into a reusable Scheduled Tasks foundation without changing theme structure or scheduled-post permissions.
+
+- Adds one shared due-task runner for public traffic, browser heartbeat, admin, manual, server cron, and protected web cron execution.
+- Preserves the existing scheduled-post publisher, lock, public hiding rules, front-end composer heartbeat, admin heartbeat, and manual behavior.
+- Adds a CLI-only server cron script at `scripts/run-scheduled-tasks.php`.
+- Adds an optional protected web cron endpoint at `/api/v1/cron`, authenticated with a generated key stored only as a hash.
+- Adds Admin → Settings → Scheduled Tasks with fallback controls, server and web cron setup details, runner health, manual execution, and retained manual/cron run history.
+- Adds a migration for task-run history and scheduled-task settings.
+- Keeps public traffic and active-browser checks as configurable fallbacks instead of treating them as real cron.
+- Establishes the reusable task foundation for future features that need dependable scheduled execution.
+
+## 0.5.17 - Post Options Menu Alignment Hotfix
+
+Bonumark Stream v0.5.17 fixes the visual alignment inside the front-end three-dot **Post options** menu.
+
+- Makes button-based actions such as **Pin to Stream** or **Unpin from Stream** use the same left-aligned layout as the **Edit** link.
+- Overrides the bundled theme's broad public button centering only inside the post-options menu.
+- Keeps the compact menu, its current below-trigger placement, pinning behavior, permissions, feeds, search, exports, API, PWA, and mobile behavior unchanged.
+- Updates the bundled Midnight Ledger reference theme CSS to 1.2.6, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
+
+## 0.5.16 - Post Options Menu Visibility Hotfix
+
+Bonumark Stream v0.5.16 fixes the front-end Post options menu so it remains visible and usable when it opens below its three-dot trigger.
+
+- Stops the bundled Midnight Ledger stream card from clipping the open menu.
+- Keeps the menu layered above the following stream card while it is open.
+- Keeps the compact three-dot control, Edit action, Pin to Stream or Unpin from Stream action, permissions, and mobile behavior unchanged.
+- Updates the bundled Midnight Ledger reference theme CSS to 1.2.5, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
+
+## 0.5.15 - Post Options Menu Position Hotfix
+
+Bonumark Stream v0.5.15 fixes the front-end Post options menu placement without changing its actions, authorization, or pinning behavior.
+
+- Positions the three-dot post menu below its trigger instead of opening upward across the current post card.
+- Keeps the compact menu, front-end Edit action, secure Pin to Stream or Unpin from Stream action, reader controls, and mobile behavior unchanged.
+- Updates the bundled Midnight Ledger reference theme CSS to 1.2.4, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
+
+## 0.5.14 - Post Actions Menu Pass
+
+Bonumark Stream v0.5.14 makes the front-end post action row quieter without changing post permissions or pin behavior.
+
+- Replaces the visible front-end **Edit** and **Pin to Stream** or **Unpin from Stream** pills with one compact three-dot **Post options** menu.
+- Keeps reader-facing likes and comments visible in the normal action row.
+- Uses semantic `<details>` markup so the menu works without JavaScript, while preventing card click-through navigation when the menu is used.
+- Keeps authorization, CSRF-protected pinning, post state rules, RSS, sitemap, search, static export, Remote Posting API, PWA, and share-to-post behavior unchanged.
+- Adds core fallback styling and Midnight Ledger styling for the post options menu, including mobile use.
+- Updates README, install, architecture, theming, upgrade, API, package metadata, service-worker cache version, and release manifest for v0.5.14.
+
+## 0.5.13 - Pinned Posts Pass
+
+Bonumark Stream v0.5.13 adds core-owned pinned stream posts without changing normal publishing behavior.
+
+- Adds `is_pinned` and `pinned_at` post metadata through a safe database migration.
+- Adds secure Pin to Stream and Unpin from Stream actions in the front-end post controls, back-end editor, and Admin → Stream Posts list.
+- Supports multiple pinned posts, ordered by most recently pinned first.
+- Adds a quiet Pinned area above the homepage timeline and removes those same records from the page-one timeline so posts are not duplicated.
+- Prevents drafts, scheduled posts, pages, unpublished content, and trash from being pinned publicly. Moving a pinned post out of published stream status clears pin state.
+- Keeps RSS/feed order, sitemap behavior, search, normal archive behavior, static export output, Remote Posting API behavior, PWA install behavior, and share-to-post flow unchanged.
+- Adds core fallback styling and Midnight Ledger presentation styling without moving pin logic into themes.
+- Updates README, architecture, theming, install, upgrade, package metadata, service-worker cache version, and release manifest for v0.5.13.
+
+## 0.5.12 - Scheduled Admin Sort Source Fix Pass
+
+Bonumark Stream v0.5.12 fixes the admin stream-post list sort source for scheduled posts.
+
+- Uses UTC-aware scheduled and published timestamps when sorting stream posts in admin and public helpers.
+- Makes scheduled posts sort by the same effective time shown in the admin Date column.
+- Prevents newly scheduled posts from drifting lower in All Stream Posts behind older published posts.
+- Keeps the clean scheduled date display added in v0.5.11.
+- Leaves scheduling logic, public runner behavior, timestamp publishing behavior, PWA/share flow, front-end composer behavior, and back-end composer behavior unchanged.
+- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.12.
+
+## 0.5.11 - Scheduled Admin List Date Polish Pass
+
+Bonumark Stream v0.5.11 fixes scheduled-post ordering and date display in the admin stream-post list.
+
+- Sorts scheduled posts by their scheduled publish time in the All Stream Posts list.
+- Keeps scheduled posts in the same date order as published posts instead of drifting lower based on their original creation time.
+- Shows the scheduled post date column as a clean site-local date and time without appending the timezone name.
+- Keeps the scheduled/published timestamp behavior introduced in v0.5.8.
+- Leaves scheduling logic, public runner behavior, PWA/share flow, front-end composer behavior, and back-end composer behavior unchanged.
+- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.11.
+
+## 0.5.10 - Backend Composer Publish Box Polish Pass
+
+Bonumark Stream v0.5.10 polishes the back-end composer Publish box without changing scheduled-post logic.
+
+- Hides the scheduled publish time field by default on new draft posts.
+- Keeps Save Draft and Post Now as the primary visible back-end editor actions.
+- Adds quiet Schedule for later and Reschedule disclosures that reveal the schedule field only when needed.
+- Shows already scheduled posts with clear scheduled status, scheduled time, Reschedule, Post Now, and Cancel Schedule actions.
+- Leaves scheduling logic, due runner behavior, timestamp handling, PWA/share flow, and the front-end composer unchanged.
+- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.10.
+
+## 0.5.9 - Public Traffic Scheduled Runner Pass
+
+Bonumark Stream v0.5.9 makes public traffic the primary shared-hosting trigger for scheduled posts.
+
+- Added a public-request scheduled-post runner helper that only runs on safe GET/HEAD requests.
+- Runs due scheduled-post checks before public stream, feed, sitemap, search, profile, account, page, comments, and robots handlers load public output.
+- Keeps the existing throttle and lock so normal traffic does not run heavy scheduled-post work on every request.
+- Keeps the authenticated admin and front-end composer heartbeats as backup helpers instead of the primary trigger.
+- Keeps scheduled posts hidden from public queries until they are published.
+- Keeps the v0.5.8 scheduled/published timestamp behavior intact.
+- Documents that exact-to-the-minute scheduled publishing requires server cron or an external ping hitting a public URL.
+
+## 0.5.8 - Scheduled Publish Time Fix Pass
+
+Bonumark Stream v0.5.8 tightens scheduled publishing behavior after the front-end scheduling fixes.
+
+- Reduced the conservative scheduled-post traffic runner throttle from five minutes to thirty seconds.
+- Added an authenticated scheduled-post runner endpoint for active admin/front-end composer sessions.
+- Added lightweight admin and front-end composer heartbeats so due posts are checked while the site owner is actively using Bonumark Stream.
+- When a scheduled post becomes public, Bonumark now uses the scheduled/published timestamp for public display, feeds, single-post metadata, and exported Markdown front matter instead of the original creation time.
+- Converted scheduled publish dates through the site timezone for date storage.
+- Kept scheduled-post storage, permissions, public hiding, PWA/share-to-post, and existing API behavior intact.
+
+## 0.5.7 - Front-End Scheduler Submit Fix Pass
+
+Bonumark Stream v0.5.7 fixes the front-end composer scheduling submit path introduced during the v0.5.6 UI polish.
+
+- Added hidden front-end composer fields for submit intent and active schedule state.
+- Updated the composer JavaScript so activating scheduling updates those hidden fields immediately and again at submit time.
+- Removed reliance on mutating the visible submit button value for scheduling intent.
+- Hardened the quick-post endpoint so it treats either explicit schedule action or active schedule state as a scheduled post request.
+- Kept the compact v0.5.6 composer UI, backend scheduling controls, scheduled-post storage, PWA/share-to-post flow, and public hiding behavior intact.
+- Updated package metadata, service worker cache version, docs, and release manifest for v0.5.7.
+
+## 0.5.6 - Front-End Composer Scheduling UI Polish Pass
+
+Bonumark Stream v0.5.6 polishes the front-end composer scheduling UI without changing scheduled-post core behavior.
+
+- Reworked the front-end composer into a cleaner posting-box toolbar flow.
+- Replaced the large Attach media pill and full-width Schedule instead block with compact composer action buttons.
+- Added an inline schedule panel that only appears when scheduling is active.
+- Changed the main composer submit button from Post to Schedule when the scheduler is active.
+- Kept the back-end composer/editor scheduling controls unchanged.
+- Preserved scheduled-post storage, public hiding, due-post publishing, Remote Posting API behavior, and PWA/share-to-post routing.
+- Updated package metadata, service worker cache version, docs, and release manifest for v0.5.6.
+
+## 0.5.5 - Scheduled Posts Pass
+
+Bonumark Stream v0.5.5 adds scheduled stream posts while keeping the front-end composer as the primary posting flow.
+
+- Added a scheduled stream-post status and `scheduled_at` database field with migration support for fresh and upgraded installs.
+- Added scheduling controls to the front-end composer and back-end editor.
+- Added scheduled-post editing, rescheduling, cancel-to-draft, trash/restore, quick edit, admin list filtering, and publish-now support.
+- Added a conservative traffic-triggered due-post runner with throttling and a lock, plus a manual Tools action to run due scheduled posts.
+- Kept scheduled posts out of public timeline, single routes, feeds, sitemap, search, and static export until published.
+- Added site-timezone display for schedule fields while storing canonical scheduled times in UTC.
+- Added optional `scheduled_at` support for trusted Remote Posting API clients without changing existing draft/publish behavior.
+- Updated README, docs, package metadata, service worker cache version, and release manifest for v0.5.5.
+
+## 0.5.4 - Stream Settings Label Cleanup Hotfix
+
+Bonumark Stream v0.5.4 cleans up stale Reading Settings wording on the admin Stream settings screen.
+
+- Changed the admin settings page title from Reading Settings to Stream Settings.
+- Changed the visible page heading from Reading to Stream.
+- Changed save/error flash copy and the submit button to use Stream settings wording.
+- Updated the intro copy so the screen reflects what it now controls: stream display, composer behavior, sitemap, PWA/mobile share, and app login persistence.
+- Added a smoke check to prevent the stale Reading Settings labels from returning.
+- Updated package metadata, version references, service worker cache version, and release manifest for v0.5.4.
+
+## 0.5.3 - Remember Me App Login Pass
+
+Bonumark Stream v0.5.3 adds secure app-friendly login persistence so installed/mobile use does not constantly force the owner back through login.
+
+- Added a Remember this device checkbox to the admin login form and public account login form.
+- Added persistent login tokens stored in a new remember_tokens database table.
+- Uses selector plus validator cookies with hashed validators in the database, HttpOnly cookies, SameSite=Lax, secure cookies on HTTPS, and token rotation when a remembered login is restored.
+- Added Stream settings to enable or disable remember-me login and set the remembered-device window from 1 to 90 days, defaulting to 30 days.
+- Revokes remembered device tokens on logout, current-user password change, password reset, and admin password reset.
+- Kept normal sessions unchanged for users who do not check Remember this device.
+- Updated README, install docs, package metadata, migrations, smoke checks, and release manifest for v0.5.3.
+
+## 0.5.2 - Frontend Share Composer Routing Hotfix
+
+Bonumark Stream v0.5.2 corrects the mobile share-to-post flow so shared text and URLs land in the primary front-end composer instead of the backend draft editor.
+
+- Changed the secure share-target route into an intake handoff that stores the shared payload briefly, requires login, requires publishing permission, and redirects back to the public stream.
+- Prefills the front-end composer with shared title, text, and URL content so the user can review, edit, and press Post.
+- Removed the backend shared draft review form from the share-target path.
+- Preserved admin-only publishing controls, because shared content still never auto-publishes and the composer only renders for authenticated users who can publish.
+- Kept image/file share-target intake deferred.
+- Updated README, install docs, package metadata, smoke checks, service worker versioning, and release manifest for v0.5.2.
+
+## 0.5.1 - PWA and Mobile Share-to-Post Flow Pass
+
+Bonumark Stream v0.5.1 adds the first clean installable-app and mobile share-to-draft layer while preserving admin-only publishing and the existing theme/API structure.
+
+- Added a dynamic web app manifest with app name, short name, description, start URL, scope, display mode, colors, icons, and Web Share Target metadata.
+- Added bundled PNG app icons generated from Bonumark Stream identity, with no external or copyrighted assets.
+- Added a conservative versioned service worker that caches only safe static assets and avoids admin pages, account pages, draft pages, API responses, private files, and user-specific content.
+- Added PWA registration and recovery behavior through a shared core PWA script.
+- Added an authenticated admin share-target route for shared text, titles, and URLs.
+- Preserved shared text/URL payloads through login when practical, then routed them to a draft review screen.
+- Kept shared content draft-only until the Admin reviews and saves it, with normal publishing still handled by the existing admin editor.
+- Added Stream settings for enabling installable app metadata/service worker support and the mobile share target.
+- Deferred Web Share Target image/file intake to avoid browser-specific upload handoff risk in the first PWA pass.
+- Updated README, package metadata, config defaults, installer seed settings, migrations, smoke checks, and release manifest for v0.5.1.
+
 ## 0.5.0 - GitHub Release Preparation Pass
 
 Bonumark Stream v0.5.0 prepares the next public GitHub release after v0.4.5 by promoting the local/test work through v0.4.26 into a public release package.

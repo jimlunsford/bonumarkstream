@@ -27,6 +27,8 @@ try {
     bms_flash('Moved page “' . $draft['title'] . '” back to drafts.', 'success');
     bms_redirect(bms_admin_url('page-edit.php?type=draft&file=' . urlencode($draftFile)));
 } catch (Throwable $e) {
-    bms_flash('Unpublish failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('page-unpublish', $e);
+
+    bms_flash('Unpublish failed. Please try again.', 'error');
     bms_redirect(bms_admin_url('pages.php'));
 }

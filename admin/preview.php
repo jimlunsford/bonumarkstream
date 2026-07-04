@@ -12,7 +12,7 @@ if ($type === 'page-published') {
 } elseif ($type === 'page-draft') {
     $section = 'pages/drafts';
 } else {
-    $section = $type === 'published' ? 'published' : 'drafts';
+    $section = $type === 'published' ? 'published' : ($type === 'scheduled' ? 'scheduled' : 'drafts');
 }
 
 if ($file === '') {
@@ -37,6 +37,6 @@ if ($isPagePreview) {
 
 header('X-Robots-Tag: noindex, nofollow', true);
 $editUrl = $isPagePreview ? bms_admin_url('page-edit.php?type=' . ($section === 'pages/published' ? 'published' : 'draft') . '&file=' . urlencode($file)) : bms_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode($file));
-$label = str_contains($section, 'published') ? 'Saved published database record' : 'Saved draft database record';
+$label = str_contains($section, 'published') ? 'Saved published database record' : ($section === 'scheduled' ? 'Saved scheduled database record' : 'Saved draft database record');
 echo bms_admin_preview_document($page, $label, $editUrl);
 exit;

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
+require_once __DIR__ . '/../_bonumark_stream/app/pwa.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
@@ -14,6 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sitemapStreamPosts = !empty($_POST['sitemap_include_stream_posts']) ? '1' : '0';
     $sitemapPages = !empty($_POST['sitemap_include_pages']) ? '1' : '0';
     $sitemapProfiles = !empty($_POST['sitemap_include_profiles']) ? '1' : '0';
+    $pwaEnabled = !empty($_POST['pwa_enabled']) ? '1' : '0';
+    $pwaShareTarget = !empty($_POST['pwa_share_target_enabled']) ? '1' : '0';
+    $rememberLoginEnabled = !empty($_POST['remember_login_enabled']) ? '1' : '0';
+    $rememberLoginDays = (int)($_POST['remember_login_days'] ?? 30);
+    if ($rememberLoginDays < 1) {
+        $rememberLoginDays = 1;
+    }
+    if ($rememberLoginDays > 90) {
+        $rememberLoginDays = 90;
+    }
     $streamIndexPolicy = (string)($_POST['stream_index_policy'] ?? 'smart');
     if (!in_array($streamIndexPolicy, ['all', 'smart', 'noindex'], true)) {
         $streamIndexPolicy = 'smart';
@@ -37,10 +48,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_set_setting('sitemap_include_stream_posts', $sitemapStreamPosts);
         bms_set_setting('sitemap_include_pages', $sitemapPages);
         bms_set_setting('sitemap_include_profiles', $sitemapProfiles);
-        bms_flash('Reading settings saved. Dynamic public routes use the updated stream settings immediately.', 'success');
+        bms_set_setting('pwa_enabled', $pwaEnabled);
+        bms_set_setting('pwa_share_target_enabled', $pwaShareTarget);
+        bms_set_setting('remember_login_enabled', $rememberLoginEnabled);
+        bms_set_setting('remember_login_days', (string)$rememberLoginDays);
+        bms_flash('Stream settings saved. Dynamic public routes use the updated stream settings immediately.', 'success');
         bms_redirect(bms_admin_url('settings-reading.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not save reading settings: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('settings-reading', $e);
+
+        bms_flash('Could not save stream settings. Please try again.', 'error');
     }
 }
 
@@ -53,14 +70,21 @@ $sitemapEnabled = (string)bms_setting_or_config('sitemap_enabled', '1') === '1';
 $sitemapStreamPosts = (string)bms_setting_or_config('sitemap_include_stream_posts', '1') === '1';
 $sitemapPages = (string)bms_setting_or_config('sitemap_include_pages', '1') === '1';
 $sitemapProfiles = (string)bms_setting_or_config('sitemap_include_profiles', '0') === '1';
+$pwaEnabled = function_exists('bms_pwa_enabled') ? bms_pwa_enabled() : true;
+$pwaShareTarget = function_exists('bms_pwa_share_target_enabled') ? bms_pwa_share_target_enabled() : true;
+$rememberLoginEnabled = function_exists('bms_remember_login_enabled') ? bms_remember_login_enabled() : true;
+$rememberLoginDays = function_exists('bms_remember_login_days') ? bms_remember_login_days() : 30;
+$manifestUrl = function_exists('bms_pwa_manifest_url') ? bms_pwa_manifest_url() : bms_url_path('manifest.php');
+$shareTargetUrl = bms_admin_url('share-target.php');
+$clearPwaUrl = bms_admin_url('settings-reading.php?bms-pwa-clear=1');
 $sitemapUrl = bms_site_url('sitemap.xml');
 $robotsUrl = bms_site_url('robots.txt');
-bms_admin_header('Reading Settings', []);
+bms_admin_header('Stream Settings', []);
 ?>
 <section class="panel page-intro-panel">
   <p class="eyebrow">Settings</p>
-  <h2>Reading</h2>
-  <p class="meta">Bonumark Stream always uses the Stream timeline as the homepage. These settings control how that stream is presented.</p>
+  <h2>Stream</h2>
+  <p class="meta">Bonumark Stream uses the stream timeline as the homepage. These settings control the composer, stream display, sitemap, installable app behavior, mobile sharing, and app login persistence.</p>
 </section>
 <section class="panel settings-panel">
   <form method="post">
@@ -118,7 +142,36 @@ bms_admin_header('Reading Settings', []);
     </label>
     <p class="field-help">Search results, account pages, admin pages, drafts, trash, pending content, and noindex content are not included.</p>
 
-    <button type="submit">Save Reading Settings</button>
+
+    <hr>
+
+    <h3>Installable app and mobile share</h3>
+    <p class="field-help">Bonumark Stream can expose basic app metadata so mobile and desktop browsers can install the site as an app. The service worker caches only safe static assets and does not cache admin pages, drafts, account pages, API responses, or private content.</p>
+
+    <label class="checkbox-line" for="pwa_enabled">
+      <input id="pwa_enabled" type="checkbox" name="pwa_enabled" value="1" <?= $pwaEnabled ? 'checked' : '' ?>>
+      <span>Enable installable app metadata and conservative service worker support</span>
+    </label>
+
+    <label class="checkbox-line" for="pwa_share_target_enabled">
+      <input id="pwa_share_target_enabled" type="checkbox" name="pwa_share_target_enabled" value="1" <?= $pwaShareTarget ? 'checked' : '' ?>>
+      <span>Enable mobile share target for shared text and URLs</span>
+    </label>
+    <p class="field-help">Manifest: <code><?= htmlspecialchars($manifestUrl, ENT_QUOTES, 'UTF-8') ?></code>. Share target: <code><?= htmlspecialchars($shareTargetUrl, ENT_QUOTES, 'UTF-8') ?></code>. Visit <a href="<?= htmlspecialchars($clearPwaUrl, ENT_QUOTES, 'UTF-8') ?>">this cache recovery link</a> to ask the browser to clear Bonumark Stream PWA caches.</p>
+
+    <h3>App login persistence</h3>
+    <p class="field-help">Remember-me login is useful when Bonumark Stream is installed like an app. It uses a separate device token, not a longer normal session, and is cleared on logout or password changes.</p>
+
+    <label class="checkbox-line" for="remember_login_enabled">
+      <input id="remember_login_enabled" type="checkbox" name="remember_login_enabled" value="1" <?= $rememberLoginEnabled ? 'checked' : '' ?>>
+      <span>Show Remember this device on login forms</span>
+    </label>
+
+    <label for="remember_login_days">Remember device for up to</label>
+    <input id="remember_login_days" type="number" name="remember_login_days" min="1" max="90" value="<?= htmlspecialchars((string)$rememberLoginDays, ENT_QUOTES, 'UTF-8') ?>">
+    <p class="field-help">Allowed range is 1 to 90 days. The default is 30 days.</p>
+
+    <button type="submit">Save Stream Settings</button>
   </form>
 </section>
 <?php bms_admin_footer(); ?>

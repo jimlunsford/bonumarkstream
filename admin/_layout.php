@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/profiles.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
+require_once __DIR__ . '/../_bonumark_stream/app/pwa.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 function bms_admin_action_link(array $action): string
 {
     if (isset($action['html']) && is_string($action['html'])) {
@@ -67,6 +69,9 @@ function bms_admin_error_page(string $title, string $message, int $status = 404,
 function bms_admin_header(string $title, array $actions = []): void
 {
     bms_send_security_headers();
+    if (function_exists('bms_maybe_publish_due_scheduled_posts') && function_exists('bms_current_user_can') && bms_current_user_can('publish_content')) {
+        bms_maybe_publish_due_scheduled_posts();
+    }
     $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $styleUrl = htmlspecialchars(bms_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
     $adminStyleUrl = htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
@@ -97,6 +102,7 @@ function bms_admin_header(string $title, array $actions = []): void
     $registrationUrl = htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8');
     $mailUrl = htmlspecialchars(bms_admin_url('mail.php'), ENT_QUOTES, 'UTF-8');
     $remotePostingUrl = htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8');
+    $scheduledTasksUrl = htmlspecialchars(bms_admin_url('scheduled-tasks.php'), ENT_QUOTES, 'UTF-8');
     $toolsUrl = htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8');
     $upgradeUrl = htmlspecialchars(bms_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8');
     $exportUrl = htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8');
@@ -105,6 +111,7 @@ function bms_admin_header(string $title, array $actions = []): void
     $systemCheckUrl = htmlspecialchars(bms_admin_url('system-check.php'), ENT_QUOTES, 'UTF-8');
     $accountUrl = htmlspecialchars(bms_admin_url('user.php'), ENT_QUOTES, 'UTF-8');
     $logoutUrl = htmlspecialchars(bms_admin_url('logout.php'), ENT_QUOTES, 'UTF-8');
+    $scheduledRunnerUrl = htmlspecialchars(bms_admin_url('scheduled-runner.php'), ENT_QUOTES, 'UTF-8');
     $csrf = function_exists('bms_csrf_token') ? htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') : '';
     $currentAdminFile = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
     $sectionOpen = static function (array $files) use ($currentAdminFile): string {
@@ -136,13 +143,14 @@ function bms_admin_header(string $title, array $actions = []): void
     $profileOwnerLabel = trim($displayName) !== '' ? $displayName : (trim($username) !== '' ? $username : 'current user');
     $safeProfileOwnerLabel = htmlspecialchars($profileOwnerLabel, ENT_QUOTES, 'UTF-8');
     $adminFaviconTags = function_exists('bms_site_favicon_tags') ? bms_site_favicon_tags() : '';
+    $adminPwaTags = function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '';
     $adminAvatarMarkup = '';
     if (function_exists('bms_is_logged_in') && bms_is_logged_in() && function_exists('bms_user_avatar_markup')) {
         $adminAvatarMarkup = '<span class="admin-user-avatar">' . bms_user_avatar_markup(bms_current_user(), 'admin-user-avatar-image', 96, 96, false) . '</span>';
     }
 
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . '<link rel="stylesheet" href="' . $styleUrl . '">
-  <link rel="stylesheet" href="' . $adminStyleUrl . '"><script src="' . $adminScriptUrl . '" defer></script></head><body class="bonumark-admin"><div class="admin-shell">';
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . $adminPwaTags . '<link rel="stylesheet" href="' . $styleUrl . '">
+  <link rel="stylesheet" href="' . $adminStyleUrl . '"><script src="' . $adminScriptUrl . '" defer></script></head><body class="bonumark-admin" data-scheduled-runner-url="' . $scheduledRunnerUrl . '" data-scheduled-runner-csrf="' . $csrf . '"><div class="admin-shell">';
     echo '<aside class="admin-sidebar" aria-label="Admin navigation"><a class="admin-brand" href="' . $dashboardUrl . '"><span class="admin-brand-mark">B</span><span>Bonumark Stream</span></a><nav class="admin-sidebar-nav">';
     echo '<a class="nav-primary view-site-nav" href="' . $siteUrl . '" target="_blank" rel="noopener">View Site</a>';
     echo '<a class="nav-primary" href="' . $dashboardUrl . '">Dashboard</a>';
@@ -194,13 +202,14 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '</div></details>';
 
     if ($can('manage_settings')) {
-        echo '<details class="admin-nav-section"' . $sectionOpen(['settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php']) . '><summary class="admin-nav-heading">Settings</summary><div class="admin-nav-links">';
+        echo '<details class="admin-nav-section"' . $sectionOpen(['settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php']) . '><summary class="admin-nav-heading">Settings</summary><div class="admin-nav-links">';
         echo '<a href="' . $settingsUrl . '">General</a>';
         echo '<a href="' . $writingUrl . '">Writing</a>';
         echo '<a href="' . $readingUrl . '">Stream</a>';
         echo '<a href="' . $registrationUrl . '">Registration</a>';
         echo '<a href="' . $mailUrl . '">Mail</a>';
         echo '<a href="' . $remotePostingUrl . '">Remote Posting</a>';
+        echo '<a href="' . $scheduledTasksUrl . '">Scheduled Tasks</a>';
         echo '</div></details>';
     }
 

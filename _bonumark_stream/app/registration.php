@@ -302,6 +302,22 @@ function bms_registration_invite_hint(string $code): string
     return substr($normalized, 0, 5) . '...' . substr($normalized, -5);
 }
 
+function bms_registration_invite_expiration_to_utc(string $value): string
+{
+    $localValue = str_replace('T', ' ', trim($value));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/', $localValue)) {
+        throw new RuntimeException('Invite expiration date is not valid.');
+    }
+
+    try {
+        return (new DateTimeImmutable($localValue, bms_site_timezone()))
+            ->setTimezone(bms_utc_timezone())
+            ->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        throw new RuntimeException('Invite expiration date is not valid.');
+    }
+}
+
 function bms_registration_create_invite(string $label, int $maxUses, string $expiresAt = ''): array
 {
     bms_require_capability('manage_settings');
@@ -312,11 +328,7 @@ function bms_registration_create_invite(string $label, int $maxUses, string $exp
     $expiresSql = null;
 
     if ($expiresAt !== '') {
-        $timestamp = strtotime($expiresAt);
-        if ($timestamp === false) {
-            throw new RuntimeException('Invite expiration date is not valid.');
-        }
-        $expiresSql = date('Y-m-d H:i:s', $timestamp);
+        $expiresSql = bms_registration_invite_expiration_to_utc($expiresAt);
     }
 
     $code = bms_registration_generate_invite_code();
@@ -373,7 +385,31 @@ function bms_registration_find_invite_by_code(string $code): ?array
 function bms_registration_invite_is_expired(array $invite): bool
 {
     $expiresAt = trim((string)($invite['expires_at'] ?? ''));
-    return $expiresAt !== '' && strtotime($expiresAt) !== false && strtotime($expiresAt) < time();
+    if ($expiresAt === '') {
+        return false;
+    }
+
+    try {
+        return (new DateTimeImmutable($expiresAt, bms_utc_timezone()))->getTimestamp() < time();
+    } catch (Throwable $e) {
+        return true;
+    }
+}
+
+function bms_registration_format_invite_expiration(string $utc): string
+{
+    $utc = trim($utc);
+    if ($utc === '' || $utc === '0000-00-00 00:00:00') {
+        return 'Never';
+    }
+
+    try {
+        return (new DateTimeImmutable($utc, bms_utc_timezone()))
+            ->setTimezone(bms_site_timezone())
+            ->format('M j, Y g:i A T');
+    } catch (Throwable $e) {
+        return 'Invalid date';
+    }
 }
 
 function bms_registration_validate_invite_code(string $code): array

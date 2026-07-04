@@ -377,14 +377,8 @@ function bms_public_navigation_account_items(): array
         ];
     }
 
-    if (function_exists('bms_csrf_token')) {
-        $items[] = [
-            'label' => 'Sign out',
-            'url' => bms_url_path('account.php?action=logout&csrf_token=' . rawurlencode(bms_csrf_token())),
-            'target' => '_self',
-            'source' => 'system-account',
-        ];
-    }
+    // Sign out remains a CSRF-protected POST action on the account page.
+    // Public navigation items are links, so they must not create a logout URL.
 
     return $items;
 }

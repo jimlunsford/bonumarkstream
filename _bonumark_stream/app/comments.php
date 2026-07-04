@@ -118,7 +118,7 @@ function bms_create_comment(string $slug, string $body): array
         'status' => $status,
         'ip_hash' => bms_comment_ip_hash(),
         'user_agent_hash' => bms_comment_user_agent_hash(),
-        'approved_at' => $status === 'approved' ? date('Y-m-d H:i:s') : null,
+        'approved_at' => $status === 'approved' ? gmdate('Y-m-d H:i:s') : null,
     ]);
     return bms_find_comment_by_id((int)bms_db()->lastInsertId()) ?? [];
 }
@@ -137,8 +137,8 @@ function bms_find_comment_by_id(int $id): ?array
 function bms_update_comment_status(int $id, string $status): void
 {
     $status = bms_comment_normalize_status($status);
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('comments') . ' SET status = :status, updated_at = NOW(), approved_at = CASE WHEN :status = \'approved\' THEN COALESCE(approved_at, NOW()) ELSE approved_at END WHERE id = :id');
-    $stmt->execute(['status' => $status, 'id' => $id]);
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('comments') . ' SET status = :status, updated_at = NOW(), approved_at = CASE WHEN :approval_status = \'approved\' THEN COALESCE(approved_at, NOW()) ELSE approved_at END WHERE id = :id');
+    $stmt->execute(['status' => $status, 'approval_status' => $status, 'id' => $id]);
 }
 
 function bms_delete_comment_permanently(int $id): void

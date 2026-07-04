@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/editor.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
@@ -9,7 +10,7 @@ $today = date('Y-m-d');
 $createdAt = date('Y-m-d H:i:s');
 $defaultSlug = '';
 $defaultStatus = function_exists('bms_default_content_status') ? bms_default_content_status() : 'draft';
-$defaultSection = $defaultStatus === 'published' ? 'published' : 'drafts';
+$defaultSection = $defaultStatus === 'published' ? 'published' : ($defaultStatus === 'scheduled' ? 'scheduled' : 'drafts');
 $defaultTitle = '';
 $defaultPage = [
     'title' => $defaultTitle,
@@ -35,13 +36,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requestedStatus = $defaultStatus;
     if ($submitAction === 'publish') {
         $requestedStatus = 'published';
+    } elseif ($submitAction === 'schedule') {
+        $requestedStatus = 'scheduled';
     } elseif ($submitAction === 'draft') {
         $requestedStatus = 'draft';
     }
-    if ($requestedStatus === 'published' && !bms_current_user_can('publish_content')) {
+    if (in_array($requestedStatus, ['published', 'scheduled'], true) && !bms_current_user_can('publish_content')) {
         $requestedStatus = 'draft';
     }
-    $defaultSection = $requestedStatus === 'published' ? 'published' : 'drafts';
+    $defaultSection = $requestedStatus === 'published' ? 'published' : ($requestedStatus === 'scheduled' ? 'scheduled' : 'drafts');
+    $scheduledAtUtc = null;
+    if ($requestedStatus === 'scheduled') {
+        try {
+            $scheduledAtUtc = bms_scheduled_input_to_utc((string)($_POST['stream_scheduled_at'] ?? ''));
+            $_POST['stream_scheduled_at_utc'] = $scheduledAtUtc;
+        } catch (Throwable $e) {
+            bms_log_admin_exception('new', $e);
+
+            bms_flash('Scheduling failed. Please try again.', 'error');
+            bms_redirect(bms_admin_url('new.php'));
+        }
+    }
     $page = [
         'title' => (string)($_POST['stream_title'] ?? $defaultTitle),
         'slug' => (string)($_POST['stream_slug'] ?? $defaultSlug),
@@ -61,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     bms_verify_csrf();
 
-    $raw = bms_build_markdown_from_request($requestedStatus === 'published' ? 'published' : 'draft');
+    $raw = bms_build_markdown_from_request(in_array($requestedStatus, ['published', 'scheduled'], true) ? $requestedStatus : 'draft');
     $raw = str_replace(["\r\n", "\r"], "\n", $raw);
 
     if (trim((string)($_POST['body_markdown'] ?? '')) === '' && trim((string)($_POST['featured_media'] ?? '')) === '') {
@@ -78,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $createdPage = bms_parse_markdown_string($raw);
         $filename = $createdPage['slug'] . '.md';
 
-        if (function_exists('bms_find_database_content_by_slug_status') && (bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'draft', 'stream') || bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'published', 'stream'))) {
+        if (function_exists('bms_find_database_content_by_slug_status') && (bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'draft', 'stream') || bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'published', 'stream') || bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'scheduled', 'stream'))) {
             bms_flash('A stream post with this slug already exists. Change the slug or edit the existing post.', 'error');
             bms_admin_header('New Stream Post', [bms_editor_screen_controls_action()]);
             bms_new_content_form($page, $defaultStatus);
@@ -96,6 +111,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_redirect(bms_admin_url('edit.php?type=published&file=' . urlencode($filename)));
         }
 
+        if ($requestedStatus === 'scheduled') {
+            if (function_exists('bms_schedule_post_page')) {
+                bms_schedule_post_page($createdPage, 'scheduled', $filename, bms_current_user_id(), (string)$scheduledAtUtc);
+            }
+            bms_clear_submitted_autosave();
+            bms_flash('Stream post scheduled for ' . bms_format_scheduled_datetime((string)$scheduledAtUtc) . '.', 'success');
+            bms_redirect(bms_admin_url('edit.php?type=scheduled&file=' . urlencode($filename)));
+        }
+
         if (function_exists('bms_sync_stream_metadata')) {
             bms_sync_stream_metadata($createdPage, 'drafts', $filename, bms_current_user_id());
         }
@@ -103,14 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Draft stream post created. “' . $createdPage['title'] . '” is ready to edit, preview, or publish.', 'success');
         bms_redirect(bms_admin_url('edit.php?type=draft&file=' . urlencode($filename)));
     } catch (Throwable $e) {
-        bms_flash('Stream post creation failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('new', $e);
+
+        bms_flash('Stream post creation failed. Please try again.', 'error');
     }
 }
 
 function bms_new_content_form(array $page, string $defaultStatus): void
 {
-    $section = $defaultStatus === 'published' ? 'published' : 'drafts';
-    $button = $defaultStatus === 'published' ? 'Publish' : 'Save Draft';
+    $section = $defaultStatus === 'published' ? 'published' : ($defaultStatus === 'scheduled' ? 'scheduled' : 'drafts');
+    $button = $defaultStatus === 'published' ? 'Publish' : ($defaultStatus === 'scheduled' ? 'Schedule' : 'Save Draft');
     $helper = '';
     $intro = $defaultStatus === 'published'
         ? 'Your Writing setting is set to publish new stream posts immediately.'

@@ -6,7 +6,17 @@ bms_verify_csrf();
 
 $file = basename($_POST['file'] ?? '');
 $return = (string)($_POST['return'] ?? 'edit');
-bms_require_content_file_access('drafts', $file, 'publish_content');
+$type = (string)($_POST['type'] ?? 'draft');
+$section = $type === 'scheduled' ? 'scheduled' : 'drafts';
+$page = function_exists('bms_find_database_content_by_markdown_path') ? bms_find_database_content_by_markdown_path($section, $file) : null;
+if (!$page && $section !== 'scheduled' && function_exists('bms_find_database_content_by_markdown_path')) {
+    $scheduledPage = bms_find_database_content_by_markdown_path('scheduled', $file);
+    if (is_array($scheduledPage)) {
+        $section = 'scheduled';
+        $page = $scheduledPage;
+    }
+}
+bms_require_content_file_access($section, $file, 'publish_content', is_array($page) ? $page : null);
 try {
     $page = bms_publish_file($file);
     $publishedFile = basename($page['slug'] . '.md');
@@ -26,6 +36,8 @@ try {
 
     bms_redirect(bms_admin_url('edit.php?type=published&file=' . urlencode($publishedFile)));
 } catch (Throwable $e) {
-    bms_flash('Publish failed. ' . $e->getMessage(), 'error');
-    bms_redirect(bms_admin_url('content.php?status=draft'));
+    bms_log_admin_exception('publish', $e);
+
+    bms_flash('Publish failed. Please try again.', 'error');
+    bms_redirect(bms_admin_url('content.php?status=' . ($section === 'scheduled' ? 'scheduled' : 'draft')));
 }

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/scheduler.php';
 require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/import-media.php';
 
@@ -52,10 +53,10 @@ function bms_api_normalize_requested_status(array $payload): string
 {
     $status = strtolower(trim((string)($payload['status'] ?? '')));
     if ($status === '') {
-        $status = bms_api_default_status();
+        $status = trim((string)($payload['scheduled_at'] ?? $payload['publish_at'] ?? '')) !== '' ? 'scheduled' : bms_api_default_status();
     }
-    if (!in_array($status, ['draft', 'published'], true)) {
-        throw new BMS_Api_Exception('Status must be draft or published.', 422, 'invalid_status');
+    if (!in_array($status, ['draft', 'published', 'scheduled'], true)) {
+        throw new BMS_Api_Exception('Status must be draft, published, or scheduled.', 422, 'invalid_status');
     }
     return $status;
 }
@@ -1085,12 +1086,12 @@ function bms_api_body_with_embedded_media(string $body, string $mediaMarkdown, s
 
 function bms_api_create_remote_stream_post(array $payload, array $token, string $targetStatus): array
 {
-    $targetStatus = $targetStatus === 'published' ? 'published' : 'draft';
-    if ($targetStatus === 'published') {
+    $targetStatus = in_array($targetStatus, ['published', 'scheduled'], true) ? $targetStatus : 'draft';
+    if (in_array($targetStatus, ['published', 'scheduled'], true)) {
         if (!bms_api_direct_publish_enabled()) {
             throw new BMS_Api_Exception('Remote direct publishing is disabled.', 403, 'remote_publish_disabled');
         }
-        if (!bms_api_publish_confirmation_satisfied($payload)) {
+        if ($targetStatus === 'published' && !bms_api_publish_confirmation_satisfied($payload)) {
             throw new BMS_Api_Exception('Remote publish confirmation is required.', 428, 'publish_confirmation_required');
         }
     }
@@ -1110,6 +1111,17 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
     }
 
     $now = date('Y-m-d H:i:s');
+    $scheduledAtUtc = '';
+    if ($targetStatus === 'scheduled') {
+        try {
+            $scheduledAtUtc = (string)bms_scheduled_input_to_utc(bms_api_string_field($payload, ['scheduled_at', 'publish_at'], 32));
+        } catch (RuntimeException $e) {
+            throw new BMS_Api_Exception($e->getMessage(), 422, 'invalid_scheduled_at');
+        }
+        if ($scheduledAtUtc === '') {
+            throw new BMS_Api_Exception('scheduled_at is required when status is scheduled.', 422, 'scheduled_at_required');
+        }
+    }
     $date = bms_api_string_field($payload, ['date'], 20);
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         $date = date('Y-m-d');
@@ -1132,6 +1144,7 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'tags' => [],
         'featured_media' => '',
         'stream_created_at' => $now,
+        'scheduled_at' => $scheduledAtUtc,
         'seo_title' => $seoTitle,
         'robots' => $robots,
     ], $body, '');
@@ -1150,9 +1163,15 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
     $authorId = bms_api_token_author_id($token);
     $postId = 0;
 
-    $section = $targetStatus === 'published' ? 'published' : 'drafts';
+    $section = match ($targetStatus) {
+        'published' => 'published',
+        'scheduled' => 'scheduled',
+        default => 'drafts',
+    };
 
-    if (function_exists('bms_upsert_database_content') && bms_database_content_columns_ready()) {
+    if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
+        $postId = bms_schedule_post_page($page, 'scheduled', $filename, $authorId, $scheduledAtUtc);
+    } elseif (function_exists('bms_upsert_database_content') && bms_database_content_columns_ready()) {
         $postId = bms_upsert_database_content($page, $section, $filename, $authorId);
     } elseif (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($page, $section, $filename, $authorId);
@@ -1165,7 +1184,7 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         $postId = is_array($found) ? (int)($found['id'] ?? 0) : 0;
     }
 
-    $editType = $targetStatus === 'published' ? 'published' : 'draft';
+    $editType = $targetStatus === 'published' ? 'published' : ($targetStatus === 'scheduled' ? 'scheduled' : 'draft');
     $editUrl = bms_site_url('admin/edit.php?type=' . $editType . '&file=' . urlencode($filename));
     $publicUrl = $targetStatus === 'published' ? bms_site_url(bms_stream_relative_directory_for_post($page) . '/') : null;
     return [
@@ -1176,6 +1195,8 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'filename' => $filename,
         'edit_url' => $editUrl,
         'public_url' => $publicUrl,
+        'scheduled_at' => $targetStatus === 'scheduled' ? $scheduledAtUtc : null,
+        'scheduled_for' => $targetStatus === 'scheduled' ? bms_format_scheduled_datetime($scheduledAtUtc) : null,
         'embedded_media' => $embeddedMedia['items'] ?? [],
         'media_position' => (string)($embeddedMedia['position'] ?? 'after'),
     ];
@@ -1336,7 +1357,7 @@ function bms_api_handle_stream_posts_endpoint(): never
         $requestId = bms_api_request_id_from_payload($payload);
         $targetStatus = bms_api_normalize_requested_status($payload);
         $requiredScopes = ['stream:draft'];
-        if ($targetStatus === 'published') {
+        if (in_array($targetStatus, ['published', 'scheduled'], true)) {
             $requiredScopes[] = 'stream:publish';
         }
         if (bms_api_payload_has_media_uploads($payload)) {
@@ -1356,10 +1377,12 @@ function bms_api_handle_stream_posts_endpoint(): never
 
         $post = bms_api_create_remote_stream_post($payload, $token, $targetStatus);
         $statusCode = 201;
-        $event = $targetStatus === 'published' ? 'remote_post_published' : 'remote_draft_created';
+        $event = $targetStatus === 'published' ? 'remote_post_published' : ($targetStatus === 'scheduled' ? 'remote_post_scheduled' : 'remote_draft_created');
         $message = $targetStatus === 'published'
             ? 'Remote post published: ' . (string)($post['slug'] ?? '')
-            : 'Remote draft created: ' . (string)($post['slug'] ?? '');
+            : ($targetStatus === 'scheduled'
+                ? 'Remote post scheduled: ' . (string)($post['slug'] ?? '')
+                : 'Remote draft created: ' . (string)($post['slug'] ?? ''));
         $response = [
             'ok' => true,
             'post' => $post,
@@ -1375,7 +1398,7 @@ function bms_api_handle_stream_posts_endpoint(): never
             bms_api_idempotency_release($tokenId, $idempotencyKey, $requestHash);
         }
         if ($e instanceof BMS_Api_Exception) {
-            $event = $targetStatus === 'published' ? 'remote_publish_error' : 'remote_draft_error';
+            $event = $targetStatus === 'published' ? 'remote_publish_error' : ($targetStatus === 'scheduled' ? 'remote_schedule_error' : 'remote_draft_error');
             if (!in_array($e->apiCode, ['missing_bearer_token', 'invalid_bearer_token', 'remote_posting_disabled', 'missing_scope', 'rate_limited'], true)) {
                 bms_api_record_audit($tokenId > 0 ? $tokenId : null, $event, false, $e->statusCode, $e->apiCode, $requestId);
             }

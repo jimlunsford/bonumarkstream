@@ -19,7 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash($message, 'success');
         bms_redirect(bms_admin_url('theme.php'));
     } catch (Throwable $e) {
-        bms_flash('Theme install failed: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('theme-install', $e);
+
+        bms_flash('Theme install failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('theme-install.php'));
     }
 }

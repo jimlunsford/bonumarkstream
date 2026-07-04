@@ -369,10 +369,13 @@ function bms_upgrade_cleanup_managed_path(string $relative): bool
         'comments.php' => true,
         'index.php' => true,
         'install.php' => true,
+        'manifest.php' => true,
         'page.php' => true,
+        'pwa-icon.php' => true,
         'profile.php' => true,
         'search.php' => true,
         'stream-like.php' => true,
+        'sw.js' => true,
         '_bonumark_stream/.htaccess' => true,
         '_bonumark_stream/CHANGELOG.md' => true,
         '_bonumark_stream/PACKAGE.json' => true,
@@ -415,7 +418,7 @@ function bms_upgrade_remove_empty_directories(string $root, array $privateThemeS
     }
 }
 
-function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFiles): array
+function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestFiles, string $backupRoot = ''): array
 {
     $privateThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
     $publicThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
@@ -437,6 +440,9 @@ function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestF
         $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($publicRoot) + 1));
         if (isset($manifestFiles[$relative]) || bms_upgrade_cleanup_preserved_path($publicRoot, $relative, $privateThemeSlugs, $publicThemeSlugs) || !bms_upgrade_cleanup_managed_path($relative)) {
             continue;
+        }
+        if ($backupRoot !== '') {
+            bms_upgrade_copy_recursive($item->getPathname(), rtrim($backupRoot, '/\\') . '/_removed-software/' . $relative);
         }
         if (@unlink($item->getPathname())) {
             $removed[] = $relative;
@@ -466,6 +472,65 @@ function bms_upgrade_record_history(string $fromVersion, string $toVersion, arra
         'notes' => 'Migrations: ' . $migrationNotes . '; obsolete software files removed: ' . $cleanupNotes,
     ]);
 }
+
+function bms_upgrade_recovery_state_for_admin(): array
+{
+    return function_exists('bms_upgrade_recovery_state') ? bms_upgrade_recovery_state() : [];
+}
+
+function bms_upgrade_recovery_can_resume_package(string $packageVersion): bool
+{
+    return function_exists('bms_upgrade_recovery_matches_package')
+        && bms_upgrade_recovery_matches_package($packageVersion);
+}
+
+function bms_upgrade_assert_recovery_allows_package(string $packageVersion): bool
+{
+    $recovery = bms_upgrade_recovery_state_for_admin();
+    if (!$recovery) {
+        return false;
+    }
+
+    if ((string)($recovery['status'] ?? '') === 'migration_in_progress') {
+        throw new RuntimeException('A previous upgrade entered the database migration phase and did not report completion. The installation is protected from an unsafe rollback. Review the private upgrade backup and server error log before starting another upgrade.');
+    }
+
+    if (bms_upgrade_recovery_can_resume_package($packageVersion)) {
+        return true;
+    }
+
+    throw new RuntimeException('A previous upgrade requires recovery for v' . (string)($recovery['to_version'] ?? 'unknown') . '. Retry that exact release package before starting another upgrade.');
+}
+
+function bms_upgrade_record_recovery_required(string $fromVersion, string $toVersion, string $backupRoot): void
+{
+    if (!function_exists('bms_db')) {
+        return;
+    }
+
+    try {
+        $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('upgrade_history') . ' (from_version, to_version, status, notes, ran_at) VALUES (:from_version, :to_version, :status, :notes, NOW())');
+        $stmt->execute([
+            'from_version' => $fromVersion,
+            'to_version' => $toVersion,
+            'status' => 'recovery_required',
+            'notes' => 'Database migration phase began. New software files were retained because MySQL/MariaDB DDL may already be committed. Retry this exact release package to resume safely. Backup: ' . basename($backupRoot),
+        ]);
+    } catch (Throwable $e) {
+        bms_log_admin_exception('upgrade-recovery-history', $e);
+    }
+}
+
+function bms_upgrade_recovery_message(array $recovery): string
+{
+    $toVersion = trim((string)($recovery['to_version'] ?? ''));
+    if ((string)($recovery['status'] ?? '') === 'migration_in_progress') {
+        return 'An upgrade entered the database migration phase and did not report completion. Bonumark will not restore older software over a possibly migrated database. Review the private upgrade backup and server error log before starting another upgrade.';
+    }
+
+    return 'A previous upgrade stopped after the database migration phase began. Bonumark kept the newer software files so they remain compatible with the database. Upload and retry the same v' . ($toVersion !== '' ? $toVersion : 'release') . ' package to resume safely.';
+}
+
 
 function bms_upgrade_software_items(string $packageRoot): array
 {
@@ -633,6 +698,11 @@ function bms_upgrade_restore_backup(array $items, string $backupRoot, string $pu
         bms_upgrade_copy_recursive($backup, $publicRoot . '/' . $item);
     }
 
+    $removedSoftware = $backupRoot . '/_removed-software';
+    if (is_dir($removedSoftware)) {
+        bms_upgrade_copy_recursive($removedSoftware, $publicRoot);
+    }
+
     $config = $backupRoot . '/_bonumark_stream/config.php';
     if (is_file($config)) {
         bms_upgrade_copy_recursive($config, $publicRoot . '/_bonumark_stream/config.php');
@@ -663,7 +733,8 @@ function bms_upgrade_pending_migrations_from_package(string $packageRoot): array
             }
         }
     } catch (Throwable $e) {
-        return ['Could not check migrations: ' . $e->getMessage()];
+        bms_log_admin_exception('upgrade-pending-migrations', $e);
+        return ['Could not check pending migrations safely.'];
     }
 
     return array_values(array_filter($packageMigrations, fn($migration) => !isset($done[$migration])));
@@ -673,7 +744,7 @@ function bms_upgrade_pending_migrations_from_package(string $packageRoot): array
 function bms_upgrade_assert_supported_current_version(string $currentVersion): void
 {
     if ($currentVersion !== 'unknown' && version_compare($currentVersion, '0.4.0', '<')) {
-        throw new RuntimeException('Bonumark Stream v0.5.0 supports admin ZIP upgrades from v0.4.0 and newer only.');
+        throw new RuntimeException('Bonumark Stream supports admin ZIP upgrades from v0.4.0 and newer only.');
     }
 }
 
@@ -723,7 +794,8 @@ function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName
         $packageMeta = is_file($packageRoot . '/_bonumark_stream/PACKAGE.json') ? json_decode((string)file_get_contents($packageRoot . '/_bonumark_stream/PACKAGE.json'), true) : [];
         $releaseNotes = is_array($packageMeta) ? trim((string)($packageMeta['release_name'] ?? $packageMeta['description'] ?? '')) : '';
 
-        if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=')) {
+        $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
+        if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=') && !$recoveryResume) {
             throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
         }
 
@@ -745,7 +817,8 @@ function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName
             'pending_migrations' => $pendingMigrations,
             'published_count' => $publishedCount,
             'release_notes' => $releaseNotes,
-            'checked_at' => date('c'),
+            'recovery_resume' => $recoveryResume,
+            'checked_at' => gmdate('c'),
         ];
         $_SESSION['pending_upgrade'] = $precheck;
         return $precheck;
@@ -800,8 +873,13 @@ function bms_upgrade_install(string $zipPath): array
     $packageVersion = bms_upgrade_package_version($packageRoot);
     bms_upgrade_verify_manifest($packageRoot);
     $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
+    $recovery = bms_upgrade_recovery_state_for_admin();
+    $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
+    $historyFromVersion = $recoveryResume && trim((string)($recovery['from_version'] ?? '')) !== ''
+        ? trim((string)$recovery['from_version'])
+        : $currentVersion;
 
-    if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=')) {
+    if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=') && !$recoveryResume) {
         bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
     }
@@ -818,6 +896,8 @@ function bms_upgrade_install(string $zipPath): array
 
     $ran = [];
     $removed = [];
+    $migrationPhaseStarted = false;
+    $migrationStartedAt = '';
 
     try {
         foreach ($softwareItems as $item) {
@@ -828,38 +908,75 @@ function bms_upgrade_install(string $zipPath): array
             bms_upgrade_copy_recursive($source, $publicRoot . '/' . $item);
         }
 
-        $removed = bms_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles);
+        $removed = bms_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles, $backupRoot);
 
         $log = "Bonumark Stream upgrade\n" .
-            "From: {$currentVersion}\n" .
+            "From: {$historyFromVersion}\n" .
             "To: {$packageVersion}\n" .
-            "Date: " . date('c') . "\n" .
+            "Date: " . gmdate('c') . "\n" .
             "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and future code-free theme assets. Upgrade support starts at v0.4.0.\n" .
             "Obsolete package-managed files removed: " . count($removed) . "\n";
         bms_write_file($backupRoot . '/UPGRADE.txt', $log);
 
         if (function_exists('bms_run_migrations')) {
-            $ran = bms_run_migrations();
+            $migrationStartedAt = gmdate('c');
+            bms_write_upgrade_recovery_state([
+                'status' => 'migration_in_progress',
+                'phase' => 'database_migration',
+                'from_version' => $historyFromVersion,
+                'to_version' => $packageVersion,
+                'backup_path' => $backupRoot,
+                'started_at' => $migrationStartedAt,
+            ]);
+            $migrationPhaseStarted = true;
+            $ran = bms_run_migrations($historyFromVersion);
         }
-        bms_upgrade_record_history($currentVersion, $packageVersion, $ran, $removed);
+
+        bms_upgrade_record_history($historyFromVersion, $packageVersion, $ran, $removed);
+        if (function_exists('bms_clear_upgrade_recovery_state')) {
+            bms_clear_upgrade_recovery_state();
+        }
     } catch (Throwable $e) {
+        if ($migrationPhaseStarted) {
+            try {
+                bms_write_upgrade_recovery_state([
+                    'status' => 'recovery_required',
+                    'phase' => 'database_migration',
+                    'from_version' => $historyFromVersion,
+                    'to_version' => $packageVersion,
+                    'backup_path' => $backupRoot,
+                    'started_at' => $migrationStartedAt !== '' ? $migrationStartedAt : gmdate('c'),
+                ]);
+                bms_upgrade_record_recovery_required($historyFromVersion, $packageVersion, $backupRoot);
+            } catch (Throwable $recoveryError) {
+                bms_log_admin_exception('upgrade-recovery-marker', $recoveryError);
+            }
+
+            bms_upgrade_remove_temp($tmpRoot);
+            bms_log_admin_exception('upgrade-install', $e);
+            throw new RuntimeException('Upgrade stopped after the database migration phase began. New software files were kept so they remain compatible with the database. Retry this exact release package from Admin > Upgrade to resume safely.');
+        }
+
         $rollbackRemoved = [];
         try {
             bms_upgrade_restore_backup($softwareItems, $backupRoot, $publicRoot);
             $rollbackRemoved = bms_upgrade_remove_new_package_files($publicRoot, $manifestFiles, $existingManifestFiles);
         } catch (Throwable $rollbackError) {
             bms_upgrade_remove_temp($tmpRoot);
-            throw new RuntimeException('Upgrade failed. Rollback also failed: ' . $rollbackError->getMessage() . '. Original error: ' . $e->getMessage());
+            bms_log_admin_exception('upgrade-install', $e);
+            bms_log_admin_exception('upgrade-rollback', $rollbackError);
+            throw new RuntimeException('Upgrade failed before database migration began and automatic file rollback could not complete. Restore the upgrade backup before trying again.');
         }
         bms_upgrade_remove_temp($tmpRoot);
         $rollbackNote = $rollbackRemoved ? ' Newly copied package files removed during rollback: ' . count($rollbackRemoved) . '.' : ' No newly copied package files remained after rollback.';
-        throw new RuntimeException('Upgrade failed and Bonumark Stream restored the previous software files.' . $rollbackNote . ' Original error: ' . $e->getMessage());
+        bms_log_admin_exception('upgrade-install', $e);
+        throw new RuntimeException('Upgrade failed before database migration began and Bonumark Stream restored the previous software files.' . $rollbackNote);
     }
 
     bms_upgrade_remove_temp($tmpRoot);
 
     return [
-        'from' => $currentVersion,
+        'from' => $historyFromVersion,
         'to' => $packageVersion,
         'backup' => $backupRoot,
         'migrations' => $ran,
@@ -868,6 +985,7 @@ function bms_upgrade_install(string $zipPath): array
 }
 
 $precheck = null;
+$upgradeRecovery = bms_upgrade_recovery_state_for_admin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !empty($_GET['post_upgrade']) && !empty($_SESSION['completed_upgrade']) && is_array($_SESSION['completed_upgrade'])) {
     $completedUpgrade = $_SESSION['completed_upgrade'];
@@ -901,7 +1019,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_upgrade_clear_pending();
             bms_redirect(bms_admin_url('upgrade.php?post_upgrade=1'));
         } catch (Throwable $e) {
-            bms_flash('Upgrade failed. ' . $e->getMessage(), 'error');
+            bms_log_admin_exception('upgrade', $e);
+
+            $recovery = bms_upgrade_recovery_state_for_admin();
+            $message = $recovery ? bms_upgrade_recovery_message($recovery) : 'Upgrade failed before database migration began. Previous software files were restored. Please try again.';
+            bms_flash($message, 'error');
             bms_redirect(bms_admin_url('upgrade.php'));
         }
     }
@@ -929,7 +1051,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Upgrade package checked. Review the status below before running the upgrade.', 'info');
     } catch (Throwable $e) {
         bms_upgrade_clear_pending();
-        bms_flash('Upgrade check failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('upgrade', $e);
+
+        bms_flash('Upgrade check failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('upgrade.php'));
     }
 } elseif (!empty($_SESSION['pending_upgrade']) && is_array($_SESSION['pending_upgrade'])) {
@@ -952,6 +1076,15 @@ bms_admin_header('Upgrade Bonumark Stream', [
     ['label' => 'System Check', 'href' => bms_admin_url('system-check.php'), 'style' => 'secondary'],
 ]);
 ?>
+<?php if ($upgradeRecovery): ?>
+<section class="panel upgrade-recovery-panel">
+  <p class="eyebrow">Upgrade recovery</p>
+  <h2>Database migration recovery required</h2>
+  <p><?= htmlspecialchars(bms_upgrade_recovery_message($upgradeRecovery), ENT_QUOTES, 'UTF-8') ?></p>
+  <p class="meta">Recorded target: <strong>v<?= htmlspecialchars((string)($upgradeRecovery['to_version'] ?? 'unknown'), ENT_QUOTES, 'UTF-8') ?></strong>. Backup: <code><?= htmlspecialchars(basename((string)($upgradeRecovery['backup_path'] ?? '')), ENT_QUOTES, 'UTF-8') ?></code></p>
+</section>
+<?php endif; ?>
+
 <section class="panel upgrade-upload-panel">
   <h2>Install a Bonumark Stream release ZIP</h2>
   <p>Upload a release ZIP. Bonumark Stream will verify it before you can run the upgrade.</p>
@@ -973,7 +1106,7 @@ bms_admin_header('Upgrade Bonumark Stream', [
     <div>
       <p><strong>Protected:</strong> <code>_bonumark_stream/config.php</code>, <code>_bonumark_stream/installed.lock</code>, runtime content, data, backups, media, uploads, and custom installed themes, including external themes that reuse retired bundled slugs.</p>
       <p><strong>Updated:</strong> admin files, Stream app files, tools, assets, documentation, changelog, migrations, bundled themes, and version markers.</p>
-      <p>Bonumark Stream validates the release manifest, rejects unsafe ZIP paths, blocks symlinks, refuses older versions, creates a backup, copies software files, runs migrations, and restores the previous software files if the upgrade fails.</p>
+      <p>Bonumark Stream validates the release manifest, rejects unsafe ZIP paths, blocks symlinks, refuses unsupported versions, creates a backup, copies software files, and runs migrations. Failures before the database migration phase restore previous software files. Once database migration begins, the newer files stay in place and the same package can be retried safely.</p>
     </div>
   </details>
 </section>
@@ -983,8 +1116,8 @@ bms_admin_header('Upgrade Bonumark Stream', [
   <div class="section-header-row">
     <div>
       <p class="eyebrow">Upgrade check</p>
-      <h2>Ready to upgrade from v<?= htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') ?> to v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></h2>
-      <p class="meta">Package checked and ready. Review the status, then run the upgrade.</p>
+      <h2><?= !empty($precheck['recovery_resume']) ? 'Ready to resume recovery for' : 'Ready to upgrade from v' . htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') . ' to' ?> v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></h2>
+      <p class="meta"><?= !empty($precheck['recovery_resume']) ? 'This exact package matches the recorded recovery state. Review the status, then resume the upgrade.' : 'Package checked and ready. Review the status, then run the upgrade.' ?></p>
       <?php if (!empty($precheck['release_notes'])): ?><p class="meta"><strong>Release notes:</strong> <?= htmlspecialchars((string)$precheck['release_notes'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     </div>
   </div>

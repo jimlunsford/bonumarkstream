@@ -32,5 +32,6 @@ try {
     $preview = bms_link_preview_from_url($url);
     bms_link_preview_json(['ok' => true, 'preview' => $preview]);
 } catch (Throwable $e) {
-    bms_link_preview_json(['ok' => false, 'message' => $e->getMessage()], 422);
+    bms_log_admin_exception('link-preview', $e);
+    bms_link_preview_json(['ok' => false, 'message' => 'Could not load a link preview. Please try again.'], 422);
 }

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/renderer.php';
+require_once __DIR__ . '/scheduler.php';
 
 
 function bms_page_meta_value(array $page, string $key, string $default = ''): string
@@ -91,6 +92,9 @@ function bms_handle_page_route(): void
 {
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
+    }
+    if (function_exists('bms_maybe_publish_due_scheduled_posts_for_public_request')) {
+        bms_maybe_publish_due_scheduled_posts_for_public_request('page');
     }
     $slug = bms_slugify((string)($_GET['slug'] ?? ''));
     $page = bms_find_published_page_by_slug($slug);

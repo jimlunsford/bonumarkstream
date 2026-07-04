@@ -7,6 +7,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/pages.php';
 require_once __DIR__ . '/../_bonumark_stream/app/mail.php';
 require_once __DIR__ . '/../_bonumark_stream/app/sitemap.php';
 require_once __DIR__ . '/../_bonumark_stream/app/themes.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
@@ -26,25 +27,31 @@ function bms_dashboard_count_query(string $sql, array $params = []): int
     }
 }
 
-function bms_dashboard_date_label(string $raw): string
+function bms_dashboard_database_datetime(string $raw, string $format): string
 {
     $raw = trim($raw);
     if ($raw === '') {
         return 'Unknown';
     }
-    $time = strtotime($raw);
-    return $time ? date('M j, Y', $time) : $raw;
+    // Date-only content fields are already site dates, not UTC database timestamps.
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+        return $raw;
+    }
+    try {
+        return (new DateTimeImmutable($raw, bms_utc_timezone()))->setTimezone(bms_site_timezone())->format($format);
+    } catch (Throwable $e) {
+        return $raw;
+    }
 }
 
+function bms_dashboard_date_label(string $raw): string
+{
+    return bms_dashboard_database_datetime($raw, 'M j, Y');
+}
 
 function bms_dashboard_time_label(string $raw): string
 {
-    $raw = trim($raw);
-    if ($raw === '') {
-        return 'Unknown';
-    }
-    $time = strtotime($raw);
-    return $time ? date('M j, Y g:i A', $time) : $raw;
+    return bms_dashboard_database_datetime($raw, 'M j, Y g:i A');
 }
 
 function bms_dashboard_metric(string $label, int|string $value, string $href = '', string $note = ''): string
@@ -102,11 +109,12 @@ function bms_dashboard_recent_stream_rows(array $items): string
     $html = '<div class="dashboard-list">';
     foreach ($items as $item) {
         $section = (string)($item['section'] ?? 'drafts');
-        $status = $section === 'published' ? 'published' : 'draft';
-        $type = $status === 'published' ? 'published' : 'draft';
+        $status = $section === 'published' ? 'published' : ($section === 'scheduled' ? 'scheduled' : 'draft');
+        $type = $status === 'published' ? 'published' : ($status === 'scheduled' ? 'scheduled' : 'draft');
         $title = bms_dashboard_content_title($item);
-        $date = bms_dashboard_date_label((string)($item['updated_at'] ?? $item['stream_created_at'] ?? $item['date'] ?? ''));
-        $badge = $status === 'published' ? 'Published' : 'Draft';
+        $dateSource = $status === 'scheduled' ? (string)($item['scheduled_at'] ?? '') : (string)($item['updated_at'] ?? $item['stream_created_at'] ?? $item['date'] ?? '');
+        $date = $status === 'scheduled' && function_exists('bms_format_scheduled_datetime') && $dateSource !== '' ? bms_format_scheduled_datetime($dateSource) : bms_dashboard_date_label($dateSource);
+        $badge = $status === 'published' ? 'Published' : ($status === 'scheduled' ? 'Scheduled' : 'Draft');
         $html .= '<a class="dashboard-list-row" href="' . bms_dashboard_escape(bms_admin_url('edit.php?type=' . urlencode($type) . '&file=' . urlencode((string)($item['filename'] ?? '')))) . '">'
             . '<span><strong>' . bms_dashboard_escape($title) . '</strong><small>' . bms_dashboard_escape($date) . '</small></span>'
             . '<em class="status-pill ' . bms_dashboard_escape($status) . '">' . bms_dashboard_escape($badge) . '</em>'
@@ -146,9 +154,13 @@ $canEditContent = bms_current_user_can('edit_content');
 
 $allDrafts = bms_filter_stream_posts(bms_list_content_records('drafts'));
 $allPublished = bms_filter_stream_posts(bms_list_content_records('published'));
+$allScheduled = bms_filter_stream_posts(bms_list_content_records('scheduled'));
 $drafts = function_exists('bms_filter_content_items_for_current_user') ? bms_filter_stream_posts(bms_filter_content_items_for_current_user($allDrafts)) : $allDrafts;
 $published = function_exists('bms_filter_content_items_for_current_user') ? bms_filter_stream_posts(bms_filter_content_items_for_current_user($allPublished)) : $allPublished;
-$recent = array_slice(bms_sort_stream_posts(array_merge($drafts, $published)), 0, 6);
+$scheduled = function_exists('bms_filter_content_items_for_current_user') ? bms_filter_stream_posts(bms_filter_content_items_for_current_user($allScheduled)) : $allScheduled;
+$dueScheduledCount = function_exists('bms_scheduled_posts_due_count') ? bms_scheduled_posts_due_count() : 0;
+$upcomingScheduled = function_exists('bms_upcoming_scheduled_posts') ? bms_upcoming_scheduled_posts(3) : [];
+$recent = array_slice(bms_sort_stream_posts(array_merge($drafts, $published, $scheduled)), 0, 6);
 
 $pageDrafts = $canManagePages ? bms_list_page_records('draft') : [];
 $pagePublished = $canManagePages ? bms_list_page_records('published') : [];
@@ -218,6 +230,7 @@ bms_admin_header('Dashboard', [
 <section class="dashboard-metric-grid" aria-label="Site snapshot">
   <?= bms_dashboard_metric('Published Posts', count($published), bms_admin_url('content.php?status=published'), $latestPostTime !== '' ? 'Latest ' . bms_dashboard_date_label($latestPostTime) : '') ?>
   <?= bms_dashboard_metric('Drafts', count($drafts), bms_admin_url('content.php?status=draft')) ?>
+  <?php if ($canEditContent): ?><?= bms_dashboard_metric('Scheduled', count($scheduled), bms_admin_url('content.php?status=scheduled'), $dueScheduledCount > 0 ? $dueScheduledCount . ' due' : '') ?><?php endif; ?>
   <?php if ($canManagePages): ?><?= bms_dashboard_metric('Pages', $pageCount, bms_admin_url('pages.php'), $publishedPageCount . ' published') ?><?php endif; ?>
   <?php if ($canManageMedia): ?><?= bms_dashboard_metric('Media', $mediaCount, bms_admin_url('media.php'), $mediaTrashCount > 0 ? $mediaTrashCount . ' in trash' : '') ?><?php endif; ?>
   <?php if ($canManageComments): ?><?= bms_dashboard_metric('Comments', $commentApprovedCount + $commentPendingCount, bms_admin_url('comments.php'), $commentPendingCount > 0 ? $commentPendingCount . ' pending' : '') ?><?php endif; ?>
@@ -255,6 +268,7 @@ bms_admin_header('Dashboard', [
       <div class="dashboard-attention-list">
         <?php if ($canManageComments): ?><?= bms_dashboard_attention_item('Pending comments', $commentPendingCount, bms_admin_url('comments.php?status=pending'), $commentPendingCount > 0 ? 'warning' : 'good', $commentPendingCount > 0 ? 'Moderation needed' : 'Comment queue is clear') ?><?php endif; ?>
         <?php if ($canManageUsers): ?><?= bms_dashboard_attention_item('Pending commenters', $pendingUserTotal, bms_admin_url('users.php?status=pending'), $pendingUserTotal > 0 ? 'warning' : 'good', $pendingUserTotal > 0 ? 'Approval or verification waiting' : 'No commenter approvals waiting') ?><?php endif; ?>
+        <?php if ($canEditContent): ?><?= bms_dashboard_attention_item('Due scheduled posts', $dueScheduledCount, bms_admin_url('content.php?status=scheduled'), $dueScheduledCount > 0 ? 'warning' : 'good', $dueScheduledCount > 0 ? 'Run due posts from Tools' : (count($upcomingScheduled) > 0 ? 'Upcoming posts are waiting' : 'No scheduled posts waiting')) ?><?php endif; ?>
         <?= bms_dashboard_attention_item('Trash', $trashCount, bms_admin_url('content.php?status=trash'), $trashCount > 0 ? 'neutral' : 'good', $trashCount > 0 ? 'Recover or delete old content' : 'No trashed content') ?>
         <?php if ($canManageMedia): ?><?= bms_dashboard_attention_item('Media trash', $mediaTrashCount, bms_admin_url('media.php?status=trash'), $mediaTrashCount > 0 ? 'neutral' : 'good', $mediaTrashCount > 0 ? 'Review discarded files' : 'Media trash is clear') ?><?php endif; ?>
         <?php if ($canManageSettings): ?><?= bms_dashboard_attention_item('XML sitemap', $sitemapEnabled ? 'On' : 'Off', bms_admin_url('settings-reading.php'), $sitemapEnabled ? 'good' : 'warning', $sitemapEnabled ? 'Search index file is available' : 'Enable before search-focused launch') ?><?php endif; ?>
@@ -280,7 +294,7 @@ bms_admin_header('Dashboard', [
       <div class="section-header-row">
         <div>
           <h2>Recent Stream Posts</h2>
-          <p class="meta">Latest published posts and drafts.</p>
+          <p class="meta">Latest published posts, drafts, and scheduled posts.</p>
         </div>
         <a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('content.php')) ?>">View All</a>
       </div>

@@ -19,8 +19,14 @@ $formatDate = static function ($value): string {
     if ($value === '') {
         return 'Not recorded';
     }
-    $timestamp = strtotime($value);
-    return $timestamp ? date('M j, Y', $timestamp) : $value;
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
+        return $value;
+    }
+    try {
+        return (new DateTimeImmutable($value, bms_utc_timezone()))->setTimezone(bms_site_timezone())->format('M j, Y');
+    } catch (Throwable $e) {
+        return $value;
+    }
 };
 ?>
 <!doctype html>
@@ -29,7 +35,7 @@ $formatDate = static function ($value): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Account | <?= $h($siteName) ?></title>
-  <?= (string)($data['favicon_tags'] ?? '') ?>  <link rel="stylesheet" href="<?= $h((string)($data['style_url'] ?? '')) ?>">
+  <?= (string)($data['favicon_tags'] ?? '') ?><?= (string)($data['pwa_tags'] ?? '') ?>  <link rel="stylesheet" href="<?= $h((string)($data['style_url'] ?? '')) ?>">
 <?= (string)($data['theme_stylesheet_links'] ?? '') ?></head>
 <body class="<?= $h(ml_body_class($data, 'ledger-account-template')) ?>">
   <a class="skip-link" href="#site-main">Skip to content</a>
@@ -239,6 +245,10 @@ $formatDate = static function ($value): string {
               <input type="hidden" name="return_to" value="<?= $h((string)($data['return_to'] ?? '')) ?>">
               <label>Username<input name="username" autocomplete="username" required></label>
               <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+              <?php if (!empty($data['remember_login_enabled'])): ?>
+                <label class="checkbox-line"><input type="checkbox" name="remember_me" value="1"> <span>Remember this device</span></label>
+                <p class="meta">Keeps this browser signed in for up to <?= $h((string)($data['remember_login_days'] ?? 30)) ?> days unless you log out, change your password, or reset the account password.</p>
+              <?php endif; ?>
               <button type="submit">Sign In</button>
               <p class="meta"><a href="<?= $h((string)($data['forgot_password_url'] ?? 'account.php?action=forgot')) ?>">Forgot your password?</a></p>
             </form>

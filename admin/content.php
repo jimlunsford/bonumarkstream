@@ -8,6 +8,8 @@ function bms_content_status_label(string $status): string
 {
     return match ($status) {
         'published' => 'Published',
+        'pinned' => 'Pinned',
+        'scheduled' => 'Scheduled',
         'trash' => 'Trash',
         default => 'Draft',
     };
@@ -32,7 +34,7 @@ function bms_content_selected_items(): array
             }
             continue;
         }
-        $type = $parts[0] === 'published' ? 'published' : 'draft';
+        $type = in_array($parts[0], ['published', 'scheduled'], true) ? $parts[0] : 'draft';
         $file = basename($parts[1]);
         if ($file !== '') {
             $items[] = ['type' => $type, 'file' => $file];
@@ -42,7 +44,7 @@ function bms_content_selected_items(): array
 }
 
 $status = $_GET['status'] ?? 'all';
-$status = in_array($status, ['all', 'draft', 'published', 'trash'], true) ? $status : 'all';
+$status = in_array($status, ['all', 'draft', 'scheduled', 'published', 'pinned', 'trash'], true) ? $status : 'all';
 $statusRedirect = $status !== 'all' ? '?status=' . rawurlencode($status) : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -63,16 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     foreach ($selected as $item) {
         try {
-            if ($bulkAction === 'publish' && $item['type'] === 'draft') {
-                bms_require_content_file_access('drafts', $item['file'], 'publish_content');
+            if ($bulkAction === 'publish' && in_array($item['type'], ['draft', 'scheduled'], true)) {
+                bms_require_content_file_access($item['type'] === 'scheduled' ? 'scheduled' : 'drafts', $item['file'], 'publish_content');
                 bms_publish_file($item['file']);
                 $done++;
             } elseif ($bulkAction === 'unpublish' && $item['type'] === 'published') {
                 bms_require_content_file_access('published', $item['file'], 'publish_content');
                 bms_unpublish_file($item['file']);
                 $done++;
-            } elseif ($bulkAction === 'trash' && in_array($item['type'], ['draft', 'published'], true)) {
-                bms_require_content_file_access($item['type'] === 'published' ? 'published' : 'drafts', $item['file'], 'edit_content');
+            } elseif ($bulkAction === 'trash' && in_array($item['type'], ['draft', 'scheduled', 'published'], true)) {
+                bms_require_content_file_access($item['type'] === 'published' ? 'published' : ($item['type'] === 'scheduled' ? 'scheduled' : 'drafts'), $item['file'], 'edit_content');
                 bms_delete_content_file($item['type'], $item['file']);
                 if ($item['type'] === 'published') {
                 }
@@ -119,11 +121,17 @@ $sort = in_array($sort, ['date_desc', 'date_asc'], true) ? $sort : 'date_desc';
 
 $drafts = bms_filter_stream_posts(bms_list_content_records('drafts'));
 $published = bms_filter_stream_posts(bms_list_content_records('published'));
+$scheduled = bms_filter_stream_posts(bms_list_content_records('scheduled'));
 $trash = function_exists('bms_list_trash_items') ? bms_filter_stream_posts(bms_list_trash_items()) : [];
+$pinnedCount = count(array_filter($published, static fn (array $item): bool => function_exists('bms_is_pinned_stream_post') && bms_is_pinned_stream_post($item)));
 
 $allItems = [];
 foreach ($drafts as $item) {
     $item['content_status'] = 'draft';
+    $allItems[] = $item;
+}
+foreach ($scheduled as $item) {
+    $item['content_status'] = 'scheduled';
     $allItems[] = $item;
 }
 foreach ($published as $item) {
@@ -136,13 +144,18 @@ if ($status === 'trash') {
 if (function_exists('bms_filter_content_items_for_current_user')) {
     $drafts = bms_filter_content_items_for_current_user($drafts);
     $published = bms_filter_content_items_for_current_user($published);
+    $scheduled = bms_filter_content_items_for_current_user($scheduled);
     $trash = bms_filter_content_items_for_current_user($trash);
     $allItems = bms_filter_content_items_for_current_user($allItems);
 }
 
 $items = array_filter($allItems, function ($item) use ($status, $q) {
     $itemStatus = (string)($item['content_status'] ?? 'draft');
-    if ($status !== 'all' && $itemStatus !== $status) {
+    if ($status === 'pinned') {
+        if (!(function_exists('bms_is_pinned_stream_post') && bms_is_pinned_stream_post($item))) {
+            return false;
+        }
+    } elseif ($status !== 'all' && $itemStatus !== $status) {
         return false;
     }
     if ($q !== '') {
@@ -167,9 +180,17 @@ if ($status === 'trash') {
         return $sort === 'date_asc' ? strcmp($left, $right) : strcmp($right, $left);
     });
 } else {
-    $items = bms_sort_stream_posts($items);
-    if ($sort === 'date_asc') {
-        $items = array_reverse($items);
+    if ($status === 'pinned') {
+        usort($items, static function (array $left, array $right): int {
+            $leftPinnedAt = (string)($left['pinned_at'] ?? '');
+            $rightPinnedAt = (string)($right['pinned_at'] ?? '');
+            return strcmp($rightPinnedAt, $leftPinnedAt);
+        });
+    } else {
+        $items = bms_sort_stream_posts($items);
+        if ($sort === 'date_asc') {
+            $items = array_reverse($items);
+        }
     }
 }
 $dateSortNext = $sort === 'date_desc' ? 'date_asc' : 'date_desc';
@@ -182,6 +203,8 @@ $dateSortUrl = bms_admin_url('content.php' . bms_query_string([
 $title = match ($status) {
     'draft' => 'Draft Stream Posts',
     'published' => 'Published Stream Posts',
+    'pinned' => 'Pinned Stream Posts',
+    'scheduled' => 'Scheduled Stream Posts',
     'trash' => 'Trash',
     default => 'Stream Posts',
 };
@@ -193,9 +216,11 @@ $canEmptyTrash = true;
 bms_admin_header($title, $actions);
 ?>
 <nav class="content-filter" aria-label="Stream post status filters">
-  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
+  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($scheduled) + count($published) ?></span></a>
   <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
+  <a class="<?= $status === 'scheduled' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=scheduled'), ENT_QUOTES, 'UTF-8') ?>">Scheduled <span><?= count($scheduled) ?></span></a>
   <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
+  <a class="<?= $status === 'pinned' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=pinned'), ENT_QUOTES, 'UTF-8') ?>">Pinned <span><?= $pinnedCount ?></span></a>
   <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
 </nav>
 
@@ -252,6 +277,7 @@ bms_admin_header($title, $actions);
           <th class="check-column"><label class="select-all-label"><input type="checkbox" data-select-all aria-label="Select all stream posts"> <span>Select</span></label></th>
           <th>Post</th>
           <th>Status</th>
+          <th>Pinned</th>
           <th>Media</th>
           <th><?= $status === 'trash' ? 'Deleted' : 'Storage' ?></th>
           <th><a class="sort-link <?= $sort === 'date_desc' || $sort === 'date_asc' ? 'active' : '' ?>" href="<?= htmlspecialchars($dateSortUrl, ENT_QUOTES, 'UTF-8') ?>">Date <span><?= htmlspecialchars($dateSortSymbol, ENT_QUOTES, 'UTF-8') ?></span></a></th>
@@ -261,16 +287,17 @@ bms_admin_header($title, $actions);
       <?php foreach ($items as $item): ?>
         <?php
           $itemStatus = (string)($item['content_status'] ?? 'draft');
-          $itemType = $itemStatus === 'published' ? 'published' : ($itemStatus === 'trash' ? 'trash' : 'draft');
+          $itemType = $itemStatus === 'published' ? 'published' : ($itemStatus === 'scheduled' ? 'scheduled' : ($itemStatus === 'trash' ? 'trash' : 'draft'));
           $file = (string)($item['filename'] ?? '');
           $storageStatus = $itemStatus === 'trash' ? ['label' => 'In Trash', 'class' => 'trash'] : ['label' => 'Database', 'class' => 'generated'];
-          $canPublishItem = $itemStatus !== 'trash' && function_exists('bms_current_user_can') && function_exists('bms_content_subject_for_file') ? bms_current_user_can('publish_content', bms_content_subject_for_file($itemStatus === 'published' ? 'published' : 'drafts', $file, $item)) : false;
+          $canPublishItem = $itemStatus !== 'trash' && function_exists('bms_current_user_can') && function_exists('bms_content_subject_for_file') ? bms_current_user_can('publish_content', bms_content_subject_for_file($itemStatus === 'published' ? 'published' : ($itemStatus === 'scheduled' ? 'scheduled' : 'drafts'), $file, $item)) : false;
           $itemTitle = trim((string)($item['title'] ?? ''));
           if ($itemTitle === '' || str_starts_with(strtolower($itemTitle), 'stream ')) {
               $itemTitle = bms_stream_admin_title_from_body((string)($item['body'] ?? ''), (string)($item['stream_created_at'] ?? $item['date'] ?? ''));
           }
           $itemPreview = bms_stream_preview_text($item, 140);
           $hasMedia = trim((string)($item['featured_media'] ?? $item['front_matter']['featured_media'] ?? '')) !== '';
+          $isPinned = function_exists('bms_is_pinned_stream_post') && bms_is_pinned_stream_post($item);
           $displayDate = bms_stream_display_date($item);
         ?>
         <tr class="content-row content-type-stream">
@@ -309,6 +336,14 @@ bms_admin_header($title, $actions);
                   <a href="<?= htmlspecialchars(bms_stream_url_for_post($item), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View</a>
                   <?php if ($canPublishItem): ?>
                     <span>|</span>
+                    <form method="post" action="<?= htmlspecialchars(bms_admin_url('pin.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="action" value="<?= $isPinned ? 'unpin' : 'pin' ?>">
+                      <input type="hidden" name="return_to" value="<?= htmlspecialchars(bms_admin_url('content.php?status=' . rawurlencode($status)), ENT_QUOTES, 'UTF-8') ?>">
+                      <button type="submit" class="link-button state-link"><?= $isPinned ? 'Unpin from Stream' : 'Pin to Stream' ?></button>
+                    </form>
+                    <span>|</span>
                     <form method="post" action="<?= htmlspecialchars(bms_admin_url('unpublish.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
                       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
@@ -321,6 +356,7 @@ bms_admin_header($title, $actions);
                     <form method="post" action="<?= htmlspecialchars(bms_admin_url('publish.php'), ENT_QUOTES, 'UTF-8') ?>" class="inline-form row-form">
                       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="hidden" name="type" value="<?= htmlspecialchars($itemType, ENT_QUOTES, 'UTF-8') ?>">
                       <input type="hidden" name="return" value="content">
                       <button type="submit" class="link-button state-link">Publish</button>
                     </form>
@@ -337,6 +373,7 @@ bms_admin_header($title, $actions);
             <?php endif; ?>
           </td>
           <td><span class="status-pill <?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(bms_content_status_label($itemStatus), ENT_QUOTES, 'UTF-8') ?></span></td>
+          <td><?= $isPinned ? '<span class="status-pill pinned">Pinned</span>' : '<span class="meta">No</span>' ?></td>
           <td><?= $hasMedia ? '<span class="media-indicator">Attached</span>' : '<span class="meta">None</span>' ?></td>
           <td><?php if ($itemStatus === 'trash'): ?><?= htmlspecialchars((string)($item['deleted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?><?php else: ?><span class="static-pill <?= htmlspecialchars((string)$storageStatus['class'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)$storageStatus['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?></td>
           <td><?= htmlspecialchars($displayDate, ENT_QUOTES, 'UTF-8') ?></td>

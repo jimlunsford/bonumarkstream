@@ -4,7 +4,7 @@ Bonumark Stream includes a disabled-by-default Remote Posting API for trusted ex
 
 This feature is meant for site owners who want to connect Bonumark Stream to custom clients, automation systems, shortcuts, scripts, future apps, or ChatGPT Actions. The feature is platform-neutral.
 
-## Current status in v0.5.0
+## Current status in v0.5.30
 
 Included now:
 
@@ -20,6 +20,7 @@ Included now:
 - `POST /api/v1/stream/posts`
 - Draft creation by default
 - Optional direct publishing
+- Optional scheduled publishing through `scheduled_at`
 - `stream:publish` scope
 - Default remote status setting
 - Optional publish confirmation requirement
@@ -36,7 +37,6 @@ Included now:
 Not included yet:
 
 - Remote post update/delete endpoints
-- Automatic attach-to-post media workflow
 
 ## Admin location
 
@@ -69,7 +69,7 @@ To allow direct publishing:
 ```text
 Enable Remote Posting API: On
 Allow direct remote publishing: On
-Default remote post status: Draft or Published
+Default remote post status: Draft, Published, or request-level Scheduled
 Require explicit publish confirmation: On
 Token scopes: status:read, stream:draft, stream:publish
 ```
@@ -82,6 +82,17 @@ A request for `published` also needs confirmation when confirmation is required:
   "status": "published",
   "confirm_publish": true,
   "client_request_id": "example-publish-001"
+}
+```
+
+A request for `scheduled` needs a future `scheduled_at` value in the site timezone. `publish_at` is also accepted. Existing clients that do not send `scheduled_at` keep the same draft/publish behavior.
+
+```json
+{
+  "content": "This post should publish later.",
+  "status": "scheduled",
+  "scheduled_at": "2026-06-25T09:30",
+  "client_request_id": "example-schedule-001"
 }
 ```
 
@@ -119,7 +130,7 @@ Public request without a token:
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.0",
+  "version": "0.5.30",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,

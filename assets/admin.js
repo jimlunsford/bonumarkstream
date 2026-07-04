@@ -60,8 +60,41 @@
     });
   }
 
+
+  function runScheduledPostsHeartbeat() {
+    const body = document.body;
+    if (!body) {
+      return;
+    }
+    const endpoint = body.getAttribute('data-scheduled-runner-url') || '';
+    const csrf = body.getAttribute('data-scheduled-runner-csrf') || '';
+    if (!endpoint || !csrf || !window.fetch) {
+      return;
+    }
+    let busy = false;
+    const ping = function () {
+      if (busy) {
+        return;
+      }
+      busy = true;
+      const payload = new URLSearchParams();
+      payload.set('csrf_token', csrf);
+      window.fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: payload.toString()
+      }).catch(function () {}).finally(function () {
+        busy = false;
+      });
+    };
+    window.setTimeout(ping, 5000);
+    window.setInterval(ping, 30000);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     attachSelectAllControls();
     attachMediaSelectAllControls();
+    runScheduledPostsHeartbeat();
   });
 }());

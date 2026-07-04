@@ -18,8 +18,18 @@ if (in_array($route, ['api_status', 'api_stream_posts', 'api_media', 'api_media_
     }
 }
 
+if ($route === 'web_cron') {
+    require_once __DIR__ . '/_bonumark_stream/app/scheduler.php';
+    bms_handle_web_cron_request();
+}
+
 if (!bms_is_installed()) {
     bms_redirect(bms_url_path('install.php'));
+}
+
+require_once __DIR__ . '/_bonumark_stream/app/scheduler.php';
+if (function_exists('bms_maybe_publish_due_scheduled_posts_for_public_request')) {
+    bms_maybe_publish_due_scheduled_posts_for_public_request('front-controller');
 }
 
 if ($route === '' && isset($_GET['stream_page'])) {

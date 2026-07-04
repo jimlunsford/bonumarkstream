@@ -177,6 +177,14 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'show_powered_by' => '1',
         'site_favicon_media_id' => '0',
         'site_favicon_path' => '',
+        'pwa_enabled' => '1',
+        'pwa_share_target_enabled' => '1',
+        'pwa_theme_color' => '#111827',
+        'pwa_background_color' => '#0f172a',
+        'scheduled_tasks_expected_interval_minutes' => '5',
+        'scheduled_tasks_public_traffic_enabled' => '1',
+        'scheduled_tasks_heartbeat_enabled' => '1',
+        'scheduled_tasks_web_cron_enabled' => '0',
         'primary_navigation_enabled' => '0',
         'public_navigation_account_links_enabled' => '1',
         'primary_navigation' => json_encode([
@@ -358,7 +366,7 @@ if ($step === 'welcome') {
     bm_installer_header('Welcome to Bonumark Stream');
     ?>
     <section class="panel">
-      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v0.5.0 installer creates a clean empty database-first site.</p>
+      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?> installer creates a clean empty database-first site.</p>
       <ol>
         <li>Create a database and database user in your hosting control panel.</li>
         <li>Enter the database details.</li>

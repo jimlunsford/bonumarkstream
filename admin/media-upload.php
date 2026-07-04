@@ -17,7 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Media uploaded. “' . ((string)($media['original_filename'] ?? $media['filename'] ?? 'Media')) . '” is ready to use.', 'success');
         bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)($media['id'] ?? ''))));
     } catch (Throwable $e) {
-        bms_flash('Media upload failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('media-upload', $e);
+
+        bms_flash('Media upload failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('media-upload.php'));
     }
 }

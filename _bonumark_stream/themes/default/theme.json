@@ -1,7 +1,7 @@
 {
   "name": "Midnight Ledger",
   "slug": "default",
-  "version": "1.2.1",
+  "version": "1.2.6",
   "author": "Bonumark",
   "description": "The bundled Bonumark Stream reference theme. Midnight Ledger is a code-free presentation theme built from metadata, settings, CSS, images, and a screenshot while Bonumark Stream core owns all application behavior.",
   "screenshot": "assets/images/screenshot.svg",
@@ -29,7 +29,8 @@
     "pages": true,
     "profile_layouts": true,
     "reference_theme": true,
-    "link_previews": true
+    "link_previews": true,
+    "pinned_posts": true
   },
   "settings": {
     "accent": {

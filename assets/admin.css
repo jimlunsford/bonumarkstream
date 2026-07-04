@@ -6958,3 +6958,198 @@ body.bonumark-admin .comments-table td {
     padding-right: 0;
   }
 }
+
+/* Scheduled post controls */
+.status-pill.scheduled {
+  border-color: rgba(245, 158, 11, 0.48);
+  color: #f7c56d;
+}
+
+.schedule-fields {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.schedule-fields input[type="datetime-local"] {
+  width: 100%;
+}
+
+body.bonumark-admin .action-card form {
+  margin-top: 0.85rem;
+}
+
+/* Scheduled Admin List Date Polish Pass */
+body.bonumark-admin .publish-card .schedule-fields-polished {
+  border-top: 1px solid var(--admin-border);
+  gap: 0.75rem;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+body.bonumark-admin .publish-card .scheduled-time-summary {
+  align-items: flex-start;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0.85rem;
+}
+
+body.bonumark-admin .publish-card .scheduled-time-summary span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+}
+
+body.bonumark-admin .publish-card .scheduled-time-summary strong {
+  color: var(--admin-text);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure {
+  background: transparent;
+  border: 0;
+  margin: 0;
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure summary {
+  color: var(--admin-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+  list-style: none;
+  outline-offset: 4px;
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure summary::before {
+  content: "+";
+  margin-right: 0.4rem;
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure[open] summary::before {
+  content: "−";
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure summary:hover,
+body.bonumark-admin .publish-card .schedule-disclosure summary:focus-visible {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .publish-card .schedule-disclosure-body {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+body.bonumark-admin .publish-card .schedule-submit-button {
+  margin-top: 0;
+}
+
+
+/* Pinned stream-post status */
+.status-pill.pinned {
+  border-color: rgba(116, 176, 220, .5);
+  color: #a9d5f2;
+}
+
+
+/* Scheduled Tasks and Cron Foundation */
+body.bonumark-admin .settings-panel .checkbox-label {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+body.bonumark-admin .settings-panel .checkbox-label input {
+  margin-top: 0.25rem;
+}
+
+body.bonumark-admin .settings-panel .form-actions-row form {
+  margin: 0;
+}
+
+body.bonumark-admin .settings-panel .copy-field {
+  margin: 6px 0 16px;
+}
+
+/* Scheduled Tasks Run History Alignment Hotfix */
+body.bonumark-admin .scheduled-task-history-table {
+  table-layout: fixed;
+  min-width: 720px;
+}
+
+body.bonumark-admin .scheduled-task-history-table col.scheduled-task-history-when {
+  width: 230px;
+}
+
+body.bonumark-admin .scheduled-task-history-table col.scheduled-task-history-source {
+  width: 145px;
+}
+
+body.bonumark-admin .scheduled-task-history-table col.scheduled-task-history-result {
+  width: 110px;
+}
+
+body.bonumark-admin .scheduled-task-history-table col.scheduled-task-history-published {
+  width: 92px;
+}
+
+body.bonumark-admin .scheduled-task-history-table th,
+body.bonumark-admin .scheduled-task-history-table td {
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+body.bonumark-admin .scheduled-task-history-table th:first-child,
+body.bonumark-admin .scheduled-task-history-table td:first-child {
+  padding-left: 0;
+}
+
+body.bonumark-admin .scheduled-task-history-table th:last-child,
+body.bonumark-admin .scheduled-task-history-table td:last-child {
+  padding-right: 0;
+}
+
+body.bonumark-admin .scheduled-task-history-table th:nth-child(4),
+body.bonumark-admin .scheduled-task-history-table td:nth-child(4) {
+  text-align: center;
+}
+
+body.bonumark-admin .scheduled-task-history-table td:last-child {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  body.bonumark-admin .scheduled-task-history-table {
+    min-width: 0;
+  }
+
+  body.bonumark-admin .scheduled-task-history-table td {
+    padding: 7px 0;
+  }
+
+  body.bonumark-admin .scheduled-task-history-table td::before {
+    color: var(--admin-muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  body.bonumark-admin .scheduled-task-history-table td:nth-child(4) {
+    text-align: left;
+  }
+}
+

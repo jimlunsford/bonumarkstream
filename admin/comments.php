@@ -25,7 +25,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             bms_flash('Comment permanently deleted.', 'success');
         }
     } catch (Throwable $e) {
-        bms_flash($e->getMessage(), 'error');
+        bms_log_admin_exception('comments', $e);
+
+        bms_flash('The requested action could not be completed. Please try again.', 'error');
     }
     bms_redirect(bms_admin_url('comments.php?status=' . urlencode($status)));
 }

@@ -27,6 +27,8 @@ try {
     bms_flash('Page published. “' . $published['title'] . '” is live through dynamic rendering.', 'success');
     bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($publishedFile)));
 } catch (Throwable $e) {
-    bms_flash('Publish failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('page-publish', $e);
+
+    bms_flash('Publish failed. Please try again.', 'error');
     bms_redirect(bms_admin_url('pages.php'));
 }

@@ -177,8 +177,10 @@ class BMS_BonumarkExportImporter implements BMS_ImporterInterface
         $map = [
             'content/published/' => ['content_type' => 'stream', 'status' => 'published'],
             'content/drafts/' => ['content_type' => 'stream', 'status' => 'draft'],
+            'content/scheduled/' => ['content_type' => 'stream', 'status' => 'scheduled'],
             'markdown/posts/published/' => ['content_type' => 'stream', 'status' => 'published'],
             'markdown/posts/drafts/' => ['content_type' => 'stream', 'status' => 'draft'],
+            'markdown/posts/scheduled/' => ['content_type' => 'stream', 'status' => 'scheduled'],
             'markdown/pages/published/' => ['content_type' => 'page', 'status' => 'published'],
             'markdown/pages/drafts/' => ['content_type' => 'page', 'status' => 'draft'],
         ];

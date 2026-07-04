@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bonumark Stream API",
-    "version": "0.5.0",
-    "description": "Optional Remote Posting API for Bonumark Stream with status, post creation, media upload, media import, and media embedding."
+    "version": "0.5.30",
+    "description": "Optional Remote Posting API for Bonumark Stream with status, post creation, scheduled publishing, media upload, media import, and media embedding."
   },
   "servers": [
     {
@@ -451,9 +451,10 @@
             "type": "string",
             "enum": [
               "draft",
-              "published"
+              "published",
+              "scheduled"
             ],
-            "description": "Defaults to the site Remote Posting setting when omitted."
+            "description": "Defaults to the site Remote Posting setting when omitted. If scheduled_at is sent and status is omitted, scheduled is used."
           },
           "confirm_publish": {
             "type": "boolean",
@@ -583,6 +584,14 @@
               "$ref": "#/components/schemas/ImportMediaRequest"
             },
             "description": "Public image URLs to import and embed in the same post request."
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "Future scheduled publish time in the site timezone, for scheduled posts. Example: 2026-06-25T09:30."
+          },
+          "publish_at": {
+            "type": "string",
+            "description": "Alias for scheduled_at."
           }
         },
         "additionalProperties": true
@@ -624,7 +633,8 @@
             "type": "string",
             "enum": [
               "draft",
-              "published"
+              "published",
+              "scheduled"
             ]
           },
           "slug": {
@@ -659,6 +669,20 @@
               "before",
               "after"
             ]
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC scheduled timestamp for scheduled posts."
+          },
+          "scheduled_for": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable scheduled time in the site timezone."
           }
         }
       },

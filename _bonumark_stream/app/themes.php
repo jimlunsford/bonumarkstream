@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/pwa.php';
 
 function bms_theme_slug(string $slug): string
 {
@@ -1052,6 +1053,7 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     $data['theme_settings'] = $data['theme_settings'] ?? bms_public_theme_settings($activeSlug);
     $data['theme_core_view'] = $data['theme_core_view'] ?? $coreView;
     $data['favicon_tags'] = $data['favicon_tags'] ?? (function_exists('bms_site_favicon_tags') ? bms_site_favicon_tags() : '');
+    $data['pwa_tags'] = $data['pwa_tags'] ?? (function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '');
     if (function_exists('bms_public_seo_view_data')) {
         $data = bms_public_seo_view_data($template, $data);
     }
@@ -1061,5 +1063,6 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     include $path;
     $html = (string)ob_get_clean();
     $html = bms_inject_public_seo_head($html, $data);
-    return bms_inject_public_favicon_tags($html);
+    $html = bms_inject_public_favicon_tags($html);
+    return function_exists('bms_inject_public_pwa_tags') ? bms_inject_public_pwa_tags($html) : $html;
 }

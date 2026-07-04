@@ -35,6 +35,7 @@ function bms_export_markdown_from_database(ZipArchive $zip): int
     $sections = [
         'published' => 'posts/published',
         'drafts' => 'posts/drafts',
+        'scheduled' => 'posts/scheduled',
         'pages/published' => 'pages/published',
         'pages/drafts' => 'pages/drafts',
     ];

@@ -24,17 +24,32 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
         $pageNumber = $totalPages;
     }
     $streamPosts = array_slice($allStreamPosts, ($pageNumber - 1) * $perPage, $perPage);
-    $items = bms_render_stream_cards($streamPosts);
-    if ($items === '') {
-        $items = bms_render_public_theme_template('empty', [
+    $isArchive = $context === 'archive';
+    $pinnedPosts = (!$isArchive && $pageNumber === 1) ? bms_list_pinned_stream_posts() : [];
+    $pinnedSlugs = [];
+    foreach ($pinnedPosts as $pinnedPost) {
+        $slug = bms_slugify((string)($pinnedPost['slug'] ?? ''));
+        if ($slug !== '') {
+            $pinnedSlugs[$slug] = true;
+        }
+    }
+    if ($pinnedSlugs) {
+        $streamPosts = array_values(array_filter($streamPosts, static function (array $page) use ($pinnedSlugs): bool {
+            return !isset($pinnedSlugs[bms_slugify((string)($page['slug'] ?? ''))]);
+        }));
+    }
+
+    $streamItems = bms_render_stream_cards($streamPosts);
+    if ($streamItems === '' && !$pinnedPosts) {
+        $streamItems = bms_render_public_theme_template('empty', [
             'include_composer' => $includeComposer,
             'context' => $context,
             'title' => 'No stream posts yet.',
             'message' => $includeComposer ? 'Write your first stream post above.' : 'No stream posts have been published yet.',
         ]);
     }
+    $items = bms_render_public_flash_notices() . bms_render_pinned_stream_posts($pinnedPosts) . $streamItems;
 
-    $isArchive = $context === 'archive';
     $composer = '';
     if (!$isArchive && $pageNumber === 1) {
         $composer = $includeComposer ? bms_render_stream_composer() : bms_render_stream_composer_mount();
@@ -139,6 +154,19 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         }
     }
 
+    $prefillBody = '';
+    if (function_exists('bms_share_target_take_pending_payload') && function_exists('bms_share_target_body_from_payload')) {
+        $sharedPayload = bms_share_target_take_pending_payload();
+        if (!empty($sharedPayload) && !bms_share_target_payload_is_empty($sharedPayload)) {
+            $prefillBody = bms_share_target_body_from_payload($sharedPayload);
+            $flashes[] = [
+                'type' => 'success',
+                'message' => 'Shared content is ready. Edit it, then hit Post.',
+                'class' => 'is-success',
+            ];
+        }
+    }
+
     $returnSource = $returnToOverride !== null ? $returnToOverride : (string)($_SERVER['REQUEST_URI'] ?? bms_url_path());
 
     return [
@@ -152,11 +180,14 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         'preview_id' => 'stream-compose-preview',
         'link_preview_id' => 'stream-link-preview',
         'link_preview_endpoint' => bms_admin_url('link-preview.php'),
+        'scheduled_runner_url' => bms_admin_url('scheduled-runner.php'),
         'placeholder' => 'What is happening?',
+        'body_value' => $prefillBody,
         'submit_label' => 'Post',
         'busy_label' => 'Posting...',
         'attach_label' => 'Attach media',
         'help_text' => 'You can attach one image, audio, video, or document file.',
+        'timezone_label' => function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : 'UTC',
         'flashes' => $flashes,
     ];
 }
@@ -171,11 +202,47 @@ function bms_render_stream_composer(?string $returnToOverride = null): string
     return bms_render_public_theme_template('composer', $view);
 }
 
-function bms_render_stream_cards(array $pages): string
+function bms_render_public_flash_notices(): string
+{
+    if (!function_exists('bms_is_logged_in') || !bms_is_logged_in() || !function_exists('bms_get_flash')) {
+        return '';
+    }
+
+    $items = [];
+    foreach (bms_get_flash() as $flash) {
+        $message = trim((string)($flash['message'] ?? ''));
+        if ($message === '') {
+            continue;
+        }
+        $type = preg_replace('/[^a-z0-9_-]+/i', '', (string)($flash['type'] ?? 'info')) ?: 'info';
+        $items[] = '<p class="stream-public-notice is-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>';
+    }
+
+    return $items ? '<div class="stream-public-notices" role="status" aria-live="polite">' . implode('', $items) . '</div>' : '';
+}
+
+function bms_render_pinned_stream_posts(array $pages): string
+{
+    if (!$pages) {
+        return '';
+    }
+
+    $items = bms_render_stream_cards($pages, true);
+    if ($items === '') {
+        return '';
+    }
+
+    return '<section class="stream-pinned-posts" aria-labelledby="stream-pinned-heading">'
+        . '<div class="stream-pinned-heading"><span id="stream-pinned-heading" class="stream-pinned-label">Pinned</span></div>'
+        . '<div class="stream-pinned-feed">' . $items . '</div>'
+        . '</section>';
+}
+
+function bms_render_stream_cards(array $pages, bool $pinned = false): string
 {
     $items = '';
     foreach ($pages as $index => $page) {
-        $items .= bms_render_stream_card($page, false, (int)$index);
+        $items .= bms_render_stream_card($page, false, (int)$index, $pinned);
     }
 
     if ($items !== '' && function_exists('bms_markdown_prioritize_first_image')) {
@@ -185,17 +252,75 @@ function bms_render_stream_cards(array $pages): string
     return $items;
 }
 
+function bms_stream_public_datetime(array $page): array
+{
+    $status = (string)($page['status'] ?? $page['content_status'] ?? '');
+    $scheduledAt = trim((string)($page['scheduled_at'] ?? ($page['front_matter']['scheduled_at'] ?? '')));
+    $publishedAt = trim((string)($page['published_at'] ?? ''));
+    if (($status === 'published' || $status === 'scheduled') && $scheduledAt !== '') {
+        return ['value' => $scheduledAt, 'timezone' => 'utc'];
+    }
+    if ($status === 'published' && $publishedAt !== '') {
+        $isUtc = function_exists('bms_stream_published_at_is_utc') && bms_stream_published_at_is_utc($page);
+        return ['value' => $publishedAt, 'timezone' => $isUtc ? 'utc' : 'local'];
+    }
+    $createdAt = trim((string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? ''));
+    return ['value' => $createdAt, 'timezone' => 'local'];
+}
+
+function bms_stream_public_datetime_value(array $page): string
+{
+    $date = bms_stream_public_datetime($page);
+    return (string)($date['value'] ?? '');
+}
+
+function bms_stream_public_datetime_timestamp(array $page): ?int
+{
+    $date = bms_stream_public_datetime($page);
+    $raw = trim((string)($date['value'] ?? ''));
+    if ($raw === '') {
+        return null;
+    }
+    try {
+        $timezone = (string)($date['timezone'] ?? '') === 'utc' && function_exists('bms_utc_timezone')
+            ? bms_utc_timezone()
+            : (function_exists('bms_site_timezone') ? bms_site_timezone() : null);
+        $dt = $timezone instanceof DateTimeZone ? new DateTimeImmutable($raw, $timezone) : new DateTimeImmutable($raw);
+        return $dt->getTimestamp();
+    } catch (Throwable $e) {
+        $time = strtotime($raw);
+        return $time === false ? null : (int)$time;
+    }
+}
+
+function bms_stream_public_datetime_iso(array $page): string
+{
+    $timestamp = bms_stream_public_datetime_timestamp($page);
+    if ($timestamp === null) {
+        return bms_stream_public_datetime_value($page);
+    }
+    try {
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone(bms_site_timezone())->format('c');
+    } catch (Throwable $e) {
+        return bms_stream_public_datetime_value($page);
+    }
+}
+
 function bms_stream_display_date(array $page): string
 {
-    $raw = trim((string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? ''));
+    $raw = bms_stream_public_datetime_value($page);
     if ($raw === '') {
         return '';
     }
-    $time = strtotime($raw);
-    if ($time === false) {
+    $timestamp = bms_stream_public_datetime_timestamp($page);
+    if ($timestamp === null) {
         return $raw;
     }
-    return date('M j, Y g:i A', $time);
+    try {
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone(bms_site_timezone())->format('M j, Y g:i A');
+    } catch (Throwable $e) {
+        return $raw;
+    }
 }
 
 function bms_stream_media_url(array $page): string
@@ -396,12 +521,12 @@ function bms_stream_absolute_url_for_post(array $page): string
 }
 
 
-function bms_stream_card_view_data(array $page, bool $single = false, int $index = 0): array
+function bms_stream_card_view_data(array $page, bool $single = false, int $index = 0, bool $pinned = false): array
 {
     $title = trim((string)($page['title'] ?? ''));
-    $dateRaw = (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? '');
+    $dateRaw = bms_stream_public_datetime_value($page);
     $dateLabel = bms_stream_display_date($page);
-    $dateIso = ($dateRaw !== '' && strtotime($dateRaw) !== false) ? date('c', (int)strtotime($dateRaw)) : $dateRaw;
+    $dateIso = bms_stream_public_datetime_iso($page);
     $authorUser = function_exists('bms_author_for_stream_page') ? bms_author_for_stream_page($page) : [];
     $authorName = (string)($authorUser['display_name'] ?? bms_setting_or_config('author_name', 'Admin'));
     $avatarMarkup = function_exists('bms_user_avatar_markup') ? bms_user_avatar_markup($authorUser, '', 96, 96, false) : '<span class="stream-author-avatar stream-author-initials">' . htmlspecialchars(bms_stream_author_initials(), ENT_QUOTES, 'UTF-8') . '</span>';
@@ -423,15 +548,25 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $commentCount = !$previewMode && function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
     $editUrl = '';
-    if (function_exists('bms_is_logged_in') && bms_is_logged_in() && bms_stream_show_edit_links()) {
+    $pinAction = '';
+    $pinActionUrl = '';
+    $pinCsrf = '';
+    $pinReturnTo = '';
+    if (function_exists('bms_is_logged_in') && bms_is_logged_in()) {
         $subject = $page;
         $filename = basename((string)($page['filename'] ?? ''));
         if ($filename !== '' && function_exists('bms_content_subject_for_file')) {
             $section = ((string)($page['section'] ?? 'published')) === 'drafts' ? 'drafts' : 'published';
             $subject = bms_content_subject_for_file($section, $filename, $page);
         }
-        if (function_exists('bms_current_user_can') && bms_current_user_can('edit_content', $subject)) {
+        if (bms_stream_show_edit_links() && function_exists('bms_current_user_can') && bms_current_user_can('edit_content', $subject)) {
             $editUrl = bms_stream_edit_url($page);
+        }
+        if (!$previewMode && function_exists('bms_current_user_can') && bms_current_user_can('publish_content', $subject) && bms_is_stream_post($page)) {
+            $pinAction = bms_is_pinned_stream_post($page) ? 'unpin' : 'pin';
+            $pinActionUrl = bms_admin_url('pin.php');
+            $pinCsrf = function_exists('bms_csrf_token') ? bms_csrf_token() : '';
+            $pinReturnTo = bms_stream_safe_return_url((string)($_SERVER['REQUEST_URI'] ?? bms_stream_home_url()));
         }
     }
 
@@ -445,6 +580,9 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     }
     if ($previewMode) {
         $classes[] = 'is-preview-mode';
+    }
+    if ($pinned) {
+        $classes[] = 'stream-card-pinned';
     }
 
     $previewEditUrl = $previewMode ? bms_stream_edit_url($page) : '';
@@ -487,12 +625,17 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
         'back_url' => $single ? ($previewMode && $previewEditUrl !== '' ? $previewEditUrl : (function_exists('bms_stream_home_url') ? bms_stream_home_url() : bms_url_path())) : '',
         'back_label' => $previewMode ? 'Back to editor' : 'Back to stream',
         'edit_url' => $previewMode ? '' : $editUrl,
+        'pin_action' => $previewMode ? '' : $pinAction,
+        'pin_action_url' => $previewMode ? '' : $pinActionUrl,
+        'pin_csrf' => $previewMode ? '' : $pinCsrf,
+        'pin_return_to' => $previewMode ? '' : $pinReturnTo,
+        'pin_filename' => $previewMode ? '' : (string)($page['filename'] ?? ''),
     ];
 }
 
-function bms_render_stream_card(array $page, bool $single = false, int $index = 0): string
+function bms_render_stream_card(array $page, bool $single = false, int $index = 0, bool $pinned = false): string
 {
-    $html = bms_render_public_theme_template('card', bms_stream_card_view_data($page, $single, $index));
+    $html = bms_render_public_theme_template('card', bms_stream_card_view_data($page, $single, $index, $pinned));
     if ($single && $html !== '' && function_exists('bms_markdown_prioritize_first_image')) {
         $html = bms_markdown_prioritize_first_image($html);
     }
@@ -508,7 +651,7 @@ function bms_stream_seo_title(array $page): string
 
     return bms_stream_generated_seo_title(
         (string)($page['body'] ?? ''),
-        (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? ''),
+        bms_stream_public_datetime_value($page),
         (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''),
         []
     );
@@ -523,7 +666,7 @@ function bms_stream_seo_description(array $page, int $limit = 160): string
 
     return bms_stream_generated_description(
         (string)($page['body'] ?? ''),
-        (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? ''),
+        bms_stream_public_datetime_value($page),
         (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''),
         $limit
     );
@@ -584,10 +727,11 @@ function bms_render_stream_single(array $page): string
     $descriptionRaw = bms_stream_seo_description($page);
     $streamSlug = bms_slugify((string)($page['slug'] ?? ''));
     $canonical = bms_site_url($streamSlug !== '' ? 'stream/' . $streamSlug . '/' : '');
-    $publishedRaw = (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? '');
+    $publishedRaw = bms_stream_public_datetime_value($page);
+    $publishedIso = bms_stream_public_datetime_iso($page);
     $publishedMeta = '';
-    if ($publishedRaw !== '' && strtotime($publishedRaw) !== false) {
-        $publishedMeta = '<meta property="article:published_time" content="' . htmlspecialchars(date('c', (int)strtotime($publishedRaw)), ENT_QUOTES, 'UTF-8') . '">';
+    if ($publishedRaw !== '') {
+        $publishedMeta = '<meta property="article:published_time" content="' . htmlspecialchars($publishedIso, ENT_QUOTES, 'UTF-8') . '">';
     }
     $imageUrl = bms_stream_media_absolute_url($page);
     $imageMime = $imageUrl !== '' ? bms_stream_media_mime_from_url((string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '')) : '';
@@ -860,8 +1004,8 @@ function bms_unpublish_file(string $publishedFilename): array
 
 function bms_delete_content_file(string $type, string $filename): array
 {
-    $section = $type === 'published' ? 'published' : 'drafts';
-    $originalStatus = $section === 'published' ? 'published' : 'draft';
+    $section = $type === 'published' ? 'published' : ($type === 'scheduled' ? 'scheduled' : 'drafts');
+    $originalStatus = $section === 'published' ? 'published' : ($section === 'scheduled' ? 'scheduled' : 'draft');
     $filename = basename($filename);
     $page = function_exists('bms_find_database_content_by_markdown_path') ? bms_find_database_content_by_markdown_path($section, $filename) : null;
     if (!$page) {
@@ -881,12 +1025,19 @@ function bms_delete_content_file(string $type, string $filename): array
 function bms_publish_file(string $draftFilename): array
 {
     $filename = basename($draftFilename);
+    $sourceSection = 'drafts';
     $page = function_exists('bms_find_database_content_by_markdown_path') ? bms_find_database_content_by_markdown_path('drafts', $filename) : null;
+    if (!$page && function_exists('bms_find_database_content_by_markdown_path')) {
+        $page = bms_find_database_content_by_markdown_path('scheduled', $filename);
+        if ($page) {
+            $sourceSection = 'scheduled';
+        }
+    }
     if (!$page) {
-        throw new RuntimeException('Draft not found.');
+        throw new RuntimeException('Draft or scheduled post not found.');
     }
 
-    $authorId = function_exists('bms_content_author_id_for_file') ? bms_content_author_id_for_file('drafts', $filename) : null;
+    $authorId = function_exists('bms_content_author_id_for_file') ? bms_content_author_id_for_file($sourceSection, $filename) : null;
     if ($authorId === null && (int)($page['author_id'] ?? 0) > 0) {
         $authorId = (int)$page['author_id'];
     }
@@ -898,7 +1049,7 @@ function bms_publish_file(string $draftFilename): array
     }
 
     if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename('drafts', $filename);
+        bms_delete_post_metadata_by_filename($sourceSection, $filename);
     }
     if (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($published, 'published', $publishedFilename, $authorId);

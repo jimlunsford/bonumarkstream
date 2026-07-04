@@ -81,11 +81,21 @@ try {
         throw new RuntimeException("Migration ledger count mismatch. Expected " . count($executed) . ", got {$count}.");
     }
 
+    foreach (['is_pinned', 'pinned_at'] as $column) {
+        $columnStmt = $pdo->query("SHOW COLUMNS FROM `{$prefix}posts` LIKE " . $pdo->quote($column));
+        if ($columnStmt === false || !$columnStmt->fetch()) {
+            throw new RuntimeException("Pinned-post migration did not create posts.{$column}.");
+        }
+    }
+    $pinnedIndexStmt = $pdo->query("SHOW INDEX FROM `{$prefix}posts` WHERE Key_name = " . $pdo->quote('post_type_status_pinned_at'));
+    if ($pinnedIndexStmt === false || !$pinnedIndexStmt->fetch()) {
+        throw new RuntimeException('Pinned-post migration did not create the post_type_status_pinned_at index.');
+    }
+
     $requiredTables = ['users', 'settings', 'posts', 'migrations', 'media', 'comments', 'upgrade_history', 'api_tokens', 'api_audit_log', 'api_rate_limit_attempts', 'api_idempotency_keys'];
     foreach ($requiredTables as $table) {
-        $stmt = $pdo->prepare('SHOW TABLES LIKE :table_name');
-        $stmt->execute(['table_name' => $prefix . $table]);
-        if (!$stmt->fetchColumn()) {
+        $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($prefix . $table));
+        if ($stmt === false || !$stmt->fetchColumn()) {
             throw new RuntimeException("Expected table was not created: {$prefix}{$table}");
         }
     }

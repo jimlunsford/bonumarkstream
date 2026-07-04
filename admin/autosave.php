@@ -76,6 +76,7 @@ try {
     }
     echo json_encode(['ok' => true, 'saved_at' => date('c')]);
 } catch (Throwable $e) {
+    bms_log_admin_exception('autosave', $e);
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => 'Could not save the editor backup. Please try again.']);
 }

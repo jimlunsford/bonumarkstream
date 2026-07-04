@@ -69,6 +69,14 @@
       var textarea = form.querySelector('[data-stream-body]');
       var counter = form.querySelector('[data-stream-counter]');
       var submit = form.querySelector('[data-stream-submit]');
+      var scheduleToggle = form.querySelector('[data-stream-schedule-toggle]');
+      var schedulePanel = form.querySelector('[data-stream-schedule-panel]');
+      var scheduleInput = form.querySelector('[data-stream-scheduled-at]');
+      var scheduleCancel = form.querySelector('[data-stream-schedule-cancel]');
+      var submitActionInput = form.querySelector('[data-stream-submit-action]');
+      var scheduleEnabledInput = form.querySelector('[data-stream-schedule-enabled]');
+      var scheduledRunnerUrl = form.getAttribute('data-stream-scheduled-runner-url') || '';
+      var scheduledRunnerCsrfInput = form.querySelector('input[name="csrf_token"]');
       var linkPreview = form.querySelector('[data-link-preview]');
       var linkPreviewEnabled = form.querySelector('[data-link-preview-enabled]');
       var linkPreviewFields = form.querySelectorAll('[data-link-preview-field]');
@@ -77,6 +85,32 @@
       var linkPreviewLastUrl = '';
       var linkPreviewRemovedUrl = '';
       var linkPreviewRequestId = 0;
+
+
+      function startScheduledRunnerHeartbeat() {
+        if (!scheduledRunnerUrl || !scheduledRunnerCsrfInput || !scheduledRunnerCsrfInput.value || !window.fetch) {
+          return;
+        }
+        var busy = false;
+        var ping = function () {
+          if (busy) {
+            return;
+          }
+          busy = true;
+          var payload = new URLSearchParams();
+          payload.set('csrf_token', scheduledRunnerCsrfInput.value);
+          window.fetch(scheduledRunnerUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: payload.toString()
+          }).catch(function () {}).finally(function () {
+            busy = false;
+          });
+        };
+        window.setTimeout(ping, 5000);
+        window.setInterval(ping, 30000);
+      }
 
       function updateCounter() {
         if (!textarea || !counter) {
@@ -362,6 +396,71 @@
         }, 550);
       }
 
+      function scheduleSubmitLabel(isScheduling) {
+        if (!submit) {
+          return;
+        }
+        var readyLabel = isScheduling
+          ? (submit.getAttribute('data-schedule-label') || 'Schedule')
+          : (submit.getAttribute('data-publish-label') || submit.getAttribute('data-ready-label') || 'Post');
+        var busyLabel = isScheduling
+          ? (submit.getAttribute('data-schedule-busy-label') || 'Scheduling...')
+          : (submit.getAttribute('data-publish-busy-label') || submit.getAttribute('data-busy-label') || 'Posting...');
+        if (submitActionInput) {
+          submitActionInput.value = isScheduling ? 'schedule' : 'publish';
+        }
+        if (scheduleEnabledInput) {
+          scheduleEnabledInput.value = isScheduling ? '1' : '0';
+        }
+        submit.textContent = readyLabel;
+        submit.setAttribute('data-ready-label', readyLabel);
+        submit.setAttribute('data-busy-label', busyLabel);
+      }
+
+      function setScheduleActive(isActive, shouldFocus) {
+        form.classList.toggle('is-scheduling', isActive);
+        if (schedulePanel) {
+          schedulePanel.hidden = !isActive;
+        }
+        if (scheduleToggle) {
+          scheduleToggle.classList.toggle('is-active', isActive);
+          scheduleToggle.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+          scheduleToggle.setAttribute('aria-label', isActive ? 'Cancel scheduling' : 'Schedule post');
+          scheduleToggle.setAttribute('title', isActive ? 'Cancel scheduling' : 'Schedule post');
+        }
+        if (scheduleInput) {
+          if (isActive) {
+            scheduleInput.setAttribute('required', 'required');
+          } else {
+            scheduleInput.removeAttribute('required');
+            scheduleInput.value = '';
+          }
+        }
+        scheduleSubmitLabel(isActive);
+        if (isActive && shouldFocus && scheduleInput) {
+          scheduleInput.focus();
+        } else if (!isActive && shouldFocus && textarea) {
+          textarea.focus();
+        }
+      }
+
+      if (scheduleToggle && schedulePanel) {
+        scheduleToggle.addEventListener('click', function (event) {
+          event.preventDefault();
+          setScheduleActive(!form.classList.contains('is-scheduling'), true);
+        });
+      }
+
+      if (scheduleCancel) {
+        scheduleCancel.addEventListener('click', function (event) {
+          event.preventDefault();
+          setScheduleActive(false, true);
+        });
+      }
+
+      setScheduleActive(false, false);
+      startScheduledRunnerHeartbeat();
+
       if (textarea) {
         textarea.addEventListener('input', function () {
           updateCounter();
@@ -374,10 +473,24 @@
       }
 
       if (submit) {
-        form.addEventListener('submit', function () {
-          submit.disabled = true;
-          submit.textContent = submit.getAttribute('data-busy-label') || 'Posting...';
-          submit.classList.add('is-busy');
+        form.addEventListener('submit', function (event) {
+          var isScheduling = form.classList.contains('is-scheduling');
+          if (submitActionInput) {
+            submitActionInput.value = isScheduling ? 'schedule' : 'publish';
+          }
+          if (scheduleEnabledInput) {
+            scheduleEnabledInput.value = isScheduling ? '1' : '0';
+          }
+          if (isScheduling && scheduleInput && !scheduleInput.value) {
+            return;
+          }
+          var activeSubmit = event.submitter && event.submitter.getAttribute ? event.submitter : submit;
+          if (!activeSubmit.matches || !activeSubmit.matches('[data-stream-submit]')) {
+            activeSubmit = submit;
+          }
+          activeSubmit.disabled = true;
+          activeSubmit.textContent = activeSubmit.getAttribute('data-busy-label') || (isScheduling ? 'Scheduling...' : 'Posting...');
+          activeSubmit.classList.add('is-busy');
         });
       }
 
@@ -1047,7 +1160,7 @@
         if (event.defaultPrevented) {
           return;
         }
-        if (event.target.closest('a, button, input, textarea, label, select')) {
+        if (event.target.closest('a, button, input, textarea, label, select, summary, details, [data-stream-actions-menu]')) {
           return;
         }
         var url = card.getAttribute('data-stream-url');

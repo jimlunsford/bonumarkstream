@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $uploadedFile = is_array($_FILES['site_favicon_file'] ?? null) ? $_FILES['site_favicon_file'] : [];
         if ($uploadedFile && bms_site_identity_uploaded_favicon_present($uploadedFile)) {
             bms_site_identity_validate_favicon_upload_name($uploadedFile);
-            $uploadedMedia = bms_media_upload($uploadedFile, 'Site favicon', 'Site favicon used for browser tabs and saved bookmarks.', ['generate_derivatives' => false]);
+            $uploadedMedia = bms_media_upload($uploadedFile, 'Site favicon', 'Site favicon used for browser tabs, saved bookmarks, and installed app icons.', ['generate_derivatives' => false]);
             bms_site_identity_store_favicon_media($uploadedMedia);
             $faviconMessage = ' Favicon uploaded.';
             $faviconView = bms_site_favicon_view_data();
@@ -96,7 +96,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Site identity saved. Dynamic public routes and admin pages use the updated identity immediately.' . $faviconMessage, 'success');
         bms_redirect(bms_admin_url('site-identity.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not save site identity: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('site-identity', $e);
+
+        bms_flash('Could not save site identity. Please try again.', 'error');
     }
 }
 
@@ -112,7 +114,7 @@ bms_admin_header('Site Identity', [
 <section class="panel page-intro-panel">
   <p class="eyebrow">Appearance</p>
   <h2>Name the site and set the public framing.</h2>
-  <p class="meta">These settings control the public homepage, header, browser title, footer text, and browser tab icon.</p>
+  <p class="meta">These settings control the public homepage, header, browser title, footer text, browser tab icon, and installed app icon.</p>
 </section>
 
 <section class="panel settings-panel site-identity-panel">
@@ -176,7 +178,7 @@ bms_admin_header('Site Identity', [
 
         <label for="site_favicon_file">Upload favicon image</label>
         <input id="site_favicon_file" type="file" name="site_favicon_file" accept="image/jpeg,image/png,image/gif,image/webp">
-        <p class="field-help">Use JPG, PNG, GIF, or WebP. Square images work best. A 180 × 180 or larger square image also outputs an Apple touch icon tag.</p>
+        <p class="field-help">Use JPG, PNG, GIF, or WebP. Square images work best. When PWA support is enabled, Bonumark generates 192 × 192 and 512 × 512 installed app icons from this image. A 180 × 180 or larger square image also outputs an Apple touch icon tag.</p>
       </div>
     </div>
 

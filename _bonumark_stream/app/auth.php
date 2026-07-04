@@ -55,6 +55,204 @@ function bms_guest_user(): array
     ];
 }
 
+function bms_remember_login_enabled(): bool
+{
+    return (string)bms_setting_or_config('remember_login_enabled', '1') === '1';
+}
+
+function bms_remember_login_days(): int
+{
+    $days = (int)bms_setting_or_config('remember_login_days', '30');
+    if ($days < 1) {
+        return 1;
+    }
+    if ($days > 90) {
+        return 90;
+    }
+    return $days;
+}
+
+function bms_remember_cookie_name(): string
+{
+    return 'bms_remember';
+}
+
+function bms_remember_cookie_path(): string
+{
+    $base = function_exists('bms_base_path') ? bms_base_path() : '';
+    return $base !== '' ? rtrim($base, '/') . '/' : '/';
+}
+
+function bms_remember_user_agent_hash(): string
+{
+    $agent = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+    return hash('sha256', $agent . '|' . (string)(bms_config()['security_salt'] ?? 'bonumark'));
+}
+
+function bms_set_remember_cookie(string $selector, string $validator, int $expires): void
+{
+    if (headers_sent()) {
+        return;
+    }
+    setcookie(bms_remember_cookie_name(), $selector . ':' . $validator, [
+        'expires' => $expires,
+        'path' => bms_remember_cookie_path(),
+        'secure' => bms_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    $_COOKIE[bms_remember_cookie_name()] = $selector . ':' . $validator;
+}
+
+function bms_clear_remember_cookie(): void
+{
+    if (!headers_sent()) {
+        setcookie(bms_remember_cookie_name(), '', [
+            'expires' => time() - 3600,
+            'path' => bms_remember_cookie_path(),
+            'secure' => bms_is_https(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+    unset($_COOKIE[bms_remember_cookie_name()]);
+}
+
+function bms_delete_expired_remember_tokens(): void
+{
+    try {
+        $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('remember_tokens') . ' WHERE expires_at < NOW()');
+        $stmt->execute();
+    } catch (Throwable $e) {
+        // Persistent-login cleanup should not block normal requests.
+    }
+}
+
+function bms_revoke_current_remember_token(): void
+{
+    $cookie = (string)($_COOKIE[bms_remember_cookie_name()] ?? '');
+    if ($cookie !== '') {
+        $parts = explode(':', $cookie, 2);
+        $selector = $parts[0] ?? '';
+        if (preg_match('/^[a-f0-9]{24}$/', $selector)) {
+            try {
+                $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('remember_tokens') . ' WHERE selector = :selector');
+                $stmt->execute(['selector' => $selector]);
+            } catch (Throwable $e) {
+                // Token cleanup should not block logout.
+            }
+        }
+    }
+    bms_clear_remember_cookie();
+}
+
+function bms_revoke_user_remember_tokens(int $userId): void
+{
+    if ($userId < 1) {
+        return;
+    }
+    try {
+        $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('remember_tokens') . ' WHERE user_id = :user_id');
+        $stmt->execute(['user_id' => $userId]);
+    } catch (Throwable $e) {
+        // Token cleanup should not block the account action that requested it.
+    }
+    if ((int)($_SESSION['bms_user_id'] ?? 0) === $userId) {
+        bms_clear_remember_cookie();
+    }
+}
+
+function bms_remember_expires_at_utc(int $unixTimestamp): string
+{
+    return gmdate('Y-m-d H:i:s', $unixTimestamp);
+}
+
+function bms_create_remember_token(int $userId): void
+{
+    if ($userId < 1 || !bms_remember_login_enabled()) {
+        bms_clear_remember_cookie();
+        return;
+    }
+
+    bms_delete_expired_remember_tokens();
+
+    $selector = bin2hex(random_bytes(12));
+    $validator = bin2hex(random_bytes(32));
+    $expires = time() + (bms_remember_login_days() * 86400);
+
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('remember_tokens') . ' (user_id, selector, token_hash, user_agent_hash, expires_at, created_at) VALUES (:user_id, :selector, :token_hash, :user_agent_hash, :expires_at, NOW())');
+    $stmt->execute([
+        'user_id' => $userId,
+        'selector' => $selector,
+        'token_hash' => hash('sha256', $validator),
+        'user_agent_hash' => bms_remember_user_agent_hash(),
+        'expires_at' => bms_remember_expires_at_utc($expires),
+    ]);
+
+    bms_set_remember_cookie($selector, $validator, $expires);
+}
+
+function bms_restore_remembered_login(): bool
+{
+    if (!empty($_SESSION['bms_logged_in']) && !empty($_SESSION['bms_user_id'])) {
+        return true;
+    }
+    if (!bms_remember_login_enabled()) {
+        bms_clear_remember_cookie();
+        return false;
+    }
+
+    $cookie = (string)($_COOKIE[bms_remember_cookie_name()] ?? '');
+    if ($cookie === '') {
+        return false;
+    }
+
+    $parts = explode(':', $cookie, 2);
+    $selector = $parts[0] ?? '';
+    $validator = $parts[1] ?? '';
+    if (!preg_match('/^[a-f0-9]{24}$/', $selector) || !preg_match('/^[a-f0-9]{64}$/', $validator)) {
+        bms_clear_remember_cookie();
+        return false;
+    }
+
+    try {
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('remember_tokens') . ' WHERE selector = :selector AND expires_at >= NOW() LIMIT 1');
+        $stmt->execute(['selector' => $selector]);
+        $row = $stmt->fetch();
+        if (!is_array($row) || !hash_equals((string)($row['token_hash'] ?? ''), hash('sha256', $validator))) {
+            bms_revoke_current_remember_token();
+            return false;
+        }
+        if ((string)($row['user_agent_hash'] ?? '') !== bms_remember_user_agent_hash()) {
+            bms_revoke_current_remember_token();
+            return false;
+        }
+
+        $user = bms_find_user_by_id((int)($row['user_id'] ?? 0));
+        if (!$user) {
+            bms_revoke_current_remember_token();
+            return false;
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['bms_logged_in'] = true;
+        $_SESSION['bms_user_id'] = (int)$user['id'];
+
+        $newValidator = bin2hex(random_bytes(32));
+        $expires = time() + (bms_remember_login_days() * 86400);
+        $update = bms_db()->prepare('UPDATE ' . bms_table('remember_tokens') . ' SET token_hash = :token_hash, expires_at = :expires_at, last_used_at = NOW() WHERE selector = :selector');
+        $update->execute([
+            'token_hash' => hash('sha256', $newValidator),
+            'expires_at' => bms_remember_expires_at_utc($expires),
+            'selector' => $selector,
+        ]);
+        bms_set_remember_cookie($selector, $newValidator, $expires);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function bms_clear_login_session(): void
 {
     unset($_SESSION['bms_logged_in'], $_SESSION['bms_user_id']);
@@ -62,6 +260,7 @@ function bms_clear_login_session(): void
 
 function bms_current_user(): array
 {
+    bms_restore_remembered_login();
     $sessionId = $_SESSION['bms_user_id'] ?? null;
     if (!empty($_SESSION['bms_logged_in']) && $sessionId !== null) {
         $user = bms_find_user_by_id($sessionId);
@@ -69,6 +268,7 @@ function bms_current_user(): array
             return $user;
         }
         bms_clear_login_session();
+        bms_revoke_current_remember_token();
     }
 
     return bms_guest_user();
@@ -263,16 +463,18 @@ function bms_admin_route_capability(string $script): ?string
     return match ($script) {
         'index.php', 'welcome.php', 'help.php', 'user.php' => 'view_admin',
         'content.php', 'new.php', 'edit.php', 'preview.php', 'preview-current.php', 'quick-edit.php', 'delete.php', 'restore.php', 'delete-permanent.php' => 'edit_content',
-        'publish.php', 'unpublish.php' => 'publish_content',
+        'share-target.php' => 'publish_content',
+        'publish.php', 'unpublish.php', 'pin.php' => 'publish_content',
         'pages.php', 'page-new.php', 'page-edit.php', 'page-delete.php', 'page-publish.php', 'page-unpublish.php', 'page-restore.php', 'page-delete-permanent.php' => 'manage_pages',
         'quick-post.php' => 'edit_content',
+        'scheduled-runner.php' => 'publish_content',
         'link-preview.php' => 'edit_content',
         'autosave.php' => 'edit_content',
         'media.php', 'media-upload.php', 'media-edit.php', 'media-picker.php', 'media-regenerate.php' => 'manage_media',
         'comments.php' => 'manage_comments',
         'revisions.php', 'compare-revision.php', 'restore-revision.php' => 'restore_revisions',
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
-        'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php' => 'manage_settings',
+        'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
         'users.php', 'user-edit.php' => 'manage_users',
         'tools.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php', 'security.php' => 'view_system',
         default => null,
@@ -352,7 +554,7 @@ function bms_create_user(string $username, string $displayName, string $email, s
         'username' => $username,
         'display_name' => $displayName,
         'email' => $email,
-        'email_verified_at' => $markEmailVerified ? date('Y-m-d H:i:s') : null,
+        'email_verified_at' => $markEmailVerified ? gmdate('Y-m-d H:i:s') : null,
         'password_hash' => password_hash($password, PASSWORD_DEFAULT),
         'role' => $role,
         'status' => $status,
@@ -459,7 +661,7 @@ function bms_admin_update_user_account(int $id, string $username, string $displa
         'role' => $role,
         'status' => $status,
         'profile_visibility' => $profileVisibility,
-        'email_verified_at' => $emailVerified ? date('Y-m-d H:i:s') : null,
+        'email_verified_at' => $emailVerified ? gmdate('Y-m-d H:i:s') : null,
         'id' => $id,
     ]);
 
@@ -489,6 +691,7 @@ function bms_admin_reset_user_password(int $id, string $password, string $confir
         'password_hash' => password_hash($password, PASSWORD_DEFAULT),
         'id' => $id,
     ]);
+    bms_revoke_user_remember_tokens($id);
 
     try {
         $stmt = $pdo->prepare('UPDATE ' . bms_table('password_reset_tokens') . ' SET used_at = NOW() WHERE user_id = :user_id AND used_at IS NULL');
@@ -848,10 +1051,12 @@ function bms_update_current_user_password(string $currentPassword, string $newPa
         'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
         'id' => $currentId,
     ]);
+    bms_revoke_user_remember_tokens($currentId);
 }
 
 function bms_is_logged_in(): bool
 {
+    bms_restore_remembered_login();
     if (empty($_SESSION['bms_logged_in']) || empty($_SESSION['bms_user_id'])) {
         return false;
     }
@@ -859,6 +1064,7 @@ function bms_is_logged_in(): bool
     $user = bms_find_user_by_id((int)$_SESSION['bms_user_id']);
     if (!$user) {
         bms_clear_login_session();
+        bms_revoke_current_remember_token();
         return false;
     }
 
@@ -874,7 +1080,7 @@ function bms_require_login(): void
     bms_enforce_admin_route_capability();
 }
 
-function bms_attempt_login(string $username, string $password): bool
+function bms_attempt_login(string $username, string $password, bool $remember = false): bool
 {
     bms_require_installed();
 
@@ -889,6 +1095,11 @@ function bms_attempt_login(string $username, string $password): bool
         session_regenerate_id(true);
         $_SESSION['bms_logged_in'] = true;
         $_SESSION['bms_user_id'] = (int)$user['id'];
+        if ($remember) {
+            bms_create_remember_token((int)$user['id']);
+        } else {
+            bms_revoke_current_remember_token();
+        }
         bms_record_login_attempt($username, true);
         return true;
     }
@@ -899,10 +1110,18 @@ function bms_attempt_login(string $username, string $password): bool
 
 function bms_logout(): void
 {
+    bms_revoke_current_remember_token();
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+        setcookie(session_name(), '', [
+            'expires' => time() - 42000,
+            'path' => (string)($params['path'] ?? bms_session_cookie_path()),
+            'domain' => (string)($params['domain'] ?? ''),
+            'secure' => (bool)($params['secure'] ?? bms_is_https()),
+            'httponly' => (bool)($params['httponly'] ?? true),
+            'samesite' => 'Lax',
+        ]);
     }
     session_destroy();
 }

@@ -32,7 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Unknown account action.', 'error');
         bms_redirect(bms_admin_url('user.php'));
     } catch (Throwable $e) {
-        bms_flash($e->getMessage(), 'error');
+        bms_log_admin_exception('user', $e);
+
+        bms_flash('The requested action could not be completed. Please try again.', 'error');
         bms_redirect(bms_admin_url('user.php'));
     }
 }

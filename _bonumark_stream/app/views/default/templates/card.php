@@ -50,8 +50,34 @@ $backLabel = (string)($data['back_label'] ?? 'Back to stream');
             ?>
             <a class="stream-meta-pill" href="<?= htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span><?= htmlspecialchars($backLabel, ENT_QUOTES, 'UTF-8') ?></span></a>
           <?php endif; ?>
-          <?php if ((string)($data['edit_url'] ?? '') !== ''): ?>
-            <a class="stream-meta-pill" href="<?= htmlspecialchars((string)$data['edit_url'], ENT_QUOTES, 'UTF-8') ?>"><span class="stream-meta-pill-icon" aria-hidden="true"></span><span>Edit</span></a>
+          <?php
+            $hasEditAction = (string)($data['edit_url'] ?? '') !== '';
+            $hasPinAction = (string)($data['pin_action'] ?? '') !== ''
+              && (string)($data['pin_action_url'] ?? '') !== ''
+              && (string)($data['pin_filename'] ?? '') !== '';
+          ?>
+          <?php if ($hasEditAction || $hasPinAction): ?>
+            <details class="stream-post-actions-menu" data-stream-actions-menu>
+              <summary class="stream-post-actions-toggle" aria-label="Post options" title="Post options">
+                <span class="stream-post-actions-dots" aria-hidden="true">•••</span>
+                <span class="screen-reader-text">Post options</span>
+              </summary>
+              <div class="stream-post-actions-popover" role="group" aria-label="Post options">
+                <?php if ($hasEditAction): ?>
+                  <a class="stream-post-action-item" href="<?= htmlspecialchars((string)$data['edit_url'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <?php endif; ?>
+                <?php if ($hasPinAction): ?>
+                  <?php $pinning = (string)$data['pin_action'] === 'pin'; ?>
+                  <form method="post" action="<?= htmlspecialchars((string)$data['pin_action_url'], ENT_QUOTES, 'UTF-8') ?>" class="stream-post-action-form stream-pin-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)($data['pin_csrf'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="file" value="<?= htmlspecialchars((string)$data['pin_filename'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="<?= $pinning ? 'pin' : 'unpin' ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars((string)($data['pin_return_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit" class="stream-post-action-item stream-pin-button"><?= $pinning ? 'Pin to Stream' : 'Unpin from Stream' ?></button>
+                  </form>
+                <?php endif; ?>
+              </div>
+            </details>
           <?php endif; ?>
         </div>
       </div>

@@ -17,8 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Markdown import complete. Imported or refreshed ' . (int)$imported . ' content record(s).', 'success');
         bms_redirect(bms_admin_url('import-markdown.php'));
     } catch (Throwable $e) {
-        $error = $e->getMessage();
-        bms_flash('Markdown import failed. ' . $error, 'error');
+        bms_log_admin_exception('import-markdown', $e);
+        $error = 'Markdown import could not be completed. Please try again.';
+        bms_flash($error, 'error');
     }
 }
 

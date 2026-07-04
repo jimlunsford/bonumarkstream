@@ -6,6 +6,15 @@ require_once __DIR__ . '/comments.php';
 require_once __DIR__ . '/renderer.php';
 require_once __DIR__ . '/pages.php';
 require_once __DIR__ . '/sitemap.php';
+require_once __DIR__ . '/scheduler.php';
+
+
+function bms_run_public_scheduled_posts_check(string $context): void
+{
+    if (function_exists('bms_maybe_publish_due_scheduled_posts_for_public_request')) {
+        bms_maybe_publish_due_scheduled_posts_for_public_request($context);
+    }
+}
 
 function bms_public_safe_exception_notice(Throwable $e, string $fallback = 'The request could not be completed. Try again or contact the site admin.'): string
 {
@@ -41,6 +50,7 @@ function bms_handle_account_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('account');
 
     $returnTo = bms_stream_safe_return_url((string)($_GET['return_to'] ?? $_POST['return_to'] ?? bms_url_path()));
     $notice = '';
@@ -73,14 +83,10 @@ function bms_handle_account_route(): void
         }
     }
 
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && $accountAction === 'logout' && bms_is_logged_in()) {
-        $token = (string)($_GET['csrf_token'] ?? '');
-        if ($token !== '' && hash_equals((string)($_SESSION['csrf_token'] ?? ''), $token)) {
-            bms_logout();
-            bms_redirect(bms_url_path('account.php'));
-        }
-        $notice = 'Invalid sign-out link. Open your account page and try again.';
-        $noticeType = 'error';
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && $accountAction === 'logout') {
+        $notice = 'Sign out must be completed from the account page.';
+        $noticeType = 'info';
+        $accountAction = '';
     }
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -96,7 +102,7 @@ function bms_handle_account_route(): void
                     }
                     throw new RuntimeException('That account is pending. Check your email and verify the account before signing in.');
                 }
-                if (bms_attempt_login($loginUsername, (string)($_POST['password'] ?? ''))) {
+                if (bms_attempt_login($loginUsername, (string)($_POST['password'] ?? ''), !empty($_POST['remember_me']) && bms_remember_login_enabled())) {
                     bms_redirect($returnTo !== '' ? $returnTo : bms_url_path('account.php'));
                 }
                 throw new RuntimeException('Login failed. Check the username and password.');
@@ -226,6 +232,8 @@ function bms_handle_account_route(): void
         'admin_label' => 'Open Admin',
         'comment_registration_enabled' => bms_comment_registration_enabled(),
         'registration_enabled' => bms_public_registration_enabled(),
+        'remember_login_enabled' => bms_remember_login_enabled(),
+        'remember_login_days' => bms_remember_login_days(),
         'registration_mode' => bms_registration_mode(),
         'registration_invite_required' => bms_registration_invite_required(),
         'registration_requires_admin_approval' => bms_registration_require_admin_approval(),
@@ -244,6 +252,7 @@ function bms_handle_profile_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('profile');
 
     $user = null;
     $id = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -329,6 +338,7 @@ function bms_handle_stream_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('stream');
     require_once __DIR__ . '/renderer.php';
 
     $pageNumber = bms_stream_route_page_number();
@@ -372,6 +382,7 @@ function bms_handle_comments_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('comments');
     $slug = bms_slugify((string)($_POST['slug'] ?? $_GET['slug'] ?? ''));
     $notice = '';
     if ($slug === '') {
@@ -399,6 +410,7 @@ function bms_handle_feed_route(string $feedType = 'root'): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('feed');
     require_once __DIR__ . '/renderer.php';
     header('Content-Type: application/rss+xml; charset=UTF-8');
     echo bms_render_rss_feed(bms_list_content_records('published'), $feedType === 'stream' ? 'stream' : 'root');
@@ -409,6 +421,7 @@ function bms_handle_sitemap_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('sitemap');
     if (!bms_sitemap_enabled()) {
         http_response_code(404);
         header('Content-Type: text/plain; charset=UTF-8');
@@ -433,6 +446,7 @@ function bms_handle_robots_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('robots');
     header('Content-Type: text/plain; charset=UTF-8');
     echo bms_render_robots_txt();
 }
@@ -442,6 +456,7 @@ function bms_handle_search_route(): void
     if (!bms_is_installed()) {
         bms_redirect(bms_url_path('install.php'));
     }
+    bms_run_public_scheduled_posts_check('search');
 
     require_once __DIR__ . '/renderer.php';
     require_once __DIR__ . '/pages.php';

@@ -85,7 +85,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.0",
+  "version": "0.5.30",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,
@@ -112,7 +112,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.0",
+  "version": "0.5.30",
   "remote_posting_enabled": true,
   "authenticated": true,
   "direct_publish_enabled": true,
@@ -151,6 +151,7 @@ Required scopes:
 | --- | --- |
 | Draft post | `stream:draft` |
 | Published post | `stream:draft`, `stream:publish` |
+| Scheduled post | `stream:draft`, `stream:publish` |
 | Post with `media_upload` or `media_uploads` | Post scopes above plus `media:upload` |
 
 ### Create draft request
@@ -180,6 +181,26 @@ Direct publishing only works when all of these are true:
   "client_request_id": "example-published-001"
 }
 ```
+
+### Create scheduled request
+
+Scheduled publishing only works when all of these are true:
+
+- The Remote Posting API is enabled.
+- Direct remote publishing is enabled by the Admin.
+- The token has `stream:draft` and `stream:publish` scopes.
+- The request includes a future `scheduled_at` value in the site timezone.
+
+```json
+{
+  "content": "This post will publish later from a trusted external client.",
+  "status": "scheduled",
+  "scheduled_at": "2026-06-25T09:30",
+  "client_request_id": "example-scheduled-001"
+}
+```
+
+If `scheduled_at` is present and `status` is omitted, Bonumark treats the request as scheduled. `publish_at` is accepted as an alias.
 
 ### Create a post with existing media embedded
 
@@ -222,6 +243,7 @@ Optional fields:
   "seo_title": "Optional SEO title",
   "robots": "noindex",
   "date": "2026-06-10",
+  "scheduled_at": "2026-06-25T09:30",
   "media_id": 42,
   "media_url": "https://example.com/media/2026/06/example.png",
   "media_ids": [42, 43],
@@ -261,6 +283,7 @@ Notes:
 - URL imports accept public HTTP/HTTPS image URLs only. Bonumark rejects local, private, reserved, unsafe, non-image, oversized, or unsupported remote files.
 - Known fake 1x1 placeholder uploads are rejected with `placeholder_media_rejected`.
 - Slugs are normalized and made unique if needed.
+- `scheduled_at` and `publish_at` use the site timezone for input and are stored internally as UTC.
 
 ### Draft response
 
@@ -435,7 +458,9 @@ Common error codes:
 | `invalid_bearer_token` | The token does not match an active token. |
 | `missing_scope` | The token does not have the required scope. |
 | `invalid_json` | The request body is not valid JSON. |
-| `invalid_status` | Status must be `draft` or `published`. |
+| `invalid_status` | Status must be `draft`, `published`, or `scheduled`. |
+| `invalid_scheduled_at` | The scheduled date/time is invalid or not in the future. |
+| `scheduled_at_required` | A scheduled request did not include a future scheduled date/time. |
 | `remote_media_upload_disabled` | Remote image uploads are disabled in admin settings. |
 | `media_upload_invalid` | The uploaded media failed validation. |
 | `media_too_large` | The uploaded media exceeded the configured upload limit. |

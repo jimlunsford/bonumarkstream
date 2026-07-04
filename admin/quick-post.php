@@ -3,6 +3,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/media.php';
 require_once __DIR__ . '/../_bonumark_stream/app/link-preview.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 bms_require_login();
 bms_require_capability('edit_content');
 
@@ -14,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 bms_verify_csrf();
 
+$submitAction = (string)($_POST['stream_submit_action'] ?? 'publish');
+$scheduleRequested = $submitAction === 'schedule' || (string)($_POST['stream_schedule_enabled'] ?? '') === '1';
 $body = trim((string)($_POST['stream_body'] ?? ''));
 $bodyLength = function_exists('mb_strlen') ? mb_strlen($body) : strlen($body);
 if ($bodyLength > 5000) {
@@ -45,8 +48,13 @@ try {
     $seoTitle = bms_stream_generated_seo_title($body, $now, $featuredMedia, is_array($media ?? null) ? $media : []);
     $description = bms_stream_generated_description($body, $now, $featuredMedia);
     $linkPreviewFields = function_exists('bms_link_preview_payload_from_request') ? bms_link_preview_front_matter_fields(bms_link_preview_payload_from_request()) : [];
-    $targetStatus = 'published';
-    $targetSection = 'published';
+    $targetStatus = $scheduleRequested ? 'scheduled' : 'published';
+    $targetSection = $targetStatus === 'scheduled' ? 'scheduled' : 'published';
+    $scheduledAtUtc = null;
+    if ($targetStatus === 'scheduled') {
+        bms_require_capability('publish_content');
+        $scheduledAtUtc = bms_scheduled_input_to_utc((string)($_POST['stream_scheduled_at'] ?? ''));
+    }
 
     $raw = bms_build_markdown_document([
         'title' => $title,
@@ -59,19 +67,28 @@ try {
         'tags' => [],
         'featured_media' => $featuredMedia,
         'stream_created_at' => $now,
+        'scheduled_at' => $scheduledAtUtc ?? '',
         'seo_title' => $seoTitle,
     ] + $linkPreviewFields, $body);
 
     $page = bms_parse_markdown_string($raw);
     $filename = $page['slug'] . '.md';
-    if (function_exists('bms_sync_stream_metadata')) {
+    if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
+        bms_schedule_post_page($page, $targetSection, $filename, bms_current_user_id(), (string)$scheduledAtUtc);
+    } elseif (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($page, $targetSection, $filename, bms_current_user_id());
     }
 
 
-    bms_flash($featuredMedia !== '' && $body === '' ? 'Media posted to the stream.' : 'Posted to the stream.', 'success');
+    if ($targetStatus === 'scheduled') {
+        bms_flash('Stream post scheduled for ' . bms_format_scheduled_datetime((string)$scheduledAtUtc) . '.', 'success');
+    } else {
+        bms_flash($featuredMedia !== '' && $body === '' ? 'Media posted to the stream.' : 'Posted to the stream.', 'success');
+    }
 } catch (Throwable $e) {
-    bms_flash('Stream post failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('quick-post', $e);
+
+    bms_flash('Stream post failed. Please try again.', 'error');
 }
 
 bms_redirect($returnTo);

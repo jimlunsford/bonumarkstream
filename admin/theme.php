@@ -22,7 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         throw new RuntimeException('Unknown theme action.');
     } catch (Throwable $e) {
-        bms_flash($e->getMessage(), 'error');
+        bms_log_admin_exception('theme', $e);
+
+        bms_flash('The requested action could not be completed. Please try again.', 'error');
         bms_redirect(bms_admin_url('theme.php'));
     }
 }

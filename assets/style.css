@@ -211,3 +211,143 @@ img {
 .comment-note .comment-inline-link:focus-visible {
   text-decoration: underline;
 }
+
+
+/* Core pinned-post fallback presentation. Themes may refine these classes without owning pin logic. */
+body.bonumark-public .stream-pinned-posts {
+  margin: 0 0 1rem;
+}
+body.bonumark-public .stream-pinned-heading {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin: 0 0 .55rem;
+}
+body.bonumark-public .stream-pinned-heading::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+body.bonumark-public .stream-pinned-label {
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+body.bonumark-public .stream-pinned-feed {
+  display: grid;
+  gap: 1rem;
+}
+body.bonumark-public .stream-card-pinned {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+body.bonumark-public .stream-post-actions-menu {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  margin: 0;
+}
+body.bonumark-public .stream-post-actions-menu[open] {
+  z-index: 31;
+}
+body.bonumark-public .stream-post-actions-toggle {
+  width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+body.bonumark-public .stream-post-actions-toggle::-webkit-details-marker {
+  display: none;
+}
+body.bonumark-public .stream-post-actions-toggle::marker {
+  content: '';
+}
+body.bonumark-public .stream-post-actions-menu[open] .stream-post-actions-toggle,
+body.bonumark-public .stream-post-actions-toggle:hover,
+body.bonumark-public .stream-post-actions-toggle:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+}
+body.bonumark-public .stream-post-actions-dots {
+  display: block;
+  margin-top: -0.18rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  line-height: 1;
+}
+body.bonumark-public .stream-post-actions-popover {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  bottom: auto;
+  min-width: 10.5rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--panel);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+body.bonumark-public .stream-post-action-form {
+  display: block;
+  margin: 0;
+}
+body.bonumark-public .stream-post-action-item {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* Keep button and link actions aligned. */
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+body.bonumark-public .stream-post-action-item:hover,
+body.bonumark-public .stream-post-action-item:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--text);
+  text-decoration: none;
+}
+body.bonumark-public .stream-pin-form {
+  margin: 0;
+}
+body.bonumark-public .stream-pin-button {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+body.bonumark-public .stream-public-notices {
+  display: grid;
+  gap: .55rem;
+  margin: 0 0 1rem;
+}
+body.bonumark-public .stream-public-notice {
+  margin: 0;
+  padding: .75rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+}
+body.bonumark-public .stream-public-notice.is-success { border-color: var(--success); }
+body.bonumark-public .stream-public-notice.is-error { border-color: var(--danger); }

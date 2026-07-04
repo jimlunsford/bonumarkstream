@@ -11,6 +11,8 @@ try {
     bms_flash('Restored page “' . ($page['title'] ?? 'Untitled Page') . '” as ' . ($status === 'published' ? 'a published page' : 'a draft page') . '.', 'success');
     bms_redirect(bms_admin_url('pages.php?status=' . ($status === 'published' ? 'published' : 'draft')));
 } catch (Throwable $e) {
-    bms_flash('Page restore failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('page-restore', $e);
+
+    bms_flash('Page restore failed. Please try again.', 'error');
     bms_redirect(bms_admin_url('pages.php?status=trash'));
 }

@@ -55,7 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Draft page created. “' . $createdPage['title'] . '” is ready to edit or publish.', 'success');
         bms_redirect(bms_admin_url('page-edit.php?type=draft&file=' . urlencode($filename)));
     } catch (Throwable $e) {
-        bms_flash('Page creation failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('page-new', $e);
+
+        bms_flash('Page creation failed. Please try again.', 'error');
     }
 }
 

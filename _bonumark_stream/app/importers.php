@@ -76,7 +76,9 @@ function bms_import_normalize_datetime(string $value): string
 function bms_import_normalize_status(string $value): string
 {
     $value = strtolower(trim($value));
-    return in_array($value, ['published', 'publish', 'public', 'live'], true) ? 'published' : 'draft';
+    if (in_array($value, ['published', 'publish', 'public', 'live'], true)) { return 'published'; }
+    if (in_array($value, ['scheduled', 'schedule'], true)) { return 'scheduled'; }
+    return 'draft';
 }
 
 /** @param array<string,mixed> $data */
@@ -334,7 +336,7 @@ function bms_import_select_items(array $items, int $start, int $limit): array
  */
 function bms_import_commit_items(array $items, string $targetStatus, bool $preserveDates, string $duplicatePolicy, string $mediaPolicy = 'remote'): array
 {
-    $targetStatus = in_array($targetStatus, ['draft', 'published', 'original'], true) ? $targetStatus : 'draft';
+    $targetStatus = in_array($targetStatus, ['draft', 'published', 'scheduled', 'original'], true) ? $targetStatus : 'draft';
     $duplicatePolicy = in_array($duplicatePolicy, ['skip', 'rename'], true) ? $duplicatePolicy : 'skip';
     $mediaPolicy = in_array($mediaPolicy, ['remote', 'import', 'skip'], true) ? $mediaPolicy : 'remote';
     $summary = ['imported' => 0, 'skipped' => 0, 'published' => 0, 'drafted' => 0, 'media_imported' => 0, 'media_removed' => 0, 'media_failed' => 0, 'details' => []];
@@ -345,7 +347,11 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         $item = BMS_ImportItem::fromArray($rawItem);
         $contentType = bms_import_normalize_content_type($item->contentType);
         $status = $targetStatus === 'original' ? bms_import_normalize_status($item->status) : $targetStatus;
-        $section = $status === 'published' ? 'published' : 'drafts';
+        $section = $status === 'published' ? 'published' : ($status === 'scheduled' ? 'scheduled' : 'drafts');
+        if ($contentType === 'page' && $section === 'scheduled') {
+            $section = 'drafts';
+            $status = 'draft';
+        }
         $databaseSection = $contentType === 'page' ? 'pages/' . $section : $section;
         $date = $preserveDates ? bms_import_normalize_date($item->date) : date('Y-m-d');
         $createdAt = $preserveDates ? bms_import_normalize_datetime($item->createdAt) : date('Y-m-d H:i:s');
@@ -357,7 +363,7 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         }
 
         $duplicateExists = function_exists('bms_find_database_content_by_slug_status')
-            && (bms_find_database_content_by_slug_status($slug, 'published', $contentType) || bms_find_database_content_by_slug_status($slug, 'draft', $contentType));
+            && (bms_find_database_content_by_slug_status($slug, 'published', $contentType) || bms_find_database_content_by_slug_status($slug, 'draft', $contentType) || bms_find_database_content_by_slug_status($slug, 'scheduled', $contentType));
         if (!$duplicateExists) {
             if ($contentType === 'page') {
                 $publishedPath = bms_content_path('pages/published/' . $slug . '.md');
@@ -365,8 +371,9 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
             } else {
                 $publishedPath = bms_content_path('published/' . $slug . '.md');
                 $draftPath = bms_content_path('drafts/' . $slug . '.md');
+                $scheduledPath = bms_content_path('scheduled/' . $slug . '.md');
             }
-            $duplicateExists = is_file($publishedPath) || is_file($draftPath);
+            $duplicateExists = is_file($publishedPath) || is_file($draftPath) || (!empty($scheduledPath) && is_file($scheduledPath));
         }
         if ($duplicateExists) {
             if ($duplicatePolicy === 'skip') {

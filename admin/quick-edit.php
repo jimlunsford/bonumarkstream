@@ -1,13 +1,18 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
 $type = $_GET['type'] ?? ($_POST['type'] ?? 'draft');
-$type = $type === 'published' ? 'published' : 'draft';
+$type = in_array($type, ['published', 'scheduled'], true) ? $type : 'draft';
 $file = basename($_GET['file'] ?? ($_POST['file'] ?? ''));
-$section = $type === 'published' ? 'published' : 'drafts';
+$section = match ($type) {
+    'published' => 'published',
+    'scheduled' => 'scheduled',
+    default => 'drafts',
+};
 
 $page = null;
 if ($file !== '' && function_exists('bms_find_database_content_by_markdown_path')) {
@@ -26,10 +31,28 @@ if ($originalAuthorId === null && (int)($page['author_id'] ?? 0) > 0) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     bms_verify_csrf();
     $targetStatus = (string)($_POST['stream_status'] ?? $type);
-    $targetStatus = $targetStatus === 'published' ? 'published' : 'draft';
-    $targetSection = $targetStatus === 'published' ? 'published' : 'drafts';
-    if ($targetStatus === 'published') {
+    $targetStatus = in_array($targetStatus, ['published', 'scheduled'], true) ? $targetStatus : 'draft';
+    $targetSection = match ($targetStatus) {
+        'published' => 'published',
+        'scheduled' => 'scheduled',
+        default => 'drafts',
+    };
+    $scheduledAtUtc = null;
+    if (in_array($targetStatus, ['published', 'scheduled'], true)) {
         bms_require_content_file_access($section, $file, 'publish_content', $page);
+    }
+    if ($targetStatus === 'scheduled') {
+        try {
+            $scheduledAtUtc = function_exists('bms_scheduled_input_to_utc') ? bms_scheduled_input_to_utc((string)($_POST['stream_scheduled_at'] ?? '')) : null;
+            if ($scheduledAtUtc === null) {
+                throw new RuntimeException('Choose a future scheduled publish time.');
+            }
+        } catch (Throwable $e) {
+            bms_log_admin_exception('quick-edit', $e);
+
+            bms_flash('Quick edit failed. Please try again.', 'error');
+            bms_redirect(bms_admin_url('quick-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
+        }
     }
 
     $fields = [
@@ -45,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'stream_created_at' => (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? date('Y-m-d H:i:s')),
         'seo_title' => (string)($_POST['stream_seo_title'] ?? ($page['seo_title'] ?? '')),
         'robots' => (string)($_POST['stream_robots'] ?? ($page['robots'] ?? '')),
+        'scheduled_at' => $targetStatus === 'scheduled' ? (string)$scheduledAtUtc : '',
     ];
 
     try {
@@ -59,8 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Another stream post already uses this slug in the target status.');
         }
 
-        if ($newSlug !== $oldSlug && function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($newSlug, $targetStatus === 'published' ? 'draft' : 'published', 'stream')) {
-            throw new RuntimeException('Another stream post already uses this slug.');
+        if ($newSlug !== $oldSlug && function_exists('bms_find_database_content_by_slug_status')) {
+            foreach (['draft', 'published', 'scheduled'] as $conflictStatus) {
+                if ($conflictStatus !== $targetStatus && bms_find_database_content_by_slug_status($newSlug, $conflictStatus, 'stream')) {
+                    throw new RuntimeException('Another stream post already uses this slug.');
+                }
+            }
         }
 
         if ($type === 'published' && function_exists('bms_record_revision_from_page')) {
@@ -70,17 +98,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (function_exists('bms_delete_post_metadata_by_filename') && ($targetSection !== $section || $newFilename !== $file)) {
             bms_delete_post_metadata_by_filename($section, $file);
         }
-        if (function_exists('bms_sync_stream_metadata')) {
+        if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
+            bms_schedule_post_page($updated, 'scheduled', $newFilename, $originalAuthorId, (string)$scheduledAtUtc);
+        } elseif (function_exists('bms_sync_stream_metadata')) {
             bms_sync_stream_metadata($updated, $targetSection, $newFilename, $originalAuthorId);
         }
         if ($targetStatus === 'published') {
             bms_flash('Quick edit saved. The live stream post is current through dynamic rendering.', 'success');
             bms_redirect(bms_admin_url('quick-edit.php?type=published&file=' . urlencode($newFilename)));
         }
-        bms_flash('Quick edit saved. Draft details were updated.', 'success');
+        if ($targetStatus === 'scheduled') {
+            bms_flash('Quick edit saved. Scheduled for ' . bms_format_scheduled_datetime((string)$scheduledAtUtc) . '.', 'success');
+            bms_redirect(bms_admin_url('quick-edit.php?type=scheduled&file=' . urlencode($newFilename)));
+        }
+        bms_flash($section === 'scheduled' ? 'Schedule canceled. Draft details were updated.' : 'Quick edit saved. Draft details were updated.', 'success');
         bms_redirect(bms_admin_url('quick-edit.php?type=draft&file=' . urlencode($newFilename)));
     } catch (Throwable $e) {
-        bms_flash('Quick edit failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('quick-edit', $e);
+
+        bms_flash('Quick edit failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('quick-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
     }
 }
@@ -117,13 +153,21 @@ bms_admin_header('Quick Edit', $headerActions);
     <label for="stream_status">Status</label>
     <select id="stream_status" name="stream_status">
       <option value="draft" <?= $type === 'draft' ? 'selected' : '' ?>>Draft</option>
-      <?php if ($type === 'published' || bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page))): ?>
+      <?php if ($type === 'published' || $type === 'scheduled' || bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page))): ?>
         <option value="published" <?= $type === 'published' ? 'selected' : '' ?>>Published</option>
+        <option value="scheduled" <?= $type === 'scheduled' ? 'selected' : '' ?>>Scheduled</option>
       <?php endif; ?>
     </select>
 
     <label for="stream_date">Date</label>
     <input type="date" id="stream_date" name="stream_date" value="<?= htmlspecialchars((string)$page['date'], ENT_QUOTES, 'UTF-8') ?>" required>
+
+    <?php if ($type === 'scheduled' || bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page))): ?>
+      <?php $scheduledInput = function_exists('bms_utc_to_scheduled_input') ? bms_utc_to_scheduled_input((string)($page['scheduled_at'] ?? '')) : ''; ?>
+      <label for="stream_scheduled_at">Scheduled publish time</label>
+      <input type="datetime-local" id="stream_scheduled_at" name="stream_scheduled_at" value="<?= htmlspecialchars($scheduledInput, ENT_QUOTES, 'UTF-8') ?>">
+      <p class="field-help">Required only when status is Scheduled. Uses site timezone: <strong><?= htmlspecialchars(function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : date_default_timezone_get(), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
+    <?php endif; ?>
 
     <label for="stream_description">Meta description</label>
     <textarea class="small-textarea" id="stream_description" name="stream_description" maxlength="300"><?= htmlspecialchars((string)($page['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>

@@ -71,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $previewToken = bms_import_store_preview($result, (string)($file['name'] ?? 'import'));
         } catch (Throwable $e) {
             bms_import_clear_preview();
-            bms_flash('Import preview could not be staged. ' . $e->getMessage(), 'error');
+            bms_log_admin_exception('import', $e);
+
+            bms_flash('Import preview could not be staged. Please try again.', 'error');
             bms_redirect(bms_admin_url('import.php'));
         }
         bms_flash('Import preview created. Review the sample before confirming the import.', 'success');
@@ -162,7 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $redirectStatus = $targetStatus === 'original' ? 'all' : ($targetStatus === 'published' ? 'published' : 'draft');
             bms_redirect(bms_admin_url('content.php' . ($redirectStatus === 'all' ? '' : '?status=' . $redirectStatus)));
         } catch (Throwable $e) {
-            bms_flash('Import failed. ' . $e->getMessage(), 'error');
+            bms_log_admin_exception('import', $e);
+
+            bms_flash('Import failed. Please try again.', 'error');
             bms_redirect(bms_admin_url('import.php'));
         }
     }

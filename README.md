@@ -7,7 +7,11 @@ It is built for people who want the speed and simplicity of a personal stream wi
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.5.0**
+- Current version: **0.5.30**
+
+## v0.5.30 GitHub release hardening pass
+
+This release prepares Bonumark Stream for public GitHub distribution. It aligns package metadata, documentation, release notes, security reporting guidance, and the deployable ZIP structure without adding features, changing publishing behavior, rewriting content, or adding a database migration.
 
 ## What Bonumark Stream is
 
@@ -30,7 +34,7 @@ Bonumark Stream is for people who want:
 
 ## Current foundation
 
-Bonumark Stream v0.5.0 is a public development release built on the clean-break v0.4.0+ foundation.
+Bonumark Stream v0.5.30 is a public development release built on the clean-break v0.4.0+ foundation. This release preserves legacy post timestamp interpretation from before the v0.5.23 timezone pass, while retaining canonical UTC handling for new timestamps. It does not rewrite existing content or post records.
 
 The current model is:
 
@@ -50,7 +54,7 @@ The current model is:
 Bonumark Stream currently includes:
 
 - Stream posts
-- Drafts, published posts, trash, revisions, and previews
+- Drafts, scheduled posts, published posts, pinned posts, trash, revisions, and previews
 - Basic pages
 - Media library and validated media uploads
 - Public comments and comment moderation
@@ -65,12 +69,33 @@ Bonumark Stream currently includes:
 - Dynamic database-first rendering
 - Optional static export
 - Remote Posting API for trusted external clients
+- Basic PWA install metadata and conservative service worker support
+- Mobile share-target flow for loading shared text and URLs into the front-end composer
+- Scheduled posts from both the front-end composer and back-end editor
+- Shared Scheduled Tasks runner with server cron, protected web cron, task health, and execution history
+
+
+## Install as app and mobile share
+
+Bonumark Stream includes a clean PWA layer and routes mobile shares into the front-end composer.
+
+When enabled in **Admin → Settings → Stream**, supported browsers can install the site as a basic app on mobile or desktop. Bonumark Stream adds a web app manifest, mobile app metadata, app icons, and a conservative service worker. When a Site Identity favicon is selected, Bonumark generates versioned 192 × 192 and 512 × 512 PNG install icons when the server supports GD or Imagick. On servers without either extension, it uses the selected favicon directly, with its real image type and dimensions, rather than reverting to the Bonumark B. Use a square 512 × 512 PNG for the strongest install-icon result. The bundled B remains the fallback only when no valid Site Identity favicon exists.
+
+The service worker caches only safe static assets such as core CSS and JavaScript. Site Identity PWA icon URLs are versioned so a changed favicon can replace the installed app icon without stale service-worker icon entries. The service worker does not cache admin pages, draft pages, account pages, CSRF forms, API responses, private files, user-specific content, or the selected favicon media path.
+
+Bonumark Stream also exposes a Web Share Target for supported mobile browsers. Shared text, titles, and URLs enter through the secure share-target intake route, then the user is sent back to the public stream with the front-end composer prefilled.
+
+The user still has to review the content, edit it if needed, and press **Post**. Shared content never publishes automatically and it no longer gets forced into the backend draft editor first.
+
+Image/file sharing through the Web Share Target is intentionally deferred. Browser support and upload handoff behavior vary, and this release keeps the first mobile share layer focused on safe text and URL composer handoff.
+
+Browser support varies. Some browsers support installable apps but not Web Share Target. Some desktop browsers may ignore share-target metadata entirely.
 
 ## Remote Posting API
 
 Bonumark Stream includes an optional Remote Posting API for trusted external tools.
 
-In v0.5.0, the API includes:
+The API includes:
 
 - Disabled-by-default API setting
 - Admin-created scoped API tokens
@@ -82,6 +107,7 @@ In v0.5.0, the API includes:
 - `POST /api/v1/stream/posts` stream post endpoint
 - Draft creation by default
 - Optional direct publishing
+- Optional scheduled publishing through `scheduled_at` for trusted API clients
 - `stream:publish` token scope
 - Default remote status setting
 - Publish confirmation behavior
@@ -118,16 +144,20 @@ Package documentation is included under `docs/`:
 - `docs/IMPORTERS.md` for importer behavior
 - `docs/THEMING.md` for code-free theme development
 - `docs/ARCHITECTURE.md` for system architecture notes
+- `docs/SCHEDULED-TASKS.md` for server cron, web cron, task health, and fallback setup
+- `CHANGELOG.md` for the public release summary and `_bonumark_stream/CHANGELOG.md` for detailed package history
+- `SECURITY.md` for vulnerability reporting and security boundaries
+- `CONTRIBUTING.md` for contribution rules and verification expectations
 
 ## Important upgrade notice
 
-Bonumark Stream v0.5.0 continues the v0.4.0+ clean-break upgrade line.
+Bonumark Stream v0.5.30 continues the v0.4.0+ clean-break upgrade line.
 
 The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Direct upgrades from older development packages, including v0.1.x, v0.2.x, and v0.3.x, are not supported.
 
-If you are using an older development package, install Bonumark Stream v0.5.0 as a fresh installation.
+If you are using an older development package, install Bonumark Stream v0.5.30 as a fresh installation.
 
 ## Requirements
 
@@ -234,7 +264,21 @@ Bonumark Stream is designed for short-form publishing.
 
 Posts are stored in the database and rendered dynamically. Markdown is available for import, export, backup, and portability, but Markdown files are not the runtime source of truth.
 
-The Admin can publish from the admin area and manage the stream through the included dashboard and editor tools.
+The Admin can publish from the front-end composer, the admin area, and trusted Remote Posting API clients when enabled.
+
+## Scheduled posts
+
+The Admin can schedule stream posts for a future date and time from the front-end composer or the back-end editor. The default behavior remains normal posting. Scheduling only happens when the user chooses the schedule action and provides a future time. In the back-end editor, scheduling is intentionally quiet: Save Draft and Post Now remain the main visible actions, and the schedule date/time field appears only after choosing Schedule for later or Reschedule.
+
+User-facing schedule fields and normal Stream post dates use the saved site timezone setting. Bonumark keeps canonical database timestamps in UTC, then displays them back in the site timezone. The General Settings timezone is applied to the PHP runtime after installation, so it remains authoritative even when `config.php` contains an older install-time timezone. If no site timezone is configured, Bonumark falls back safely to UTC.
+
+Scheduled posts stay out of the public timeline, single post routes, RSS/feed output, search, sitemap, author/profile output, and static export until they are published. Guessing the URL of a scheduled post does not expose it early because public routes only receive published records.
+
+Bonumark Stream runs scheduled work through one reusable **Scheduled Tasks** runner. Server cron is the recommended option because it runs independently of site traffic. Shared-hosting and external services can use protected web cron. Safe public traffic and signed-in browser heartbeats remain configurable fallback checks, and an admin can run tasks manually from **Admin → Settings → Scheduled Tasks**.
+
+The Scheduled Tasks screen shows task health, the last run, execution source, server cron instructions, web cron setup, and retained manual/cron run history. It also controls whether public traffic and signed-in browser heartbeats remain active as fallback paths. See `docs/SCHEDULED-TASKS.md` for setup details.
+
+Scheduled posts can be edited, rescheduled, canceled back to draft, moved to trash, restored, or published immediately by authorized users.
 
 ## Pages
 
@@ -267,6 +311,18 @@ The Admin can moderate comments and manage commenter participation. Commenter ac
 Public likes are supported and rate-limited.
 
 Likes do not require commenter accounts by default.
+
+## Pinned posts
+
+Published stream posts can be pinned from the three-dot **Post options** menu on the front end, the back-end editor, or **Admin → Stream Posts**. The same menu also holds the front-end Edit action, keeping reader actions separate from Admin controls. Only the Admin publishing role can pin or unpin posts.
+
+- More than one published stream post can be pinned.
+- Pinned posts appear in a quiet **Pinned** area above the homepage timeline.
+- Pinned posts are ordered by the most recently pinned first.
+- A pinned post is removed from the normal page-one timeline so it is not shown twice on the same page.
+- Pinning again refreshes the pin time and moves the post to the top of the pinned area.
+- Pinning does not change the post URL, original publish date, RSS/feed order, sitemap behavior, search results, archive behavior, static export output, or Remote Posting API behavior.
+- Drafts, scheduled posts, private/unpublished posts, and trashed posts cannot appear in the pinned area. Moving a pinned post out of published status clears its pin state.
 
 ## Themes
 
@@ -362,7 +418,7 @@ The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Older development packages are not supported upgrade sources.
 
-For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.0 install.
+For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.30 install.
 
 ## Project status
 
@@ -392,3 +448,7 @@ Before contributing, please keep the project direction in mind:
 ## License
 
 See `LICENSE` for license information.
+
+## App login persistence
+
+Bonumark Stream includes a Remember this device login option for app-style use. It uses rotating persistent device tokens, not a longer normal PHP session, and remembered devices are revoked on logout, password changes, password resets, and admin password resets.

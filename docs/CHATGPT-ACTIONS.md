@@ -223,7 +223,7 @@ Expected result includes a ready-to-use Markdown image embed:
 }
 ```
 
-You can still create a post in two steps by uploading the image first and then including the returned `markdown` value in a later stream post request. In v0.5.0, you can also create the post and upload/embed the image in the same `POST /api/v1/stream/posts` request.
+You can still create a post in two steps by uploading the image first and then including the returned `markdown` value in a later stream post request. Current releases also allow creating the post and uploading/embedding the image in the same `POST /api/v1/stream/posts` request.
 
 ## Idempotency
 
@@ -303,7 +303,7 @@ Expected result:
 ```
 
 
-## Bonumark v0.5.0 OpenAPI note
+## Current OpenAPI note
 
 The Action schema intentionally documents `GET /api/v1/status` instead of `HEAD /api/v1/status`, and keeps operation descriptions short so the schema imports cleanly into GPT Actions.
 

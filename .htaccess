@@ -46,6 +46,7 @@ DirectoryIndex index.php index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^api/v1/status/?$ index.php?__bonumark_route=api_status [L,QSA]
+  RewriteRule ^api/v1/cron/?$ index.php?__bonumark_route=web_cron [L,QSA]
   RewriteRule ^api/v1/stream/posts/?$ index.php?__bonumark_route=api_stream_posts [L,QSA]
   RewriteRule ^api/v1/media/import/?$ index.php?__bonumark_route=api_media_import [L,QSA]
   RewriteRule ^api/v1/media/?$ index.php?__bonumark_route=api_media [L,QSA]

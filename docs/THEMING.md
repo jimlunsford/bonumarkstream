@@ -1,6 +1,6 @@
 # Bonumark Stream Themes
 
-Bonumark Stream v0.5.0 uses Midnight Ledger as the working example for code-free presentation themes.
+Bonumark Stream uses Midnight Ledger as the working example for code-free presentation themes.
 
 
 ## Copying Midnight Ledger
@@ -43,6 +43,27 @@ A theme package may not include:
 Themes do not provide public markup files or rendering logic. Bonumark Stream core renders the public site, and the active theme supplies presentation assets and settings.
 
 Midnight Ledger is the reference package for the current code-free theme format. Copy it, rename it, update the manifest, and edit the CSS.
+
+## Pinned-post presentation
+
+Pinned-post queries, permissions, ordering, visibility, and duplicate prevention belong to Bonumark Stream core. Themes do not implement pinning logic.
+
+When one or more posts are pinned, core places this stable markup inside the existing stream feed output on the homepage:
+
+```html
+<section class="stream-pinned-posts">
+  <div class="stream-pinned-heading">
+    <span class="stream-pinned-label">Pinned</span>
+  </div>
+  <div class="stream-pinned-feed">
+    <article class="stream-card stream-card-pinned">…</article>
+  </div>
+</section>
+```
+
+Core includes usable fallback styling in `assets/style.css`. A theme may refine `.stream-pinned-posts`, `.stream-pinned-heading`, `.stream-pinned-label`, `.stream-pinned-feed`, and `.stream-card-pinned` with CSS only. Do not add a second pinned query, change public visibility rules, or duplicate pinned posts in a theme.
+
+Authorized front-end controls are also core markup. The compact post options menu uses `.stream-post-actions-menu`, `.stream-post-actions-toggle`, `.stream-post-actions-popover`, and `.stream-post-action-item`. A theme may style those classes, but it must preserve one consistent action-item alignment for links and buttons and must not add its own Edit or Pin logic, permission checks, or pin form handling.
 
 ## Reference theme structure
 

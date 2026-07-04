@@ -620,7 +620,7 @@ function bms_mail_record_test_delivery(array $settings, array $message, string $
         'subject' => (string)($message['subject'] ?? 'Bonumark Stream Test Email'),
         'status' => in_array($status, ['sent', 'failed'], true) ? $status : 'failed',
         'error_message' => $errorMessage,
-        'sent_at' => $status === 'sent' ? date('Y-m-d H:i:s') : null,
+        'sent_at' => $status === 'sent' ? gmdate('Y-m-d H:i:s') : null,
         'triggered_by' => function_exists('bms_current_user') ? (int)(bms_current_user()['id'] ?? 0) : null,
     ]);
 

@@ -25,7 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         bms_flash('Image optimization batch complete: ' . implode(', ', $parts) . '.', ((int)$result['failed'] > 0) ? 'warning' : 'success');
     } catch (Throwable $e) {
-        bms_flash('Image optimization failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('media-regenerate', $e);
+
+        bms_flash('Image optimization failed. Please try again.', 'error');
     }
 }
 

@@ -142,7 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash($message . ' Dynamic public routes use the updated menu immediately.', 'success');
         bms_redirect(bms_admin_url('navigation.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not update navigation: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('navigation', $e);
+
+        bms_flash('Could not update navigation. Please try again.', 'error');
     }
 }
 

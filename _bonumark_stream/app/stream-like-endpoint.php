@@ -54,6 +54,10 @@ try {
         bms_stream_like_json(['ok' => false, 'message' => 'Invalid request method.'], 405);
     }
 
+    if (!bms_request_origin_is_same_site_or_absent()) {
+        bms_stream_like_json(['ok' => false, 'message' => 'Invalid request origin.'], 403);
+    }
+
     $slug = bms_slugify((string)($_POST['slug'] ?? ''));
 
     if ($slug === '') {
@@ -73,6 +77,6 @@ try {
     $result = bms_stream_register_like($slug);
     bms_stream_like_json(['ok' => true, 'data' => $result]);
 } catch (Throwable $e) {
-    error_log('Bonumark Stream like endpoint failed: ' . $e->getMessage());
+    bms_log_sanitized_exception('like-endpoint', $e);
     bms_stream_like_json(['ok' => false, 'message' => 'Could not process like request.'], 422);
 }

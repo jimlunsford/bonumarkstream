@@ -50,7 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Media details saved.', 'success');
         bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
     } catch (Throwable $e) {
-        bms_flash('Media update failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('media-edit', $e);
+
+        bms_flash('Media update failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
     }
 }

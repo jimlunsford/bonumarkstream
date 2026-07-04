@@ -14,5 +14,6 @@ try {
     header('X-Robots-Tag: noindex, nofollow', true);
     echo bms_admin_preview_document($page, 'Current unsaved editor content');
 } catch (Throwable $e) {
-    bms_admin_error_page('Preview failed', 'Bonumark could not build a preview from the current editor content. ' . $e->getMessage(), 500);
+    bms_log_admin_exception('preview-current', $e);
+    bms_admin_error_page('Preview failed', 'Bonumark could not build a preview from the current editor content. Please try again.', 500);
 }

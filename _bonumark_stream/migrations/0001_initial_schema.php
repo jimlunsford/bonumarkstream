@@ -54,13 +54,15 @@ return [
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   `published_at` DATETIME NULL,
+  `scheduled_at` DATETIME NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `post_type_slug_status` (`post_type`, `slug`, `status`),
   KEY `status` (`status`),
   KEY `author_status` (`author_id`, `status`),
   KEY `category_slug` (`category_slug`),
   KEY `date_published` (`date_published`),
-  KEY `post_type_status_slug` (`post_type`, `status`, `slug`)
+  KEY `post_type_status_slug` (`post_type`, `status`, `slug`),
+  KEY `status_scheduled_at` (`status`, `scheduled_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
 "CREATE TABLE IF NOT EXISTS `{{prefix}}terms` (

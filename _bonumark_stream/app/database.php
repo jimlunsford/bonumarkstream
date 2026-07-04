@@ -53,6 +53,10 @@ function bms_db(): PDO
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 
+    // All persisted system timestamps are canonical UTC. This removes any
+    // dependence on the MySQL/MariaDB server's own session timezone for NOW().
+    $pdo->exec("SET time_zone = '+00:00'");
+
     return $pdo;
 }
 
@@ -158,6 +162,130 @@ function bms_exec_migration_statement(PDO $pdo, string $statement, string $prefi
 }
 
 
+/**
+ * MySQL/MariaDB implicitly commit many DDL statements. Keep the migration
+ * runner honest: DDL migrations are resumable, not transactional. A failed
+ * migration is never recorded as complete, and its idempotent statements can
+ * safely be retried on the next run.
+ */
+function bms_migration_statement_is_ddl(string $statement): bool
+{
+    return preg_match('/^\s*(?:ALTER|CREATE|DROP|RENAME|TRUNCATE)\b/i', $statement) === 1;
+}
+
+function bms_migration_contains_ddl(array $statements): bool
+{
+    foreach ($statements as $statement) {
+        if (is_string($statement) && bms_migration_statement_is_ddl($statement)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function bms_normalize_utc_datetime(string $value): string
+{
+    $value = trim($value);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+        return '';
+    }
+    try {
+        return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
+ * Resolve the first UTC-published timestamp without rewriting posts.
+ *
+ * Valid cutovers are preserved. The legacy 1970 marker is repaired from the
+ * earliest known 0.5.23/0.5.24 upgrade, a fresh UTC-era install marker, or the
+ * start of a direct pre-0.5.23 upgrade. The last fallback is the current UTC
+ * upgrade time, never 1970, so old local values are not silently reclassified.
+ */
+function bms_resolve_stream_published_at_utc_cutover(array $context): array
+{
+    $existing = bms_normalize_utc_datetime((string)($context['existing_cutover'] ?? ''));
+    if ($existing !== '' && $existing !== '1970-01-01 00:00:00') {
+        return ['cutover' => $existing, 'source' => 'preserved'];
+    }
+
+    $history = bms_normalize_utc_datetime((string)($context['history_cutover'] ?? ''));
+    if ($history !== '') {
+        return ['cutover' => $history, 'source' => 'upgrade_history'];
+    }
+
+    $freshBaseline = trim((string)($context['fresh_install_baseline'] ?? ''));
+    $installedAt = bms_normalize_utc_datetime((string)($context['installed_at'] ?? ''));
+    if ($freshBaseline !== '' && version_compare($freshBaseline, '0.5.23', '>=') && $installedAt !== '') {
+        return ['cutover' => $installedAt, 'source' => 'fresh_install_lock'];
+    }
+
+    $fromVersion = trim((string)($context['from_version'] ?? ''));
+    $now = bms_normalize_utc_datetime((string)($context['now'] ?? '')) ?: gmdate('Y-m-d H:i:s');
+    if ($fromVersion !== '' && version_compare($fromVersion, '0.5.23', '<')) {
+        return ['cutover' => $now, 'source' => 'direct_legacy_upgrade'];
+    }
+
+    if ($freshBaseline !== '' && version_compare($freshBaseline, '0.5.23', '<')) {
+        return ['cutover' => $now, 'source' => 'legacy_baseline_upgrade'];
+    }
+
+    return ['cutover' => $now, 'source' => 'upgrade_time_fallback'];
+}
+
+function bms_database_table_exists(PDO $pdo, string $table): bool
+{
+    // MariaDB does not accept a bound parameter in SHOW TABLES LIKE.
+    // Quote the literal explicitly instead of using a native prepared statement.
+    $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($table));
+    return $stmt !== false && (bool)$stmt->fetchColumn();
+}
+
+function bms_database_setting_value(PDO $pdo, string $prefix, string $key): string
+{
+    $stmt = $pdo->prepare('SELECT setting_value FROM `' . $prefix . 'settings` WHERE setting_key = :setting_key LIMIT 1');
+    $stmt->execute(['setting_key' => $key]);
+    $value = $stmt->fetchColumn();
+    return $value === false ? '' : (string)$value;
+}
+
+function bms_database_set_setting(PDO $pdo, string $prefix, string $key, string $value): void
+{
+    $stmt = $pdo->prepare('INSERT INTO `' . $prefix . 'settings` (setting_key, setting_value, updated_at) VALUES (:setting_key, :setting_value, NOW()) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()');
+    $stmt->execute(['setting_key' => $key, 'setting_value' => $value]);
+}
+
+function bms_prepare_stream_published_at_utc_cutover(PDO $pdo, string $prefix, string $fromVersion = ''): array
+{
+    $existing = bms_database_setting_value($pdo, $prefix, 'stream_published_at_utc_cutover');
+    $history = '';
+    $upgradeHistoryTable = $prefix . 'upgrade_history';
+    if (bms_database_table_exists($pdo, $upgradeHistoryTable)) {
+        $historyStmt = $pdo->query("SELECT DATE_FORMAT(MIN(ran_at), '%Y-%m-%d %H:%i:%s') FROM `{$upgradeHistoryTable}` WHERE status = 'complete' AND to_version IN ('0.5.23', '0.5.24')");
+        $history = $historyStmt ? (string)($historyStmt->fetchColumn() ?: '') : '';
+    }
+    $installedAt = is_file(bms_installed_lock_path()) ? gmdate('Y-m-d H:i:s', (int)filemtime(bms_installed_lock_path())) : '';
+
+    $resolved = bms_resolve_stream_published_at_utc_cutover([
+        'existing_cutover' => $existing,
+        'history_cutover' => $history,
+        'fresh_install_baseline' => bms_database_setting_value($pdo, $prefix, 'fresh_install_baseline'),
+        'installed_at' => $installedAt,
+        'from_version' => $fromVersion,
+        'now' => gmdate('Y-m-d H:i:s'),
+    ]);
+
+    if (($resolved['source'] ?? '') === 'preserved') {
+        return $resolved;
+    }
+
+    bms_database_set_setting($pdo, $prefix, 'stream_published_at_utc_cutover', (string)$resolved['cutover']);
+    bms_database_set_setting($pdo, $prefix, 'stream_published_at_utc_cutover_source', (string)$resolved['source']);
+    return $resolved;
+}
+
 function bms_install_schema(PDO $pdo, string $prefix): void
 {
     $prefix = preg_replace('/[^A-Za-z0-9_]/', '', $prefix) ?: 'bms_';
@@ -183,7 +311,7 @@ function bms_install_schema(PDO $pdo, string $prefix): void
     $stmt->execute(['migration' => '0001_initial_schema']);
 }
 
-function bms_run_migrations(): array
+function bms_run_migrations(string $fromVersion = ''): array
 {
     if (!bms_has_database_config()) {
         return [];
@@ -215,6 +343,10 @@ function bms_run_migrations(): array
             $done[(string)$row['migration']] = true;
         }
 
+        // Repair the old 1970 timestamp marker before migrations run. This is
+        // intentionally upgrade-safe and leaves valid current cutovers untouched.
+        bms_prepare_stream_published_at_utc_cutover($pdo, $prefix, $fromVersion);
+
         $ran = [];
         $files = glob(bms_root_path('migrations/*.php')) ?: [];
         sort($files);
@@ -229,9 +361,15 @@ function bms_run_migrations(): array
                 throw new RuntimeException('Migration did not return a statement list: ' . $name);
             }
 
+            $usesDdl = bms_migration_contains_ddl($statements);
+            $startedTransaction = false;
             try {
-                if (!$pdo->inTransaction()) {
+                // MySQL/MariaDB auto-commit DDL, so only DML-only migrations use
+                // transactions. DDL migrations remain idempotent and are marked
+                // complete only after every statement has succeeded.
+                if (!$usesDdl && !$pdo->inTransaction()) {
                     $pdo->beginTransaction();
+                    $startedTransaction = true;
                 }
                 foreach ($statements as $index => $statement) {
                     if (!is_int($index) || !is_string($statement) || trim($statement) === '') {
@@ -241,11 +379,11 @@ function bms_run_migrations(): array
                 }
                 $stmt = $pdo->prepare('INSERT IGNORE INTO `' . $migrationTable . '` (migration, ran_at) VALUES (:migration, NOW())');
                 $stmt->execute(['migration' => $name]);
-                if ($pdo->inTransaction()) {
+                if ($startedTransaction && $pdo->inTransaction()) {
                     $pdo->commit();
                 }
             } catch (Throwable $e) {
-                if ($pdo->inTransaction()) {
+                if ($startedTransaction && $pdo->inTransaction()) {
                     $pdo->rollBack();
                 }
                 throw $e;
@@ -258,6 +396,89 @@ function bms_run_migrations(): array
         fclose($lockHandle);
     }
 }
+
+
+/**
+ * Forward-only upgrade recovery state.
+ *
+ * MySQL/MariaDB DDL auto-commits, so an upgrade that has entered the
+ * migration phase must keep compatible software files in place. This
+ * marker survives request boundaries and lets the upgrader resume safely.
+ */
+function bms_upgrade_recovery_marker_path(): string
+{
+    return bms_root_path('data/upgrade-recovery.json');
+}
+
+function bms_upgrade_recovery_state(): array
+{
+    $path = bms_upgrade_recovery_marker_path();
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $state = json_decode((string)file_get_contents($path), true);
+    if (!is_array($state)) {
+        return [];
+    }
+
+    $status = (string)($state['status'] ?? '');
+    if (!in_array($status, ['migration_in_progress', 'recovery_required'], true)) {
+        return [];
+    }
+
+    return [
+        'status' => $status,
+        'phase' => (string)($state['phase'] ?? 'database_migration'),
+        'from_version' => trim((string)($state['from_version'] ?? '')),
+        'to_version' => trim((string)($state['to_version'] ?? '')),
+        'backup_path' => trim((string)($state['backup_path'] ?? '')),
+        'started_at' => trim((string)($state['started_at'] ?? '')),
+        'updated_at' => trim((string)($state['updated_at'] ?? '')),
+    ];
+}
+
+function bms_write_upgrade_recovery_state(array $state): void
+{
+    $status = (string)($state['status'] ?? '');
+    if (!in_array($status, ['migration_in_progress', 'recovery_required'], true)) {
+        throw new RuntimeException('Upgrade recovery state is invalid.');
+    }
+
+    $payload = [
+        'status' => $status,
+        'phase' => (string)($state['phase'] ?? 'database_migration'),
+        'from_version' => trim((string)($state['from_version'] ?? '')),
+        'to_version' => trim((string)($state['to_version'] ?? '')),
+        'backup_path' => trim((string)($state['backup_path'] ?? '')),
+        'started_at' => trim((string)($state['started_at'] ?? gmdate('c'))),
+        'updated_at' => gmdate('c'),
+    ];
+
+    $encoded = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if (!is_string($encoded)) {
+        throw new RuntimeException('Could not encode the upgrade recovery state.');
+    }
+
+    bms_write_file(bms_upgrade_recovery_marker_path(), $encoded . "\n");
+}
+
+function bms_clear_upgrade_recovery_state(): void
+{
+    $path = bms_upgrade_recovery_marker_path();
+    if (is_file($path) && !@unlink($path)) {
+        throw new RuntimeException('Could not clear the completed upgrade recovery marker.');
+    }
+}
+
+function bms_upgrade_recovery_matches_package(string $version): bool
+{
+    $state = bms_upgrade_recovery_state();
+    return (string)($state['status'] ?? '') === 'recovery_required'
+        && $version !== ''
+        && hash_equals((string)($state['to_version'] ?? ''), $version);
+}
+
 
 function bms_db_insert_initial_data(array $site, array $admin): void
 {
@@ -326,7 +547,7 @@ function bms_db_insert_initial_data(array $site, array $admin): void
         'username' => bms_normalize_username((string)$admin['username']),
         'display_name' => trim((string)$admin['display_name']),
         'email' => trim((string)$admin['email']),
-        'email_verified_at' => date('Y-m-d H:i:s'),
+        'email_verified_at' => gmdate('Y-m-d H:i:s'),
         'password_hash' => password_hash((string)$admin['password'], PASSWORD_DEFAULT),
         'role' => 'admin',
         'status' => 'active',
@@ -354,7 +575,11 @@ function bms_database_content_enabled(): bool
 
 function bms_content_status_for_section(string $section): string
 {
-    return str_contains(trim($section, '/'), 'published') ? 'published' : 'draft';
+    $section = trim($section, '/');
+    if ($section === 'scheduled') {
+        return 'scheduled';
+    }
+    return str_contains($section, 'published') ? 'published' : 'draft';
 }
 
 function bms_content_type_for_section(string $section): string
@@ -365,9 +590,12 @@ function bms_content_type_for_section(string $section): string
 function bms_section_for_content(string $postType, string $status): string
 {
     $postType = $postType === 'page' ? 'page' : 'stream';
-    $status = $status === 'published' ? 'published' : 'draft';
+    $status = in_array($status, ['draft', 'published', 'scheduled'], true) ? $status : 'draft';
     if ($postType === 'page') {
         return $status === 'published' ? 'pages/published' : 'pages/drafts';
+    }
+    if ($status === 'scheduled') {
+        return 'scheduled';
     }
     return $status === 'published' ? 'published' : 'drafts';
 }
@@ -394,7 +622,7 @@ function bms_database_content_columns_ready(): bool
 function bms_content_front_matter_for_database(array $page): array
 {
     $frontMatter = is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
-    foreach (['seo_title','robots','featured_media','stream_created_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name'] as $key) {
+    foreach (['seo_title','robots','featured_media','stream_created_at','scheduled_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name'] as $key) {
         if (array_key_exists($key, $page) && !array_key_exists($key, $frontMatter)) {
             $frontMatter[$key] = $page[$key];
         }
@@ -415,6 +643,7 @@ function bms_database_content_raw(array $page): string
         'tags' => $page['tags'] ?? [],
         'featured_media' => (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''),
         'stream_created_at' => (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? ''),
+        'scheduled_at' => (string)($page['scheduled_at'] ?? $page['front_matter']['scheduled_at'] ?? ''),
         'seo_title' => (string)($page['seo_title'] ?? $page['front_matter']['seo_title'] ?? ''),
         'robots' => (string)($page['robots'] ?? $page['front_matter']['robots'] ?? ''),
         'link_preview_url' => (string)($page['link_preview_url'] ?? $page['front_matter']['link_preview_url'] ?? ''),
@@ -437,7 +666,8 @@ function bms_database_row_to_content_page(array $row): array
     }
 
     $postType = (string)($row['post_type'] ?? 'stream') === 'page' ? 'page' : 'stream';
-    $status = (string)($row['status'] ?? 'draft') === 'published' ? 'published' : 'draft';
+    $rawStatus = (string)($row['status'] ?? 'draft');
+    $status = in_array($rawStatus, ['draft', 'published', 'scheduled'], true) ? $rawStatus : 'draft';
     $section = bms_section_for_content($postType, $status);
     $slug = bms_slugify((string)($row['slug'] ?? ''));
     $filename = basename((string)($row['markdown_path'] ?? ''));
@@ -451,6 +681,13 @@ function bms_database_row_to_content_page(array $row): array
     if ($date === '' || $date === '0000-00-00') {
         $date = substr((string)($row['published_at'] ?? $row['created_at'] ?? date('Y-m-d')), 0, 10);
     }
+    $streamCreatedAt = (string)($frontMatter['stream_created_at'] ?? ($row['published_at'] ?? $row['created_at'] ?? ''));
+    if ($status === 'published' && trim((string)($row['scheduled_at'] ?? '')) !== '') {
+        $streamCreatedAt = (string)$row['scheduled_at'];
+    } elseif ($status === 'published' && trim((string)($row['published_at'] ?? '')) !== '') {
+        $streamCreatedAt = (string)$row['published_at'];
+    }
+
     $page = [
         'post_id' => (int)($row['id'] ?? 0),
         'author_id' => isset($row['author_id']) ? (int)$row['author_id'] : 0,
@@ -466,11 +703,14 @@ function bms_database_row_to_content_page(array $row): array
         'created_at' => (string)($row['created_at'] ?? ''),
         'updated_at' => (string)($row['updated_at'] ?? ''),
         'published_at' => (string)($row['published_at'] ?? ''),
+        'scheduled_at' => (string)($row['scheduled_at'] ?? $frontMatter['scheduled_at'] ?? ''),
+        'is_pinned' => $postType === 'stream' && $status === 'published' && !empty($row['is_pinned']),
+        'pinned_at' => $postType === 'stream' && $status === 'published' ? (string)($row['pinned_at'] ?? '') : '',
         'date_published' => (string)($row['date_published'] ?? ''),
         'body' => $body,
         'front_matter' => $frontMatter,
         'featured_media' => (string)($frontMatter['featured_media'] ?? ''),
-        'stream_created_at' => (string)($frontMatter['stream_created_at'] ?? ($row['published_at'] ?? $row['created_at'] ?? '')),
+        'stream_created_at' => $streamCreatedAt,
         'seo_title' => (string)($frontMatter['seo_title'] ?? ''),
         'robots' => (string)($frontMatter['robots'] ?? ''),
         'link_preview_url' => (string)($frontMatter['link_preview_url'] ?? ''),
@@ -521,7 +761,7 @@ function bms_find_database_content_by_slug_status(string $slug, string $status =
     }
     try {
         $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE slug = :slug AND status = :status AND post_type = :post_type LIMIT 1');
-        $stmt->execute(['slug' => bms_slugify($slug), 'status' => $status === 'published' ? 'published' : 'draft', 'post_type' => $postType === 'page' ? 'page' : 'stream']);
+        $stmt->execute(['slug' => bms_slugify($slug), 'status' => in_array($status, ['draft', 'published', 'scheduled'], true) ? $status : 'draft', 'post_type' => $postType === 'page' ? 'page' : 'stream']);
         $row = $stmt->fetch();
         return is_array($row) ? bms_database_row_to_content_page($row) : null;
     } catch (Throwable $e) {
@@ -558,13 +798,71 @@ function bms_list_database_content_for_section(string $section): array
     $status = bms_content_status_for_section($section);
     $postType = bms_content_type_for_section($section);
     try {
-        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE status = :status AND post_type = :post_type ORDER BY COALESCE(published_at, created_at) DESC, id DESC');
+        $stmt = bms_db()->prepare("SELECT * FROM " . bms_table('posts') . " WHERE status = :status AND post_type = :post_type ORDER BY CASE WHEN status = 'scheduled' THEN COALESCE(scheduled_at, created_at) ELSE COALESCE(published_at, created_at) END DESC, id DESC");
         $stmt->execute(['status' => $status, 'post_type' => $postType]);
         $rows = $stmt->fetchAll() ?: [];
         return array_map('bms_database_row_to_content_page', $rows);
     } catch (Throwable $e) {
         return [];
     }
+}
+
+function bms_is_pinned_stream_post(array $page): bool
+{
+    return (string)($page['post_type'] ?? $page['content_type'] ?? 'stream') === 'stream'
+        && (string)($page['status'] ?? $page['content_status'] ?? '') === 'published'
+        && !empty($page['is_pinned']);
+}
+
+function bms_list_pinned_stream_posts(): array
+{
+    if (!bms_database_content_enabled() || !bms_database_content_columns_ready()) {
+        return [];
+    }
+
+    try {
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE status = :status AND post_type = :post_type AND is_pinned = 1 ORDER BY pinned_at DESC, id DESC');
+        $stmt->execute(['status' => 'published', 'post_type' => 'stream']);
+        $rows = $stmt->fetchAll() ?: [];
+        return array_map('bms_database_row_to_content_page', $rows);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function bms_set_stream_post_pinned_state(string $filename, bool $pinned): array
+{
+    if (!bms_database_content_enabled() || !bms_database_content_columns_ready()) {
+        throw new RuntimeException('Pinned posts are not available until the database upgrade has completed.');
+    }
+
+    $filename = basename($filename);
+    if ($filename === '') {
+        throw new RuntimeException('A published stream post is required.');
+    }
+
+    $page = bms_find_database_content_by_markdown_path('published', $filename);
+    if (!is_array($page) || !bms_is_stream_post($page)) {
+        throw new RuntimeException('Only published stream posts can be pinned.');
+    }
+
+    $postId = (int)($page['post_id'] ?? 0);
+    if ($postId < 1) {
+        throw new RuntimeException('The published stream post could not be found.');
+    }
+
+    $sql = $pinned
+        ? 'UPDATE ' . bms_table('posts') . ' SET is_pinned = 1, pinned_at = NOW(), updated_at = NOW() WHERE id = :id AND status = :status AND post_type = :post_type'
+        : 'UPDATE ' . bms_table('posts') . ' SET is_pinned = 0, pinned_at = NULL, updated_at = NOW() WHERE id = :id AND status = :status AND post_type = :post_type';
+    $stmt = bms_db()->prepare($sql);
+    $stmt->execute(['id' => $postId, 'status' => 'published', 'post_type' => 'stream']);
+    if ($stmt->rowCount() < 1) {
+        throw new RuntimeException('The published stream post could not be updated.');
+    }
+
+    $page['is_pinned'] = $pinned;
+    $page['pinned_at'] = $pinned ? gmdate('Y-m-d H:i:s') : '';
+    return $page;
 }
 
 function bms_database_content_record_from_page(array $page, string $section, string $filename, ?int $authorId = null): array
@@ -600,6 +898,7 @@ function bms_database_content_record_from_page(array $page, string $section, str
         'html_path' => $htmlPath,
         'date_published' => (string)($page['date'] ?? date('Y-m-d')),
         'content_hash' => $contentHash,
+        'scheduled_at' => $status === 'scheduled' ? (string)($page['scheduled_at'] ?? $frontMatter['scheduled_at'] ?? '') : '',
         'raw' => $raw,
     ];
 }
@@ -629,19 +928,42 @@ function bms_upsert_database_content(array $page, string $section, string $filen
     }
 
     if ($existing) {
-        $stmt = $pdo->prepare('UPDATE ' . bms_table('posts') . ' SET author_id = COALESCE(:author_id, author_id), title = :title, slug = :slug, status = :status, post_type = :post_type, description = :description, content_body = :content_body, content_front_matter = :content_front_matter, content_source = :content_source, storage_mode = :storage_mode, category = :category, category_slug = :category_slug, markdown_path = :markdown_path, html_path = :html_path, date_published = :date_published, content_hash = :content_hash, updated_at = NOW(), published_at = CASE WHEN :published_status = \'published\' THEN COALESCE(published_at, NOW()) ELSE published_at END WHERE id = :id');
+        // Keep this update positional. Some native MySQL/MariaDB PDO drivers have
+        // reported HY093 for this long named-parameter statement during post edits.
+        // Positional placeholders remove that driver-specific name-resolution path.
+        $stmt = $pdo->prepare('UPDATE ' . bms_table('posts') . ' SET author_id = COALESCE(?, author_id), title = ?, slug = ?, status = ?, post_type = ?, description = ?, content_body = ?, content_front_matter = ?, content_source = ?, storage_mode = ?, category = ?, category_slug = ?, markdown_path = ?, html_path = ?, date_published = ?, scheduled_at = ?, content_hash = ?, is_pinned = CASE WHEN ? = 1 THEN is_pinned ELSE 0 END, pinned_at = CASE WHEN ? = 1 THEN pinned_at ELSE NULL END, updated_at = NOW(), published_at = CASE WHEN ? = \'published\' THEN COALESCE(published_at, NOW()) WHEN ? = \'scheduled\' THEN NULL ELSE published_at END WHERE id = ?');
+        $pinEligible = ($record['status'] === 'published' && $record['post_type'] === 'stream') ? 1 : 0;
         $stmt->execute([
-            'author_id' => $record['author_id'], 'title' => $record['title'], 'slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type'], 'description' => $record['description'],
-            'content_body' => $record['content_body'], 'content_front_matter' => $record['content_front_matter'], 'content_source' => $record['content_source'], 'storage_mode' => $record['storage_mode'],
-            'category' => $record['category'], 'category_slug' => $record['category_slug'], 'markdown_path' => $record['markdown_path'], 'html_path' => $record['html_path'], 'date_published' => $record['date_published'], 'content_hash' => $record['content_hash'], 'published_status' => $record['status'], 'id' => (int)$existing['id'],
+            $record['author_id'],
+            $record['title'],
+            bms_slugify((string)$record['slug']),
+            $record['status'],
+            $record['post_type'],
+            $record['description'],
+            $record['content_body'],
+            $record['content_front_matter'],
+            $record['content_source'],
+            $record['storage_mode'],
+            $record['category'],
+            $record['category_slug'],
+            $record['markdown_path'],
+            $record['html_path'],
+            $record['date_published'],
+            ($record['scheduled_at'] !== '' ? $record['scheduled_at'] : null),
+            $record['content_hash'],
+            $pinEligible,
+            $pinEligible,
+            $record['status'],
+            $record['status'],
+            (int)$existing['id'],
         ]);
         $postId = (int)$existing['id'];
     } else {
-        $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :content_hash, NOW(), NOW(), :published_at)');
+        $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
         $stmt->execute([
             'author_id' => $record['author_id'], 'title' => $record['title'], 'slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type'], 'description' => $record['description'],
             'content_body' => $record['content_body'], 'content_front_matter' => $record['content_front_matter'], 'content_source' => $record['content_source'], 'storage_mode' => $record['storage_mode'],
-            'category' => $record['category'], 'category_slug' => $record['category_slug'], 'markdown_path' => $record['markdown_path'], 'html_path' => $record['html_path'], 'date_published' => $record['date_published'], 'content_hash' => $record['content_hash'], 'published_at' => $record['status'] === 'published' ? date('Y-m-d H:i:s') : null,
+            'category' => $record['category'], 'category_slug' => $record['category_slug'], 'markdown_path' => $record['markdown_path'], 'html_path' => $record['html_path'], 'date_published' => $record['date_published'], 'scheduled_at' => ($record['scheduled_at'] !== '' ? $record['scheduled_at'] : null), 'content_hash' => $record['content_hash'], 'published_at' => $record['status'] === 'published' ? gmdate('Y-m-d H:i:s') : null,
         ]);
         $postId = (int)$pdo->lastInsertId();
     }
@@ -685,7 +1007,7 @@ function bms_database_content_filename_for_page(array $page): string
 
 function bms_database_content_page_for_status(array $page, string $status, string $postType = 'stream'): array
 {
-    $status = $status === 'published' ? 'published' : 'draft';
+    $status = in_array($status, ['draft', 'published', 'scheduled'], true) ? $status : 'draft';
     $postType = $postType === 'page' ? 'page' : 'stream';
     $frontMatter = is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
     $raw = bms_build_markdown_document([
@@ -699,6 +1021,7 @@ function bms_database_content_page_for_status(array $page, string $status, strin
         'tags' => $page['tags'] ?? [],
         'featured_media' => (string)($page['featured_media'] ?? $frontMatter['featured_media'] ?? ''),
         'stream_created_at' => (string)($page['stream_created_at'] ?? $frontMatter['stream_created_at'] ?? ''),
+        'scheduled_at' => $status === 'scheduled' ? (string)($page['scheduled_at'] ?? $frontMatter['scheduled_at'] ?? '') : '',
         'seo_title' => (string)($page['seo_title'] ?? $frontMatter['seo_title'] ?? ''),
         'robots' => (string)($page['robots'] ?? $frontMatter['robots'] ?? ''),
         'link_preview_url' => (string)($page['link_preview_url'] ?? $frontMatter['link_preview_url'] ?? ''),
@@ -884,7 +1207,7 @@ function bms_sync_stream_metadata(array $page, string $section, string $filename
             'html_path' => $htmlPath,
             'date_published' => (string)($page['date'] ?? date('Y-m-d')),
             'content_hash' => $contentHash,
-            'published_at' => $status === 'published' ? date('Y-m-d H:i:s') : null,
+            'published_at' => $status === 'published' ? gmdate('Y-m-d H:i:s') : null,
         ]);
         $postId = (int)$pdo->lastInsertId();
     }
@@ -963,7 +1286,7 @@ function bms_sync_page_metadata(array $page, string $section, string $filename, 
             'html_path' => $htmlPath,
             'date_published' => (string)($page['date'] ?? date('Y-m-d')),
             'content_hash' => $contentHash,
-            'published_at' => $status === 'published' ? date('Y-m-d H:i:s') : null,
+            'published_at' => $status === 'published' ? gmdate('Y-m-d H:i:s') : null,
         ]);
         $postId = (int)$pdo->lastInsertId();
     }
@@ -1027,7 +1350,7 @@ function bms_delete_post_metadata_by_filename(string $section, string $filename)
     if (!bms_is_installed()) {
         return;
     }
-    $status = str_contains($section, 'published') ? 'published' : 'draft';
+    $status = trim($section, '/') === 'scheduled' ? 'scheduled' : (str_contains($section, 'published') ? 'published' : 'draft');
     $path = 'content/' . trim($section, '/') . '/' . basename($filename);
     $stmt = bms_db()->prepare('SELECT id FROM ' . bms_table('posts') . ' WHERE markdown_path = :markdown_path AND status = :status LIMIT 1');
     $stmt->execute(['markdown_path' => $path, 'status' => $status]);
@@ -1242,13 +1565,13 @@ function bms_restore_trash_item(int $id): array
     }
     $page = bms_trash_row_to_content_page($item, 'stream');
     $originalStatus = (string)($item['original_status'] ?? 'draft');
-    $status = $originalStatus === 'published' ? 'published' : 'draft';
-    $section = $status === 'published' ? 'published' : 'drafts';
+    $status = in_array($originalStatus, ['published', 'scheduled'], true) ? $originalStatus : 'draft';
+    $section = $status === 'published' ? 'published' : ($status === 'scheduled' ? 'scheduled' : 'drafts');
     $restored = bms_database_content_page_for_status($page, $status, 'stream');
     $filename = basename((string)($item['original_filename'] ?: bms_database_content_filename_for_page($restored)));
     $slug = bms_slugify((string)($restored['slug'] ?? pathinfo($filename, PATHINFO_FILENAME)));
     if (bms_find_database_content_by_slug_status($slug, $status, 'stream')) {
-        throw new RuntimeException('A ' . ($status === 'published' ? 'published stream post' : 'draft') . ' already uses this slug. Rename or remove it first.');
+        throw new RuntimeException('A ' . ($status === 'published' ? 'published stream post' : ($status === 'scheduled' ? 'scheduled stream post' : 'draft')) . ' already uses this slug. Rename or remove it first.');
     }
     bms_db()->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
     $originalAuthorId = (int)($item['original_author_id'] ?? 0);
@@ -1289,7 +1612,7 @@ function bms_sync_all_content_metadata(): void
     if (!bms_is_installed()) {
         return;
     }
-    foreach (['drafts', 'published'] as $section) {
+    foreach (['drafts', 'scheduled', 'published'] as $section) {
         foreach (bms_list_content_records($section) as $page) {
             bms_sync_stream_metadata($page, $section, (string)$page['filename']);
         }
@@ -1307,10 +1630,10 @@ function bms_find_post_by_markdown_path(string $section, string $filename): ?arr
         return null;
     }
     $section = trim(str_replace('\\', '/', $section), '/');
-    if (!in_array($section, ['published', 'drafts', 'pages/published', 'pages/drafts'], true)) {
+    if (!in_array($section, ['published', 'drafts', 'scheduled', 'pages/published', 'pages/drafts'], true)) {
         $section = $section === 'published' ? 'published' : 'drafts';
     }
-    $status = str_contains($section, 'published') ? 'published' : 'draft';
+    $status = trim($section, '/') === 'scheduled' ? 'scheduled' : (str_contains($section, 'published') ? 'published' : 'draft');
     $path = 'content/' . $section . '/' . basename($filename);
     $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE markdown_path = :markdown_path AND status = :status LIMIT 1');
     $stmt->execute(['markdown_path' => $path, 'status' => $status]);
@@ -1357,7 +1680,7 @@ function bms_revision_original_author_id(array $revision): ?int
 function bms_content_subject_for_file(string $section, string $filename, array $page = []): array
 {
     $section = trim(str_replace('\\', '/', $section), '/');
-    if (!in_array($section, ['published', 'drafts', 'pages/published', 'pages/drafts'], true)) {
+    if (!in_array($section, ['published', 'drafts', 'scheduled', 'pages/published', 'pages/drafts'], true)) {
         $section = $section === 'published' ? 'published' : 'drafts';
     }
     $post = null;
@@ -1464,5 +1787,15 @@ function bms_restore_revision_over_current(int $id): array
     if ($section === 'published') {
     }
     return $restored + ['filename' => $filename, 'restored_status' => $targetStatus];
+}
+
+// Config is only a bootstrap fallback after installation. The persisted General
+// Settings timezone is the runtime source of truth for every normal request.
+if (function_exists('bms_apply_site_timezone')) {
+    try {
+        bms_apply_site_timezone();
+    } catch (Throwable $e) {
+        // Keep config.php's timezone fallback if settings are unavailable during setup or repair.
+    }
 }
 

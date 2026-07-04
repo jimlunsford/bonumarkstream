@@ -33,7 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Theme settings saved. Dynamic public routes use the updated theme values immediately.', 'success');
         bms_redirect(bms_admin_url('theme-settings.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not save theme settings: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('theme-settings', $e);
+
+        bms_flash('Could not save theme settings. Please try again.', 'error');
     }
 
     $activePackage = $postedPackage;

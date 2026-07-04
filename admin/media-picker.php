@@ -51,5 +51,6 @@ try {
 
     bms_media_picker_json(['ok' => false, 'message' => 'Method not allowed.'], 405);
 } catch (Throwable $e) {
-    bms_media_picker_json(['ok' => false, 'message' => $e->getMessage()], 400);
+    bms_log_admin_exception('media-picker', $e);
+    bms_media_picker_json(['ok' => false, 'message' => 'Could not process the media request. Please try again.'], 400);
 }

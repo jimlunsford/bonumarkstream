@@ -27,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash($message, 'success');
         bms_redirect(bms_admin_url('theme.php'));
     } catch (Throwable $e) {
-        bms_flash('Theme delete failed: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('theme-delete', $e);
+
+        bms_flash('Theme delete failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('theme-delete.php?slug=' . rawurlencode($slug)));
     }
 }

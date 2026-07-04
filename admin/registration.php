@@ -46,7 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_redirect(bms_admin_url('registration.php'));
         }
     } catch (Throwable $e) {
-        bms_flash('Could not update commenter registration controls: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('registration', $e);
+
+        bms_flash('Could not update commenter registration controls. Please try again.', 'error');
         bms_redirect(bms_admin_url('registration.php'));
     }
 }
@@ -121,6 +123,7 @@ bms_admin_header('Commenter Registration', []);
     <label>Usage limit<input name="max_uses" type="number" min="0" step="1" value="1"></label>
     <p class="field-help">Use 0 for unlimited uses.</p>
     <label>Expires at<input name="expires_at" type="datetime-local"></label>
+    <p class="field-help">Uses site timezone: <strong><?= htmlspecialchars(bms_site_timezone_name(), ENT_QUOTES, 'UTF-8') ?></strong>. Bonumark stores the expiration in UTC.</p>
     <button type="submit">Create Invite Code</button>
   </form>
 
@@ -140,7 +143,7 @@ bms_admin_header('Commenter Registration', []);
         <td><?= htmlspecialchars((string)($invite['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
         <td><code><?= htmlspecialchars((string)($invite['code_hint'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code></td>
         <td><?= (int)($invite['used_count'] ?? 0) ?> / <?= (int)($invite['max_uses'] ?? 1) === 0 ? '∞' : (int)($invite['max_uses'] ?? 1) ?></td>
-        <td><?= htmlspecialchars((string)($invite['expires_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?: 'Never' ?></td>
+        <td><?= htmlspecialchars(bms_registration_format_invite_expiration((string)($invite['expires_at'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
         <td><span class="status-pill <?= $status === 'active' && !$isExpired ? 'published' : 'draft' ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
         <td>
           <?php if ($status === 'active'): ?>

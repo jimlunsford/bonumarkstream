@@ -18,6 +18,8 @@ try {
         bms_flash('Permanently deleted page “' . ($item['title'] ?? 'content') . '”.', 'success');
     }
 } catch (Throwable $e) {
-    bms_flash('Permanent delete failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('page-delete-permanent', $e);
+
+    bms_flash('Permanent delete failed. Please try again.', 'error');
 }
 bms_redirect(bms_admin_url('pages.php?status=trash'));

@@ -24,11 +24,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_set_setting('site_name', $siteName);
         bms_set_setting('site_tagline', $tagline);
         bms_set_setting('timezone', $timezone);
+        if (function_exists('bms_apply_site_timezone')) {
+            bms_apply_site_timezone($timezone);
+        }
         bms_set_setting('site_admin_email', $adminEmail);
-        bms_flash('General settings saved. Site identity updates are active.', 'success');
+        bms_flash('General settings saved. Site identity and timezone updates are active.', 'success');
         bms_redirect(bms_admin_url('settings.php'));
     } catch (Throwable $e) {
-        bms_flash('Could not save settings: ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('settings', $e);
+
+        bms_flash('Could not save settings. Please try again.', 'error');
     }
 }
 

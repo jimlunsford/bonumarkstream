@@ -66,7 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         bms_flash('Draft page saved. “' . $updatedPage['title'] . '” is ready to preview or publish.', 'success');
         bms_redirect(bms_admin_url('page-edit.php?type=draft&file=' . urlencode($newFilename)));
     } catch (Throwable $e) {
-        bms_flash('Save failed. ' . $e->getMessage(), 'error');
+        bms_log_admin_exception('page-edit', $e);
+
+        bms_flash('Save failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('page-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
     }
 }

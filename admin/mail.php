@@ -71,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_flash('Mail settings saved.', 'success');
             bms_redirect(bms_admin_url('mail.php'));
         } catch (Throwable $e) {
-            bms_flash('Could not save mail settings: ' . $e->getMessage(), 'error');
+            bms_log_admin_exception('mail', $e);
+
+            bms_flash('Could not save mail settings. Please try again.', 'error');
             bms_redirect(bms_admin_url('mail.php'));
         }
     }
@@ -99,11 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Throwable $e) {
             try {
                 if (isset($message) && is_array($message)) {
-                    bms_mail_record_test_delivery($settings ?? bms_mail_settings(), $message, 'failed', $e->getMessage());
+                    bms_mail_record_test_delivery($settings ?? bms_mail_settings(), $message, 'failed', 'Mail transport reported an internal error.');
                 }
             } catch (Throwable $ignore) {
             }
-            bms_flash('Test email failed: ' . $e->getMessage(), 'error');
+            bms_log_admin_exception('mail', $e);
+
+            bms_flash('Test email failed. Please try again.', 'error');
             bms_redirect(bms_admin_url('mail.php'));
         }
     }

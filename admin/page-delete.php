@@ -26,6 +26,8 @@ try {
     }
     bms_flash('Moved page “' . ($page['title'] ?? 'Untitled Page') . '” to trash.', 'success');
 } catch (Throwable $e) {
-    bms_flash('Move to trash failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('page-delete', $e);
+
+    bms_flash('Move to trash failed. Please try again.', 'error');
 }
 bms_redirect(bms_admin_url('pages.php'));

@@ -25,6 +25,8 @@ try {
     bms_flash('Revision restored as a new draft: “' . $page['title'] . '”. Review it before publishing.', 'success');
     bms_redirect(bms_admin_url('edit.php?type=draft&file=' . urlencode((string)$page['filename'])));
 } catch (Throwable $e) {
-    bms_flash('Revision restore failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('restore-revision', $e);
+
+    bms_flash('Revision restore failed. Please try again.', 'error');
     bms_redirect(bms_admin_url('revisions.php'));
 }

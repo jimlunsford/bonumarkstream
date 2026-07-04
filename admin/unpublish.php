@@ -11,6 +11,8 @@ try {
     bms_flash('Moved “' . $page['title'] . '” back to drafts. The public stream post was removed.', 'success');
     bms_redirect(bms_admin_url('content.php?status=draft'));
 } catch (Throwable $e) {
-    bms_flash('Move to drafts failed. ' . $e->getMessage(), 'error');
+    bms_log_admin_exception('unpublish', $e);
+
+    bms_flash('Move to drafts failed. Please try again.', 'error');
     bms_redirect(bms_admin_url('content.php?status=published'));
 }
