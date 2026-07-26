@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/media.php';
+require_once __DIR__ . '/places.php';
 
 function bms_editor_request_path_for_autosave(): string
 {
@@ -737,3 +738,12 @@ function bms_page_settings_fields(array $page): void
     <?php
 }
 
+
+
+function bms_stream_location_fields(array $page = []): void
+{
+    if (!function_exists('bms_place_picker_markup')) {
+        return;
+    }
+    echo '<section class="editor-card editor-location-card">' . bms_place_picker_markup($page, 'editor') . '</section>';
+}

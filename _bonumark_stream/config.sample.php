@@ -1,6 +1,6 @@
 <?php
 return [
-    'version' => '0.5.30',
+    'version' => '0.5.42',
     'site_name' => 'Bonumark Stream',
     'site_tagline' => 'A self-hosted microblog CMS for publishing short-form posts on a site you control.',
     'active_public_theme' => 'default',
@@ -24,6 +24,9 @@ return [
     'scheduled_tasks_public_traffic_enabled' => '1',
     'scheduled_tasks_heartbeat_enabled' => '1',
     'scheduled_tasks_web_cron_enabled' => '0',
+    'analytics_enabled' => '0',
+    'analytics_retention_days' => '90',
+    'analytics_last_cleanup_date' => '',
     'author_name' => 'Admin',
     'base_path' => '',
     'base_url' => '',
@@ -47,6 +50,7 @@ return [
     'registration_require_admin_approval' => '0',
     'registration_honeypot_enabled' => '1',
     'media_upload_limit_mb' => '32',
+    'media_privacy_mode' => 'best_effort',
     'mail_transport' => 'disabled',
     'mail_from_name' => 'Bonumark Stream',
     'mail_from_email' => '',

@@ -164,6 +164,7 @@ function bms_public_theme_core_render_parts(): array
         'card',
         'link-preview',
         'media',
+        'location',
         'composer',
         'pagination',
         'empty',
@@ -1064,5 +1065,6 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     $html = (string)ob_get_clean();
     $html = bms_inject_public_seo_head($html, $data);
     $html = bms_inject_public_favicon_tags($html);
-    return function_exists('bms_inject_public_pwa_tags') ? bms_inject_public_pwa_tags($html) : $html;
+    $html = function_exists('bms_inject_public_pwa_tags') ? bms_inject_public_pwa_tags($html) : $html;
+    return function_exists('bms_inject_public_analytics_script') ? bms_inject_public_analytics_script($html) : $html;
 }

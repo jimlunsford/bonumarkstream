@@ -57,7 +57,10 @@ function bms_default_config(): array
         'scheduled_tasks_public_traffic_enabled' => '1',
         'scheduled_tasks_heartbeat_enabled' => '1',
         'scheduled_tasks_web_cron_enabled' => '0',
-        'version' => '0.5.30',
+        'analytics_enabled' => '0',
+        'analytics_retention_days' => '90',
+        'analytics_last_cleanup_date' => '',
+        'version' => '0.5.42',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -81,6 +84,7 @@ function bms_default_config(): array
         'registration_require_admin_approval' => '0',
         'registration_honeypot_enabled' => '1',
         'media_upload_limit_mb' => '32',
+        'media_privacy_mode' => 'best_effort',
         'mail_transport' => 'disabled',
         'mail_from_name' => 'Bonumark Stream',
         'mail_from_email' => '',
@@ -1185,28 +1189,35 @@ function bms_stream_prepare_metadata_fields(array $fields, string $body, string 
     $createdAt = trim((string)($fields['stream_created_at'] ?? $fields['created_at'] ?? $fields['date'] ?? date('Y-m-d H:i:s')));
     $featuredMedia = trim((string)($fields['featured_media'] ?? ''));
     $mediaContext = bms_stream_media_context_from_path($featuredMedia);
+    $metadataBody = $body;
+    if (trim($metadataBody) === '' && $featuredMedia === '') {
+        $locationLabel = trim((string)($fields['location_name'] ?? $fields['location_area'] ?? $fields['location_locality'] ?? ''));
+        if ($locationLabel !== '') {
+            $metadataBody = 'Checked in at ' . $locationLabel . '.';
+        }
+    }
 
     $manualTitle = trim((string)($fields['title'] ?? ''));
     $title = $manualTitle;
     if (bms_stream_title_needs_generation($title)) {
-        $title = bms_stream_admin_title_from_body($body, $createdAt, $featuredMedia, $mediaContext);
+        $title = bms_stream_admin_title_from_body($metadataBody, $createdAt, $featuredMedia, $mediaContext);
     }
 
     $slugInput = trim((string)($fields['slug'] ?? ''));
     if (bms_stream_slug_needs_generation($slugInput)) {
-        $slug = bms_stream_unique_slug(bms_stream_slug_base($body, $createdAt, $mediaContext, $manualTitle), $currentSlug);
+        $slug = bms_stream_unique_slug(bms_stream_slug_base($metadataBody, $createdAt, $mediaContext, $manualTitle), $currentSlug);
     } else {
         $slug = bms_slugify($slugInput);
     }
 
     $seoTitle = trim((string)($fields['seo_title'] ?? ''));
     if ($seoTitle === '') {
-        $seoTitle = bms_stream_generated_seo_title($body, $createdAt, $featuredMedia, $mediaContext);
+        $seoTitle = bms_stream_generated_seo_title($metadataBody, $createdAt, $featuredMedia, $mediaContext);
     }
 
     $description = trim((string)($fields['description'] ?? ''));
     if ($description === '') {
-        $description = bms_stream_generated_description($body, $createdAt, $featuredMedia);
+        $description = bms_stream_generated_description($metadataBody, $createdAt, $featuredMedia);
     }
 
     $fields['title'] = $title;
@@ -1257,6 +1268,14 @@ function bms_parse_markdown_string(string $raw): array
     $linkPreviewDescription = trim((string)($frontMatter['link_preview_description'] ?? ''));
     $linkPreviewImage = trim((string)($frontMatter['link_preview_image'] ?? ''));
     $linkPreviewSiteName = trim((string)($frontMatter['link_preview_site_name'] ?? ''));
+    $locationPlaceId = trim((string)($frontMatter['location_place_id'] ?? ''));
+    $locationName = trim((string)($frontMatter['location_name'] ?? ''));
+    $locationCategory = trim((string)($frontMatter['location_category'] ?? ''));
+    $locationArea = trim((string)($frontMatter['location_area'] ?? ''));
+    $locationLocality = trim((string)($frontMatter['location_locality'] ?? ''));
+    $locationRegion = trim((string)($frontMatter['location_region'] ?? ''));
+    $locationCountry = trim((string)($frontMatter['location_country'] ?? ''));
+    $locationDisplayMode = trim((string)($frontMatter['location_display_mode'] ?? ''));
 
     $category = trim((string)(is_array($category) ? reset($category) : $category));
     if ($category === '') {
@@ -1286,6 +1305,14 @@ function bms_parse_markdown_string(string $raw): array
         'link_preview_description' => $linkPreviewDescription,
         'link_preview_image' => $linkPreviewImage,
         'link_preview_site_name' => $linkPreviewSiteName,
+        'location_place_id' => $locationPlaceId,
+        'location_name' => $locationName,
+        'location_category' => $locationCategory,
+        'location_area' => $locationArea,
+        'location_locality' => $locationLocality,
+        'location_region' => $locationRegion,
+        'location_country' => $locationCountry,
+        'location_display_mode' => $locationDisplayMode,
         'raw' => $raw,
     ];
 }
@@ -1401,7 +1428,7 @@ function bms_build_markdown_document(array $fields, string $body): string
         $lines[] = 'tags: ""';
     }
 
-    foreach (['featured_media', 'stream_created_at', 'scheduled_at', 'seo_title', 'robots', 'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name'] as $streamKey) {
+    foreach (['featured_media', 'stream_created_at', 'scheduled_at', 'seo_title', 'robots', 'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name', 'location_place_id', 'location_name', 'location_category', 'location_area', 'location_locality', 'location_region', 'location_country', 'location_display_mode'] as $streamKey) {
         $streamValue = trim((string)($fields[$streamKey] ?? ''));
         if ($streamValue !== '') {
             $lines[] = $streamKey . ': ' . bms_front_matter_quote($streamValue);
@@ -1413,7 +1440,8 @@ function bms_build_markdown_document(array $fields, string $body): string
     $body = str_replace(["\r\n", "\r"], "\n", trim($body));
     if ($body === '') {
         $hasStreamMedia = $contentType === 'stream' && trim((string)($fields['featured_media'] ?? '')) !== '';
-        if (!$hasStreamMedia) {
+        $hasStreamLocation = $contentType === 'stream' && (int)($fields['location_place_id'] ?? 0) > 0;
+        if (!$hasStreamMedia && !$hasStreamLocation) {
             $body = '# ' . $title . "\n\nStart writing here.";
         }
     }
@@ -1481,6 +1509,9 @@ function bms_build_markdown_from_request(string $forcedStatus = 'draft', string 
         'robots' => (string)($_POST['stream_robots'] ?? ''),
     ];
     $fields = array_merge($fields, bms_stream_link_preview_request_fields($currentSlug));
+    if (function_exists('bms_place_request_fields')) {
+        $fields = array_merge($fields, bms_place_request_fields($currentSlug));
+    }
     $fields = bms_stream_prepare_metadata_fields($fields, $body, $currentSlug);
 
     return bms_build_markdown_document($fields, $body);
@@ -1866,7 +1897,7 @@ function bms_send_security_headers(): void
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
-    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header('Permissions-Policy: geolocation=(self), microphone=(), camera=()');
     header("Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self'; script-src 'self'");
 }
 

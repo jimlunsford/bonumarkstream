@@ -7,11 +7,13 @@ It is built for people who want the speed and simplicity of a personal stream wi
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.5.30**
+- Current version: **0.5.42**
 
-## v0.5.30 GitHub release hardening pass
+## v0.5.42 GitHub Release Hardening Pass
 
-This release prepares Bonumark Stream for public GitHub distribution. It aligns package metadata, documentation, release notes, security reporting guidance, and the deployable ZIP structure without adding features, changing publishing behavior, rewriting content, or adding a database migration.
+Bonumark Stream v0.5.42 hardens the fresh installer so schema and seed writes use a canonical UTC database session, matching normal runtime behavior. It also completes the post-v0.5.30 upgrade guide by restoring the missing v0.5.35 and v0.5.37 notes and correcting the mislabeled v0.5.24 timestamp section.
+
+No database migration runs. Existing config, database data, posts, pages, drafts, revisions, users, comments, likes, media, uploads, themes, settings, analytics, API tokens, cron history, scheduled posts, Local Places, coordinates, consent records, and post location snapshots are unchanged.
 
 ## What Bonumark Stream is
 
@@ -34,7 +36,7 @@ Bonumark Stream is for people who want:
 
 ## Current foundation
 
-Bonumark Stream v0.5.30 is a public development release built on the clean-break v0.4.0+ foundation. This release preserves legacy post timestamp interpretation from before the v0.5.23 timezone pass, while retaining canonical UTC handling for new timestamps. It does not rewrite existing content or post records.
+Bonumark Stream v0.5.42 is a public development release built on the clean-break v0.4.0+ foundation. This release preserves legacy post timestamp interpretation from before the v0.5.23 timezone pass, while retaining canonical UTC handling for new timestamps. It does not rewrite existing content or post records.
 
 The current model is:
 
@@ -54,7 +56,9 @@ The current model is:
 Bonumark Stream currently includes:
 
 - Stream posts
+- Private Local Places directory and optional location check-ins with no external places API
 - Drafts, scheduled posts, published posts, pinned posts, trash, revisions, and previews
+- Optional cookieless, self-hosted Privacy-First Analytics with aggregate reporting, CSV export, retention controls, and no visitor identity layer
 - Basic pages
 - Media library and validated media uploads
 - Public comments and comment moderation
@@ -145,19 +149,21 @@ Package documentation is included under `docs/`:
 - `docs/THEMING.md` for code-free theme development
 - `docs/ARCHITECTURE.md` for system architecture notes
 - `docs/SCHEDULED-TASKS.md` for server cron, web cron, task health, and fallback setup
+- `docs/ANALYTICS.md` for Privacy-First Analytics behavior, data boundaries, retention, export, and deletion
+- `docs/MEDIA-PRIVACY.md` for randomized filenames, image metadata cleanup, media privacy modes, and shared-hosting behavior
 - `CHANGELOG.md` for the public release summary and `_bonumark_stream/CHANGELOG.md` for detailed package history
 - `SECURITY.md` for vulnerability reporting and security boundaries
 - `CONTRIBUTING.md` for contribution rules and verification expectations
 
 ## Important upgrade notice
 
-Bonumark Stream v0.5.30 continues the v0.4.0+ clean-break upgrade line.
+Bonumark Stream v0.5.42 continues the v0.4.0+ clean-break upgrade line.
 
 The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Direct upgrades from older development packages, including v0.1.x, v0.2.x, and v0.3.x, are not supported.
 
-If you are using an older development package, install Bonumark Stream v0.5.30 as a fresh installation.
+If you are using an older development package, install Bonumark Stream v0.5.42 as a fresh installation.
 
 ## Requirements
 
@@ -292,6 +298,24 @@ Bonumark Stream includes basic page support for static content such as:
 
 Pages are managed by the Admin.
 
+## Local Places
+
+Local Places is a self-contained location feature stored entirely on the Bonumark Stream instance.
+
+- Location access starts only after the signed-in owner presses **Find nearby** or **Use current location**.
+- The browser supplies coordinates with permission. Bonumark Stream does not perform background location tracking.
+- Nearby matching searches only the instance's saved place directory.
+- Both Stream Post composers use a compact saved-place picker with nearby search.
+- New places created from a composer ask only for a place name and optional public location label.
+- Detailed categories, address fields, coordinates, and display defaults are managed under **Admin → Local Places**.
+- Public posts use the saved place's default display automatically.
+- Coordinates stay private and are not rendered in public HTML, feeds, or post text.
+- Local Places continues to work with saved places when browser location permission is denied.
+- No external places service, paid API, or shared directory is required.
+
+Location snapshots are stored with the post in database front matter and included in Markdown exports for portability. Deleting a saved place does not remove the public location text already stored with existing posts.
+
+
 ## Media
 
 The Admin can upload and manage media through the media library.
@@ -418,7 +442,7 @@ The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
 Older development packages are not supported upgrade sources.
 
-For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.30 install.
+For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.42 install.
 
 ## Project status
 

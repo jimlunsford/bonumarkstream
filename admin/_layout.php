@@ -88,6 +88,8 @@ function bms_admin_header(string $title, array $actions = []): void
     $mediaUrl = htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8');
     $mediaUploadUrl = htmlspecialchars(bms_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8');
     $mediaTrashUrl = htmlspecialchars(bms_admin_url('media.php?status=trash'), ENT_QUOTES, 'UTF-8');
+    $placesUrl = htmlspecialchars(bms_admin_url('places.php'), ENT_QUOTES, 'UTF-8');
+    $placeNewUrl = htmlspecialchars(bms_admin_url('place-edit.php'), ENT_QUOTES, 'UTF-8');
     $appearanceUrl = htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
     $themeUrl = htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8');
     $themeInstallUrl = htmlspecialchars(bms_admin_url('theme-install.php'), ENT_QUOTES, 'UTF-8');
@@ -104,6 +106,7 @@ function bms_admin_header(string $title, array $actions = []): void
     $remotePostingUrl = htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8');
     $scheduledTasksUrl = htmlspecialchars(bms_admin_url('scheduled-tasks.php'), ENT_QUOTES, 'UTF-8');
     $toolsUrl = htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8');
+    $analyticsUrl = htmlspecialchars(bms_admin_url('analytics.php'), ENT_QUOTES, 'UTF-8');
     $upgradeUrl = htmlspecialchars(bms_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8');
     $exportUrl = htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8');
     $importUrl = htmlspecialchars(bms_admin_url('import.php'), ENT_QUOTES, 'UTF-8');
@@ -178,6 +181,13 @@ function bms_admin_header(string $title, array $actions = []): void
         echo '</div></details>';
     }
 
+    if ($can('edit_content')) {
+        echo '<details class="admin-nav-section"' . $sectionOpen(['places.php', 'place-edit.php', 'place-delete.php']) . '><summary class="admin-nav-heading">Places</summary><div class="admin-nav-links">';
+        echo '<a href="' . $placesUrl . '">Local Places</a>';
+        echo '<a href="' . $placeNewUrl . '">Add Place</a>';
+        echo '</div></details>';
+    }
+
     if ($can('manage_appearance')) {
         echo '<details class="admin-nav-section"' . $sectionOpen(['appearance.php', 'theme.php', 'theme-details.php', 'theme-install.php', 'theme-delete.php', 'theme-settings.php', 'navigation.php', 'site-identity.php']) . '><summary class="admin-nav-heading">Appearance</summary><div class="admin-nav-links">';
         echo '<a href="' . $themeUrl . '">Themes</a>';
@@ -214,8 +224,9 @@ function bms_admin_header(string $title, array $actions = []): void
     }
 
     if ($can('view_system')) {
-        echo '<details class="admin-nav-section"' . $sectionOpen(['tools.php', 'export.php', 'import.php', 'import-markdown.php', 'upgrade.php', 'system-check.php', 'help.php', 'security.php']) . '><summary class="admin-nav-heading">Tools</summary><div class="admin-nav-links">';
+        echo '<details class="admin-nav-section"' . $sectionOpen(['tools.php', 'analytics.php', 'export.php', 'import.php', 'import-markdown.php', 'upgrade.php', 'system-check.php', 'help.php', 'security.php']) . '><summary class="admin-nav-heading">Tools</summary><div class="admin-nav-links">';
         echo '<a href="' . $toolsUrl . '">All Tools</a>';
+        echo '<a href="' . $analyticsUrl . '">Analytics</a>';
         echo '<a href="' . $exportUrl . '">Export</a>';
         echo '<a href="' . $importUrl . '">Import</a>';
         echo '<a href="' . $upgradeUrl . '">Upgrade</a>';

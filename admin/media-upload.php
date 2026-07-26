@@ -14,12 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $media = bms_media_upload($file, (string)($_POST['alt_text'] ?? ''), (string)($_POST['caption'] ?? ''));
-        bms_flash('Media uploaded. “' . ((string)($media['original_filename'] ?? $media['filename'] ?? 'Media')) . '” is ready to use.', 'success');
+        $privacy = function_exists('bms_media_privacy_status') ? bms_media_privacy_status($media) : [];
+        $privacyStatus = (string)($privacy['status'] ?? '');
+        if ($privacyStatus === 'unconfirmed') {
+            bms_flash('Media uploaded with a randomized filename, but metadata removal could not be confirmed. Review the media privacy warning.', 'warning');
+        } else {
+            bms_flash('Media uploaded. “' . ((string)($media['original_filename'] ?? $media['filename'] ?? 'Media')) . '” is ready to use.', 'success');
+        }
         bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)($media['id'] ?? ''))));
     } catch (Throwable $e) {
         bms_log_admin_exception('media-upload', $e);
 
-        bms_flash('Media upload failed. Please try again.', 'error');
+        $message = trim($e->getMessage());
+        bms_flash($message !== '' ? ('Media upload failed. ' . $message) : 'Media upload failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('media-upload.php'));
     }
 }
@@ -31,7 +38,7 @@ bms_admin_header('Add New Media', [
 <section class="panel page-intro-panel">
   <p class="eyebrow">Media</p>
   <h2>Add New Media</h2>
-  <p class="meta">Upload a supported media file and Bonumark Stream will store it under the public <code>/media/</code> folder with database-backed metadata.</p>
+  <p class="meta">Upload a supported media file. Bonumark Stream randomizes the public filename, attempts image metadata removal on shared-hosting PHP, and shows a warning when metadata removal cannot be confirmed.</p>
 </section>
 
 <section class="panel upload-media-panel">

@@ -10,6 +10,7 @@ $timezoneLabel = (string)($data['timezone_label'] ?? 'UTC');
 $schedulePanelId = 'stream-compose-schedule-panel';
 $scheduleInputId = 'stream_scheduled_at_front';
 $flashes = is_array($data['flashes'] ?? null) ? $data['flashes'] : [];
+$locationPickerHtml = (string)($data['location_picker_html'] ?? '');
 ?>
 <section class="stream-compose" aria-label="Quick stream post">
   <form class="stream-compose-form" method="post" action="<?= htmlspecialchars((string)($data['action_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-stream-form data-stream-scheduled-runner-url="<?= htmlspecialchars((string)($data['scheduled_runner_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -26,6 +27,8 @@ $flashes = is_array($data['flashes'] ?? null) ? $data['flashes'] : [];
         <button type="button" class="stream-compose-schedule-cancel" data-stream-schedule-cancel>Cancel schedule</button>
       </div>
 
+      <?= $locationPickerHtml ?>
+
       <div class="stream-compose-footer stream-compose-toolbar">
         <div class="stream-compose-left stream-compose-actions" aria-label="Composer actions">
           <label class="stream-compose-attach stream-compose-tool" for="<?= htmlspecialchars($fileId, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars((string)($data['attach_label'] ?? 'Attach media'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars((string)($data['attach_label'] ?? 'Attach media'), ENT_QUOTES, 'UTF-8') ?>">
@@ -41,6 +44,12 @@ $flashes = is_array($data['flashes'] ?? null) ? $data['flashes'] : [];
             </span>
             <span class="screen-reader-text">Schedule post</span>
           </button>
+          <?php if ($locationPickerHtml !== ''): ?>
+            <button type="button" class="stream-compose-tool stream-compose-location-toggle" title="Add location" aria-label="Add location" aria-controls="local-places-front" aria-expanded="false" data-local-places-toggle>
+              <span class="stream-compose-tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-5.35 7-12A7 7 0 1 0 5 9c0 6.65 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
+              <span class="screen-reader-text">Add location</span>
+            </button>
+          <?php endif; ?>
         </div>
         <button type="submit" class="stream-compose-submit" data-stream-submit data-ready-label="<?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?>" data-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? 'Posting...'), ENT_QUOTES, 'UTF-8') ?>" data-publish-label="<?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?>" data-publish-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? 'Posting...'), ENT_QUOTES, 'UTF-8') ?>" data-schedule-label="Schedule" data-schedule-busy-label="Scheduling..."><?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?></button>
       </div>

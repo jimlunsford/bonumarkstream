@@ -81,6 +81,7 @@ function bms_export_database_tables(): array
             'stream_like_attempts', 'comments', 'mail_test_deliveries', 'registration_invites',
             'password_reset_tokens', 'password_reset_attempts', 'email_verification_attempts',
             'api_tokens', 'api_audit_log', 'api_rate_limit_attempts', 'api_idempotency_keys',
+            'analytics_daily',
         ];
         return array_map('bms_table', $fallback);
     }

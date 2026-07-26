@@ -106,11 +106,15 @@ function bm_connect(array $db): PDO
     $pass = (string)($db['password'] ?? '');
     $charset = (string)($db['charset'] ?? 'utf8mb4');
     $dsn = "mysql:host={$host};dbname={$name};charset={$charset}";
-    return new PDO($dsn, $user, $pass, [
+    $pdo = new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+    // Fresh-install schema and seed writes must use the same canonical UTC
+    // database session as normal runtime connections.
+    $pdo->exec("SET time_zone = '+00:00'");
+    return $pdo;
 }
 
 function bm_write_config(array $db, array $site): void
@@ -185,6 +189,9 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'scheduled_tasks_public_traffic_enabled' => '1',
         'scheduled_tasks_heartbeat_enabled' => '1',
         'scheduled_tasks_web_cron_enabled' => '0',
+        'analytics_enabled' => '0',
+        'analytics_retention_days' => '90',
+        'analytics_last_cleanup_date' => '',
         'primary_navigation_enabled' => '0',
         'public_navigation_account_links_enabled' => '1',
         'primary_navigation' => json_encode([
@@ -217,7 +224,7 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
         'username' => $username,
         'display_name' => trim((string)$admin['display_name']),
         'email' => $email,
-        'email_verified_at' => date('Y-m-d H:i:s'),
+        'email_verified_at' => gmdate('Y-m-d H:i:s'),
         'password_hash' => password_hash((string)$admin['password'], PASSWORD_DEFAULT),
         'role' => 'admin',
         'status' => 'active',

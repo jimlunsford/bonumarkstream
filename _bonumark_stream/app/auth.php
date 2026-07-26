@@ -467,6 +467,7 @@ function bms_admin_route_capability(string $script): ?string
         'publish.php', 'unpublish.php', 'pin.php' => 'publish_content',
         'pages.php', 'page-new.php', 'page-edit.php', 'page-delete.php', 'page-publish.php', 'page-unpublish.php', 'page-restore.php', 'page-delete-permanent.php' => 'manage_pages',
         'quick-post.php' => 'edit_content',
+        'places.php', 'place-edit.php', 'place-delete.php', 'places-nearby.php', 'places-save.php' => 'edit_content',
         'scheduled-runner.php' => 'publish_content',
         'link-preview.php' => 'edit_content',
         'autosave.php' => 'edit_content',
@@ -476,7 +477,7 @@ function bms_admin_route_capability(string $script): ?string
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
         'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
         'users.php', 'user-edit.php' => 'manage_users',
-        'tools.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php', 'security.php' => 'view_system',
+        'tools.php', 'analytics.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php', 'security.php' => 'view_system',
         default => null,
     };
 }

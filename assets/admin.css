@@ -7153,3 +7153,400 @@ body.bonumark-admin .scheduled-task-history-table td:last-child {
   }
 }
 
+
+/* Privacy-First Analytics */
+.analytics-settings-grid,
+.analytics-report-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.analytics-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.analytics-report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.analytics-boundaries-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.analytics-boundaries-card h3 { margin: .75rem 0 .45rem; font-size: .95rem; }
+.analytics-boundaries-card ul { margin: 0; padding-left: 1.15rem; }
+.analytics-boundaries-card li { margin: .35rem 0; }
+.analytics-report-header { align-items: end; gap: 1rem; }
+.analytics-range-form { margin-left: auto; }
+.analytics-range-form select { min-width: 155px; }
+.analytics-metric-grid { margin-top: 1rem; }
+.analytics-report-card {
+  min-height: 145px;
+}
+.analytics-report-card h2 {
+  margin-bottom: 1rem;
+}
+.analytics-report-list {
+  display: grid;
+  gap: .65rem;
+}
+.analytics-report-row {
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: .65rem;
+}
+.analytics-report-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.analytics-report-row span {
+  color: var(--admin-text, #f7f2e7);
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.analytics-report-row strong {
+  color: var(--admin-muted, #b9b0a2);
+  flex: 0 0 auto;
+  font-size: .9rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.analytics-empty-state {
+  color: var(--admin-muted, #b9b0a2);
+  margin: 0;
+}
+.analytics-danger-zone { border-color: rgba(190, 48, 48, .55); }
+.analytics-danger-zone .danger-button { background: #a72b2b; border-color: #a72b2b; }
+.analytics-danger-zone .danger-button:hover,
+.analytics-danger-zone .danger-button:focus { background: #872222; border-color: #872222; }
+@media (max-width: 840px) {
+  .analytics-settings-grid,
+  .analytics-report-grid,
+  .analytics-boundaries-columns { grid-template-columns: 1fr; }
+  .analytics-range-form { margin-left: 0; }
+}
+
+/* Privacy-safe media upload indicators */
+.status-pill.warning {
+  border-color: rgba(245, 158, 11, .52);
+  color: #facc15;
+}
+
+.status-pill.danger {
+  border-color: rgba(239, 68, 68, .58);
+  color: #fca5a5;
+}
+
+body.bonumark-admin .media-privacy-line {
+  margin: 8px 0 0;
+}
+
+body.bonumark-admin .media-privacy-warning {
+  color: #facc15;
+  font-size: .85rem;
+  line-height: 1.5;
+  margin: 7px 0 0;
+}
+
+body.bonumark-admin .media-privacy-card .media-diagnostic-header > .status-pill {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  line-height: 1.1;
+  min-height: 38px;
+  min-width: 118px;
+  padding: 7px 12px;
+  text-align: center;
+  white-space: normal;
+}
+
+body.bonumark-admin .media-privacy-notice {
+  margin: 12px 0 0;
+}
+
+/* Local Places admin */
+.editor-location-card .local-places-picker { margin: 0; padding: 0; border: 0; background: transparent; }
+.editor-location-card .editor-card-heading { margin-bottom: 8px; }
+.editor-location-card .editor-card-heading h3 { margin: 0; }
+.editor-location-card .local-places-picker-body[hidden],
+.editor-location-card .local-places-create-modal[hidden] { display: none !important; }
+.editor-location-card .local-places-selected {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--admin-line, #334155);
+  border-radius: 10px;
+  background: var(--admin-panel-soft, #111827);
+}
+.editor-location-card .local-places-selected.is-selected { display: flex; }
+.editor-location-card .local-places-selected-copy { min-width: 0; }
+.editor-location-card .local-places-selected strong,
+.editor-location-card .local-places-selected span { display: block; }
+.editor-location-card .local-places-selected strong,
+.editor-location-card .local-places-selected span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-location-card .local-places-selected span { color: var(--muted, #94a3b8); font-size: .84rem; }
+.editor-location-card .local-places-selected-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.editor-location-card .local-places-change,
+.editor-location-card .local-places-remove,
+.editor-location-card .local-places-add-button,
+.editor-location-card .local-places-create-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted, #94a3b8);
+  font: inherit;
+  cursor: pointer;
+}
+.editor-location-card .local-places-change,
+.editor-location-card .local-places-remove { padding: 5px 8px; font-size: .8rem; }
+.editor-location-card .local-places-add-button { justify-self: start; padding: 2px 0; font-weight: 700; }
+.editor-location-card .local-places-change:hover,
+.editor-location-card .local-places-remove:hover,
+.editor-location-card .local-places-add-button:hover,
+.editor-location-card .local-places-create-close:hover { color: var(--text, #f8fafc); }
+.editor-location-card .local-places-picker-body { display: grid; gap: 10px; }
+.editor-location-card .local-places-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.editor-location-card .local-places-controls label { margin: 0; }
+.editor-location-card .local-places-nearby-button { margin: 0; white-space: nowrap; }
+.editor-location-card .local-places-status { margin: 0; }
+.editor-location-card .local-places-status:empty { display: none; }
+.editor-location-card .local-places-status.is-error { color: #f87171; }
+.editor-location-card .local-places-nearby { display: grid; gap: 7px; }
+.editor-location-card .local-places-nearby-result { width: 100%; margin: 0; text-align: left; }
+
+body.local-places-modal-open { overflow: hidden; }
+.local-places-create-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.local-places-create-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0, 0, 0, .72);
+}
+.local-places-create-dialog {
+  position: relative;
+  width: min(100%, 460px);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border: 1px solid var(--admin-line, #334155);
+  border-radius: 14px;
+  background: var(--admin-panel, #0f172a);
+  color: var(--text, #f8fafc);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+  padding: 18px;
+}
+.local-places-create-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.local-places-create-header .eyebrow { margin: 0 0 2px; }
+.local-places-create-header h3 { margin: 0; }
+.local-places-create-close { margin: 0; padding: 2px 7px; font-size: 1.5rem; line-height: 1; }
+.local-places-create-fields { display: grid; gap: 11px; }
+.local-places-create-fields label { margin: 0; }
+.local-places-create-fields input { width: 100%; }
+.local-places-create-fields small { color: var(--muted, #94a3b8); font-weight: 400; }
+.local-places-create-fields .field-help { margin: 0; }
+.local-places-create-status:empty { display: none; }
+.local-places-create-status.is-error { color: #f87171; }
+.local-places-create-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.local-places-create-actions button { margin: 0; }
+
+.local-places-table .table-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.local-places-table .table-actions form { margin: 0; }
+.local-places-table .table-actions button { margin: 0; }
+.local-place-fields-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.local-place-coordinate-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 20px; }
+.local-place-coordinate-actions button { margin: 0; }
+.local-place-edit-form > .primary-button { margin-top: 0; }
+
+@media (max-width: 760px) {
+  .editor-location-card .local-places-controls,
+  .local-place-fields-grid { grid-template-columns: 1fr; }
+  .editor-location-card .local-places-nearby-button { width: 100%; }
+  .local-places-create-actions { flex-direction: column-reverse; }
+  .local-places-create-actions button { width: 100%; }
+}
+
+
+/* Local Places Metadata Alignment Hotfix */
+body.bonumark-admin .local-places-directory-panel {
+  display: grid;
+  gap: 18px;
+}
+
+body.bonumark-admin .local-places-directory-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .local-places-directory-header .eyebrow {
+  margin: 0 0 8px;
+}
+
+body.bonumark-admin .local-places-directory-header h2 {
+  margin: 0;
+}
+
+body.bonumark-admin .local-places-directory-summary {
+  color: var(--admin-muted);
+  margin: 7px 0 0;
+}
+
+body.bonumark-admin .local-places-private-pill {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+body.bonumark-admin .local-places-privacy-note {
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-left: 3px solid var(--admin-blue);
+  border-radius: 8px;
+  padding: 13px 15px;
+}
+
+body.bonumark-admin .local-places-privacy-note strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+body.bonumark-admin .local-places-privacy-note p {
+  color: var(--admin-muted);
+  margin: 0;
+  max-width: 780px;
+}
+
+body.bonumark-admin .local-places-directory-list {
+  display: grid;
+  gap: 12px;
+}
+
+body.bonumark-admin .local-place-directory-item {
+  align-items: center;
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px;
+}
+
+body.bonumark-admin .local-place-directory-item:hover {
+  background: rgba(255, 255, 255, .04);
+  border-color: rgba(255, 255, 255, .14);
+}
+
+body.bonumark-admin .local-place-directory-content {
+  min-width: 0;
+}
+
+body.bonumark-admin .local-place-directory-title-copy {
+  min-width: 0;
+}
+
+body.bonumark-admin .local-place-directory-title-copy h3 {
+  font-size: 1rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .local-place-directory-location {
+  color: var(--admin-muted);
+  margin: 4px 0 0;
+}
+
+body.bonumark-admin .local-place-directory-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin-top: 13px;
+}
+
+body.bonumark-admin .local-place-directory-detail {
+  display: grid;
+  gap: 2px;
+}
+
+body.bonumark-admin .local-place-directory-detail span {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .local-place-directory-detail strong {
+  font-size: .88rem;
+  font-weight: 600;
+}
+
+body.bonumark-admin .local-place-directory-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+body.bonumark-admin .local-place-directory-actions form {
+  margin: 0;
+}
+
+body.bonumark-admin .local-place-directory-actions .secondary-button,
+body.bonumark-admin .local-place-directory-actions button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .local-place-delete-button {
+  background: transparent;
+  border-color: rgba(220, 38, 38, .65);
+  color: #ff8989;
+}
+
+body.bonumark-admin .local-place-delete-button:hover,
+body.bonumark-admin .local-place-delete-button:focus {
+  background: rgba(220, 38, 38, .14);
+  border-color: var(--admin-danger);
+  color: #fff;
+}
+
+body.bonumark-admin .local-places-empty-state {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  body.bonumark-admin .local-places-directory-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .local-place-directory-item {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .local-place-directory-actions {
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    padding-top: 13px;
+  }
+
+  body.bonumark-admin .local-place-directory-actions .secondary-button,
+  body.bonumark-admin .local-place-directory-actions form,
+  body.bonumark-admin .local-place-directory-actions button {
+    flex: 1 1 0;
+    text-align: center;
+    width: 100%;
+  }
+}

@@ -622,7 +622,7 @@ function bms_database_content_columns_ready(): bool
 function bms_content_front_matter_for_database(array $page): array
 {
     $frontMatter = is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
-    foreach (['seo_title','robots','featured_media','stream_created_at','scheduled_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name'] as $key) {
+    foreach (['seo_title','robots','featured_media','stream_created_at','scheduled_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name','location_place_id','location_name','location_category','location_area','location_locality','location_region','location_country','location_display_mode'] as $key) {
         if (array_key_exists($key, $page) && !array_key_exists($key, $frontMatter)) {
             $frontMatter[$key] = $page[$key];
         }
@@ -651,6 +651,14 @@ function bms_database_content_raw(array $page): string
         'link_preview_description' => (string)($page['link_preview_description'] ?? $page['front_matter']['link_preview_description'] ?? ''),
         'link_preview_image' => (string)($page['link_preview_image'] ?? $page['front_matter']['link_preview_image'] ?? ''),
         'link_preview_site_name' => (string)($page['link_preview_site_name'] ?? $page['front_matter']['link_preview_site_name'] ?? ''),
+        'location_place_id' => (string)($page['location_place_id'] ?? $page['front_matter']['location_place_id'] ?? ''),
+        'location_name' => (string)($page['location_name'] ?? $page['front_matter']['location_name'] ?? ''),
+        'location_category' => (string)($page['location_category'] ?? $page['front_matter']['location_category'] ?? ''),
+        'location_area' => (string)($page['location_area'] ?? $page['front_matter']['location_area'] ?? ''),
+        'location_locality' => (string)($page['location_locality'] ?? $page['front_matter']['location_locality'] ?? ''),
+        'location_region' => (string)($page['location_region'] ?? $page['front_matter']['location_region'] ?? ''),
+        'location_country' => (string)($page['location_country'] ?? $page['front_matter']['location_country'] ?? ''),
+        'location_display_mode' => (string)($page['location_display_mode'] ?? $page['front_matter']['location_display_mode'] ?? ''),
     ], (string)($page['body'] ?? ''));
 }
 
@@ -718,6 +726,14 @@ function bms_database_row_to_content_page(array $row): array
         'link_preview_description' => (string)($frontMatter['link_preview_description'] ?? ''),
         'link_preview_image' => (string)($frontMatter['link_preview_image'] ?? ''),
         'link_preview_site_name' => (string)($frontMatter['link_preview_site_name'] ?? ''),
+        'location_place_id' => (string)($frontMatter['location_place_id'] ?? ''),
+        'location_name' => (string)($frontMatter['location_name'] ?? ''),
+        'location_category' => (string)($frontMatter['location_category'] ?? ''),
+        'location_area' => (string)($frontMatter['location_area'] ?? ''),
+        'location_locality' => (string)($frontMatter['location_locality'] ?? ''),
+        'location_region' => (string)($frontMatter['location_region'] ?? ''),
+        'location_country' => (string)($frontMatter['location_country'] ?? ''),
+        'location_display_mode' => (string)($frontMatter['location_display_mode'] ?? ''),
         'filename' => $filename,
         'path' => $path !== '' ? bms_root_path($path) : '',
         'markdown_path' => $path,

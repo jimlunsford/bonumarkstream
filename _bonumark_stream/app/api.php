@@ -682,6 +682,7 @@ function bms_api_media_response(array $media): array
     $url = $publicPath !== '' ? bms_site_url($publicPath) : '';
     $altText = trim((string)($media['alt_text'] ?? ''));
     $markdownAlt = bms_api_markdown_alt_text($altText);
+    $privacy = function_exists('bms_media_privacy_status') ? bms_media_privacy_status($media) : [];
     return [
         'media_id' => (int)($media['id'] ?? 0),
         'url' => $url,
@@ -694,6 +695,9 @@ function bms_api_media_response(array $media): array
         'height' => isset($media['height']) ? (int)$media['height'] : null,
         'alt_text' => $altText,
         'caption' => (string)($media['caption'] ?? ''),
+        'privacy_status' => (string)($privacy['status'] ?? ''),
+        'privacy_label' => (string)($privacy['label'] ?? ''),
+        'privacy_note' => (string)($privacy['note'] ?? ''),
         'markdown' => '![' . $markdownAlt . '](' . $url . ')',
         'edit_url' => bms_site_url('admin/media-edit.php?id=' . urlencode((string)($media['id'] ?? ''))),
     ];

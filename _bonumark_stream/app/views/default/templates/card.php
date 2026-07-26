@@ -29,6 +29,7 @@ $backLabel = (string)($data['back_label'] ?? 'Back to stream');
 
 
       <div class="stream-card-content"><?= (string)($data['body_html'] ?? '') ?></div>
+      <?= (string)($data['location_html'] ?? '') ?>
       <?= (string)($data['link_preview_html'] ?? '') ?>
       <?= (string)($data['media_html'] ?? '') ?>
 

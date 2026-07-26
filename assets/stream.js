@@ -54,6 +54,394 @@
     });
   }
 
+  function setupLocalPlaces(root) {
+    var scope = root || document;
+    var pickers = scope.querySelectorAll('[data-local-places]');
+
+    pickers.forEach(function (picker) {
+      if (picker.dataset.localPlacesInitialized === '1') {
+        return;
+      }
+      picker.dataset.localPlacesInitialized = '1';
+
+      var form = picker.closest('form');
+      if (!form) {
+        return;
+      }
+      var toggle = form.querySelector('[data-local-places-toggle]');
+      var placeId = picker.querySelector('[data-place-id]');
+      var modeInput = picker.querySelector('[data-place-display-mode]');
+      var select = picker.querySelector('[data-place-select]');
+      var pickerBody = picker.querySelector('[data-place-picker-body]');
+      var selected = picker.querySelector('[data-place-selected]');
+      var selectedPrimary = picker.querySelector('[data-place-selected-primary]');
+      var selectedSecondary = picker.querySelector('[data-place-selected-secondary]');
+      var change = picker.querySelector('[data-place-change]');
+      var remove = picker.querySelector('[data-place-remove]');
+      var nearbyButton = picker.querySelector('[data-place-nearby]');
+      var nearbyResults = picker.querySelector('[data-place-nearby-results]');
+      var status = picker.querySelector('[data-place-status]');
+      var createOpen = picker.querySelector('[data-place-create-open]');
+      var createModal = picker.querySelector('[data-place-create-modal]');
+      var createCloseButtons = picker.querySelectorAll('[data-place-create-close]');
+      var saveButton = picker.querySelector('[data-place-save]');
+      var createStatus = picker.querySelector('[data-place-create-status]');
+      var newName = picker.querySelector('[data-place-new-name]');
+      var newPublicLabel = picker.querySelector('[data-place-new-public-label]');
+      var newLatitude = picker.querySelector('[data-place-new-latitude]');
+      var newLongitude = picker.querySelector('[data-place-new-longitude]');
+      var nearbyEndpoint = picker.getAttribute('data-nearby-endpoint') || '';
+      var saveEndpoint = picker.getAttribute('data-save-endpoint') || '';
+      var lastFocused = null;
+
+      function csrfToken() {
+        var token = form.querySelector('input[name="csrf_token"]');
+        return token ? token.value || '' : '';
+      }
+
+      function setStatus(message, isError) {
+        if (!status) {
+          return;
+        }
+        status.textContent = message || '';
+        status.classList.toggle('is-error', !!isError);
+      }
+
+      function setCreateStatus(message, isError) {
+        if (!createStatus) {
+          return;
+        }
+        createStatus.textContent = message || '';
+        createStatus.classList.toggle('is-error', !!isError);
+      }
+
+      function locationLine(place) {
+        var parts = [];
+        if (place.locality) parts.push(place.locality);
+        if (place.region && parts.indexOf(place.region) === -1) parts.push(place.region);
+        if (!parts.length && place.country) parts.push(place.country);
+        return parts.join(', ');
+      }
+
+      function labelsFor(place, mode) {
+        mode = mode || place.default_display_mode || 'exact';
+        var primary = '';
+        var secondary = '';
+        if (mode === 'city') {
+          primary = place.locality || place.region || place.country || place.name || '';
+          secondary = place.locality && place.region ? place.region : ((place.country || '') !== primary ? (place.country || '') : '');
+        } else if (mode === 'area') {
+          primary = place.area_label || place.locality || place.name || '';
+          var parts = [];
+          if (place.locality && place.locality !== primary) parts.push(place.locality);
+          if (place.region && parts.indexOf(place.region) === -1) parts.push(place.region);
+          secondary = parts.join(', ');
+          if (!secondary && place.country && place.country !== primary) secondary = place.country;
+        } else {
+          primary = place.name || '';
+          secondary = locationLine(place);
+        }
+        return { primary: primary, secondary: secondary, mode: mode };
+      }
+
+      function optionToPlace(option) {
+        if (!option || !option.value) {
+          return null;
+        }
+        return {
+          id: parseInt(option.value, 10) || 0,
+          name: option.getAttribute('data-place-name') || '',
+          area_label: option.getAttribute('data-place-area') || '',
+          locality: option.getAttribute('data-place-locality') || '',
+          region: option.getAttribute('data-place-region') || '',
+          country: option.getAttribute('data-place-country') || '',
+          default_display_mode: option.getAttribute('data-place-mode') || 'exact'
+        };
+      }
+
+      function ensureOption(place) {
+        if (!select || !place || !place.id) {
+          return null;
+        }
+        var option = select.querySelector('option[value="' + String(place.id) + '"]');
+        if (!option) {
+          option = document.createElement('option');
+          option.value = String(place.id);
+          select.appendChild(option);
+        }
+        option.setAttribute('data-place-name', place.name || '');
+        option.setAttribute('data-place-area', place.area_label || '');
+        option.setAttribute('data-place-locality', place.locality || '');
+        option.setAttribute('data-place-region', place.region || '');
+        option.setAttribute('data-place-country', place.country || '');
+        option.setAttribute('data-place-mode', place.default_display_mode || 'exact');
+        var labels = labelsFor(place, place.default_display_mode || 'exact');
+        option.textContent = labels.primary + (labels.secondary ? ' · ' + labels.secondary : '');
+        return option;
+      }
+
+      function closeCreateModal() {
+        if (!createModal || createModal.hidden) {
+          return;
+        }
+        createModal.hidden = true;
+        document.body.classList.remove('local-places-modal-open');
+        if (lastFocused && typeof lastFocused.focus === 'function') {
+          lastFocused.focus();
+        }
+      }
+
+      function openCreateModal() {
+        if (!createModal) {
+          return;
+        }
+        lastFocused = document.activeElement;
+        createModal.hidden = false;
+        setCreateStatus('', false);
+        document.body.classList.add('local-places-modal-open');
+        window.setTimeout(function () {
+          if (newName) newName.focus();
+        }, 0);
+      }
+
+      function setSelected(place, mode) {
+        if (!place || !place.id) {
+          clearSelected();
+          return;
+        }
+        mode = mode || place.default_display_mode || 'exact';
+        if (placeId) placeId.value = String(place.id);
+        if (modeInput) modeInput.value = mode;
+        var labels = labelsFor(place, mode);
+        if (selectedPrimary) selectedPrimary.textContent = labels.primary;
+        if (selectedSecondary) selectedSecondary.textContent = labels.secondary;
+        if (selected) selected.classList.add('is-selected');
+        if (change) change.hidden = false;
+        if (remove) remove.hidden = false;
+        if (pickerBody) pickerBody.hidden = true;
+        var option = ensureOption(place);
+        if (select && option) select.value = String(place.id);
+        if (toggle) {
+          toggle.classList.add('is-active');
+          toggle.setAttribute('aria-label', 'Change location');
+          toggle.setAttribute('title', 'Change location');
+        }
+        closeCreateModal();
+      }
+
+      function clearSelected() {
+        if (placeId) placeId.value = '';
+        if (modeInput) modeInput.value = 'exact';
+        if (select) select.value = '';
+        if (selectedPrimary) selectedPrimary.textContent = '';
+        if (selectedSecondary) selectedSecondary.textContent = '';
+        if (selected) selected.classList.remove('is-selected');
+        if (change) change.hidden = true;
+        if (remove) remove.hidden = true;
+        if (pickerBody) pickerBody.hidden = false;
+        if (toggle) {
+          toggle.classList.remove('is-active');
+          toggle.setAttribute('aria-label', 'Add location');
+          toggle.setAttribute('title', 'Add location');
+        }
+      }
+
+      function requestPosition(callback, forCreate) {
+        var notify = forCreate ? setCreateStatus : setStatus;
+        if (!navigator.geolocation) {
+          notify('This browser does not provide location access. You can still choose a saved place.', true);
+          return;
+        }
+        notify('Finding your current location…', false);
+        navigator.geolocation.getCurrentPosition(function (position) {
+          var latitude = Number(position.coords.latitude);
+          var longitude = Number(position.coords.longitude);
+          var accuracy = Number(position.coords.accuracy || 0);
+          if (newLatitude) newLatitude.value = latitude.toFixed(7);
+          if (newLongitude) newLongitude.value = longitude.toFixed(7);
+          callback(latitude, longitude, accuracy);
+        }, function () {
+          notify('Location permission was denied or the device could not provide a location.', true);
+        }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+      }
+
+      function renderNearby(places) {
+        if (!nearbyResults) {
+          return;
+        }
+        nearbyResults.innerHTML = '';
+        if (!places || !places.length) {
+          nearbyResults.hidden = true;
+          setStatus('No saved places were found nearby. Add a new place if needed.', false);
+          return;
+        }
+        var heading = document.createElement('strong');
+        heading.textContent = 'Nearby saved places';
+        nearbyResults.appendChild(heading);
+        places.forEach(function (place) {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'local-places-nearby-result';
+          var distance = typeof place.distance_meters === 'number' ? ' · ' + place.distance_meters + ' m' : '';
+          button.textContent = (place.name || 'Saved place') + (locationLine(place) ? ' · ' + locationLine(place) : '') + distance;
+          button.addEventListener('click', function () {
+            setSelected(place, place.default_display_mode || 'exact');
+            setStatus('Location attached to this post.', false);
+          });
+          nearbyResults.appendChild(button);
+        });
+        nearbyResults.hidden = false;
+        setStatus('Choose a nearby saved place.', false);
+      }
+
+      function findNearby() {
+        if (!nearbyEndpoint || !window.fetch) {
+          setStatus('Nearby search is unavailable in this browser. You can still choose a saved place.', true);
+          return;
+        }
+        if (nearbyButton) nearbyButton.disabled = true;
+        requestPosition(function (latitude, longitude, accuracy) {
+          var body = new URLSearchParams();
+          body.set('csrf_token', csrfToken());
+          body.set('latitude', String(latitude));
+          body.set('longitude', String(longitude));
+          body.set('accuracy', String(accuracy));
+          window.fetch(nearbyEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
+            body: body.toString()
+          }).then(function (response) {
+            return response.json().then(function (json) {
+              if (!response.ok || !json || json.ok !== true) {
+                throw new Error(json && json.message ? json.message : 'Nearby places could not be loaded.');
+              }
+              return json.places || [];
+            });
+          }).then(renderNearby).catch(function (error) {
+            setStatus(error && error.message ? error.message : 'Nearby places could not be loaded.', true);
+          }).finally(function () {
+            if (nearbyButton) nearbyButton.disabled = false;
+          });
+        });
+      }
+
+      function saveCurrentPlace() {
+        if (!saveEndpoint || !window.fetch) {
+          setStatus('Saving places is unavailable in this browser.', true);
+          return;
+        }
+        var saveWithCoordinates = function (latitude, longitude) {
+          var name = newName ? newName.value.trim() : '';
+          var publicLabel = newPublicLabel ? newPublicLabel.value.trim() : '';
+          if (!name) {
+            setCreateStatus('Enter a place name before saving.', true);
+            if (newName) newName.focus();
+            return;
+          }
+          if (saveButton) saveButton.disabled = true;
+          setCreateStatus('Saving this place locally…', false);
+          var body = new URLSearchParams();
+          body.set('csrf_token', csrfToken());
+          body.set('name', name);
+          body.set('category', 'other');
+          body.set('area_label', '');
+          body.set('locality', publicLabel);
+          body.set('region', '');
+          body.set('country', '');
+          body.set('default_display_mode', 'exact');
+          body.set('latitude', String(latitude));
+          body.set('longitude', String(longitude));
+          window.fetch(saveEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
+            body: body.toString()
+          }).then(function (response) {
+            return response.json().then(function (json) {
+              if (!response.ok || !json || json.ok !== true) {
+                throw new Error(json && json.message ? json.message : 'The place could not be saved.');
+              }
+              return json.place;
+            });
+          }).then(function (place) {
+            setSelected(place, place.default_display_mode || 'exact');
+            setStatus('Place saved locally and attached to this post.', false);
+            if (newName) newName.value = '';
+            if (newPublicLabel) newPublicLabel.value = '';
+          }).catch(function (error) {
+            setCreateStatus(error && error.message ? error.message : 'The place could not be saved.', true);
+          }).finally(function () {
+            if (saveButton) saveButton.disabled = false;
+          });
+        };
+
+        var latitude = newLatitude && newLatitude.value ? parseFloat(newLatitude.value) : NaN;
+        var longitude = newLongitude && newLongitude.value ? parseFloat(newLongitude.value) : NaN;
+        if (!isNaN(latitude) && !isNaN(longitude)) {
+          saveWithCoordinates(latitude, longitude);
+          return;
+        }
+        requestPosition(function (lat, lng) {
+          saveWithCoordinates(lat, lng);
+        }, true);
+      }
+
+      if (toggle) {
+        toggle.addEventListener('click', function (event) {
+          event.preventDefault();
+          picker.hidden = !picker.hidden;
+          toggle.setAttribute('aria-expanded', picker.hidden ? 'false' : 'true');
+          if (!picker.hidden && !placeId.value && select) select.focus();
+        });
+      }
+      if (select) {
+        select.addEventListener('change', function () {
+          var place = optionToPlace(select.options[select.selectedIndex]);
+          if (!place) {
+            clearSelected();
+            return;
+          }
+          setSelected(place, place.default_display_mode || 'exact');
+          setStatus('Location attached to this post.', false);
+        });
+      }
+      if (change) {
+        change.addEventListener('click', function () {
+          if (pickerBody) pickerBody.hidden = false;
+          if (select) select.focus();
+        });
+      }
+      if (remove) {
+        remove.addEventListener('click', function () {
+          clearSelected();
+          setStatus('Location removed from this post.', false);
+        });
+      }
+      if (nearbyButton) nearbyButton.addEventListener('click', findNearby);
+      if (createOpen) createOpen.addEventListener('click', openCreateModal);
+      createCloseButtons.forEach(function (button) {
+        button.addEventListener('click', closeCreateModal);
+      });
+      if (saveButton) saveButton.addEventListener('click', saveCurrentPlace);
+      if (createModal) {
+        createModal.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' && event.target && event.target.tagName === 'INPUT') {
+            event.preventDefault();
+            saveCurrentPlace();
+          }
+        });
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && createModal && !createModal.hidden) {
+          closeCreateModal();
+        }
+      });
+    });
+  }
+
   function setupComposer(root) {
     var scope = root || document;
     var forms = scope.querySelectorAll('[data-stream-form]');
@@ -63,6 +451,7 @@
         return;
       }
       form.dataset.streamInitialized = '1';
+      setupLocalPlaces(form);
 
       var input = form.querySelector('[data-stream-file]');
       var preview = form.querySelector('[data-stream-preview]');

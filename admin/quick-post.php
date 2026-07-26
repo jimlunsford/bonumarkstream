@@ -4,6 +4,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/media.php';
 require_once __DIR__ . '/../_bonumark_stream/app/link-preview.php';
 require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
+require_once __DIR__ . '/../_bonumark_stream/app/places.php';
 bms_require_login();
 bms_require_capability('edit_content');
 
@@ -26,6 +27,7 @@ if ($bodyLength > 5000) {
 
 $featuredMedia = '';
 try {
+    $locationFields = function_exists('bms_place_request_fields') ? bms_place_request_fields('') : [];
     $file = $_FILES['stream_media'] ?? ($_FILES['stream_image'] ?? null);
     if (is_array($file) && (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE)) {
         if (($file['error'] ?? UPLOAD_ERR_OK) === UPLOAD_ERR_INI_SIZE || ($file['error'] ?? UPLOAD_ERR_OK) === UPLOAD_ERR_FORM_SIZE) {
@@ -35,18 +37,24 @@ try {
         $featuredMedia = trim((string)($media['public_path'] ?? ''));
     }
 
-    if ($body === '' && $featuredMedia === '') {
-        bms_flash('Write something, attach media, or do both before posting.', 'error');
+    if ($body === '' && $featuredMedia === '' && empty($locationFields['location_place_id'])) {
+        bms_flash('Write something, attach media, or add a location before posting.', 'error');
         bms_redirect($returnTo);
     }
 
     $now = date('Y-m-d H:i:s');
-    $baseSlug = bms_stream_slug_base($body, $now, is_array($media ?? null) ? $media : []);
+    $metadataBody = $body;
+    if ($metadataBody === '' && $featuredMedia === '') {
+        $locationLabel = trim((string)($locationFields['location_name'] ?? $locationFields['location_area'] ?? $locationFields['location_locality'] ?? ''));
+        if ($locationLabel !== '') {
+            $metadataBody = 'Checked in at ' . $locationLabel . '.';
+        }
+    }
+    $baseSlug = bms_stream_slug_base($metadataBody, $now, is_array($media ?? null) ? $media : []);
     $slug = bms_stream_unique_slug($baseSlug);
-
-    $title = bms_stream_admin_title_from_body($body, $now, $featuredMedia, is_array($media ?? null) ? $media : []);
-    $seoTitle = bms_stream_generated_seo_title($body, $now, $featuredMedia, is_array($media ?? null) ? $media : []);
-    $description = bms_stream_generated_description($body, $now, $featuredMedia);
+    $title = bms_stream_admin_title_from_body($metadataBody, $now, $featuredMedia, is_array($media ?? null) ? $media : []);
+    $seoTitle = bms_stream_generated_seo_title($metadataBody, $now, $featuredMedia, is_array($media ?? null) ? $media : []);
+    $description = bms_stream_generated_description($metadataBody, $now, $featuredMedia);
     $linkPreviewFields = function_exists('bms_link_preview_payload_from_request') ? bms_link_preview_front_matter_fields(bms_link_preview_payload_from_request()) : [];
     $targetStatus = $scheduleRequested ? 'scheduled' : 'published';
     $targetSection = $targetStatus === 'scheduled' ? 'scheduled' : 'published';
@@ -69,7 +77,7 @@ try {
         'stream_created_at' => $now,
         'scheduled_at' => $scheduledAtUtc ?? '',
         'seo_title' => $seoTitle,
-    ] + $linkPreviewFields, $body);
+    ] + $linkPreviewFields + $locationFields, $body);
 
     $page = bms_parse_markdown_string($raw);
     $filename = $page['slug'] . '.md';

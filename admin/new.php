@@ -79,8 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = bms_build_markdown_from_request(in_array($requestedStatus, ['published', 'scheduled'], true) ? $requestedStatus : 'draft');
     $raw = str_replace(["\r\n", "\r"], "\n", $raw);
 
-    if (trim((string)($_POST['body_markdown'] ?? '')) === '' && trim((string)($_POST['featured_media'] ?? '')) === '') {
-        bms_flash('Stream post cannot be empty.', 'error');
+    if (trim((string)($_POST['body_markdown'] ?? '')) === '' && trim((string)($_POST['featured_media'] ?? '')) === '' && (int)($_POST['location_place_id'] ?? 0) < 1) {
+        bms_flash('Write something, attach media, or add a location before saving.', 'error');
         bms_redirect(bms_admin_url('new.php'));
     }
 
@@ -163,6 +163,7 @@ function bms_new_content_form(array $page, string $defaultStatus): void
             ]); ?>
             <?php bms_stream_url_fields($page, $section); ?>
             <?php bms_stream_settings_fields($page, $section); ?>
+            <?php bms_stream_location_fields($page); ?>
             <?php bms_stream_media_fields(); ?>
             <?php bms_stream_revision_fields($page); ?>
               </aside>

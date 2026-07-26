@@ -69,6 +69,7 @@ $variantReport = $isImage && function_exists('bms_media_image_variant_status') ?
 $variantEnvironment = is_array($variantReport['environment'] ?? null) ? $variantReport['environment'] : [];
 $variantTargets = is_array($variantReport['targets'] ?? null) ? $variantReport['targets'] : [];
 $variantSummary = $variantReport ? bms_media_variant_status_text($variantReport) : 'Not applicable';
+$privacy = function_exists('bms_media_privacy_status') ? bms_media_privacy_status($media) : ['status' => 'legacy_unchecked', 'label' => 'Not checked', 'class' => 'draft', 'note' => 'Privacy status unavailable.'];
 bms_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
     ['label' => 'Media Library', 'href' => bms_admin_url('media.php'), 'style' => 'secondary'],
     ['label' => 'Media Trash', 'href' => bms_admin_url('media.php?status=trash'), 'style' => 'secondary'],
@@ -94,6 +95,7 @@ bms_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
         <div><span>Dimensions</span><strong><?= htmlspecialchars($dimensions, ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Type</span><strong><?= htmlspecialchars((string)($media['mime_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong></div>
         <div><span>Usage</span><strong><?= htmlspecialchars($usageSummary, ENT_QUOTES, 'UTF-8') ?></strong></div>
+        <div><span>Privacy</span><strong><?= htmlspecialchars((string)($privacy['label'] ?? 'Not checked'), ENT_QUOTES, 'UTF-8') ?></strong></div>
         <?php if ($isImage): ?>
           <div><span>Optimized variants</span><strong><?= htmlspecialchars($variantSummary, ENT_QUOTES, 'UTF-8') ?></strong></div>
         <?php endif; ?>
@@ -104,6 +106,24 @@ bms_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
     </div>
 
     <div class="media-edit-fields">
+      <div class="media-diagnostic-card media-privacy-card">
+        <div class="media-diagnostic-header">
+          <div>
+            <h2>Media privacy</h2>
+            <p class="field-help"><?= htmlspecialchars((string)($privacy['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+          </div>
+          <span class="status-pill <?= htmlspecialchars((string)($privacy['class'] ?? 'draft'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($privacy['label'] ?? 'Not checked'), ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <div class="media-diagnostic-grid">
+          <div><span>Public filename</span><strong><?= htmlspecialchars((string)($media['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong></div>
+          <div><span>Original filename</span><strong><?= htmlspecialchars((string)($media['original_filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong></div>
+          <div><span>Privacy mode</span><strong><?= htmlspecialchars(bms_media_privacy_mode() === 'strict' ? 'Strict privacy' : 'Best effort', ENT_QUOTES, 'UTF-8') ?></strong></div>
+          <div><span>Checked</span><strong><?= htmlspecialchars((string)($privacy['checked_at'] ?: 'Not recorded'), ENT_QUOTES, 'UTF-8') ?></strong></div>
+        </div>
+        <?php if (($privacy['status'] ?? '') === 'unconfirmed'): ?>
+          <div class="notice warning media-privacy-notice"><p>Metadata warning: this image may still contain camera, device, date, editing, or location metadata. The public filename was randomized.</p></div>
+        <?php endif; ?>
+      </div>
       <?php if ($isImage): ?>
         <div class="media-diagnostic-card media-variant-card">
           <div class="media-diagnostic-header">

@@ -1,10 +1,70 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.5.30 continues the v0.4.0+ clean-break foundation.
+Bonumark Stream v0.5.42 continues the v0.4.0+ clean-break foundation.
 
-## v0.5.30 - GitHub Release Hardening Pass
+## v0.5.42 - GitHub Release Hardening Pass
 
-v0.5.30 aligns version markers, public repository documentation, package structure, and installer release copy for the public GitHub release. It does not run a database migration, alter content, rewrite timestamps, change theme behavior, or modify posts, pages, users, comments, media, settings, API tokens, cron history, uploads, or configuration.
+v0.5.42 makes the fresh installer set the MySQL/MariaDB session to UTC before schema migrations and initial seed writes. This aligns fresh-install timestamps with the canonical UTC behavior used by normal runtime database connections.
+
+The release also restores the missing v0.5.35 and v0.5.37 upgrade notes and corrects the older v0.5.24 timestamp-section label. No migration runs, and existing config, database data, posts, pages, drafts, revisions, users, comments, likes, media, uploads, themes, settings, analytics, API tokens, cron history, scheduled posts, Local Places, coordinates, consent records, and post location snapshots are preserved.
+
+## v0.5.41 - Local Places Metadata Alignment Hotfix
+
+v0.5.41 removes the floating category badge from Local Places cards and places Category beside Default public display in the labeled metadata row. This is a presentation-only change.
+
+No migration runs. Existing Local Places, coordinates, posts, post location snapshots, settings, media, themes, uploads, and other site data are preserved.
+
+## v0.5.40 - Local Places Admin Polish Pass
+
+v0.5.40 replaces the wide Local Places admin table with a compact responsive directory. It improves place hierarchy, saved-place counts, privacy guidance, display information, action spacing, and mobile behavior without changing Local Places data or functionality.
+
+No migration runs. Existing Local Places, coordinates, posts, post location snapshots, settings, media, themes, uploads, and other site data are preserved.
+
+## v0.5.39 - Local Places Visual Consistency Hotfix
+
+v0.5.39 aligns the Local Places composer panel and add-place dialog with the existing Schedule panel color system in the default theme. This is a presentation-only release with no database migration or Local Places behavior changes.
+
+No migration runs. Existing Local Places, coordinates, posts, post location snapshots, settings, media, themes, uploads, and other site data are preserved.
+
+## v0.5.38 - Local Places Geolocation Hotfix
+
+v0.5.38 restores browser geolocation for Local Places. It changes the Permissions Policy from blocking geolocation to allowing it for the same Bonumark Stream origin, and moves the Admin **Use current location** behavior from blocked inline JavaScript into the existing external admin script.
+
+No migration runs. Existing Local Places, coordinates, posts, post location snapshots, settings, media, themes, uploads, and other site data are preserved.
+
+## v0.5.37 - Local Places Composer Simplification Pass
+
+v0.5.37 reduces Local Places in both Stream Post composers to saved-place selection, nearby lookup, and a compact add-place dialog. Full place-detail editing remains under **Admin → Local Places**, and each saved place's default public display mode is used automatically.
+
+No migration runs. Existing places, coordinates, categories, display settings, post location snapshots, posts, pages, media, comments, analytics, themes, API tokens, cron history, uploads, and settings are preserved.
+
+## v0.5.36 - Local Places Check-In Pass
+
+v0.5.36 adds the private Local Places directory and location check-ins in both Stream Post composers. Migration `0014_local_places.php` creates the places table. The migration does not rewrite existing posts, pages, media, comments, analytics, themes, API tokens, cron history, uploads, or settings.
+
+After upgrading, open **Admin → Local Places** to add or review saved places. Browser location permission is requested only after pressing a location button, and public posts never expose latitude or longitude.
+
+## v0.5.35 - Root RSS Discovery Hotfix
+
+v0.5.35 restores `/feed.xml` as the canonical RSS feed advertised by public pages and keeps `/stream/feed.xml` as a compatibility alias for existing subscriptions and the stream archive route.
+
+No migration runs. Existing posts, pages, users, comments, analytics, themes, API tokens, cron history, uploads, media files, and settings are preserved.
+
+## v0.5.34 - Privacy-Safe Media Uploads Pass
+
+v0.5.34 adds one idempotent media migration. It adds privacy status fields to the media table and a `media_privacy_mode` setting. Existing media files are not renamed, rewritten, or deleted. New uploads use randomized public filenames. Supported image uploads are re-encoded to remove metadata when possible, and best-effort mode warns instead of rejecting when metadata removal cannot be confirmed. Strict privacy mode can be enabled from **Admin → Settings → Writing**.
+
+## v0.5.33 - Analytics Report Card Polish Pass
+
+v0.5.33 improves the visual presentation of **Admin → Tools → Analytics** by replacing sparse table-style report cards with compact label/count summary rows and clearer empty states. No database migration runs, no analytics rows are changed, and no posts, pages, users, media, themes, settings, API tokens, cron history, uploads, or existing configuration are rewritten. Analytics collection, privacy boundaries, CSV export, and theme behavior are unchanged.
+
+## v0.5.32 - Analytics Report Warning Hotfix
+
+v0.5.32 fixes a PHP 8.1+ warning on **Admin → Tools → Analytics** that occurred when report tables used key-only column definitions. The fix changes only the analytics admin-table helper so it safely reads an optional formatter before calling it. No database migration runs, no analytics rows are changed, and no posts, pages, users, media, themes, settings, API tokens, cron history, uploads, or existing configuration are rewritten.
+
+## v0.5.31 - Privacy-First Analytics Pass
+
+v0.5.31 adds one idempotent analytics migration. It creates optional aggregate analytics storage and disabled-by-default settings without rewriting content, timestamps, themes, users, comments, media, API tokens, cron history, uploads, or existing configuration.
 
 ## v0.5.29 - PWA Direct Favicon Fallback Fix
 
@@ -34,7 +94,7 @@ v0.5.25 repairs the legacy timestamp-cutover fallback used by direct upgrades, c
 
 The built-in upgrade tool supports upgrades from v0.4.0 and newer only.
 
-Pre-v0.4 development builds are not supported by the current upgrader. Install the current v0.5.30 package fresh instead of trying to upgrade an older development build.
+Pre-v0.4 development builds are not supported by the current upgrader. Install the current v0.5.42 package fresh instead of trying to upgrade an older development build.
 
 ## What the upgrader preserves
 
@@ -55,7 +115,7 @@ The upgrader does not preserve old file-runtime content folders. Markdown remain
 
 v0.5.18 adds a reusable Scheduled Tasks runner, a protected web cron endpoint, a CLI-only server cron script, task health, and manual/cron run history. The upgrade adds a small `scheduled_task_runs` table plus task settings. Existing scheduled posts, their UTC schedule times, public hiding, and current traffic/heartbeat behavior are preserved. After upgrading, open **Admin → Settings → Scheduled Tasks** to choose a runner and copy setup instructions.
 
-## Scheduled Tasks run-history alignment
+## Legacy timestamp display compatibility
 
 v0.5.24 keeps the existing-post PDO save corrections and v0.5.23 runtime timezone handling, then restores correct display for legacy published posts with a compatibility boundary recorded from upgrade history. No post rows, bodies, titles, media, date fields, scheduled posts, drafts, pages, or imports are rewritten.
 

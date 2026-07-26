@@ -176,17 +176,298 @@ function bms_media_validate_upload(array $file): array
     ];
 }
 
+function bms_media_privacy_mode(): string
+{
+    $mode = strtolower(trim((string)bms_setting_or_config('media_privacy_mode', 'best_effort')));
+    return in_array($mode, ['best_effort', 'strict'], true) ? $mode : 'best_effort';
+}
+
+function bms_media_random_basename(): string
+{
+    try {
+        return 'bms-' . bin2hex(random_bytes(12));
+    } catch (Throwable $e) {
+        return 'bms-' . strtolower(str_replace('.', '', uniqid('', true)));
+    }
+}
+
 function bms_media_unique_relative_path(string $originalName, string $extension): string
 {
     $folder = date('Y/m');
-    $base = bms_media_safe_name($originalName);
-    $relative = $folder . '/' . $base . '.' . $extension;
-    $counter = 2;
-    while (is_file(bms_media_public_root($relative))) {
-        $relative = $folder . '/' . $base . '-' . $counter . '.' . $extension;
-        $counter++;
+    $extension = strtolower(preg_replace('/[^a-z0-9]+/i', '', $extension) ?? '');
+    $extension = $extension !== '' ? $extension : 'bin';
+
+    for ($attempt = 0; $attempt < 20; $attempt++) {
+        $relative = $folder . '/' . bms_media_random_basename() . '.' . $extension;
+        if (!is_file(bms_media_public_root($relative))) {
+            return $relative;
+        }
     }
-    return $relative;
+
+    return $folder . '/' . bms_media_random_basename() . '-' . time() . '.' . $extension;
+}
+
+function bms_media_store_uploaded_file(string $source, string $destination): bool
+{
+    return is_uploaded_file($source)
+        ? move_uploaded_file($source, $destination)
+        : copy($source, $destination);
+}
+
+function bms_media_privacy_status_label(string $status): string
+{
+    return match (strtolower(trim($status))) {
+        'cleaned' => 'Metadata removed',
+        'unconfirmed' => 'Metadata warning',
+        'strict_rejected' => 'Rejected',
+        'not_applicable' => 'Filename randomized',
+        'legacy_unchecked' => 'Legacy file',
+        default => 'Not checked',
+    };
+}
+
+function bms_media_privacy_status_class(string $status): string
+{
+    return match (strtolower(trim($status))) {
+        'cleaned' => 'published',
+        'unconfirmed' => 'warning',
+        'strict_rejected' => 'danger',
+        'not_applicable' => 'draft',
+        'legacy_unchecked' => 'draft',
+        default => 'draft',
+    };
+}
+
+function bms_media_privacy_default_note(string $status): string
+{
+    return match (strtolower(trim($status))) {
+        'cleaned' => 'Filename randomized and image metadata removed by re-encoding on this server.',
+        'unconfirmed' => 'Filename randomized, but Bonumark Stream could not confirm metadata removal on this server.',
+        'not_applicable' => 'Filename randomized. Metadata stripping applies to supported image uploads.',
+        'legacy_unchecked' => 'This media item was uploaded before media privacy status was tracked.',
+        default => 'Filename randomized where supported. Metadata status was not confirmed.',
+    };
+}
+
+function bms_media_privacy_status(array $media): array
+{
+    $status = trim((string)($media['privacy_status'] ?? 'legacy_unchecked'));
+    if ($status === '') {
+        $status = 'legacy_unchecked';
+    }
+    $note = trim((string)($media['privacy_note'] ?? ''));
+    if ($note === '') {
+        $note = bms_media_privacy_default_note($status);
+    }
+    return [
+        'status' => $status,
+        'label' => bms_media_privacy_status_label($status),
+        'class' => bms_media_privacy_status_class($status),
+        'note' => $note,
+        'checked_at' => trim((string)($media['privacy_checked_at'] ?? '')),
+    ];
+}
+
+function bms_media_exif_orientation(string $source): int
+{
+    if (!function_exists('exif_read_data') || !is_file($source)) {
+        return 1;
+    }
+    try {
+        $data = @exif_read_data($source);
+        $orientation = is_array($data) ? (int)($data['Orientation'] ?? 1) : 1;
+        return $orientation >= 1 && $orientation <= 8 ? $orientation : 1;
+    } catch (Throwable $e) {
+        return 1;
+    }
+}
+
+function bms_media_apply_gd_orientation(GdImage $image, int $orientation): GdImage
+{
+    if (!function_exists('imagerotate')) {
+        return $image;
+    }
+
+    $oriented = null;
+    switch ($orientation) {
+        case 2:
+            if (function_exists('imageflip')) {
+                imageflip($image, IMG_FLIP_HORIZONTAL);
+            }
+            return $image;
+        case 3:
+            $oriented = imagerotate($image, 180, 0);
+            break;
+        case 4:
+            if (function_exists('imageflip')) {
+                imageflip($image, IMG_FLIP_VERTICAL);
+            }
+            return $image;
+        case 5:
+            if (function_exists('imageflip')) {
+                imageflip($image, IMG_FLIP_HORIZONTAL);
+            }
+            $oriented = imagerotate($image, 270, 0);
+            break;
+        case 6:
+            $oriented = imagerotate($image, 270, 0);
+            break;
+        case 7:
+            if (function_exists('imageflip')) {
+                imageflip($image, IMG_FLIP_HORIZONTAL);
+            }
+            $oriented = imagerotate($image, 90, 0);
+            break;
+        case 8:
+            $oriented = imagerotate($image, 90, 0);
+            break;
+    }
+
+    if ($oriented instanceof GdImage) {
+        imagedestroy($image);
+        return $oriented;
+    }
+
+    return $image;
+}
+
+function bms_media_privacy_clean_with_gd(string $source, string $destination, string $mime): bool
+{
+    $capability = bms_media_resize_capability($mime);
+    if (!$capability || !function_exists((string)$capability['load']) || !function_exists((string)$capability['save']) || !function_exists('imagecreatetruecolor')) {
+        return false;
+    }
+
+    $image = @$capability['load']($source);
+    if (!$image instanceof GdImage) {
+        return false;
+    }
+
+    if (in_array(strtolower($mime), ['image/jpeg', 'image/pjpeg'], true)) {
+        $image = bms_media_apply_gd_orientation($image, bms_media_exif_orientation($source));
+    }
+
+    $width = imagesx($image);
+    $height = imagesy($image);
+    if ($width < 1 || $height < 1) {
+        imagedestroy($image);
+        return false;
+    }
+
+    $target = imagecreatetruecolor($width, $height);
+    if (!$target) {
+        imagedestroy($image);
+        return false;
+    }
+
+    if (in_array(strtolower($mime), ['image/png', 'image/webp'], true)) {
+        imagealphablending($target, false);
+        imagesavealpha($target, true);
+        $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+        if ($transparent !== false) {
+            imagefilledrectangle($target, 0, 0, $width, $height, $transparent);
+        }
+    }
+
+    imagecopy($target, $image, 0, 0, 0, 0, $width, $height);
+    $saved = (bool)@$capability['save']($target, $destination, (int)$capability['quality']);
+    imagedestroy($target);
+    imagedestroy($image);
+
+    return $saved && is_file($destination) && filesize($destination) > 0;
+}
+
+function bms_media_privacy_clean_with_imagick(string $source, string $destination, string $mime): bool
+{
+    if (!class_exists('Imagick')) {
+        return false;
+    }
+
+    try {
+        $image = new Imagick($source);
+        if ($image->getNumberImages() > 1) {
+            $image->setIteratorIndex(0);
+        }
+        if (method_exists($image, 'autoOrient')) {
+            $image->autoOrient();
+        } elseif (method_exists($image, 'autoOrientImage')) {
+            $image->autoOrientImage();
+        }
+        $image->stripImage();
+        if ($mime === 'image/jpeg' || $mime === 'image/pjpeg') {
+            $image->setImageFormat('jpeg');
+            $image->setImageCompressionQuality(86);
+        } elseif ($mime === 'image/png') {
+            $image->setImageFormat('png');
+        } elseif ($mime === 'image/webp') {
+            $image->setImageFormat('webp');
+            $image->setImageCompressionQuality(86);
+        } else {
+            $image->clear();
+            $image->destroy();
+            return false;
+        }
+        $saved = (bool)$image->writeImage($destination);
+        $image->clear();
+        $image->destroy();
+        return $saved && is_file($destination) && filesize($destination) > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function bms_media_privacy_store_upload(array $valid, string $destination): array
+{
+    $source = (string)$valid['tmp'];
+    $mime = strtolower((string)$valid['mime']);
+    $isImage = str_starts_with($mime, 'image/');
+    $mode = bms_media_privacy_mode();
+
+    if (!$isImage) {
+        if (!bms_media_store_uploaded_file($source, $destination)) {
+            throw new RuntimeException('Could not store the uploaded media file.');
+        }
+        return [
+            'status' => 'not_applicable',
+            'note' => bms_media_privacy_default_note('not_applicable'),
+            'checked_at_sql' => 'NOW()',
+        ];
+    }
+
+    $supportedMime = in_array($mime, ['image/jpeg', 'image/pjpeg', 'image/png', 'image/webp'], true);
+    $cleaned = false;
+    if ($supportedMime) {
+        $cleaned = bms_media_privacy_clean_with_gd($source, $destination, $mime);
+        if (!$cleaned) {
+            @unlink($destination);
+            $cleaned = bms_media_privacy_clean_with_imagick($source, $destination, $mime);
+        }
+    }
+
+    if ($cleaned) {
+        @chmod($destination, 0644);
+        return [
+            'status' => 'cleaned',
+            'note' => bms_media_privacy_default_note('cleaned'),
+            'checked_at_sql' => 'NOW()',
+        ];
+    }
+
+    if ($mode === 'strict') {
+        throw new RuntimeException('This image could not be privacy-cleaned on this server. Switch Media privacy mode to Best effort or upload a JPG, PNG, or WebP image supported by this host.');
+    }
+
+    if (!bms_media_store_uploaded_file($source, $destination)) {
+        throw new RuntimeException('Could not store the uploaded media file.');
+    }
+
+    return [
+        'status' => 'unconfirmed',
+        'note' => $supportedMime
+            ? 'Filename randomized, but image metadata removal could not be confirmed on this server.'
+            : 'Filename randomized, but this image type is not supported for metadata removal on this server.',
+        'checked_at_sql' => 'NOW()',
+    ];
 }
 
 
@@ -257,17 +538,12 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
         throw new RuntimeException('Could not create the media upload folder.');
     }
 
-    $moved = is_uploaded_file((string)$valid['tmp'])
-        ? move_uploaded_file((string)$valid['tmp'], $destination)
-        : copy((string)$valid['tmp'], $destination);
-    if (!$moved) {
-        throw new RuntimeException('Could not store the uploaded media file.');
-    }
+    $privacy = bms_media_privacy_store_upload($valid, $destination);
     @chmod($destination, 0644);
     $altText = trim($altText);
     $caption = trim($caption);
     if ($altText === '') {
-        $altText = str_replace('-', ' ', bms_media_safe_name((string)$valid['original_name']));
+        $altText = str_starts_with((string)$valid['mime'], 'image/') ? 'Uploaded image' : 'Uploaded media';
     }
 
     $storedSize = is_file($destination) ? (int)filesize($destination) : (int)$valid['size'];
@@ -287,7 +563,7 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
     }
     $imageVariantsJson = $imageVariants ? json_encode($imageVariants, JSON_UNESCAPED_SLASHES) : null;
 
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, NOW(), NOW())');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, privacy_status, privacy_note, privacy_checked_at, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, :privacy_status, :privacy_note, NOW(), NOW(), NOW())');
     $stmt->execute([
         'filename' => basename($relative),
         'original_filename' => (string)$valid['original_name'],
@@ -301,6 +577,8 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
         'uploaded_by' => array_key_exists('uploaded_by', $options) ? ($options['uploaded_by'] !== null ? (int)$options['uploaded_by'] : null) : bms_current_user_id(),
         'file_hash' => bms_media_file_hash($destination),
         'image_variants_json' => $imageVariantsJson,
+        'privacy_status' => (string)($privacy['status'] ?? 'unconfirmed'),
+        'privacy_note' => (string)($privacy['note'] ?? bms_media_privacy_default_note('unconfirmed')),
     ]);
 
     return bms_media_find((int)bms_db()->lastInsertId()) ?? [];

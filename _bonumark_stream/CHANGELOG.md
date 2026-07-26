@@ -1,3 +1,132 @@
+## 0.5.42 - GitHub Release Hardening Pass
+
+Bonumark Stream v0.5.42 hardens fresh-install timestamp consistency and completes release documentation for the work since v0.5.30.
+
+- Sets the installer PDO session to UTC before running migrations and seed statements.
+- Uses an explicit UTC timestamp for the initial Admin email-verification value.
+- Restores v0.5.35 and v0.5.37 in the upgrade guide, corrects the Local Places admin label, and fixes the mislabeled v0.5.24 timestamp section.
+- Extends package smoke coverage so installer UTC handling and the required post-v0.5.30 upgrade notes cannot silently regress.
+- Adds no database migration and preserves all existing site data and user-owned files.
+
+## 0.5.41 - Local Places Metadata Alignment Hotfix
+
+Bonumark Stream v0.5.41 tightens the saved-place card metadata layout without changing Local Places data or behavior.
+
+- Removes the floating category badge.
+- Places Category beside Default public display as labeled supporting metadata.
+- Keeps the place title and location visually primary and the right side focused on actions.
+- Adds no database migration and preserves all existing places and post snapshots.
+
+## 0.5.40 - Local Places Admin Polish Pass
+
+Bonumark Stream v0.5.40 polishes the Local Places admin directory without changing its data or behavior.
+
+- Replaces the wide table with compact responsive saved-place cards.
+- Adds a saved-place count, stronger name and location hierarchy, category badges, and readable display-mode details.
+- Moves the coordinate privacy explanation into a subdued information notice.
+- Separates Edit place and Delete into clear standard and destructive actions.
+- Adds no database migration and preserves all existing places and post snapshots.
+
+## 0.5.39 - Local Places Visual Consistency Hotfix
+
+Bonumark Stream v0.5.39 makes the Local Places composer interface visually consistent with the existing Schedule panel.
+
+- Uses the same default-theme panel background, border, radius, field colors, and muted text system as scheduling.
+- Aligns the selected-place row and add-place dialog with the Midnight Ledger theme tokens.
+- Keeps orange limited to active controls and actions instead of tinting the entire Places panel.
+- Adds no database migration and changes no Local Places behavior or stored data.
+
+## 0.5.38 - Local Places Geolocation Hotfix
+
+Bonumark Stream v0.5.38 restores the browser location controls introduced with Local Places.
+
+- Allows geolocation for the Bonumark Stream origin instead of blocking it through Permissions Policy.
+- Moves the Admin **Use current location** handler into the external admin script so the Content Security Policy permits it to run.
+- Reports clear HTTPS, permission-denied, unavailable-location, and timeout messages.
+- Adds no database migration and preserves all existing Local Places and post snapshots.
+
+## 0.5.37 - Local Places Composer Simplification Pass
+
+Bonumark Stream v0.5.37 simplifies the Local Places posting workflow without changing the underlying place directory or stored post location data.
+
+- Reduces both Stream Post composers to saved-place selection, nearby lookup, and a compact add-place dialog.
+- Removes category, area, locality, region, country, coordinates, and per-post display-mode controls from the composer interface.
+- Keeps full place-detail editing under Admin → Local Places.
+- Adds only place name and an optional public location label when creating a place from a composer.
+- Automatically uses the saved place's default public display mode.
+- Collapses selected places into a compact Change/Remove row.
+- Adds no database migration and preserves all existing Local Places and post snapshots.
+
+## 0.5.36 - Local Places Check-In Pass
+
+Bonumark Stream v0.5.36 adds a private local check-in system that works without paid APIs or outside places services.
+
+### Added
+
+- `_bonumark_stream/app/places.php` for Local Places validation, CRUD, nearby distance matching, post snapshots, picker rendering, and public display data.
+- Migration `0014_local_places.php` for the local places table.
+- Protected admin Local Places list, add/edit, delete, nearby lookup, and composer-save endpoints.
+- Local Places controls in both Stream Post composers.
+- Public location rendering with exact-place, approximate-area, and city-only labels.
+- Database and Markdown front-matter persistence for location snapshots.
+
+### Privacy and resilience
+
+- Device location is requested only after an explicit button press.
+- Latitude and longitude are never emitted in public post HTML.
+- Saved places remain selectable if location permission is denied.
+- Existing posts keep their saved display text if a place is later deleted.
+- No external places service or shared directory is required.
+
+## 0.5.35 - Root RSS Discovery Hotfix
+
+Bonumark Stream v0.5.35 restores root-level RSS discovery after noticing public pages advertised the `/stream/feed.xml` feed instead of the root feed.
+
+- Changes public page RSS discovery metadata to advertise `/feed.xml` as the canonical feed URL.
+- Keeps `/stream/feed.xml` available as a compatibility alias.
+- Makes the root RSS feed channel link point to the site root while the stream alias feed can still point to `/stream/`.
+- Does not add a database migration and does not rewrite posts, pages, users, comments, analytics, themes, API tokens, cron history, uploads, media files, or existing settings.
+
+## 0.5.34 - Privacy-Safe Media Uploads Pass
+
+Bonumark Stream v0.5.34 adds privacy-safe media upload handling for normal shared hosting.
+
+- Randomizes the public filename for uploaded media instead of using the original filename in public URLs.
+- Attempts metadata stripping for supported image uploads by re-encoding images through PHP image handling, with Imagick used only when available.
+- Keeps best-effort mode as the default so uploads remain usable when metadata removal cannot be confirmed.
+- Adds optional strict privacy mode under **Admin → Settings → Writing** for sites that prefer rejecting image uploads over storing unconfirmed image metadata.
+- Shows media privacy status and warnings in the admin media library and media edit screen.
+- Adds migration `0013_privacy_safe_media_uploads.php` for media privacy status fields and the `media_privacy_mode` setting.
+
+## 0.5.33 - Analytics Report Card Polish Pass
+
+Bonumark Stream v0.5.33 polishes the Privacy-First Analytics report-card presentation without changing analytics collection or storage.
+
+- Replaces compact report tables with label/count summary rows on **Admin → Tools → Analytics**.
+- Removes table headers from small aggregate cards and replaces empty tables with cleaner empty-state copy.
+- Humanizes device, browser, and direct-referrer labels while preserving CSV export output.
+- Does not change analytics schema, migrations, privacy boundaries, collector behavior, settings, public output, themes, posts, pages, users, media, API tokens, cron history, or existing data.
+
+## 0.5.32 - Analytics Report Warning Hotfix
+
+Bonumark Stream v0.5.32 fixes a confirmed PHP 8.1+ warning in the Privacy-First Analytics report renderer.
+
+- Makes the analytics admin-table helper read its optional formatter key safely before determining whether the column uses a callback or a direct row key.
+- Removes `Undefined array key "value"` warnings from key-only report columns, including daily views, entry pages, referrer domains, device categories, and browser families.
+- Does not change analytics storage, database schema, migrations, collection behavior, privacy boundaries, settings, public output, themes, posts, pages, users, media, API tokens, cron history, or existing data.
+
+## 0.5.31 - Privacy-First Analytics Pass
+
+Bonumark Stream v0.5.31 adds an optional, self-hosted, cookieless aggregate analytics layer without adding a visitor identity or consent system.
+
+- Adds `analytics_daily`, an aggregate-only daily counter table with no raw page-view event log.
+- Keeps analytics disabled by default on fresh installs and upgrades.
+- Adds same-origin core collector behavior for eligible public reading routes only, with bot filtering and no analytics cookies, browser storage, IDs, sessions, IP values, IP hashes, raw user agents, or user-agent hashes.
+- Stores clean public paths, referrer hostnames only, broad device and browser groups, and sanitized UTM source, medium, and campaign values.
+- Adds Admin → Tools → Analytics settings, reporting, CSV export, retention cleanup, confirmed aggregate-data deletion, and a restrained dashboard Traffic card.
+- Keeps themes presentation-only. No theme JavaScript, templates, settings, hooks, or tracking code are required.
+- Adds migration `0012_privacy_first_analytics.php`.
+
 ## 0.5.30 - GitHub Release Hardening Pass
 
 Bonumark Stream v0.5.30 prepares the current v0.5.x line for public GitHub distribution without adding product features or changing runtime behavior.

@@ -6,6 +6,8 @@ require_once __DIR__ . '/interactions.php';
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/comments.php';
 require_once __DIR__ . '/link-preview.php';
+require_once __DIR__ . '/analytics.php';
+require_once __DIR__ . '/places.php';
 
 
 
@@ -69,7 +71,7 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
         'description' => $descriptionText,
         'canonical' => bms_site_url($canonicalPath),
         'feed_title' => $siteNameRaw . ' Stream Feed',
-        'feed_url' => bms_site_url('stream/feed.xml'),
+        'feed_url' => bms_site_url('feed.xml'),
         'style_url' => bms_asset_url('assets/style.css'),
         'script_url' => bms_asset_url('assets/stream.js'),
         'theme_stylesheet_links' => bms_public_theme_stylesheet_links(),
@@ -180,6 +182,7 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         'preview_id' => 'stream-compose-preview',
         'link_preview_id' => 'stream-link-preview',
         'link_preview_endpoint' => bms_admin_url('link-preview.php'),
+        'location_picker_html' => function_exists('bms_place_picker_markup') ? bms_place_picker_markup([], 'front') : '',
         'scheduled_runner_url' => bms_admin_url('scheduled-runner.php'),
         'placeholder' => 'What is happening?',
         'body_value' => $prefillBody,
@@ -541,6 +544,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     ];
     $mediaHtml = bms_render_stream_media_attachment($page, $mediaOptions);
     $linkPreviewHtml = bms_render_stream_link_preview($page);
+    $locationHtml = function_exists('bms_render_stream_location') ? bms_render_stream_location($page) : '';
     $slug = (string)($page['slug'] ?? '');
     $likeCount = !$previewMode && function_exists('bms_stream_like_count_for_slug') ? bms_stream_like_count_for_slug($slug) : 0;
     $liked = !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
@@ -598,6 +602,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
         'body_html' => $bodyHtml,
         'media_html' => $mediaHtml,
         'link_preview_html' => $linkPreviewHtml,
+        'location_html' => $locationHtml,
         'author' => $authorUser,
         'author_name' => $authorName,
         'author_profile_url' => $authorProfileUrl,
@@ -864,7 +869,7 @@ function bms_render_rss_feed(array $pages, string $feedType = 'stream'): string
     $tagline = (string)bms_setting_or_config('site_tagline', 'A self-hosted microblog stream for owning short-form publishing.');
     $feedTitle = $siteName . ' Stream';
     $feedDescription = bms_site_identity_plain_text($tagline) !== '' ? bms_site_identity_plain_text($tagline) : 'Short-form updates from ' . $siteName . '.';
-    $feedLink = bms_site_url('stream/');
+    $feedLink = $feedType === 'root' ? bms_site_url() : bms_site_url('stream/');
     $selfLink = $feedType === 'root' ? bms_site_url('feed.xml') : bms_site_url('stream/feed.xml');
     $items = bms_sort_stream_posts(bms_filter_stream_posts($pages));
     $items = array_slice($items, 0, max(20, min(50, bms_stream_posts_per_page())));

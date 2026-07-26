@@ -16,11 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $autosaveEnabled = isset($_POST['autosave_enabled']) ? '1' : '0';
     $mediaLimit = max(1, min(128, (int)($_POST['media_upload_limit_mb'] ?? 32)));
+    $mediaPrivacyMode = (string)($_POST['media_privacy_mode'] ?? 'best_effort');
+    if (!in_array($mediaPrivacyMode, ['best_effort', 'strict'], true)) {
+        $mediaPrivacyMode = 'best_effort';
+    }
 
     try {
         bms_set_setting('default_editor_mode', $defaultEditor);
         bms_set_setting('default_content_status', $defaultStatus);
         bms_set_setting('media_upload_limit_mb', (string)$mediaLimit);
+        bms_set_setting('media_privacy_mode', $mediaPrivacyMode);
         bms_set_setting('autosave_enabled', $autosaveEnabled);
         bms_flash('Writing settings saved. New stream posts will use these defaults.', 'success');
         bms_redirect(bms_admin_url('settings-writing.php'));
@@ -34,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $defaultEditor = (string)bms_setting_or_config('default_editor_mode', 'visual');
 $defaultStatus = (string)bms_setting_or_config('default_content_status', 'draft');
 $mediaLimit = (int)bms_setting_or_config('media_upload_limit_mb', '32');
+$mediaPrivacyMode = (string)bms_setting_or_config('media_privacy_mode', 'best_effort');
+if (!in_array($mediaPrivacyMode, ['best_effort', 'strict'], true)) {
+    $mediaPrivacyMode = 'best_effort';
+}
 $autosaveEnabled = (string)bms_setting_or_config('autosave_enabled', '1') === '1';
 bms_admin_header('Writing Settings', []);
 ?>
@@ -64,6 +73,13 @@ bms_admin_header('Writing Settings', []);
     <label for="media_upload_limit_mb">Admin media upload limit</label>
     <input type="number" id="media_upload_limit_mb" name="media_upload_limit_mb" min="1" max="128" value="<?= (int)$mediaLimit ?>">
     <p class="field-help">Limit is measured in megabytes. Server upload limits can still be lower.</p>
+
+    <label for="media_privacy_mode">Media privacy mode</label>
+    <select id="media_privacy_mode" name="media_privacy_mode">
+      <option value="best_effort" <?= $mediaPrivacyMode === 'best_effort' ? 'selected' : '' ?>>Best effort, recommended</option>
+      <option value="strict" <?= $mediaPrivacyMode === 'strict' ? 'selected' : '' ?>>Strict privacy</option>
+    </select>
+    <p class="field-help">Best effort always randomizes public filenames, attempts image metadata removal, and warns when removal cannot be confirmed. Strict privacy rejects supported image uploads when metadata removal cannot be confirmed on this server.</p>
 
     <label class="checkbox-line"><input type="checkbox" name="autosave_enabled" value="1" <?= $autosaveEnabled ? 'checked' : '' ?>> Enable server autosave and recovery prompts in the editor</label>
     <p class="field-help">Bonumark Stream saves autosaves to the server first so recovery can follow your account, while keeping a browser backup only if the server save fails.</p>

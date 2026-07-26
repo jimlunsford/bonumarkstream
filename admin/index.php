@@ -8,6 +8,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/mail.php';
 require_once __DIR__ . '/../_bonumark_stream/app/sitemap.php';
 require_once __DIR__ . '/../_bonumark_stream/app/themes.php';
 require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
+require_once __DIR__ . '/../_bonumark_stream/app/analytics.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
@@ -201,6 +202,8 @@ $mailTransport = (string)($mailSettings['transport'] ?? bms_setting_or_config('m
 $mailLabel = function_exists('bms_mail_transport_label') ? bms_mail_transport_label($mailTransport) : ucfirst(str_replace('_', ' ', $mailTransport));
 $registrationModeValue = (string)bms_setting_or_config('registration_mode', 'disabled');
 $registrationMode = $registrationModeValue !== '' ? ucwords(str_replace(['_', '-'], ' ', $registrationModeValue)) : 'Disabled';
+$analyticsDashboard = $canViewSystem && function_exists('bms_analytics_dashboard_summary') ? bms_analytics_dashboard_summary() : ['enabled' => false, 'today_views' => 0, 'seven_day_views' => 0, 'top_label' => 'No data yet', 'top_referrer' => 'No data yet'];
+
 $latestPostTime = '';
 foreach ($published as $item) {
     $candidate = (string)($item['updated_at'] ?? $item['stream_created_at'] ?? $item['date'] ?? '');
@@ -300,6 +303,28 @@ bms_admin_header('Dashboard', [
       </div>
       <?= bms_dashboard_recent_stream_rows($recent) ?>
     </div>
+
+    <?php if ($canViewSystem): ?>
+    <div class="panel dashboard-card dashboard-analytics-card">
+      <div class="section-header-row">
+        <div>
+          <h2>Traffic</h2>
+          <p class="meta"><?= !empty($analyticsDashboard['enabled']) ? 'Cookieless aggregate reporting.' : 'Privacy-First Analytics is disabled.' ?></p>
+        </div>
+        <a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('analytics.php')) ?>">Open Analytics</a>
+      </div>
+      <?php if (!empty($analyticsDashboard['enabled'])): ?>
+      <div class="dashboard-status-grid">
+        <?= bms_dashboard_status_item('Today', number_format((int)($analyticsDashboard['today_views'] ?? 0)) . ' views', 'neutral', bms_admin_url('analytics.php?range=today')) ?>
+        <?= bms_dashboard_status_item('Last 7 Days', number_format((int)($analyticsDashboard['seven_day_views'] ?? 0)) . ' views', 'neutral', bms_admin_url('analytics.php?range=7d')) ?>
+        <?= bms_dashboard_status_item('Top Content', (string)($analyticsDashboard['top_label'] ?? 'No data yet'), 'neutral', bms_admin_url('analytics.php?range=7d')) ?>
+        <?= bms_dashboard_status_item('Top Referrer', (string)($analyticsDashboard['top_referrer'] ?? 'No data yet'), 'neutral', bms_admin_url('analytics.php?range=7d')) ?>
+      </div>
+      <?php else: ?>
+      <p class="meta">Enable it from Analytics when you want simple self-hosted page-view reporting. No cookies, visitor IDs, or tracking profiles are used.</p>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="panel dashboard-card dashboard-status-card">
       <div class="section-header-row">

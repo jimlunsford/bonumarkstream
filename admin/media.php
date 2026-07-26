@@ -127,6 +127,7 @@ bms_admin_header($viewTitle, [
             $height = (int)($media['height'] ?? 0);
             $dimensions = $width > 0 && $height > 0 ? ($width . '×' . $height . ', ') : '';
             $editUrl = bms_admin_url('media-edit.php?id=' . urlencode((string)$media['id']));
+            $privacy = function_exists('bms_media_privacy_status') ? bms_media_privacy_status($media) : ['label' => 'Not checked', 'class' => 'draft', 'note' => 'Privacy status unavailable.'];
           ?>
           <article class="media-card<?= $status === 'trash' ? ' media-card-trashed' : '' ?>">
             <label class="media-card-select">
@@ -143,6 +144,10 @@ bms_admin_header($viewTitle, [
             <div class="media-card-body">
               <h3><?= htmlspecialchars((string)($media['original_filename'] ?? $media['filename']), ENT_QUOTES, 'UTF-8') ?></h3>
               <p class="meta"><?= htmlspecialchars($kind, ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($dimensions . bms_media_human_size((int)($media['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></p>
+              <p class="media-privacy-line"><span class="status-pill <?= htmlspecialchars((string)($privacy['class'] ?? 'draft'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($privacy['label'] ?? 'Not checked'), ENT_QUOTES, 'UTF-8') ?></span></p>
+              <?php if (($privacy['status'] ?? '') === 'unconfirmed'): ?>
+                <p class="media-privacy-warning"><?= htmlspecialchars((string)($privacy['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+              <?php endif; ?>
               <?php if ($status === 'trash' && trim((string)($media['trashed_at'] ?? '')) !== ''): ?>
                 <p class="meta">Trashed <?= htmlspecialchars((string)$media['trashed_at'], ENT_QUOTES, 'UTF-8') ?></p>
               <?php endif; ?>

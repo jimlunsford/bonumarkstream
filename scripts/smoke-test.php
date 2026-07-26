@@ -99,7 +99,25 @@ if ($rootVersion !== '' && !str_contains($changelog, '## ' . $rootVersion . ' - 
     bm_smoke_fail($failures, 'CHANGELOG.md does not include the current version heading.');
 }
 
+$installerSource = @file_get_contents($root . '/install.php') ?: '';
+if (!str_contains($installerSource, "\$pdo->exec(\"SET time_zone = '+00:00'\");")) {
+    bm_smoke_fail($failures, 'Fresh installer database connection must force a UTC session before schema and seed writes.');
+}
+if (!str_contains($installerSource, "'email_verified_at' => gmdate('Y-m-d H:i:s')")) {
+    bm_smoke_fail($failures, 'Fresh installer Admin verification timestamp must be explicit UTC.');
+}
+
 $readme = @file_get_contents($root . '/README.md') ?: '';
+$upgradeDocs = @file_get_contents($root . '/docs/UPGRADING.md') ?: '';
+foreach (['## v0.5.35 - Root RSS Discovery Hotfix', '## v0.5.37 - Local Places Composer Simplification Pass', '## Legacy timestamp display compatibility'] as $requiredUpgradeText) {
+    if (!str_contains($upgradeDocs, $requiredUpgradeText)) {
+        bm_smoke_fail($failures, 'Upgrade guide is missing required release-hardening text: ' . $requiredUpgradeText);
+    }
+}
+if (str_contains($upgradeDocs, '## Scheduled Tasks run-history alignment')) {
+    bm_smoke_fail($failures, 'Upgrade guide still contains the mislabeled v0.5.24 timestamp section.');
+}
+
 if ($rootVersion !== '' && !str_contains($readme, 'Current version: **' . $rootVersion . '**')) {
     bm_smoke_fail($failures, 'README.md current version is stale.');
 }
@@ -657,6 +675,29 @@ $themeInstaller = @file_get_contents($root . '/_bonumark_stream/app/theme-instal
 if (substr_count($themeInstaller, 'bms_read_theme_manifest_file((string)$candidate[\'manifest\'])') !== 1) {
     bm_smoke_fail($failures, 'Theme installer must read a candidate manifest once.');
 }
+$placesApp = @file_get_contents($root . '/_bonumark_stream/app/places.php') ?: '';
+if (!str_contains($placesApp, 'function bms_places_nearby') || !str_contains($placesApp, 'function bms_place_request_fields')) {
+    bm_smoke_fail($failures, 'Local Places core functions are missing.');
+}
+if (!str_contains($placesApp, 'data-place-create-modal')
+    || !str_contains($placesApp, 'data-place-new-public-label')
+    || str_contains($placesApp, 'data-place-new-category')
+    || str_contains($placesApp, 'data-place-display-select')) {
+    bm_smoke_fail($failures, 'Local Places composer controls are not using the simplified picker and add-place dialog.');
+}
+$placesMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0014_local_places.php') ?: '';
+if (!str_contains($placesMigration, '{{prefix}}places')) {
+    bm_smoke_fail($failures, 'Local Places migration is missing or invalid.');
+}
+$composerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/composer.php') ?: '';
+if (!str_contains($composerTemplate, 'data-local-places-toggle')) {
+    bm_smoke_fail($failures, 'Front-end composer is missing the Local Places control.');
+}
+$locationTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/location.php') ?: '';
+if ($locationTemplate === '' || str_contains($locationTemplate, 'latitude') || str_contains($locationTemplate, 'longitude')) {
+    bm_smoke_fail($failures, 'Public Local Places template is missing or exposes coordinates.');
+}
+
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
 if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {

@@ -9,6 +9,7 @@ $items = [
   ['Static Site Export', 'Export can generate a portable downloadable static HTML copy from database content records. The live site renders dynamically by default.'],
   ['Dynamic Rendering', 'Public pages render from database content records by default, so normal saves and settings changes are reflected immediately.'],
   ['RSS', 'Bonumark Stream generates RSS feeds so people can follow your stream without a social platform.'],
+  ['Local Places', 'Local Places saves a private directory on this instance. You can find saved places nearby and attach a public place, approximate area, or city label to a Stream Post without using an outside places service.'],
   ['XML Sitemap', 'Bonumark Stream serves a dynamic sitemap.xml and robots.txt reference so search engines can discover public posts and pages.'],
 ];
 ?>

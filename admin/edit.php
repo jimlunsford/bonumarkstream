@@ -170,6 +170,7 @@ bms_admin_header('Edit Stream Post: ' . $page['title'], $headerActions);
         ]); ?>
         <?php bms_stream_url_fields($page, $section); ?>
         <?php bms_stream_settings_fields($page, $section); ?>
+        <?php bms_stream_location_fields($page); ?>
         <?php bms_stream_media_fields(); ?>
         <?php bms_stream_revision_fields($page); ?>
       </aside>

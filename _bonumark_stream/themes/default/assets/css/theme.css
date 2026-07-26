@@ -562,6 +562,64 @@ body.bonumark-public .stream-compose-schedule-panel[hidden] {
   display: none;
 }
 
+/* Local Places follows the same composer panel color system as scheduling. */
+body.bonumark-public .local-places-picker {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--ledger-line);
+  border-radius: var(--ledger-radius-sm);
+  background: var(--ledger-panel-soft);
+}
+
+body.bonumark-public .local-places-selected {
+  border-color: var(--ledger-line);
+  border-radius: var(--ledger-radius-sm);
+  background: var(--ledger-card-2);
+}
+
+body.bonumark-public .local-places-selected span,
+body.bonumark-public .local-places-status,
+body.bonumark-public .local-places-add-button,
+body.bonumark-public .local-places-change,
+body.bonumark-public .local-places-remove {
+  color: var(--ledger-muted);
+}
+
+body.bonumark-public .local-places-selected strong,
+body.bonumark-public .local-places-add-button:hover,
+body.bonumark-public .local-places-add-button:focus-visible,
+body.bonumark-public .local-places-change:hover,
+body.bonumark-public .local-places-change:focus-visible,
+body.bonumark-public .local-places-remove:hover,
+body.bonumark-public .local-places-remove:focus-visible {
+  color: var(--ledger-text);
+}
+
+body.bonumark-public .local-places-controls select,
+body.bonumark-public .local-places-create-fields input,
+body.bonumark-public .local-places-nearby-result {
+  border-color: var(--ledger-line);
+  background: var(--ledger-card-2);
+  color: var(--ledger-text);
+}
+
+body.bonumark-public .local-places-create-dialog {
+  border-color: var(--ledger-line);
+  border-radius: var(--ledger-radius-sm);
+  background: var(--ledger-panel-strong);
+  color: var(--ledger-text);
+  box-shadow: var(--ledger-shadow);
+}
+
+body.bonumark-public .local-places-create-close {
+  color: var(--ledger-muted);
+}
+
+body.bonumark-public .local-places-create-close:hover,
+body.bonumark-public .local-places-create-close:focus-visible {
+  color: var(--ledger-text);
+}
+
 body.bonumark-public .stream-compose-schedule-fields {
   display: grid;
   gap: 0.4rem;

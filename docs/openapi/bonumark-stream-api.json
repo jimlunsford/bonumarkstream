@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bonumark Stream API",
-    "version": "0.5.30",
+    "version": "0.5.42",
     "description": "Optional Remote Posting API for Bonumark Stream with status, post creation, scheduled publishing, media upload, media import, and media embedding."
   },
   "servers": [
@@ -851,6 +851,18 @@
             "type": "string",
             "format": "uri",
             "description": "Original remote URL when media was imported by URL."
+          },
+          "privacy_status": {
+            "type": "string",
+            "description": "Media privacy status for uploaded media, such as cleaned, unconfirmed, not_applicable, or legacy_unchecked."
+          },
+          "privacy_label": {
+            "type": "string",
+            "description": "Human-readable media privacy status label."
+          },
+          "privacy_note": {
+            "type": "string",
+            "description": "Human-readable media privacy status note or warning."
           }
         }
       },

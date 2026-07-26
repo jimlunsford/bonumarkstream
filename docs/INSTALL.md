@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.5.30 is a fresh-install public development release.
+Bonumark Stream v0.5.42 is a fresh-install public development release.
 
 ## Requirements
 
@@ -21,6 +21,10 @@ Bonumark Stream v0.5.30 is a fresh-install public development release.
 7. Log in at `/admin/`.
 
 The installer creates an empty site. It does not publish sample posts or pages.
+
+## Media privacy
+
+Bonumark Stream randomizes public filenames for newly uploaded media. Supported image uploads are re-encoded to remove metadata when the server has the needed PHP image support. Best-effort mode is the default and warns when metadata removal cannot be confirmed. Strict privacy mode is available after install under **Admin → Settings → Writing**. No shell tools, SSH, Composer, npm, or server packages are required.
 
 ## Private files
 
