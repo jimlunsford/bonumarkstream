@@ -83,12 +83,17 @@ function bms_page_editor_form(array $page, string $section, string $buttonLabel)
               </aside>
         </div>
       </form>
+      <?php bms_editor_mobile_action_bar($section, 'Save Draft', [
+          'mode' => 'new',
+          'content_type' => 'page',
+          'page' => $page,
+      ]); ?>
     </section>
     <?php
 }
 
 bms_admin_header('New Page', [
-    ['label' => 'All Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
+    bms_editor_screen_controls_action('page'),
 ]);
 bms_page_editor_form($page, 'pages/drafts', 'Save Draft');
 bms_editor_script_tag();

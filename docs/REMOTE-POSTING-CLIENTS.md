@@ -27,6 +27,7 @@ Create a token with the narrowest scopes needed:
 | Use case | Scopes |
 | --- | --- |
 | Check API status | `status:read` |
+| Read published Stream posts | `stream:read` |
 | Create drafts | `stream:draft` |
 | Publish directly | `stream:draft`, `stream:publish` |
 | Upload or import media | `media:upload` plus the post scopes needed |
@@ -39,6 +40,20 @@ BONUMARK_TOKEN=YOUR_API_TOKEN_HERE
 ```
 
 Never commit real tokens to Git, screenshots, support tickets, public notes, or examples.
+
+## Read Stream posts
+
+Read-only clients use the same Stream resource with `GET /api/v1/stream/posts` and a token that has `stream:read`. The endpoint returns published posts only.
+
+```bash
+BONUMARK_SITE="https://example.com"
+BONUMARK_TOKEN="YOUR_API_TOKEN_HERE"
+
+curl -sS "$BONUMARK_SITE/api/v1/stream/posts?status=published&per_page=100&page=1&orderby=id&order=asc" \
+  -H "Authorization: Bearer $BONUMARK_TOKEN"
+```
+
+Use `id=42` to retrieve one stable Stream post, `modified_after=` for incremental reads, and `include_html=1` when rendered HTML is needed alongside Markdown.
 
 ## Common request values
 
@@ -542,3 +557,17 @@ When a tool cannot send custom headers, it should not be used with the Bonumark 
 - Use `Idempotency-Key` for any retrying or automated client.
 - Do not direct publish from automation until the draft flow has been tested.
 - Never let public user input publish directly without review.
+
+## Structured photo galleries
+
+Remote clients may create a one-to-four-photo gallery by supplying image media through `media_id`, `media_ids`, `media_items`, `media_uploads`, or `media_imports` and setting `media_display` to `gallery`. Gallery mode stores ordered image metadata instead of adding image Markdown to the body. Existing integrations remain inline by default.
+
+```json
+{
+  "content": "Photos from today.",
+  "status": "draft",
+  "media_ids": [42, 43, 44, 45],
+  "media_display": "gallery",
+  "client_request_id": "remote-gallery-001"
+}
+```

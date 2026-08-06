@@ -1,0 +1,356 @@
+/**
+ * Bonumark Stream Admin Editor Workflow
+ * Focused editor hierarchy introduced in v0.5.52, corrected for one-page scrolling in v0.5.53, given a viewport-safe mobile action dock in v0.5.54, and extended to the Pages workflow in v0.5.57.
+ */
+
+body.bonumark-admin .editor-layout-form {
+  --editor-composer-min-height: 380px;
+  --editor-composer-viewport-height: 380px;
+  --editor-composer-surface-height: max(var(--editor-composer-min-height), var(--editor-composer-viewport-height));
+  --editor-composer-max-height: 1400px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-compact {
+  --editor-composer-min-height: 300px;
+  --editor-composer-max-height: 1100px;
+}
+
+body.bonumark-admin .editor-layout-form.is-density-spacious {
+  --editor-composer-min-height: 480px;
+  --editor-composer-max-height: 1800px;
+}
+
+body.bonumark-admin .editor-workspace {
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+}
+
+body.bonumark-admin .editor-sidebar-column {
+  align-content: start;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  position: static;
+}
+
+body.bonumark-admin .editor-layout-form.has-sticky-sidebar:not(.is-single-column-editor) .publish-card {
+  align-self: start;
+  position: sticky;
+  top: 84px;
+  z-index: 2;
+}
+
+body.bonumark-admin .editor-layout-form.no-sticky-sidebar .publish-card,
+body.bonumark-admin .editor-layout-form.is-single-column-editor .publish-card {
+  position: static;
+  top: auto;
+}
+
+body.bonumark-admin .visual-editor,
+body.bonumark-admin .visual-preview,
+body.bonumark-admin textarea#body_markdown,
+body.bonumark-admin .editor-form textarea#body_markdown,
+body.bonumark-admin .editor-mode-panel.active .visual-editor,
+body.bonumark-admin .editor-mode-panel.active textarea#body_markdown,
+body.bonumark-admin .editor-mode-panel.active .visual-preview {
+  min-height: var(--editor-composer-surface-height);
+  height: var(--editor-composer-surface-height);
+  max-height: var(--editor-composer-max-height);
+}
+
+body.bonumark-admin .editor-title-card {
+  padding: 16px 18px;
+}
+
+body.bonumark-admin .editor-title-input {
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  letter-spacing: -.025em;
+}
+
+body.bonumark-admin .editor-title-card .field-help {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin .publish-card-heading-row {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: space-between;
+  margin: -2px -2px 14px;
+  padding-bottom: 10px;
+}
+
+body.bonumark-admin .publish-card-heading-row h3 {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+body.bonumark-admin .editor-sidebar-column .publish-card h3::after {
+  content: none;
+}
+
+body.bonumark-admin .publish-status-badge {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .publish-status-published,
+body.bonumark-admin .publish-status-scheduled {
+  background: rgba(74, 222, 128, .1);
+  border-color: rgba(74, 222, 128, .24);
+  color: #86efac;
+}
+
+body.bonumark-admin .publish-preview-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+body.bonumark-admin .publish-preview-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+body.bonumark-admin .publish-preview-actions .button-link {
+  justify-content: center;
+  min-height: 38px;
+}
+
+body.bonumark-admin .publish-card-actions.publish-primary-actions {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body.bonumark-admin .positive-action {
+  background: rgba(74, 222, 128, .1);
+  border-color: rgba(74, 222, 128, .32);
+  color: #a7f3d0;
+}
+
+body.bonumark-admin .positive-action:hover,
+body.bonumark-admin .positive-action:focus-visible {
+  background: rgba(74, 222, 128, .16);
+  border-color: rgba(74, 222, 128, .48);
+  color: #dcfce7;
+}
+
+body.bonumark-admin .publish-more-actions,
+body.bonumark-admin .editor-native-disclosure {
+  border-top: 1px solid var(--admin-border);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+body.bonumark-admin .publish-more-actions summary,
+body.bonumark-admin .editor-native-disclosure > summary {
+  color: var(--admin-muted);
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 800;
+  list-style: none;
+  min-height: 36px;
+  padding: 8px 0;
+}
+
+body.bonumark-admin .publish-more-actions summary::-webkit-details-marker,
+body.bonumark-admin .editor-native-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-admin .publish-more-actions summary::before,
+body.bonumark-admin .editor-native-disclosure > summary::before {
+  content: "+";
+  display: inline-block;
+  margin-right: 8px;
+  width: 1em;
+}
+
+body.bonumark-admin .publish-more-actions[open] summary::before,
+body.bonumark-admin .editor-native-disclosure[open] > summary::before {
+  content: "−";
+}
+
+body.bonumark-admin .publish-more-actions-body {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+body.bonumark-admin .editor-native-disclosure {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body.bonumark-admin .editor-native-disclosure > summary {
+  color: var(--admin-text);
+  font-size: 1rem;
+  padding: 0;
+}
+
+body.bonumark-admin .editor-native-disclosure-body {
+  padding-top: 14px;
+}
+
+body.bonumark-admin .editor-location-card .editor-card-heading,
+body.bonumark-admin .editor-native-disclosure .editor-card-heading {
+  display: none;
+}
+
+body.bonumark-admin .editor-secondary-card.is-collapsed {
+  background: rgba(18, 23, 32, .76);
+}
+
+body.bonumark-admin .editor-secondary-card.is-collapsed h3 {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .editor-mobile-action-bar {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin .editor-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .editor-sidebar-column {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    position: static;
+  }
+
+  body.bonumark-admin .editor-layout-form.has-sticky-sidebar .publish-card {
+    position: static;
+    top: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-min-height: 300px;
+    --editor-composer-max-height: 900px;
+  }
+
+  body.bonumark-admin.has-editor-mobile-actions {
+    --editor-mobile-action-reserve: calc(84px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: var(--editor-mobile-action-reserve);
+  }
+
+  body.bonumark-admin .editor-sidebar-column {
+    gap: 10px;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar {
+    align-items: center;
+    background: rgba(9, 12, 17, .98);
+    border: 1px solid var(--admin-border);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+    bottom: 0 !important;
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, .36);
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    inset: auto 0 0 0 !important;
+    padding: 10px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    position: fixed !important;
+    transform: translate3d(0, 0, 0);
+    transition: opacity .16s ease, transform .2s ease, visibility .2s step-start;
+    visibility: visible;
+    z-index: 90;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar.is-context-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, calc(100% + env(safe-area-inset-bottom)), 0);
+    transition: opacity .12s ease, transform .18s ease, visibility 0s linear .18s;
+    visibility: hidden;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar.is-two-action {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar > * {
+    box-sizing: border-box;
+    justify-content: center;
+    margin: 0;
+    min-height: 44px;
+    min-width: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    text-align: center;
+  }
+
+  body.bonumark-admin.has-editor-mobile-actions .admin-main,
+  body.bonumark-admin.has-editor-mobile-actions .editor-composer-panel {
+    padding-bottom: var(--editor-mobile-action-reserve);
+  }
+
+  body.bonumark-admin.has-editor-mobile-actions .editor-command-bar,
+  body.bonumark-admin.has-editor-mobile-actions .visual-toolbar,
+  body.bonumark-admin.has-editor-mobile-actions .editor-publish-card,
+  body.bonumark-admin.has-editor-mobile-actions .editor-secondary-card {
+    scroll-margin-bottom: var(--editor-mobile-action-reserve);
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .editor-layout-form {
+    --editor-composer-min-height: 260px;
+    --editor-composer-max-height: 680px;
+  }
+
+  body.bonumark-admin .editor-title-card {
+    padding: 13px 14px;
+  }
+
+  body.bonumark-admin .editor-title-input {
+    font-size: 1.2rem;
+  }
+
+  body.bonumark-admin .visual-editor,
+  body.bonumark-admin .visual-preview {
+    padding: 22px 18px;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, .82fr) auto;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar .editor-mobile-options-button {
+    font-size: 0;
+    min-width: 46px;
+  }
+
+  body.bonumark-admin .editor-mobile-action-bar .editor-mobile-options-button::after {
+    content: "•••";
+    font-size: .9rem;
+    letter-spacing: .08em;
+  }
+}
+
+
+/* Page editor workflow, v0.5.57. */
+body.bonumark-admin .page-editor-title-card .editor-title-input {
+  font-weight: 760;
+}
+
+body.bonumark-admin .page-url-card .permalink-preview-row code {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .page-slug-warning {
+  margin-top: 12px;
+}

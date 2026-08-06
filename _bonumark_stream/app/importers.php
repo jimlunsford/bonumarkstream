@@ -97,6 +97,10 @@ function bms_import_make_item(array $data): BMS_ImportItem
     $slug = trim((string)($data['slug'] ?? ''));
     $description = trim((string)($data['description'] ?? ''));
     $featuredMedia = trim((string)($data['featured_media'] ?? ''));
+    $mediaGallery = bms_normalize_media_gallery($data['media_gallery'] ?? [], $featuredMedia);
+    if ($mediaGallery) {
+        $featuredMedia = (string)$mediaGallery[0];
+    }
     $tags = bms_normalize_terms($data['tags'] ?? []);
     $status = bms_import_normalize_status((string)($data['status'] ?? 'draft'));
     $source = trim((string)($data['source'] ?? ''));
@@ -113,6 +117,7 @@ function bms_import_make_item(array $data): BMS_ImportItem
             'content_type' => 'page',
             'description' => $description,
             'featured_media' => $featuredMedia,
+            'media_gallery' => $mediaGallery,
             'stream_created_at' => $createdAt,
             'seo_title' => '',
             'robots' => '',
@@ -132,6 +137,7 @@ function bms_import_make_item(array $data): BMS_ImportItem
             'category' => 'Stream',
             'tags' => $tags,
             'featured_media' => $featuredMedia,
+            'media_gallery' => $mediaGallery,
             'stream_created_at' => $createdAt,
             'seo_title' => '',
             'robots' => '',
@@ -151,7 +157,8 @@ function bms_import_make_item(array $data): BMS_ImportItem
         $featuredMedia,
         $contentType === 'page' ? [] : $tags,
         $warnings,
-        $contentType
+        $contentType,
+        $mediaGallery
     );
 }
 
@@ -386,6 +393,10 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
 
         $body = $item->body;
         $featuredMedia = $item->featuredMedia;
+        $mediaGallery = bms_normalize_media_gallery($item->mediaGallery, $featuredMedia);
+        if ($mediaGallery) {
+            $featuredMedia = (string)$mediaGallery[0];
+        }
         $hasStagedMedia = function_exists('bms_import_extract_staged_media_urls') && count(bms_import_extract_staged_media_urls($body)) > 0;
         if ($mediaPolicy !== 'remote' || $hasStagedMedia) {
             $mediaResult = bms_import_apply_media_policy_to_body($body, $mediaPolicy, $mediaCache);
@@ -398,27 +409,38 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
             }
         }
 
-        if ($featuredMedia !== '') {
-            $featuredNeedsProcessing = (function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($featuredMedia))
-                || ($mediaPolicy === 'import' && function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($featuredMedia))
-                || ($mediaPolicy === 'skip' && ((function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($featuredMedia)) || (function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($featuredMedia))));
-            if ($featuredNeedsProcessing) {
-                $featuredProbe = '![Featured media](' . $featuredMedia . ')';
-                $featuredResult = bms_import_apply_media_policy_to_body($featuredProbe, $mediaPolicy, $mediaCache);
-                $summary['media_imported'] += (int)$featuredResult['imported'];
-                $summary['media_removed'] += (int)$featuredResult['removed'];
-                $summary['media_failed'] += (int)$featuredResult['failed'];
-                foreach ($featuredResult['warnings'] as $warning) {
+        $galleryCandidates = $mediaGallery ?: ($featuredMedia !== '' ? [$featuredMedia] : []);
+        $processedGallery = [];
+        foreach ($galleryCandidates as $galleryIndex => $galleryMedia) {
+            $galleryMedia = trim((string)$galleryMedia);
+            if ($galleryMedia === '') {
+                continue;
+            }
+            $mediaNeedsProcessing = (function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($galleryMedia))
+                || ($mediaPolicy === 'import' && function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($galleryMedia))
+                || ($mediaPolicy === 'skip' && ((function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($galleryMedia)) || (function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($galleryMedia))));
+            if ($mediaNeedsProcessing) {
+                $mediaProbe = '![Gallery photo ' . ($galleryIndex + 1) . '](' . $galleryMedia . ')';
+                $mediaResult = bms_import_apply_media_policy_to_body($mediaProbe, $mediaPolicy, $mediaCache);
+                $summary['media_imported'] += (int)$mediaResult['imported'];
+                $summary['media_removed'] += (int)$mediaResult['removed'];
+                $summary['media_failed'] += (int)$mediaResult['failed'];
+                foreach ($mediaResult['warnings'] as $warning) {
                     $summary['details'][] = $warning;
                 }
-                if (preg_match('/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/', (string)$featuredResult['body'], $featuredMatch) === 1) {
-                    $featuredPath = function_exists('bms_import_local_url_to_media_path') ? bms_import_local_url_to_media_path((string)$featuredMatch[1]) : '';
-                    $featuredMedia = $featuredPath !== '' ? $featuredPath : (string)$featuredMatch[1];
+                if (preg_match('/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/', (string)$mediaResult['body'], $mediaMatch) === 1) {
+                    $mediaPath = function_exists('bms_import_local_url_to_media_path') ? bms_import_local_url_to_media_path((string)$mediaMatch[1]) : '';
+                    $galleryMedia = $mediaPath !== '' ? $mediaPath : (string)$mediaMatch[1];
                 } elseif ($mediaPolicy === 'skip') {
-                    $featuredMedia = '';
+                    $galleryMedia = '';
                 }
             }
+            if ($galleryMedia !== '') {
+                $processedGallery[] = $galleryMedia;
+            }
         }
+        $mediaGallery = bms_normalize_media_gallery($processedGallery);
+        $featuredMedia = $mediaGallery[0] ?? '';
 
         if ($contentType === 'page') {
             $fields = [
@@ -429,6 +451,7 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
                 'content_type' => 'page',
                 'description' => $item->description,
                 'featured_media' => $featuredMedia,
+                'media_gallery' => $mediaGallery,
                 'stream_created_at' => $createdAt,
                 'seo_title' => '',
                 'robots' => '',
@@ -448,6 +471,7 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
                 'category' => 'Stream',
                 'tags' => $item->tags,
                 'featured_media' => $featuredMedia,
+                'media_gallery' => $mediaGallery,
                 'stream_created_at' => $createdAt,
                 'seo_title' => '',
                 'robots' => '',

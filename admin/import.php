@@ -175,18 +175,19 @@ $preview = bms_import_get_preview();
 $maxUploadLabel = number_format(bms_import_max_upload_bytes() / 1024 / 1024, 0) . ' MB';
 
 bms_admin_header('Import', [
+    ['label' => 'Markdown Folders', 'href' => bms_admin_url('import-markdown.php'), 'style' => 'secondary'],
     ['label' => 'Export', 'href' => bms_admin_url('export.php'), 'style' => 'secondary'],
+    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel page-intro-panel">
-  <p class="eyebrow">Import content</p>
-  <h2>Bring outside posts into Bonumark Stream.</h2>
-  <p class="meta">Upload Markdown, generic JSON, WordPress XML, a Bonumark export ZIP, a Twitter/X archive ZIP, or a Bluesky CAR export, review a preview sample, then import the prepared items. Nothing is written to content files or the database until you confirm the import.</p>
+<section class="panel operations-hero">
+  <div class="operations-hero-copy"><p class="eyebrow">Staged import</p><h2>Inspect incoming content before it writes to Bonumark Stream.</h2><p class="meta">Upload a trusted archive, create a private preview, review warnings and sample items, choose import rules, then explicitly confirm the database write.</p></div>
+  <span class="operation-risk-label is-safe">Preview first</span>
 </section>
+<section class="panel operations-summary-panel"><div class="operations-summary-grid"><div><span>Upload limit</span><strong><?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?></strong></div><div><span>Preview storage</span><strong>Private temporary staging</strong></div><div><span>Writes begin</span><strong>Only after confirmation</strong></div><div><span>Default target</span><strong>Draft records</strong></div></div></section>
 
-<section class="panel import-panel">
-  <h2>Upload import file</h2>
-  <p class="meta">Supported: single Markdown files, generic JSON arrays or objects with post records, WordPress WXR/XML exports, Bonumark Stream export ZIP files, Twitter/X archive ZIP files, and Bluesky CAR exports. Maximum file size: <?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?>.</p>
+<section class="panel import-panel operations-panel">
+  <div class="operations-panel-heading"><div><p class="eyebrow">Step 1</p><h2>Upload and stage a trusted import file</h2><p class="meta">Supported: Markdown, generic JSON, WordPress WXR/XML, Bonumark export ZIP, Twitter/X archive ZIP, and Bluesky CAR. Maximum file size: <?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?>.</p></div><span class="operation-risk-label is-safe">No content written</span></div>
   <form method="post" enctype="multipart/form-data" class="settings-form import-upload-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="import_action" value="preview">
@@ -239,10 +240,10 @@ bms_admin_header('Import', [
   $displayItems = array_slice($items, 0, $previewDisplayLimit);
   $hiddenPreviewCount = max(0, count($items) - count($displayItems));
   ?>
-  <section class="panel import-preview-panel">
+  <section class="panel import-preview-panel operations-review-panel">
     <div class="import-preview-heading">
       <div>
-        <p class="eyebrow">Preview</p>
+        <p class="eyebrow">Step 2 · Review preview</p>
         <h2><?= count($items) ?> item(s) prepared</h2>
         <p class="meta">Source: <?= htmlspecialchars((string)($preview['filename'] ?? 'import'), ENT_QUOTES, 'UTF-8') ?> via <?= htmlspecialchars((string)($preview['importer'] ?? 'Importer'), ENT_QUOTES, 'UTF-8') ?>.</p>
         <?php if ($processedTotal > 0): ?>
@@ -267,7 +268,7 @@ bms_admin_header('Import', [
       <div class="notice warning"><span class="notice-icon" aria-hidden="true">!</span><div class="notice-copy"><strong>Importer warnings</strong><p><?= htmlspecialchars(implode(' ', $warnings), ENT_QUOTES, 'UTF-8') ?></p></div></div>
     <?php endif; ?>
 
-    <div class="import-options-card">
+    <div class="import-options-card"><div class="operations-panel-heading"><div><p class="eyebrow">Step 3</p><h3>Choose import rules and confirm the write</h3><p class="meta">Publishing immediately, renaming duplicates, importing remote media, or forcing a large batch changes what is written. Review each choice before continuing.</p></div><span class="operation-risk-label is-sensitive">Writes database</span></div>
       <form method="post" class="settings-form import-confirm-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="import_action" value="import">
@@ -374,8 +375,8 @@ bms_admin_header('Import', [
   </section>
 <?php endif; ?>
 
-<section class="panel import-format-panel">
-  <h2>Import formats</h2>
+<section class="panel import-format-panel operations-panel">
+  <div class="operations-panel-heading"><div><p class="eyebrow">Accepted sources</p><h2>Import formats</h2><p class="meta">Use archives you created, exported, or trust. Unsupported executable files are not accepted.</p></div><span class="operation-risk-label">Reference</span></div>
   <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by Tools > Export. It safely restores database-first Markdown export entries from <code>markdown/posts</code> and <code>markdown/pages</code>, stages referenced files from the export's <code>media</code> folder, rewrites restored media references for the new install during confirmation, and preserves dates, slugs, descriptions, statuses, and tags. It does not execute database SQL from the export.</p>
   <p class="meta">The WordPress importer accepts standard WordPress export XML files from Tools > Export in WordPress. It imports posts only, skips pages, attachments, revisions, menu items, trashed posts, and auto-drafts, converts common HTML into Markdown-style content, preserves WordPress categories and tags as Bonumark Stream tags, and can optionally import remote WordPress images into Bonumark Stream Media during confirmed import. Large exports no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Twitter/X importer accepts downloaded archive ZIP files. It looks for tweet data files such as <code>data/tweets.js</code>, imports authored posts, skips retweets and unsupported account data, preserves original dates, converts tweet text into Markdown-style content, turns hashtags into tags, and stages supported local archive images for Media import during confirmation. Large archives no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>

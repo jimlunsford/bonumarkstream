@@ -36,7 +36,7 @@ Remote posting has these Admin settings:
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| Enable Remote Posting API | Off | Master switch for authenticated API requests. |
+| Enable Remote API | Off | Master switch for authenticated API requests. |
 | Allow direct remote publishing | Off | Allows API clients to create published posts when they also have the publish scope. |
 | Default remote post status | Draft | Used when a client does not send a `status` field. |
 | Require explicit publish confirmation | On | Requires `confirm_publish: true` or `confirmation: "publish"` for published requests. |
@@ -85,7 +85,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.42",
+  "version": "0.5.76",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,
@@ -112,7 +112,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.42",
+  "version": "0.5.76",
   "remote_posting_enabled": true,
   "authenticated": true,
   "direct_publish_enabled": true,
@@ -133,10 +133,43 @@ This endpoint can be requested without a token. If a bearer token is included an
   "token": {
     "id": 1,
     "name": "Example Client",
-    "scopes": ["status:read", "stream:draft", "stream:publish", "media:upload"],
+    "scopes": ["status:read", "stream:read", "stream:draft", "stream:publish", "media:upload"],
     "expires_at": ""
   }
 }
+```
+
+
+## Read Stream posts
+
+`GET /api/v1/stream/posts` retrieves published Stream posts for authorized third-party clients. It requires a bearer token with the `stream:read` scope. The endpoint is general-purpose and can support archival tools, migrations, search systems, feed clients, mobile applications, and other integrations.
+
+By default it returns published posts ordered by ascending database ID. Supported query parameters are:
+
+- `status`: `published` only (default `published`)
+- `page`: catalog page, starting at `1`
+- `per_page`: `1` through `100`
+- `orderby`: `id`, `created_at`, `updated_at`, or `published_at`
+- `order`: `asc` or `desc`
+- `modified_after`: a date or ISO-8601 timestamp
+- `include_html`: `1` to include rendered HTML alongside Markdown
+- `id`: retrieve one Stream post by stable database ID
+
+Example catalog request:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN_HERE" \
+  "https://example.com/api/v1/stream/posts?status=published&per_page=100&page=1&orderby=id&order=asc&include_html=1"
+```
+
+The catalog response includes `posts`, `pagination`, and normalized filters. Each published post includes its stable ID, title, slug, status, permalink, description, category, tags, Markdown content, optional rendered HTML, content hash, pin state, timestamps, and public metadata. The response also sends `X-Bonumark-Total` and `X-Bonumark-Total-Pages` headers.
+Local Places data is reduced to the public location labels selected for the post. Saved place IDs, coordinates, and undisplayed location components are not returned.
+
+Example single-post request:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN_HERE" \
+  "https://example.com/api/v1/stream/posts?id=42&include_html=1"
 ```
 
 ## Create stream post
@@ -168,7 +201,7 @@ Required scopes:
 
 Direct publishing only works when all of these are true:
 
-- The Remote Posting API is enabled.
+- The Remote API is enabled.
 - Direct remote publishing is enabled by the Admin.
 - The token has `stream:draft` and `stream:publish` scopes.
 - If confirmation is required, the request includes `confirm_publish: true` or `confirmation: "publish"`.
@@ -186,7 +219,7 @@ Direct publishing only works when all of these are true:
 
 Scheduled publishing only works when all of these are true:
 
-- The Remote Posting API is enabled.
+- The Remote API is enabled.
 - Direct remote publishing is enabled by the Admin.
 - The token has `stream:draft` and `stream:publish` scopes.
 - The request includes a future `scheduled_at` value in the site timezone.
@@ -213,6 +246,22 @@ If `scheduled_at` is present and `status` is omitted, Bonumark treats the reques
   "client_request_id": "example-embed-existing-001"
 }
 ```
+
+### Create a structured photo gallery
+
+Use `media_display: "gallery"` with one to four existing, uploaded, or imported image items. Gallery media is stored as ordered post metadata instead of being inserted into the Markdown body.
+
+```json
+{
+  "content": "Four photos from today.",
+  "status": "draft",
+  "media_ids": [42, 43, 44, 45],
+  "media_display": "gallery",
+  "client_request_id": "example-gallery-001"
+}
+```
+
+The first gallery image becomes `featured_media` for social metadata and backward compatibility. Non-image media is rejected in gallery mode. Existing clients keep the current inline behavior when `media_display` is omitted.
 
 ### Create a post and upload image media in the same request
 
@@ -268,7 +317,8 @@ Optional fields:
       "caption": "Optional caption"
     }
   ],
-  "media_position": "before"
+  "media_position": "before",
+  "media_display": "gallery"
 }
 ```
 
@@ -277,6 +327,8 @@ Notes:
 - `content` may also be sent as `body` or `body_markdown`.
 - Posts may be text-only, media-only, or text with embedded media.
 - Embedded media is appended after the content by default. Use `media_position: "before"` to place embedded media first.
+- `media_display` defaults to `inline`. Use `gallery` to store one to four image items as an ordered photo gallery without inserting them into the Markdown body.
+- Gallery mode accepts images only. The first gallery image also becomes `featured_media` for existing themes, feeds, and social metadata.
 - Content plus embedded media must be 5,000 characters or fewer.
 - Referenced media URLs must point to existing Bonumark media library items.
 - One-step uploads and URL imports inside `POST /api/v1/stream/posts` only work when remote media uploads are enabled and the token also has the `media:upload` scope.
@@ -306,6 +358,8 @@ Notes:
         "source": "uploaded"
       }
     ],
+    "media_display": "inline",
+    "media_gallery": [],
     "media_position": "after"
   }
 }
@@ -325,6 +379,8 @@ Notes:
     "edit_url": "https://example.com/admin/edit.php?type=published&file=trusted-external-client-post.md",
     "public_url": "https://example.com/stream/trusted-external-client-post/",
     "embedded_media": [],
+    "media_display": "inline",
+    "media_gallery": [],
     "media_position": "after"
   }
 }
@@ -344,7 +400,7 @@ media:upload
 
 Remote media uploads only work when all of these are true:
 
-- The Remote Posting API is enabled.
+- The Remote API is enabled.
 - Remote image uploads are enabled by the Admin.
 - The token has the `media:upload` scope.
 - The uploaded file passes the existing Bonumark media validation rules.
@@ -412,7 +468,7 @@ media:upload
 
 Remote media imports only work when all of these are true:
 
-- The Remote Posting API is enabled.
+- The Remote API is enabled.
 - Remote image uploads are enabled by the Admin.
 - The token has the `media:upload` scope.
 - The URL is public HTTP or HTTPS on port 80 or 443.

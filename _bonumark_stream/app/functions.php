@@ -60,7 +60,7 @@ function bms_default_config(): array
         'analytics_enabled' => '0',
         'analytics_retention_days' => '90',
         'analytics_last_cleanup_date' => '',
-        'version' => '0.5.42',
+        'version' => '0.5.76',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -513,6 +513,11 @@ function bms_asset_url(string $path): string
 function bms_stream_home_url(): string
 {
     return bms_url_path();
+}
+
+function bms_stream_composer_url(): string
+{
+    return bms_url_path('?compose=1#stream-composer');
 }
 
 function bms_stream_relative_directory(string $slug, string $category = ''): string
@@ -1188,6 +1193,12 @@ function bms_stream_prepare_metadata_fields(array $fields, string $body, string 
 {
     $createdAt = trim((string)($fields['stream_created_at'] ?? $fields['created_at'] ?? $fields['date'] ?? date('Y-m-d H:i:s')));
     $featuredMedia = trim((string)($fields['featured_media'] ?? ''));
+    $mediaGallery = bms_normalize_media_gallery($fields['media_gallery'] ?? [], $featuredMedia);
+    if ($mediaGallery) {
+        $featuredMedia = (string)$mediaGallery[0];
+        $fields['featured_media'] = $featuredMedia;
+        $fields['media_gallery'] = $mediaGallery;
+    }
     $mediaContext = bms_stream_media_context_from_path($featuredMedia);
     $metadataBody = $body;
     if (trim($metadataBody) === '' && $featuredMedia === '') {
@@ -1260,6 +1271,10 @@ function bms_parse_markdown_string(string $raw): array
     $contentType = bms_normalize_content_type((string)($frontMatter['content_type'] ?? $frontMatter['post_type'] ?? 'stream'));
     $tags = bms_normalize_terms($frontMatter['tags'] ?? []);
     $featuredMedia = trim((string)($frontMatter['featured_media'] ?? ''));
+    $mediaGallery = bms_normalize_media_gallery($frontMatter['media_gallery'] ?? [], $featuredMedia);
+    if ($featuredMedia === '' && $mediaGallery) {
+        $featuredMedia = (string)$mediaGallery[0];
+    }
     $streamCreatedAt = trim((string)($frontMatter['stream_created_at'] ?? $frontMatter['created_at'] ?? ''));
     $seoTitle = trim((string)($frontMatter['seo_title'] ?? ''));
     $robots = trim((string)($frontMatter['robots'] ?? ''));
@@ -1297,6 +1312,7 @@ function bms_parse_markdown_string(string $raw): array
         'content_type' => $contentType,
         'post_type' => $contentType,
         'featured_media' => $featuredMedia,
+        'media_gallery' => $mediaGallery,
         'stream_created_at' => $streamCreatedAt,
         'seo_title' => $seoTitle,
         'robots' => $robots,
@@ -1377,6 +1393,52 @@ function bms_normalize_terms(mixed $value): array
 }
 
 
+function bms_normalize_media_gallery(mixed $value, string $featuredMedia = ''): array
+{
+    if (is_string($value)) {
+        $value = trim($value);
+        if ($value === '') {
+            $items = [];
+        } elseif (str_starts_with($value, '[')) {
+            $decoded = json_decode($value, true);
+            $items = is_array($decoded) ? $decoded : [$value];
+        } else {
+            $items = [$value];
+        }
+    } elseif (is_array($value)) {
+        $items = $value;
+    } else {
+        $items = [];
+    }
+
+    $featuredMedia = trim(str_replace('\\', '/', $featuredMedia));
+    if ($featuredMedia !== '') {
+        array_unshift($items, $featuredMedia);
+    }
+
+    $clean = [];
+    foreach ($items as $item) {
+        if (is_array($item) || is_object($item)) {
+            continue;
+        }
+        $item = trim(str_replace('\\', '/', (string)$item));
+        $item = trim($item, "\r\n\t ");
+        if ($item === '' || str_contains($item, "\0") || preg_match('/[\r\n]/', $item) === 1) {
+            continue;
+        }
+        $key = strtolower($item);
+        if (!isset($clean[$key])) {
+            $clean[$key] = $item;
+        }
+        if (count($clean) >= 4) {
+            break;
+        }
+    }
+
+    return array_values($clean);
+}
+
+
 function bms_front_matter_quote(string $value): string
 {
     $value = str_replace(["\r\n", "\r", "\n"], ' ', trim($value));
@@ -1407,6 +1469,12 @@ function bms_build_markdown_document(array $fields, string $body): string
     $category = $contentType === 'page' ? 'Page' : 'Stream';
 
     $tags = bms_normalize_terms($fields['tags'] ?? []);
+    $featuredMedia = trim((string)($fields['featured_media'] ?? ''));
+    $mediaGallery = bms_normalize_media_gallery($fields['media_gallery'] ?? [], $featuredMedia);
+    if ($mediaGallery) {
+        $featuredMedia = (string)$mediaGallery[0];
+        $fields['featured_media'] = $featuredMedia;
+    }
 
     $lines = [
         '---',
@@ -1432,6 +1500,13 @@ function bms_build_markdown_document(array $fields, string $body): string
         $streamValue = trim((string)($fields[$streamKey] ?? ''));
         if ($streamValue !== '') {
             $lines[] = $streamKey . ': ' . bms_front_matter_quote($streamValue);
+        }
+    }
+
+    if (count($mediaGallery) > 1) {
+        $lines[] = 'media_gallery:';
+        foreach ($mediaGallery as $galleryItem) {
+            $lines[] = '  - ' . bms_front_matter_quote((string)$galleryItem);
         }
     }
 
@@ -1503,6 +1578,7 @@ function bms_build_markdown_from_request(string $forcedStatus = 'draft', string 
         'category' => 'Stream',
         'tags' => '',
         'featured_media' => (string)($_POST['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($_POST['media_gallery'] ?? [], (string)($_POST['featured_media'] ?? '')),
         'stream_created_at' => (string)($_POST['stream_created_at'] ?? ($_POST['stream_date'] ?? date('Y-m-d H:i:s'))),
         'scheduled_at' => (string)($_POST['stream_scheduled_at_utc'] ?? ''),
         'seo_title' => (string)($_POST['stream_seo_title'] ?? ''),
@@ -1611,7 +1687,10 @@ function bms_homepage_mode(): string
 
 function bms_stream_composer_enabled(): bool
 {
-    return (string)bms_setting_or_config('stream_composer_enabled', '1') === '1';
+    // The front-end composer is the canonical Stream Post creation surface.
+    // Keep this helper for theme and extension compatibility, but do not allow
+    // an old saved setting to remove the only supported creation workflow.
+    return true;
 }
 
 function bms_stream_show_dates(): bool
@@ -1898,7 +1977,7 @@ function bms_send_security_headers(): void
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
     header('Permissions-Policy: geolocation=(self), microphone=(), camera=()');
-    header("Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self'; script-src 'self'");
+    header("Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob: https: http:; style-src 'self'; script-src 'self'");
 }
 
 function bms_password_policy_error(string $password, string $username = '', string $email = ''): ?string

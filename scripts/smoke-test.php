@@ -107,6 +107,30 @@ if (!str_contains($installerSource, "'email_verified_at' => gmdate('Y-m-d H:i:s'
     bm_smoke_fail($failures, 'Fresh installer Admin verification timestamp must be explicit UTC.');
 }
 
+$quickEditEndpoint = @file_get_contents($root . '/admin/stream-quick-edit.php') ?: '';
+$cardTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/card.php') ?: '';
+$streamScript = @file_get_contents($root . '/assets/stream.js') ?: '';
+$streamTrashEndpoint = @file_get_contents($root . '/admin/stream-trash.php') ?: '';
+if (!str_contains($quickEditEndpoint, "bms_record_revision_from_page(\$page, 'published'") || !str_contains($quickEditEndpoint, 'bms_update_stream_post_body($page, $body)')) {
+    bm_smoke_fail($failures, 'Front-end Quick edit endpoint must archive the published revision and use the body-only database updater.');
+}
+if (!str_contains($cardTemplate, 'data-stream-quick-edit-open') || !str_contains($cardTemplate, 'Open full editor')) {
+    bm_smoke_fail($failures, 'Public card template is missing Quick edit or full-editor actions.');
+}
+if (!str_contains($streamScript, 'function setupQuickEdits(root)') || !str_contains($streamScript, 'setupQuickEdits(feed)')) {
+    bm_smoke_fail($failures, 'Stream JavaScript is missing front-end Quick edit or Load More initialization.');
+}
+if (!str_contains($streamTrashEndpoint, 'bms_delete_content_file(\'published\', $file)')
+    || !str_contains($streamTrashEndpoint, 'bms_current_user_can(\'edit_content\', $subject)')
+    || !str_contains($streamTrashEndpoint, 'hash_equals((string)($_SESSION[\'csrf_token\'] ?? \'\'), $token)')) {
+    bm_smoke_fail($failures, 'Front-end Move to trash endpoint is missing recoverable deletion, post-specific permission, or CSRF enforcement.');
+}
+if (!str_contains($cardTemplate, 'data-stream-trash-form') || !str_contains($cardTemplate, 'Move to trash')) {
+    bm_smoke_fail($failures, 'Public card template is missing the front-end Move to trash action.');
+}
+if (!str_contains($streamScript, 'function setupStreamTrash(root)') || !str_contains($streamScript, 'setupStreamTrash(feed)')) {
+    bm_smoke_fail($failures, 'Stream JavaScript is missing front-end Trash confirmation or Load More initialization.');
+}
 $readme = @file_get_contents($root . '/README.md') ?: '';
 $upgradeDocs = @file_get_contents($root . '/docs/UPGRADING.md') ?: '';
 foreach (['## v0.5.35 - Root RSS Discovery Hotfix', '## v0.5.37 - Local Places Composer Simplification Pass', '## Legacy timestamp display compatibility'] as $requiredUpgradeText) {
@@ -122,15 +146,73 @@ if ($rootVersion !== '' && !str_contains($readme, 'Current version: **' . $rootV
     bm_smoke_fail($failures, 'README.md current version is stale.');
 }
 
-$streamSettings = @file_get_contents($root . '/admin/settings-reading.php') ?: '';
-if (!str_contains($streamSettings, "bms_admin_header('Stream Settings'") || !str_contains($streamSettings, '<h2>Stream</h2>') || !str_contains($streamSettings, 'Save Stream Settings')) {
-    bm_smoke_fail($failures, 'Stream settings screen still contains stale Reading Settings labels.');
+$installDocs = @file_get_contents($root . '/docs/INSTALL.md') ?: '';
+$remotePostingDocs = @file_get_contents($root . '/docs/REMOTE-POSTING.md') ?: '';
+if ($rootVersion !== '' && !str_contains($installDocs, 'Bonumark Stream v' . $rootVersion)) {
+    bm_smoke_fail($failures, 'Install guide current version is stale.');
 }
-if (str_contains($streamSettings, 'Reading Settings') || str_contains($streamSettings, '<h2>Reading</h2>') || str_contains($streamSettings, 'Save Reading Settings')) {
-    bm_smoke_fail($failures, 'Stream settings screen has legacy Reading Settings copy.');
+if ($rootVersion !== '' && !str_contains($upgradeDocs, 'Bonumark Stream v' . $rootVersion)) {
+    bm_smoke_fail($failures, 'Upgrade guide current version is stale.');
+}
+if ($rootVersion !== '' && !str_contains($remotePostingDocs, 'Current status in v' . $rootVersion)) {
+    bm_smoke_fail($failures, 'Remote Posting guide current version is stale.');
+}
+
+$composerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/composer.php') ?: '';
+$quickPostSource = @file_get_contents($root . '/admin/quick-post.php') ?: '';
+$newPostRoute = @file_get_contents($root . '/admin/new.php') ?: '';
+$adminLayoutSource = @file_get_contents($root . '/admin/_layout.php') ?: '';
+foreach (['data-stream-action="draft"', 'data-stream-action="continue"', 'data-stream-more-menu', 'data-stream-advanced-panel', 'name="stream_slug"', 'name="stream_robots"'] as $requiredComposerText) {
+    if (!str_contains($composerTemplate, $requiredComposerText)) {
+        bm_smoke_fail($failures, 'Unified Stream composer is missing required control: ' . $requiredComposerText);
+    }
+}
+foreach (["['publish', 'schedule', 'draft', 'continue']", 'bms_sync_stream_metadata($page, $targetSection', 'edit.php?type=draft&file='] as $requiredQuickPostText) {
+    if (!str_contains($quickPostSource, $requiredQuickPostText)) {
+        bm_smoke_fail($failures, 'Front composer save route is missing unified workflow behavior: ' . $requiredQuickPostText);
+    }
+}
+if (str_contains($composerTemplate, 'stream-compose-secondary-actions') || str_contains($composerTemplate, '<summary>Advanced</summary>')) {
+    bm_smoke_fail($failures, 'Front composer still exposes the cluttered v0.5.46 secondary action row or always-visible Advanced control.');
+}
+if (!str_contains($composerTemplate, 'data-stream-advanced-panel hidden') || !str_contains($composerTemplate, 'data-stream-advanced-toggle')) {
+    bm_smoke_fail($failures, 'Advanced composer metadata is not hidden behind the compact More options workflow.');
+}
+if (!str_contains($newPostRoute, 'bms_stream_composer_url()') || str_contains($newPostRoute, 'bms_new_content_form')) {
+    bm_smoke_fail($failures, 'admin/new.php is not a clean compatibility redirect to the stream composer.');
+}
+if (str_contains($adminLayoutSource, '>New Stream Post<') || !str_contains($adminLayoutSource, "'label' => 'Stream Composer'")) {
+    bm_smoke_fail($failures, 'Admin navigation does not identify the stream composer as the creation surface.');
+}
+
+$streamSettings = @file_get_contents($root . '/admin/settings-reading.php') ?: '';
+if (!str_contains($streamSettings, "bms_admin_header('Reading Settings'")
+    || !str_contains($streamSettings, 'Control how the stream is read and discovered.')
+    || !str_contains($streamSettings, 'Save Reading Settings')) {
+    bm_smoke_fail($failures, 'Reading settings screen is missing the current workflow title or save action.');
+}
+if (str_contains($streamSettings, "bms_admin_header('Stream Settings'") || str_contains($streamSettings, 'Save Stream Settings')) {
+    bm_smoke_fail($failures, 'Reading settings screen still contains the retired Stream Settings title.');
+}
+
+if (str_contains($streamSettings, 'name="stream_composer_enabled"')) {
+    bm_smoke_fail($failures, 'Stream settings still expose an off switch for the canonical composer.');
+}
+$writingSettings = @file_get_contents($root . '/admin/settings-writing.php') ?: '';
+if (str_contains($writingSettings, 'name="default_content_status"')) {
+    bm_smoke_fail($failures, 'Writing settings still expose the retired backend-new-post default status.');
+}
+foreach (['admin/_layout.php', 'admin/welcome.php', 'admin/content.php', 'admin/index.php'] as $composerLinkFile) {
+    $composerLinkSource = @file_get_contents($root . '/' . $composerLinkFile) ?: '';
+    if (str_contains($composerLinkSource, "bms_admin_url('new.php')")) {
+        bm_smoke_fail($failures, 'Admin UI still links to the retired new-post route: ' . $composerLinkFile);
+    }
 }
 
 $apiDocs = @file_get_contents($root . '/docs/API.md') ?: '';
+if ($rootVersion !== '' && !str_contains($apiDocs, '"version": "' . $rootVersion . '"')) {
+    bm_smoke_fail($failures, 'API documentation response examples do not use the current version.');
+}
 if (!is_file($root . '/api/v1/stream/posts.php')) {
     bm_smoke_fail($failures, 'Remote stream posts API endpoint is missing.');
 }
@@ -142,6 +224,9 @@ if (!is_file($root . '/api/v1/media/import.php')) {
 }
 if (!str_contains($apiDocs, 'POST /api/v1/stream/posts')) {
     bm_smoke_fail($failures, 'docs/API.md does not document the remote stream posts endpoint.');
+}
+if (!str_contains($apiDocs, 'GET /api/v1/stream/posts')) {
+    bm_smoke_fail($failures, 'docs/API.md does not document the read-only stream posts endpoint.');
 }
 if (!str_contains($apiDocs, 'POST /api/v1/media')) {
     bm_smoke_fail($failures, 'docs/API.md does not document the remote media endpoint.');
@@ -178,6 +263,9 @@ if (!is_file($openApiPath)) {
     if (!is_array($openApi) || ($openApi['openapi'] ?? '') === '' || empty($openApi['paths']['/api/v1/stream/posts']) || empty($openApi['paths']['/api/v1/media']) || empty($openApi['paths']['/api/v1/media/import'])) {
         bm_smoke_fail($failures, 'OpenAPI schema is invalid or missing required API paths.');
     } else {
+        if ($rootVersion !== '' && (string)($openApi['info']['version'] ?? '') !== $rootVersion) {
+            bm_smoke_fail($failures, 'OpenAPI info.version does not match VERSION.');
+        }
         foreach (($openApi['paths'] ?? []) as $path => $methods) {
             if (is_array($methods) && array_key_exists('head', $methods)) {
                 bm_smoke_fail($failures, 'OpenAPI Action schema must not include HEAD operations: ' . $path);
@@ -205,7 +293,7 @@ if (!is_file($clientDocsPath)) {
             bm_smoke_fail($failures, 'Remote Posting client examples are missing section: ' . $requiredClientSection);
         }
     }
-    foreach (['POST /api/v1/stream/posts', 'POST /api/v1/media', 'media_import_url', 'Idempotency-Key', 'Authorization: Bearer YOUR_API_TOKEN_HERE'] as $requiredClientText) {
+    foreach (['GET /api/v1/stream/posts', 'POST /api/v1/stream/posts', 'POST /api/v1/media', 'media_import_url', 'Idempotency-Key', 'Authorization: Bearer YOUR_API_TOKEN_HERE'] as $requiredClientText) {
         if (!str_contains($clientDocs, $requiredClientText)) {
             bm_smoke_fail($failures, 'Remote Posting client examples are missing required text: ' . $requiredClientText);
         }
@@ -261,12 +349,35 @@ foreach (['api_status' => 'bms_api_handle_status_endpoint();', 'api_stream_posts
         bm_smoke_fail($failures, 'index.php is missing Remote API route dispatch for: ' . $routeName);
     }
 }
-foreach (['status:read', 'stream:draft', 'stream:publish', 'media:upload'] as $requiredScope) {
+foreach (['status:read', 'stream:read', 'stream:draft', 'stream:publish', 'media:upload'] as $requiredScope) {
     if (!str_contains($apiApp, "'" . $requiredScope . "' =>")) {
         bm_smoke_fail($failures, 'Remote API scope definition is missing: ' . $requiredScope);
     }
     if (!str_contains($apiDocs, $requiredScope) || !str_contains($remotePostingDocs, $requiredScope)) {
         bm_smoke_fail($failures, 'Remote API documentation is missing required scope: ' . $requiredScope);
+    }
+}
+if (!str_contains($apiApp, "bms_api_query_choice('status', ['published'], 'published')")
+    || !str_contains($apiApp, "AND status = :status LIMIT 1")
+    || !str_contains($apiDocs, '`status`: `published` only')) {
+    bm_smoke_fail($failures, 'The stream:read scope is not restricted to published Stream posts.');
+}
+$streamHandlerStart = strpos($apiApp, 'function bms_api_handle_stream_posts_endpoint(): never');
+$mediaHandlerStart = strpos($apiApp, 'function bms_api_handle_media_endpoint(): never');
+$mediaHandlerEnd = strpos($apiApp, 'function bms_api_handle_media_import_endpoint(): never');
+if ($streamHandlerStart === false || $mediaHandlerStart === false || $mediaHandlerEnd === false || $mediaHandlerEnd <= $mediaHandlerStart) {
+    bm_smoke_fail($failures, 'Remote API route handlers could not be inspected.');
+} else {
+    $streamHandler = substr($apiApp, $streamHandlerStart, $mediaHandlerStart - $streamHandlerStart);
+    if (!str_contains($streamHandler, 'bms_api_handle_stream_posts_read_endpoint();')) {
+        bm_smoke_fail($failures, 'Stream posts endpoint does not dispatch GET and HEAD requests to the read handler.');
+    }
+    $mediaHandler = substr($apiApp, $mediaHandlerStart, $mediaHandlerEnd - $mediaHandlerStart);
+    if (str_contains($mediaHandler, 'bms_api_handle_stream_posts_read_endpoint')) {
+        bm_smoke_fail($failures, 'Remote media endpoint incorrectly dispatches to the Stream read endpoint.');
+    }
+    if (!str_contains($mediaHandler, "header('Allow: POST')")) {
+        bm_smoke_fail($failures, 'Remote media endpoint no longer advertises POST-only behavior.');
     }
 }
 foreach (['remote_posting_disabled', 'missing_bearer_token', 'invalid_bearer_token', 'missing_scope', 'publish_confirmation_required', 'idempotency_key_conflict'] as $requiredApiCode) {
@@ -293,7 +404,7 @@ if (!str_contains($chatGptActionsDocs, 'docs/REMOTE-POSTING-CLIENTS.md') || !str
 if (!is_file($root . '/scripts/api-database-smoke-test.php')) {
     bm_smoke_fail($failures, 'Optional Remote API database smoke test script is missing.');
 } else {
-    foreach (['disabled_api', 'missing_token', 'invalid_token', 'draft_create', 'publish_scope', 'publish_confirmation', 'media_scope', 'idempotency_replay', 'idempotency_conflict'] as $requiredScenario) {
+    foreach (['disabled_api', 'missing_token', 'invalid_token', 'stream_read', 'draft_create', 'publish_scope', 'publish_confirmation', 'media_scope', 'idempotency_replay', 'idempotency_conflict'] as $requiredScenario) {
         if (!str_contains($apiDatabaseSmoke, "'" . $requiredScenario . "'")) {
             bm_smoke_fail($failures, 'Optional Remote API database smoke test is missing scenario: ' . $requiredScenario);
         }
@@ -313,8 +424,105 @@ $headerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/defaul
 $footerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/footer.php') ?: '';
 $streamJs = @file_get_contents($root . '/assets/stream.js') ?: '';
 $adminCss = @file_get_contents($root . '/assets/admin.css') ?: '';
+$adminContentListCss = @file_get_contents($root . '/assets/admin-content-list.css') ?: '';
+$adminEditorWorkflowCss = @file_get_contents($root . '/assets/admin-editor-workflow.css') ?: '';
+$adminMediaLibraryCss = @file_get_contents($root . '/assets/admin-media-library.css') ?: '';
+$adminCommentsCss = @file_get_contents($root . '/assets/admin-comments.css') ?: '';
+$adminAccountsCss = @file_get_contents($root . '/assets/admin-accounts.css') ?: '';
+$adminRegistrationCss = @file_get_contents($root . '/assets/admin-registration.css') ?: '';
+$adminAppearanceCss = @file_get_contents($root . '/assets/admin-appearance.css') ?: '';
+$adminSettingsCss = @file_get_contents($root . '/assets/admin-settings.css') ?: '';
+$adminPlacesCss = @file_get_contents($root . '/assets/admin-places.css') ?: '';
+$adminOperationsCss = @file_get_contents($root . '/assets/admin-operations.css') ?: '';
+$adminPlacesJs = @file_get_contents($root . '/assets/admin-places.js') ?: '';
+$placesAdmin = @file_get_contents($root . '/admin/places.php') ?: '';
+$placeEditAdmin = @file_get_contents($root . '/admin/place-edit.php') ?: '';
+$placeDeleteAdmin = @file_get_contents($root . '/admin/place-delete.php') ?: '';
+$placesApp = @file_get_contents($root . '/_bonumark_stream/app/places.php') ?: '';
+$generalSettingsAdmin = @file_get_contents($root . '/admin/settings.php') ?: '';
+$writingSettingsAdmin = @file_get_contents($root . '/admin/settings-writing.php') ?: '';
+$readingSettingsAdmin = @file_get_contents($root . '/admin/settings-reading.php') ?: '';
+$securitySettingsAdmin = @file_get_contents($root . '/admin/security.php') ?: '';
+$mailSettingsAdmin = @file_get_contents($root . '/admin/mail.php') ?: '';
+$remotePostingAdmin = @file_get_contents($root . '/admin/remote-posting.php') ?: '';
+$scheduledTasksAdmin = @file_get_contents($root . '/admin/scheduled-tasks.php') ?: '';
+$toolsAdmin = @file_get_contents($root . '/admin/tools.php') ?: '';
+$importAdmin = @file_get_contents($root . '/admin/import.php') ?: '';
+$importMarkdownAdmin = @file_get_contents($root . '/admin/import-markdown.php') ?: '';
+$exportAdmin = @file_get_contents($root . '/admin/export.php') ?: '';
+$upgradeAdmin = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+$systemCheckAdmin = @file_get_contents($root . '/admin/system-check.php') ?: '';
+$analyticsAdmin = @file_get_contents($root . '/admin/analytics.php') ?: '';
+$helpAdmin = @file_get_contents($root . '/admin/help.php') ?: '';
+$themesAdmin = @file_get_contents($root . '/admin/theme.php') ?: '';
+$themeSettingsAdmin = @file_get_contents($root . '/admin/theme-settings.php') ?: '';
+$themeDetailsAdmin = @file_get_contents($root . '/admin/theme-details.php') ?: '';
+$themeInstallAdmin = @file_get_contents($root . '/admin/theme-install.php') ?: '';
+$themeDeleteAdmin = @file_get_contents($root . '/admin/theme-delete.php') ?: '';
+$siteIdentityAdmin = @file_get_contents($root . '/admin/site-identity.php') ?: '';
+$navigationAdmin = @file_get_contents($root . '/admin/navigation.php') ?: '';
+$registrationAdmin = @file_get_contents($root . '/admin/registration.php') ?: '';
+$commentsUi = @file_get_contents($root . '/admin/_comments-ui.php') ?: '';
+$usersAdmin = @file_get_contents($root . '/admin/users.php') ?: '';
+$userNewAdmin = @file_get_contents($root . '/admin/user-new.php') ?: '';
+$authApp = @file_get_contents($root . '/_bonumark_stream/app/auth.php') ?: '';
+$adminShellCss = @file_get_contents($root . '/assets/admin-shell.css') ?: '';
+$adminJs = @file_get_contents($root . '/assets/admin.js') ?: '';
+$adminLayout = @file_get_contents($root . '/admin/_layout.php') ?: '';
 $contentAdmin = @file_get_contents($root . '/admin/content.php') ?: '';
 $pagesAdmin = @file_get_contents($root . '/admin/pages.php') ?: '';
+$pageEditAdmin = @file_get_contents($root . '/admin/page-edit.php') ?: '';
+$pageNewAdmin = @file_get_contents($root . '/admin/page-new.php') ?: '';
+$editorApp = @file_get_contents($root . '/_bonumark_stream/app/editor.php') ?: '';
+$editorJs = @file_get_contents($root . '/assets/editor.js') ?: '';
+$mediaAdmin = @file_get_contents($root . '/admin/media.php') ?: '';
+if ($adminShellCss === '' || !str_contains($adminShellCss, 'Admin Shell Foundation Pass')) {
+    bm_smoke_fail($failures, 'Admin shell foundation stylesheet is missing.');
+}
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-shell.css')") || !str_contains($adminLayout, 'data-admin-nav-open') || !str_contains($adminLayout, 'admin-sidebar-backdrop')) {
+    bm_smoke_fail($failures, 'Shared Admin layout does not load or expose the responsive shell controls.');
+}
+if (!str_contains($adminLayout, "'label' => 'Publish'") || !str_contains($adminLayout, "'label' => 'Manage'") || !str_contains($adminLayout, "'label' => 'Design'") || !str_contains($adminLayout, "'label' => 'System'")) {
+    bm_smoke_fail($failures, 'Shared Admin navigation is missing task-oriented sections.');
+}
+if (!str_contains($adminJs, "classList.add('admin-js-ready')") || !str_contains($adminJs, 'function attachAdminNavigation()') || !str_contains($adminJs, "event.key === 'Escape'") || !str_contains($adminJs, "body.classList.toggle('admin-nav-open'")) {
+    bm_smoke_fail($failures, 'Admin navigation script is missing drawer, Escape, or state handling.');
+}
+if (!str_contains($adminShellCss, '@media (max-width: 900px)') || !str_contains($adminShellCss, 'html.admin-js-ready body.bonumark-admin .admin-sidebar') || !str_contains($adminShellCss, 'transform: translateX(-105%)') || !str_contains($adminShellCss, 'min-height: 44px')) {
+    bm_smoke_fail($failures, 'Admin shell stylesheet is missing mobile drawer or touch-target rules.');
+}
+
+$adminCssLineCount = substr_count($adminCss, "\n");
+if ($adminCssLineCount >= 7258) {
+    bm_smoke_fail($failures, 'Legacy Admin CSS consolidation pass 3 did not reduce assets/admin.css below its 7,258-line starting point.');
+}
+foreach ([
+    '--admin-surface-3:#101318',
+    '--admin-bg:#f0f0f1',
+    '--admin-bg:#0b0d10',
+    '--editor-composer-min-height:720px',
+    '--editor-composer-max-height:6500px',
+    '--editor-composer-max-height:5400px',
+    'min-height:58vh',
+    '.admin-shell{min-height:100vh',
+    '.admin-topbar{min-height:48px',
+    '.import-preview-heading{align-items:flex-start',
+] as $supersededAdminCssFragment) {
+    if (str_contains(str_replace(' ', '', $adminCss), $supersededAdminCssFragment)) {
+        bm_smoke_fail($failures, 'Legacy Admin CSS still contains a superseded shell or editor declaration: ' . $supersededAdminCssFragment);
+    }
+}
+if (!str_contains($adminShellCss, '--admin-bg: #0a0d12')
+    || !str_contains($adminShellCss, '--admin-sidebar-width: 264px')
+    || !str_contains($adminEditorWorkflowCss, '--editor-composer-min-height: 380px')
+    || !str_contains($adminEditorWorkflowCss, '--editor-composer-max-height: 1400px')
+    || !str_contains($adminOperationsCss, 'body.bonumark-admin .upgrade-confirm-actions')
+    || !str_contains($adminShellCss, 'body.bonumark-admin .dashboard-metric-grid')
+    || !str_contains($adminOperationsCss, 'body.bonumark-admin .import-preview-heading')
+    || !str_contains($adminPlacesCss, 'body.bonumark-admin .editor-location-card .local-places-selected')) {
+    bm_smoke_fail($failures, 'Dedicated Admin shell, editor, or operations component stylesheet is missing a definition that replaced removed legacy CSS.');
+}
+
 if (!str_contains($adminCss, 'Admin Row Action Hover Stability Hotfix') || !str_contains($adminCss, 'body.bonumark-admin .row-actions .link-button:hover') || !str_contains($adminCss, 'body.bonumark-admin .table-actions .link-button:hover')) {
     bm_smoke_fail($failures, 'Admin CSS is missing row-action hover stability selectors.');
 }
@@ -324,32 +532,397 @@ if (!str_contains($adminCss, 'font: inherit') || !str_contains($adminCss, 'font-
 if (!str_contains($adminCss, '.row-actions .state-link') || !str_contains($adminCss, '.row-actions .danger-link') || !str_contains($adminCss, '.table-actions .danger-link')) {
     bm_smoke_fail($failures, 'Admin row-action CSS must preserve state and destructive action styling.');
 }
-if (!str_contains($contentAdmin, 'class="link-button state-link">Publish</button>') || !str_contains($contentAdmin, 'class="link-button state-link">Move to Drafts</button>') || !str_contains($contentAdmin, 'class="link-button danger-link">Trash</button>')) {
-    bm_smoke_fail($failures, 'Stream post row actions must use stable state/danger classes.');
+if (!str_contains($contentAdmin, 'class="content-action-button state-link">Publish</button>') || !str_contains($contentAdmin, 'class="content-action-button state-link">Move to drafts</button>') || !str_contains($contentAdmin, 'class="content-action-button danger-link">Move to Trash</button>')) {
+    bm_smoke_fail($failures, 'Stream post action menus must preserve state and destructive action classes.');
 }
-if (!str_contains($pagesAdmin, 'class="table-actions"') || !str_contains($pagesAdmin, 'class="link-button state-link">Restore</button>') || !str_contains($pagesAdmin, 'class="link-button danger-link">Delete Permanently</button>')) {
-    bm_smoke_fail($failures, 'Page table actions must share stable row-action styling.');
+if (!str_contains($pagesAdmin, 'class="content-action-button state-link">Restore</button>')
+    || !str_contains($pagesAdmin, 'class="content-action-button state-link">Publish page</button>')
+    || !str_contains($pagesAdmin, 'class="content-action-button danger-link">Move to Trash</button>')
+    || !str_contains($pagesAdmin, 'class="content-action-button danger-link">Delete permanently</button>')) {
+    bm_smoke_fail($failures, 'Page action menus must preserve state and destructive action classes.');
 }
 
 $commentsAdmin = @file_get_contents($root . '/admin/comments.php') ?: '';
-if (!str_contains($adminCss, 'Admin Content List Width Utilization Pass') || !str_contains($adminCss, 'body.bonumark-admin .admin-table,') || !str_contains($adminCss, 'width: 100%') || !str_contains($adminCss, 'body.bonumark-admin .stream-posts-table')) {
-    bm_smoke_fail($failures, 'Admin CSS is missing full-width admin list table coverage.');
+if (!str_contains($adminContentListCss, 'Bonumark Stream Admin Content List') || !str_contains($adminContentListCss, '.content-record-header') || !str_contains($adminContentListCss, '.content-record-actions') || !str_contains($adminContentListCss, '@media (max-width: 760px)')) {
+    bm_smoke_fail($failures, 'Responsive Stream Posts record-list CSS is missing required desktop or mobile component coverage.');
 }
-if (!str_contains($adminCss, 'table-layout: fixed') || !str_contains($adminCss, '.stream-posts-table .check-column') || !str_contains($adminCss, '.stream-posts-table td.title-column')) {
-    bm_smoke_fail($failures, 'Stream post table CSS must keep metadata columns stable while the Post column expands.');
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-media-library.css')")) {
+    bm_smoke_fail($failures, 'Shared Admin layout does not load the Media Library component stylesheet.');
 }
-if (!str_contains($adminCss, 'body.bonumark-admin .admin-content:has(.content-list-panel)') || !str_contains($adminCss, 'max-width: none')) {
-    bm_smoke_fail($failures, 'Admin list screens must be allowed to use the full workspace width.');
+if (!str_contains($adminMediaLibraryCss, 'Bonumark Stream Admin Media Library')
+    || !str_contains($adminMediaLibraryCss, '.media-library-grid')
+    || !str_contains($adminMediaLibraryCss, 'grid-template-columns: repeat(2, minmax(0, 1fr));')
+    || !str_contains($adminMediaLibraryCss, '.media-details-dialog')
+    || !str_contains($adminMediaLibraryCss, 'inset: auto 0 0;')) {
+    bm_smoke_fail($failures, 'Media Library CSS is missing browsing-grid, phone-grid, dialog, or bottom-sheet coverage.');
 }
-if (!str_contains($contentAdmin, 'class="admin-table content-table stream-posts-table"')) {
-    bm_smoke_fail($failures, 'Stream posts table must use the full-width stream-posts-table class.');
+if (!str_contains($mediaAdmin, 'class="media-library-grid"')
+    || !str_contains($mediaAdmin, 'data-media-details-open')
+    || !str_contains($mediaAdmin, 'data-media-details-dialog')
+    || !str_contains($mediaAdmin, 'data-media-detail-markdown')
+    || substr_count($mediaAdmin, 'class="copy-field"') !== 1) {
+    bm_smoke_fail($failures, 'Media Library must use compact cards and one shared on-demand details surface instead of repeated Markdown fields.');
 }
-if (!str_contains($pagesAdmin, 'class="admin-table content-table pages-table"')) {
-    bm_smoke_fail($failures, 'Pages table must use the shared admin/content table classes.');
+if (!str_contains($adminJs, 'function attachMediaDetailsDialog()')
+    || !str_contains($adminJs, "dialog.showModal()")
+    || !str_contains($adminJs, "card.classList.toggle('is-selected', box.checked)")) {
+    bm_smoke_fail($failures, 'Media Library dialog or selection-state behavior is missing from Admin JavaScript.');
 }
-if (!str_contains($commentsAdmin, 'comments-list-panel') || !str_contains($commentsAdmin, 'comments-table')) {
-    bm_smoke_fail($failures, 'Comments list must expose stable list-panel and comments-table classes.');
+if (!str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-media-library.css'")) {
+    bm_smoke_fail($failures, 'Service worker asset list does not include the Media Library component stylesheet.');
 }
+
+if (!str_contains($contentAdmin, 'class="content-record-header"') || !str_contains($contentAdmin, 'id="stream-content-list"') || !str_contains($contentAdmin, 'class="content-actions-menu"') || !str_contains($contentAdmin, 'data-select-scope="#stream-content-list"')) {
+    bm_smoke_fail($failures, 'Stream Posts must use the responsive record-list structure, scoped selection, and compact action menus.');
+}
+if (!str_contains($adminContentListCss, 'body.bonumark-admin.admin-screen-content .admin-content') || !str_contains($adminContentListCss, 'max-width: 1500px')) {
+    bm_smoke_fail($failures, 'The Stream Posts record list must use an intentional desktop workspace width.');
+}
+if (!str_contains($pagesAdmin, 'class="content-record-header page-content-record-header"')
+    || !str_contains($pagesAdmin, 'class="content-record page-content-record')
+    || !str_contains($pagesAdmin, 'class="content-actions-menu"')
+    || !str_contains($adminContentListCss, '.page-content-record')
+    || !str_contains($adminContentListCss, 'admin-screen-pages')) {
+    bm_smoke_fail($failures, 'Pages must use the shared responsive record-list structure and page-specific desktop/mobile layout.');
+}
+if (!str_contains($pagesAdmin, 'content-filter pages-content-filter')
+    || !str_contains($adminContentListCss, '.pages-content-filter')
+    || !str_contains($adminContentListCss, 'grid-template-columns: repeat(2, minmax(0, 1fr));')) {
+    bm_smoke_fail($failures, 'Phone Page status filters must remain fully visible in a two-column grid.');
+}
+if (!str_contains($pageEditAdmin, "bms_editor_screen_controls_action('page')")
+    || !str_contains($pageEditAdmin, "'content_type' => 'page'")
+    || !str_contains($pageEditAdmin, 'bms_editor_mobile_action_bar')
+    || !str_contains($pageNewAdmin, 'bms_editor_mobile_action_bar')
+    || !str_contains($editorApp, 'data-editor-card="page-url"')
+    || !str_contains($editorApp, 'data-editor-card="page-settings"')
+    || !str_contains($editorApp, "? bms_current_user_can(\$isPageContent ? 'manage_pages' : 'publish_content')")) {
+    bm_smoke_fail($failures, 'Page editor workflow is missing page-aware screen controls, metadata cards, permissions, or mobile actions.');
+}
+if (!str_contains($pageEditAdmin, "\$submitAction === 'publish'")
+    || !str_contains($pageEditAdmin, "\$targetSection = bms_page_status_section(\$targetStatus)")
+    || !str_contains($editorJs, "'page-url': true")
+    || !str_contains($editorJs, '[data-page-final-url-input]')) {
+    bm_smoke_fail($failures, 'Page editor does not publish current form contents or keep page URL previews synchronized.');
+}
+if (!str_contains($editorApp, "\$isPageContent ? 'page' : 'post'")
+    || str_contains($editorApp, 'Save changes first when the post has unsaved edits.</p>')) {
+    bm_smoke_fail($failures, 'Publish preview guidance must use page-specific language in the Page editor.');
+}
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-comments.css')")
+    || !str_contains($adminCommentsCss, 'Bonumark Stream Admin Comments')
+    || !str_contains($adminCommentsCss, '.comment-record-header')
+    || !str_contains($adminCommentsCss, '.comment-record-mobile-status')
+    || !str_contains($adminCommentsCss, 'grid-template-columns: repeat(3, minmax(0, 1fr));')) {
+    bm_smoke_fail($failures, 'Comments moderation stylesheet is missing desktop records, phone cards, or visible mobile status filters.');
+}
+if (!str_contains($commentsAdmin, 'class="comment-record-header"')
+    || !str_contains($commentsAdmin, 'id="comment-record-list"')
+    || !str_contains($commentsAdmin, 'data-select-scope="#comment-record-list"')
+    || !str_contains($commentsAdmin, 'class="content-actions-menu"')
+    || !str_contains($commentsAdmin, 'Search comments, authors, usernames, posts, or slugs')
+    || !str_contains($commentsAdmin, 'Restore as approved')
+    || !str_contains($commentsAdmin, 'Delete permanently')) {
+    bm_smoke_fail($failures, 'Comments must use the responsive moderation records, scoped bulk controls, search, and complete state actions.');
+}
+if (!str_contains($commentsApp, 'function bms_admin_comment_status_counts')
+    || !str_contains($commentsApp, 'function bms_update_comment_statuses')
+    || !str_contains($commentsApp, 'function bms_delete_trashed_comments_permanently')
+    || !str_contains($commentsApp, "WHERE id = :id AND status = :status")) {
+    bm_smoke_fail($failures, 'Comment moderation helpers must support counts, bulk state changes, and Trash-only permanent deletion.');
+}
+if (!str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-comments.css'")) {
+    bm_smoke_fail($failures, 'Service worker asset list does not include the Comments moderation stylesheet.');
+}
+
+if (!str_contains($commentsAdmin, "require_once __DIR__ . '/_comments-ui.php'")
+    || !str_contains($commentsAdmin, 'str_starts_with($action, \'bulk_\') && !$selected')
+    || str_contains($commentsUi, '$action')
+    || !str_contains($commentsUi, 'function bms_comments_admin_date')) {
+    bm_smoke_fail($failures, 'Comments warning correction or runtime-safe display helpers are missing.');
+}
+if (!is_file($root . '/scripts/admin-comments-runtime-test.php')) {
+    bm_smoke_fail($failures, 'Comments runtime warning regression test is missing.');
+}
+if (!str_contains($adminCommentsCss, 'v0.5.60 desktop moderation control correction')
+    || !str_contains($adminCommentsCss, 'flex: 0 0 220px;')
+    || !str_contains($adminCommentsCss, 'white-space: nowrap;')) {
+    bm_smoke_fail($failures, 'Comments desktop control bar correction is missing.');
+}
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-accounts.css')")
+    || !str_contains($adminLayout, "'label' => 'Accounts'")
+    || !str_contains($adminLayout, "'users.php', 'user-new.php', 'user-edit.php'")) {
+    bm_smoke_fail($failures, 'Accounts navigation or component stylesheet integration is incomplete.');
+}
+if (!str_contains($usersAdmin, 'class="account-record-header"')
+    || !str_contains($usersAdmin, 'class="account-record-list"')
+    || !str_contains($usersAdmin, 'Manage Account')
+    || !str_contains($usersAdmin, 'Approve Account')
+    || str_contains($usersAdmin, 'class="admin-table')
+    || str_contains($usersAdmin, '<h2>Add commenter</h2>')) {
+    bm_smoke_fail($failures, 'Accounts must use responsive records, one Actions menu, and a separate creation screen.');
+}
+if (!str_contains($userNewAdmin, 'name="new_commenter_username"')
+    || !str_contains($userNewAdmin, 'autocomplete="new-password"')
+    || !str_contains($userNewAdmin, 'data-1p-ignore')
+    || !str_contains($userNewAdmin, 'data-lpignore="true"')) {
+    bm_smoke_fail($failures, 'Dedicated Add Commenter fields are missing autofill-resistant account controls.');
+}
+if (!str_contains($adminAccountsCss, 'Bonumark Stream Admin Accounts')
+    || !str_contains($adminAccountsCss, '.account-record-header')
+    || !str_contains($adminAccountsCss, '.account-record-mobile-label')) {
+    bm_smoke_fail($failures, 'Accounts component stylesheet is missing desktop records or responsive account cards.');
+}
+if (!str_contains($authApp, "'users.php', 'user-new.php', 'user-edit.php' => 'manage_users'")
+    || !str_contains($authApp, 'profile_visibility, avatar_path')) {
+    bm_smoke_fail($failures, 'Account creation route protection or account-list profile data is incomplete.');
+}
+if (!str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-accounts.css'")) {
+    bm_smoke_fail($failures, 'Service worker asset list does not include the Accounts stylesheet.');
+}
+if (!str_contains($commentsAdmin, 'class="content-filter-link')
+    || !str_contains($commentsAdmin, 'class="content-filter-label"')
+    || !str_contains($commentsAdmin, 'class="content-filter-count"')
+    || !str_contains($usersAdmin, 'class="content-filter-link')
+    || !str_contains($usersAdmin, 'class="content-filter-label"')
+    || !str_contains($usersAdmin, 'class="content-filter-count"')) {
+    bm_smoke_fail($failures, 'Comments and Accounts filters must keep labels and counts as separate styled elements.');
+}
+if (!str_contains($adminContentListCss, 'v0.5.61 shared filter label and count treatment')
+    || !str_contains($adminContentListCss, '.content-filter-count')
+    || !str_contains($adminContentListCss, 'font-variant-numeric: tabular-nums;')) {
+    bm_smoke_fail($failures, 'Shared filter count badge styling is missing.');
+}
+if (!str_contains($usersAdmin, 'accounts-summary-total')
+    || !str_contains($adminAccountsCss, '.accounts-summary-total')
+    || !str_contains($adminAccountsCss, 'grid-column: 1 / -1;')) {
+    bm_smoke_fail($failures, 'Total accounts must span the full second row in the phone summary grid.');
+}
+
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-registration.css')")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-registration.css'")) {
+    bm_smoke_fail($failures, 'Registration component stylesheet is not integrated into the Admin shell and service worker.');
+}
+if (!str_contains($registrationAdmin, "bms_admin_header('Registration'")
+    || !str_contains($registrationAdmin, 'registration-summary-panel')
+    || !str_contains($registrationAdmin, 'class="registration-option-card"')
+    || !str_contains($registrationAdmin, 'class="registration-invite-record"')
+    || str_contains($registrationAdmin, 'class="admin-table')) {
+    bm_smoke_fail($failures, 'Registration must use the modern summary, option-card, and responsive invite-record workflow.');
+}
+if (!str_contains($adminRegistrationCss, 'Bonumark Stream Admin Registration')
+    || !str_contains($adminRegistrationCss, '.registration-workflow-grid')
+    || !str_contains($adminRegistrationCss, '.registration-invite-record')
+    || !str_contains($adminRegistrationCss, '.registration-mobile-label')) {
+    bm_smoke_fail($failures, 'Registration component stylesheet is missing desktop or phone workflow rules.');
+}
+if (!str_contains($registrationAdmin, '$registrationEnabled = $mode !== \'disabled\';')
+    || !str_contains($registrationAdmin, 'if ($registrationEnabled && $verify && !$mailReady)')
+    || !str_contains($registrationAdmin, "'Required when enabled'")
+    || !str_contains($registrationAdmin, "'Automatic when enabled'")) {
+    bm_smoke_fail($failures, 'Registration state guidance must stay quiet while registration is disabled and clarify deferred verification and approval rules.');
+}
+
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-appearance.css')")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-appearance.css'")) {
+    bm_smoke_fail($failures, 'Appearance component stylesheet is not integrated into the Admin shell and service worker.');
+}
+if (!str_contains($adminAppearanceCss, 'Bonumark Stream Admin Appearance')
+    || !str_contains($adminAppearanceCss, '.appearance-theme-grid')
+    || !str_contains($adminAppearanceCss, '.appearance-identity-layout')
+    || !str_contains($adminAppearanceCss, '.appearance-navigation-item')
+    || !str_contains($adminAppearanceCss, '@media (max-width: 640px)')) {
+    bm_smoke_fail($failures, 'Appearance component stylesheet is missing theme, identity, navigation, or phone workflow rules.');
+}
+if (!str_contains($adminAppearanceCss, '@media (min-width: 641px)')
+    || !str_contains($adminAppearanceCss, '.appearance-active-theme-facts > div:first-child')
+    || !str_contains($adminAppearanceCss, 'grid-column: 1 / -1;')) {
+    bm_smoke_fail($failures, 'Active-theme metadata must reserve a full desktop row for the slug without changing the accepted phone layout.');
+}
+
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-settings.css')")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-settings.css'")) {
+    bm_smoke_fail($failures, 'Settings component stylesheet is not integrated into the Admin shell and service worker.');
+}
+if (!str_contains($adminLayout, "'label' => 'Reading'")
+    || !str_contains($adminLayout, "'label' => 'Security'")
+    || !str_contains($authApp, "'settings-reading.php', 'security.php', 'registration.php'")) {
+    bm_smoke_fail($failures, 'Settings navigation or Security route capability is incomplete.');
+}
+if (!str_contains($adminSettingsCss, 'Bonumark Stream Admin Settings')
+    || !str_contains($adminSettingsCss, '.settings-workflow-grid')
+    || !str_contains($adminSettingsCss, '.settings-option-card')
+    || !str_contains($adminSettingsCss, '.settings-token-record')
+    || !str_contains($adminSettingsCss, '@media (max-width: 720px)')) {
+    bm_smoke_fail($failures, 'Settings component stylesheet is missing workflow, option, record, or phone rules.');
+}
+if (!str_contains($adminSettingsCss, 'Settings URL Overflow Hotfix')
+    || !str_contains($adminSettingsCss, '.settings-technical-value')
+    || !str_contains($adminSettingsCss, 'overflow-wrap: anywhere;')
+    || !str_contains($adminSettingsCss, 'word-break: break-word;')
+    || !str_contains($adminSettingsCss, '.settings-workflow-grid > *')) {
+    bm_smoke_fail($failures, 'Settings technical URLs must shrink and wrap inside Reading, Remote Posting, Scheduled Tasks, and related panels.');
+}
+if (!str_contains($readingSettingsAdmin, 'class="settings-technical-value"')
+    || !str_contains($remotePostingAdmin, 'class="settings-technical-value"')
+    || !str_contains($scheduledTasksAdmin, 'class="settings-technical-value"')) {
+    bm_smoke_fail($failures, 'Settings URL containers are missing the shared technical-value overflow treatment.');
+}
+if (!str_contains($generalSettingsAdmin, 'settings-summary-grid')
+    || !str_contains($writingSettingsAdmin, 'settings-option-card')
+    || !str_contains($readingSettingsAdmin, "bms_admin_header('Reading Settings'")
+    || !str_contains($readingSettingsAdmin, 'settings-section-list')) {
+    bm_smoke_fail($failures, 'General, Writing, or Reading settings are missing the modern workflow structure.');
+}
+if (!str_contains($securitySettingsAdmin, 'settings-security-grid')
+    || str_contains($securitySettingsAdmin, "bms_redirect(bms_admin_url('system-check.php'))")
+    || !str_contains($securitySettingsAdmin, 'API tokens')) {
+    bm_smoke_fail($failures, 'Security must be a real settings hub instead of redirecting to System Check.');
+}
+if (!str_contains($mailSettingsAdmin, 'settings-mail-record')
+    || str_contains($mailSettingsAdmin, 'class="admin-table')
+    || !str_contains($remotePostingAdmin, 'settings-token-record')
+    || !str_contains($remotePostingAdmin, 'settings-audit-record')
+    || str_contains($remotePostingAdmin, 'class="admin-table')) {
+    bm_smoke_fail($failures, 'Mail and Remote Posting must use responsive settings records instead of legacy tables.');
+}
+if (!str_contains($scheduledTasksAdmin, 'settings-history-record')
+    || str_contains($scheduledTasksAdmin, 'class="admin-table')
+    || !str_contains($scheduledTasksAdmin, 'Protected web cron')) {
+    bm_smoke_fail($failures, 'Scheduled Tasks must use the modern runner workflow and responsive history records.');
+}
+
+
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-operations.css')")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-operations.css'")) {
+    bm_smoke_fail($failures, 'Operations component stylesheet is not integrated into the Admin shell and service worker.');
+}
+if (!str_contains($adminOperationsCss, 'Bonumark Stream Admin Operations')
+    || !str_contains($adminOperationsCss, '.operations-danger-zone')
+    || !str_contains($adminOperationsCss, '.operations-workflow-grid')
+    || !str_contains($adminOperationsCss, '.operations-record')
+    || !str_contains($adminOperationsCss, '@media (max-width: 720px)')) {
+    bm_smoke_fail($failures, 'Operations stylesheet is missing risk, workflow, record, or phone rules.');
+}
+if (!str_contains($adminOperationsCss, '.operations-check-card > *')
+    || !str_contains($adminOperationsCss, 'body.admin-screen-tools .operations-group-list')
+    || !str_contains($adminOperationsCss, 'body.admin-screen-upgrade .operations-workflow-history')
+    || !str_contains($adminOperationsCss, 'grid-template-areas:')
+    || !str_contains($upgradeAdmin, 'operations-workflow-history')
+    || !str_contains($upgradeAdmin, 'Version change')
+    || !str_contains($upgradeAdmin, 'is-version-change')) {
+    bm_smoke_fail($failures, 'Tools and System acceptance polish is missing diagnostic wrapping, Upgrade flow placement, or compact history records.');
+}
+if (!str_contains($toolsAdmin, 'Move and protect data')
+    || !str_contains($toolsAdmin, 'Change system software')
+    || !str_contains($toolsAdmin, 'Monitor and automate')
+    || !str_contains($toolsAdmin, 'Access and support')) {
+    bm_smoke_fail($failures, 'Tools must distinguish data movement, upgrades, diagnostics, and access workflows.');
+}
+if (!str_contains($importAdmin, 'Preview first')
+    || !str_contains($importAdmin, 'Step 3')
+    || !str_contains($importAdmin, 'Writes database')
+    || !str_contains($importMarkdownAdmin, 'Advanced migration')) {
+    bm_smoke_fail($failures, 'Import workflows must distinguish staging, confirmation, database writes, and private-folder migration.');
+}
+if (!str_contains($exportAdmin, 'Portable outputs')
+    || !str_contains($exportAdmin, 'Private backups')
+    || !str_contains($exportAdmin, 'Sensitive data')) {
+    bm_smoke_fail($failures, 'Export must distinguish portable outputs from sensitive private backups.');
+}
+if (!str_contains($upgradeAdmin, 'High-risk operation')
+    || !str_contains($upgradeAdmin, 'Step 1')
+    || !str_contains($upgradeAdmin, 'Final confirmation')
+    || str_contains($upgradeAdmin, 'class="admin-table')) {
+    bm_smoke_fail($failures, 'Upgrade must use staged package checks, explicit final confirmation, and responsive history records.');
+}
+if (!str_contains($systemCheckAdmin, 'Read-only diagnostics')
+    || !str_contains($systemCheckAdmin, 'operations-check-grid')
+    || !str_contains($analyticsAdmin, 'operations-danger-zone')
+    || !str_contains($helpAdmin, 'Operational help')) {
+    bm_smoke_fail($failures, 'Diagnostics, analytics danger actions, or operational Help are incomplete.');
+}
+if (!str_contains($adminLayout, "['label' => 'Scheduled Tasks'")
+    || !str_contains($adminLayout, "['label' => 'Remote Posting'")) {
+    bm_smoke_fail($failures, 'Scheduled Tasks and Remote Posting must remain available in System navigation.');
+}
+
+if (!str_contains($adminLayout, "bms_asset_url('assets/admin-places.css')")
+    || !str_contains($adminLayout, "bms_asset_url('assets/admin-places.js')")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-places.css'")
+    || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-places.js'")) {
+    bm_smoke_fail($failures, 'Local Places component assets are not integrated into the Admin shell and service worker.');
+}
+if (!str_contains($adminPlacesCss, 'Bonumark Stream Admin Local Places')
+    || !str_contains($adminPlacesCss, '.places-record')
+    || !str_contains($adminPlacesCss, '.places-editor-layout')
+    || !str_contains($adminPlacesCss, '.places-nearby-results')
+    || !str_contains($adminPlacesCss, '@media (max-width: 640px)')) {
+    bm_smoke_fail($failures, 'Local Places component stylesheet is missing directory, editor, nearby, or phone workflow rules.');
+}
+if (!str_contains($placesAdmin, 'data-places-directory-nearby')
+    || !str_contains($placesAdmin, 'class="places-record-list"')
+    || !str_contains($placesAdmin, 'class="places-search-form"')
+    || str_contains($placesAdmin, 'local-places-directory-item')) {
+    bm_smoke_fail($failures, 'Local Places directory must use search, nearby results, and the responsive record system.');
+}
+if (!str_contains($placeEditAdmin, 'data-place-editor')
+    || !str_contains($placeEditAdmin, 'data-place-editor-nearby')
+    || !str_contains($placeEditAdmin, 'data-place-preview-primary')
+    || !str_contains($placeEditAdmin, 'data-place-preview-marker')
+    || !str_contains($placeEditAdmin, 'Enter a place name to preview the public label')
+    || !str_contains($placeEditAdmin, 'class="places-editor-layout"')) {
+    bm_smoke_fail($failures, 'Local Places editor is missing the preview, empty-state marker treatment, nearby duplicate check, or modern editor layout.');
+}
+if (!str_contains($adminPlacesJs, "previewMarker.hidden = !hasPrimary")
+    || !str_contains($adminPlacesJs, "previewPrimary.classList.toggle('is-placeholder', !hasPrimary)")
+    || !str_contains($adminPlacesCss, '.places-public-preview.is-empty')
+    || !str_contains($adminPlacesCss, '.places-preview-marker svg')) {
+    bm_smoke_fail($failures, 'Local Places preview must hide the marker and show neutral guidance until a real public label exists.');
+}
+if (!str_contains($placeDeleteAdmin, 'name="confirm_name"')
+    || !str_contains($placeDeleteAdmin, 'Delete Place Permanently')
+    || !str_contains($placeDeleteAdmin, 'Existing Stream Posts keep the public location snapshot')) {
+    bm_smoke_fail($failures, 'Local Places deletion must use a dedicated confirmation workflow and preserve existing post snapshots.');
+}
+if (!str_contains($placesApp, 'function bms_places_filter(')
+    || !str_contains($adminPlacesJs, 'function attachDirectoryNearby()')
+    || !str_contains($adminPlacesJs, 'function attachPlaceEditor()')
+    || !str_contains($adminPlacesJs, 'Location permission was denied')) {
+    bm_smoke_fail($failures, 'Local Places search, nearby loading/error handling, or editor interaction code is incomplete.');
+}
+
+if (!str_contains($themesAdmin, 'class="appearance-theme-grid"')
+    || !str_contains($themesAdmin, 'class="appearance-summary-grid"')
+    || !str_contains($themesAdmin, 'View Details')
+    || !str_contains($themesAdmin, 'Active Theme Settings')) {
+    bm_smoke_fail($failures, 'Themes must act as the Site Design hub with theme summaries, cards, and lifecycle actions.');
+}
+if (!str_contains($themeSettingsAdmin, 'type="hidden" name="active_public_theme"')
+    || !str_contains($themeSettingsAdmin, 'class="appearance-setting-list"')
+    || !str_contains($themeSettingsAdmin, 'Choose Another Theme')
+    || str_contains($themeSettingsAdmin, '<select id="active_public_theme"')) {
+    bm_smoke_fail($failures, 'Theme Settings must edit the active theme only and leave activation to the Themes workflow.');
+}
+if (!str_contains($themeDetailsAdmin, 'class="appearance-theme-detail-layout"')
+    || !str_contains($themeDetailsAdmin, 'class="appearance-record-list"')
+    || !str_contains($themeInstallAdmin, 'class="appearance-file-drop"')
+    || !str_contains($themeInstallAdmin, 'Code-free only')
+    || !str_contains($themeDeleteAdmin, 'class="appearance-delete-form"')) {
+    bm_smoke_fail($failures, 'Theme details, installation, or deletion is missing the modern package lifecycle structure.');
+}
+if (!str_contains($siteIdentityAdmin, 'appearance-identity-layout')
+    || !str_contains($siteIdentityAdmin, 'appearance-favicon-current')
+    || !str_contains($siteIdentityAdmin, 'appearance-save-bar')) {
+    bm_smoke_fail($failures, 'Site Identity must separate public framing, favicon management, and the save action.');
+}
+if (!str_contains($navigationAdmin, 'appearance-navigation-option-list')
+    || !str_contains($navigationAdmin, 'appearance-navigation-item')
+    || !str_contains($navigationAdmin, 'appearance-navigation-add-grid')
+    || !str_contains($navigationAdmin, 'Show automatic account links')) {
+    bm_smoke_fail($failures, 'Navigation must expose menu state, editable ordered records, and page/custom additions.');
+}
+
 if (!str_contains($functionsApp, 'function bms_public_preview_mode') || !str_contains($functionsApp, 'function bms_with_public_preview_mode')) {
     bm_smoke_fail($failures, 'Preview-mode core helpers are missing.');
 }
@@ -614,6 +1187,16 @@ foreach (['SHOW COLUMNS FROM `{$prefix}posts` LIKE :column_name', 'SHOW INDEX FR
     }
 }
 $upgradeSource = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+if (!str_contains($upgradeSource, '$skipPublic = [\'media\' => true, \'uploads\' => true]')
+    || !str_contains($upgradeSource, '!isset($skipPublic[$topLevel])')
+    || !str_contains($upgradeSource, '$preservedRuntimeItems = [\'media\' => true, \'uploads\' => true]')
+    || !str_contains($upgradeSource, 'isset($preservedRuntimeItems[$item])')) {
+    bm_smoke_fail($failures, 'Upgrade software selection and backups must skip public media and upload runtime directories.');
+}
+if (!str_contains($upgradeSource, "'CHANGELOG.md' => true")
+    || !str_contains($upgradeSource, "'analytics.php' => true")) {
+    bm_smoke_fail($failures, 'Upgrade cleanup coverage is missing package-managed top-level files.');
+}
 foreach ([
     "'manifest.php' => true",
     "'pwa-icon.php' => true",
@@ -953,6 +1536,112 @@ if (!str_contains($renderedMarkdownImage, '<p>Caption stays visible.</p>')) {
     bm_smoke_fail($failures, 'Markdown image rendering smoke test did not keep the caption visible.');
 }
 
+
+
+// Four-photo gallery checks.
+$quickPostSource = @file_get_contents($root . '/admin/quick-post.php') ?: '';
+$editorSource = @file_get_contents($root . '/_bonumark_stream/app/editor.php') ?: '';
+$editorJs = @file_get_contents($root . '/assets/editor.js') ?: '';
+$mediaTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/media.php') ?: '';
+$composerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/composer.php') ?: '';
+$themingDocs = @file_get_contents($root . '/docs/THEMING.md') ?: '';
+$apiSource = @file_get_contents($root . '/_bonumark_stream/app/api.php') ?: '';
+foreach (['function bms_normalize_media_gallery', "'media_gallery' =>", 'media_gallery:'] as $requiredGalleryFunctionText) {
+    if (!str_contains($functionsSource, $requiredGalleryFunctionText)) {
+        bm_smoke_fail($failures, 'Core gallery front-matter support is missing: ' . $requiredGalleryFunctionText);
+    }
+}
+if (!str_contains($quickPostSource, 'count($files) > 4') || !str_contains($quickPostSource, "'media_gallery' => \$mediaGallery") || !str_contains($quickPostSource, 'bms_media_discard_new_upload')) {
+    bm_smoke_fail($failures, 'Quick Post must enforce four files, save ordered gallery metadata, and roll back failed uploads.');
+}
+if (!str_contains($composerTemplate, 'name="stream_media[]"') || !str_contains($composerTemplate, 'multiple') || !str_contains($composerTemplate, 'data-stream-max-files')) {
+    bm_smoke_fail($failures, 'Front-end composer must expose a multiple file input capped by the gallery controller.');
+}
+foreach (['setupEditorPhotoGallery', 'addMediaToPhotoGallery', "payload.append('image_only', '1')"] as $requiredEditorGalleryText) {
+    if (!str_contains($editorJs, $requiredEditorGalleryText)) {
+        bm_smoke_fail($failures, 'Admin editor gallery control is missing: ' . $requiredEditorGalleryText);
+    }
+}
+if (!str_contains($editorSource, 'data-editor-photo-gallery') || !str_contains($editorSource, 'name="media_gallery[]"') || !str_contains($editorSource, 'data-media-picker-mode="gallery"')) {
+    bm_smoke_fail($failures, 'Admin editor must render ordered gallery controls and hidden gallery fields.');
+}
+foreach (['stream-media-gallery-count-', 'stream-media-gallery-layout-', 'stream-media-gallery-item-'] as $requiredGalleryMarkup) {
+    if (!str_contains($mediaTemplate, $requiredGalleryMarkup)) {
+        bm_smoke_fail($failures, 'Core media template gallery contract is missing: ' . $requiredGalleryMarkup);
+    }
+}
+foreach (['.stream-media-gallery', '--bms-media-gallery-gap', '--bms-media-gallery-object-fit'] as $requiredGalleryCss) {
+    if (!str_contains($coreCss, $requiredGalleryCss) || !str_contains($themeCss, $requiredGalleryCss)) {
+        bm_smoke_fail($failures, 'Core fallback or bundled theme gallery styling is missing: ' . $requiredGalleryCss);
+    }
+}
+if (!str_contains($themingDocs, '## Photo gallery presentation') || !str_contains($themingDocs, 'Older themes remain compatible')) {
+    bm_smoke_fail($failures, 'Theme documentation must define the gallery contract and older-theme fallback.');
+}
+if (!str_contains($functionsSource, "img-src 'self' data: blob: https: http:")) {
+    bm_smoke_fail($failures, 'Composer photo previews require blob: in the image Content Security Policy.');
+}
+foreach (['previewObjectUrls', 'revokePreviewObjectUrls', 'window.URL.createObjectURL'] as $requiredPreviewText) {
+    if (!str_contains($streamJs, $requiredPreviewText)) {
+        bm_smoke_fail($failures, 'Front-end gallery preview URL lifecycle is missing: ' . $requiredPreviewText);
+    }
+}
+foreach (['function setupMediaViewer', 'data-stream-media-viewer-modal', 'Close photo viewer', "event.key === 'Escape'", 'mediaViewerControllerInitialized'] as $requiredViewerText) {
+    if (!str_contains($streamJs, $requiredViewerText)) {
+        bm_smoke_fail($failures, 'Core photo viewer behavior is missing: ' . $requiredViewerText);
+    }
+}
+if (!str_contains($mediaTemplate, 'data-stream-media-viewer')) {
+    bm_smoke_fail($failures, 'Core image links must opt into the photo viewer contract.');
+}
+foreach (['.stream-media-viewer', '.stream-media-viewer-close', 'body.stream-media-viewer-open'] as $requiredViewerCss) {
+    if (!str_contains($coreCss, $requiredViewerCss)) {
+        bm_smoke_fail($failures, 'Core photo viewer styling is missing: ' . $requiredViewerCss);
+    }
+}
+if (!str_contains($themingDocs, 'Core also owns the full-size photo viewer')) {
+    bm_smoke_fail($failures, 'Theme documentation does not define the core photo viewer boundary.');
+}
+if (!str_contains($apiSource, 'function bms_api_media_display_mode') || !str_contains($apiSource, "'display' => 'gallery'") || !str_contains($apiDocs, 'media_display')) {
+    bm_smoke_fail($failures, 'Remote API gallery mode or its documentation is missing.');
+}
+
+$galleryProbeCode = 'require ' . var_export($root . '/_bonumark_stream/app/functions.php', true) . '; '
+    . '$raw=bms_build_markdown_document(["title"=>"Gallery","slug"=>"gallery","status"=>"draft","date"=>"2026-08-04","featured_media"=>"media/a.jpg","media_gallery"=>["media/a.jpg","media/b.jpg","media/c.jpg","media/d.jpg","media/e.jpg"]],""); '
+    . '$page=bms_parse_markdown_string($raw); echo json_encode([$page["featured_media"],$page["media_gallery"]]);';
+$galleryProbeCommand = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($galleryProbeCode) . ' 2>/dev/null';
+$galleryProbe = json_decode(trim((string)shell_exec($galleryProbeCommand)), true);
+if (!is_array($galleryProbe) || ($galleryProbe[0] ?? '') !== 'media/a.jpg' || count((array)($galleryProbe[1] ?? [])) !== 4 || (($galleryProbe[1][3] ?? '') !== 'media/d.jpg')) {
+    bm_smoke_fail($failures, 'Gallery front matter must preserve order, keep the first image featured, and cap galleries at four.');
+}
+
+$editorWorkflowCss = @file_get_contents($root . '/assets/admin-editor-workflow.css') ?: '';
+if (str_contains($editorWorkflowCss, 'max-height: calc(100vh - 104px)') || str_contains($editorWorkflowCss, 'scrollbar-gutter: stable')) {
+    bm_smoke_fail($failures, 'Editor metadata rail must not retain the nested desktop scrollbar from v0.5.52.');
+}
+if (!str_contains($editorWorkflowCss, '.editor-layout-form.has-sticky-sidebar:not(.is-single-column-editor) .publish-card')
+    || !str_contains($editorWorkflowCss, 'position: sticky;')) {
+    bm_smoke_fail($failures, 'Editor correction must keep only the Publish card sticky on wide desktop layouts.');
+}
+if (!str_contains($editorJs, 'if (window.innerWidth <= 640) { return 260; }')
+    || !str_contains($editorJs, 'if (window.innerWidth <= 900) { return 300; }')) {
+    bm_smoke_fail($failures, 'Editor mobile writing surface baselines are not reduced to the v0.5.53 values.');
+}
+if (!str_contains($editorSource, '<section class="side-card editor-secondary-card editor-location-card"')
+    || !str_contains($editorSource, '<h3>Location</h3>')
+    || str_contains($editorSource, '<details class="side-card editor-secondary-card editor-native-disclosure editor-location-card"')
+    || !str_contains($editorWorkflowCss, 'body.bonumark-admin .editor-location-card .editor-card-heading')) {
+    bm_smoke_fail($failures, 'Location must use the shared collapsible side-card component without exposing its old duplicate heading.');
+}
+if (!str_contains($editorSource, 'data-editor-mobile-action-bar')
+    || !str_contains($editorWorkflowCss, 'inset: auto 0 0 0 !important;')
+    || !str_contains($editorWorkflowCss, '.editor-mobile-action-bar.is-context-hidden')
+    || !str_contains($editorWorkflowCss, '--editor-mobile-action-reserve: calc(84px + env(safe-area-inset-bottom));')
+    || !str_contains($editorJs, 'controlsEnterDockZone()')
+    || !str_contains($editorJs, 'window.visualViewport')
+    || !str_contains($editorJs, 'entry.intersectionRatio >= 0.24')) {
+    bm_smoke_fail($failures, 'Mobile editor action dock hotfix is incomplete or missing its viewport-safety behavior.');
+}
 
 if ($failures !== []) {
     fwrite(STDERR, "Bonumark smoke test failed:\n");

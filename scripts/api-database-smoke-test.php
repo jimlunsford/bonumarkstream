@@ -45,6 +45,7 @@ $scenarios = [
     'disabled_api',
     'missing_token',
     'invalid_token',
+    'stream_read',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -178,6 +179,60 @@ function bms_api_smoke_run_scenario(string $scenario): void
             $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer invalid-token';
             bms_api_smoke_expect_api_exception('invalid_bearer_token', function (): void {
                 bms_api_authenticate(['status:read']);
+            });
+            return;
+
+        case 'stream_read':
+            $tokenData = bms_api_create_token('Read token', ['status:read', 'stream:read'], null, 1);
+            $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . (string)$tokenData['plain_token'];
+            bms_api_authenticate(['stream:read']);
+            $authorId = 1;
+            $postId = bms_upsert_database_content([
+                'title' => 'Readable post',
+                'slug' => 'readable-post',
+                'status' => 'published',
+                'content_type' => 'stream',
+                'post_type' => 'stream',
+                'date' => '2026-07-28',
+                'description' => 'Read API smoke post.',
+                'category' => 'Stream',
+                'tags' => ['api'],
+                'body' => 'Readable Stream content.',
+                'front_matter' => [],
+            ], 'published', 'readable-post.md', $authorId);
+            $draftId = bms_upsert_database_content([
+                'title' => 'Private draft',
+                'slug' => 'private-draft',
+                'status' => 'draft',
+                'content_type' => 'stream',
+                'post_type' => 'stream',
+                'date' => '2026-07-28',
+                'description' => 'This draft must not be returned by stream:read.',
+                'category' => 'Stream',
+                'tags' => ['private'],
+                'body' => 'Private draft content.',
+                'front_matter' => [],
+            ], 'drafts', 'private-draft.md', $authorId);
+            $_GET = ['status' => 'published', 'per_page' => '100', 'page' => '1', 'orderby' => 'id', 'order' => 'asc', 'include_html' => '1'];
+            $catalog = bms_api_read_stream_posts();
+            if ((int)($catalog['pagination']['total'] ?? 0) !== 1 || (int)($catalog['posts'][0]['id'] ?? 0) !== $postId) {
+                throw new RuntimeException('Read token did not retrieve the complete Stream catalog.');
+            }
+            if (($catalog['posts'][0]['content']['markdown'] ?? '') !== 'Readable Stream content.' || trim((string)($catalog['posts'][0]['content']['html'] ?? '')) === '') {
+                throw new RuntimeException('Read API did not preserve Markdown and optional rendered HTML.');
+            }
+            $_GET = ['id' => (string)$postId];
+            $single = bms_api_read_stream_posts();
+            if (empty($single['single']) || (int)($single['post']['id'] ?? 0) !== $postId) {
+                throw new RuntimeException('Read API did not retrieve a stable published Stream post by ID.');
+            }
+            $_GET = ['id' => (string)$draftId];
+            bms_api_smoke_expect_api_exception('stream_post_not_found', function (): void {
+                bms_api_read_stream_posts();
+            });
+            $_GET = ['status' => 'draft'];
+            bms_api_smoke_expect_api_exception('invalid_status', function (): void {
+                bms_api_read_stream_posts();
             });
             return;
 

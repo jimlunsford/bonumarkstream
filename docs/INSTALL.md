@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.5.42 is a fresh-install public development release.
+Bonumark Stream v0.5.76 is the current fresh-install public development release.
 
 ## Requirements
 
@@ -37,9 +37,9 @@ After installation, open **Admin → Settings → Stream** to confirm the instal
 
 When PWA support is enabled, Bonumark Stream exposes `manifest.php`, a conservative service worker, and install icons. A favicon selected in Admin → Site Identity becomes the installed-app icon source. Servers with GD or Imagick receive generated versioned 192 × 192 and 512 × 512 PNG icons. Servers without those extensions use the selected favicon directly with its real image type and dimensions. Use a square 512 × 512 PNG for best results. The bundled Bonumark B remains the fallback only when no usable favicon is selected. Supported browsers may show an install option from the browser menu.
 
-When mobile share target support is enabled, supported browsers can share text and URLs into Bonumark Stream. Shared content enters through the secure share-target route, requires login, then redirects to the public stream with the front-end composer prefilled so the user can review and press Post.
+When mobile share target support is enabled, supported browsers can share text and URLs into Bonumark Stream. Shared content enters through the secure share-target route, requires login, then redirects to the public stream with the composer prefilled so the user can review it and choose Post, Schedule, Save draft, or Continue in full editor.
 
-Image/file sharing through Web Share Target is not enabled in this release. Once shared text or URLs reach the front-end composer, the Admin can either post now or schedule the post for later.
+Image/file sharing through Web Share Target is not enabled in this release. Once shared text or URLs reach the stream composer, the Admin can post, schedule, save a draft, or continue in the full editor.
 
 ## Remember this device
 
@@ -53,6 +53,6 @@ Pins do not change a post’s original publish date or its place in RSS, sitemap
 
 ## Scheduled posts
 
-The front-end composer and back-end editor both support scheduled stream posts. In the back-end editor, Save Draft and Post Now stay primary, while Schedule for later reveals the date/time field only when needed. Schedule fields display the configured site timezone, while Bonumark stores the canonical scheduled time in UTC.
+The stream composer schedules new Stream Posts. The full editor reschedules saved posts, publishes drafts immediately, or cancels scheduled posts back to drafts. Schedule fields display the configured site timezone, while Bonumark stores the canonical scheduled time in UTC.
 
 Open **Admin → Settings → Scheduled Tasks** after install. Server cron is the recommended runner. Shared-hosting and external services can use the protected web cron endpoint. Public traffic and signed-in browser heartbeat checks remain optional fallback paths. The same shared task runner handles every path and records health plus manual/cron history.

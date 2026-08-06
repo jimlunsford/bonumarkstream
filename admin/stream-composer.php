@@ -15,8 +15,7 @@ if (!bms_is_installed() || !bms_is_logged_in()) {
 }
 
 $canEdit = function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
-$canPublish = function_exists('bms_current_user_can') && bms_current_user_can('publish_content');
-if (!$canEdit || !$canPublish || !bms_stream_composer_enabled()) {
+if (!$canEdit) {
     http_response_code(204);
     exit;
 }

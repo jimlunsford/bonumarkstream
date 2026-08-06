@@ -561,19 +561,19 @@
   let composerViewportFillFrame = null;
 
   function composerViewportMinimum(form) {
-    if (window.innerWidth <= 640) { return 440; }
-    if (window.innerWidth <= 900) { return 560; }
-    if (form && form.classList.contains('is-density-compact')) { return 620; }
-    if (form && form.classList.contains('is-density-spacious')) { return 820; }
-    return 720;
+    if (window.innerWidth <= 640) { return 260; }
+    if (window.innerWidth <= 900) { return 300; }
+    if (form && form.classList.contains('is-density-compact')) { return 300; }
+    if (form && form.classList.contains('is-density-spacious')) { return 480; }
+    return 380;
   }
 
   function composerViewportMaximum(form) {
-    if (window.innerWidth <= 640) { return 1600; }
-    if (window.innerWidth <= 900) { return 2400; }
-    if (form && form.classList.contains('is-density-compact')) { return 4600; }
-    if (form && form.classList.contains('is-density-spacious')) { return 6500; }
-    return 5400;
+    if (window.innerWidth <= 640) { return 680; }
+    if (window.innerWidth <= 900) { return 900; }
+    if (form && form.classList.contains('is-density-compact')) { return 1100; }
+    if (form && form.classList.contains('is-density-spacious')) { return 1800; }
+    return 1400;
   }
 
   function composerDesktopColumnsActive(form) {
@@ -643,31 +643,12 @@
     const surface = activePanel ? activePanel.querySelector('.visual-editor, textarea#body_markdown, .visual-preview') : root.querySelector('.visual-editor, textarea#body_markdown, .visual-preview');
     if (!surface) { return; }
 
-    const rect = surface.getBoundingClientRect();
     const minimum = composerViewportMinimum(form);
     const maximum = composerViewportMaximum(form);
-    const bottomGap = window.innerWidth <= 640 ? 28 : (window.innerWidth <= 900 ? 34 : 42);
-    let desired = Math.floor(window.innerHeight - rect.top - bottomGap);
+    const contentHeight = composerSurfaceContentHeight(surface) + 24;
+    let desired = Math.max(minimum, contentHeight);
 
-    if (composerDesktopColumnsActive(form)) {
-      const surfaceDocumentTop = rect.top + window.scrollY;
-      const naturalSidebarBottom = sidebarNaturalDocumentBottom(form);
-      if (Number.isFinite(naturalSidebarBottom)) {
-        const balanced = Math.ceil(naturalSidebarBottom - surfaceDocumentTop + 44);
-        if (balanced > desired) { desired = balanced; }
-      } else {
-        const sidebarBottom = visibleSidebarBottom(form);
-        if (Number.isFinite(sidebarBottom)) {
-          const balanced = Math.ceil(sidebarBottom - rect.top + 44);
-          if (balanced > desired) { desired = balanced; }
-        }
-      }
-    }
-
-    const contentHeight = composerSurfaceContentHeight(surface) + 8;
-    if (contentHeight > desired) { desired = contentHeight; }
-
-    if (!Number.isFinite(desired) || desired < minimum) {
+    if (!Number.isFinite(desired)) {
       desired = minimum;
     }
 
@@ -891,6 +872,7 @@
   function mediaFromButton(button) {
     return {
       url: button.getAttribute('data-media-url') || '',
+      path: button.getAttribute('data-media-path') || button.getAttribute('data-media-url') || '',
       alt: button.getAttribute('data-media-alt') || '',
       label: button.getAttribute('data-media-label') || button.getAttribute('data-media-alt') || '',
       mime: button.getAttribute('data-media-mime') || '',
@@ -931,6 +913,141 @@
     }
   }
 
+  function setupEditorPhotoGallery(form, root) {
+    if (!form || form._bmsPhotoGalleryController) { return form ? form._bmsPhotoGalleryController : null; }
+    const shell = form.querySelector('[data-editor-photo-gallery]');
+    if (!shell) { return null; }
+    const list = shell.querySelector('[data-editor-photo-gallery-list]');
+    const fields = shell.querySelector('[data-editor-photo-gallery-fields]');
+    const empty = shell.querySelector('[data-editor-photo-gallery-empty]');
+    const countNode = shell.querySelector('[data-editor-photo-gallery-count]');
+    const featuredInput = form.querySelector('input[name="featured_media"]');
+    const max = Math.max(1, Math.min(4, parseInt(shell.getAttribute('data-gallery-max') || '4', 10) || 4));
+    let items = [];
+    let managed = false;
+
+    shell.querySelectorAll('[data-gallery-item]').forEach(function (node) {
+      const path = node.getAttribute('data-gallery-path') || '';
+      const url = node.getAttribute('data-gallery-url') || path;
+      if (!path) { return; }
+      items.push({ path: path, url: url, alt: node.getAttribute('data-gallery-alt') || 'Stream post photo', mime: 'image/' });
+    });
+    items = items.slice(0, max);
+
+    function setStatus(message, isError) {
+      if (!countNode) { return; }
+      countNode.textContent = message || (items.length + ' of ' + max + ' photos');
+      countNode.classList.toggle('is-error', !!isError);
+    }
+
+    function render(updateFeatured) {
+      if (list) {
+        list.innerHTML = '';
+        items.forEach(function (item, index) {
+          const card = document.createElement('div');
+          card.className = 'editor-photo-gallery-item';
+          const img = document.createElement('img');
+          img.src = item.url || item.path;
+          img.alt = '';
+          img.loading = 'lazy';
+          card.appendChild(img);
+          const label = document.createElement('span');
+          label.textContent = 'Photo ' + (index + 1);
+          card.appendChild(label);
+          const actions = document.createElement('div');
+          actions.className = 'editor-photo-gallery-actions';
+          const left = document.createElement('button');
+          left.type = 'button';
+          left.textContent = '←';
+          left.disabled = index === 0;
+          left.setAttribute('aria-label', 'Move photo left');
+          left.addEventListener('click', function () {
+            if (index <= 0) { return; }
+            const moved = items.splice(index, 1)[0];
+            items.splice(index - 1, 0, moved);
+            managed = true;
+            render(true);
+          });
+          actions.appendChild(left);
+          const right = document.createElement('button');
+          right.type = 'button';
+          right.textContent = '→';
+          right.disabled = index === items.length - 1;
+          right.setAttribute('aria-label', 'Move photo right');
+          right.addEventListener('click', function () {
+            if (index >= items.length - 1) { return; }
+            const moved = items.splice(index, 1)[0];
+            items.splice(index + 1, 0, moved);
+            managed = true;
+            render(true);
+          });
+          actions.appendChild(right);
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.textContent = 'Remove';
+          remove.setAttribute('aria-label', 'Remove photo ' + (index + 1));
+          remove.addEventListener('click', function () {
+            items.splice(index, 1);
+            managed = true;
+            render(true);
+          });
+          actions.appendChild(remove);
+          card.appendChild(actions);
+          list.appendChild(card);
+        });
+      }
+      if (fields) {
+        fields.innerHTML = '';
+        items.forEach(function (item) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'media_gallery[]';
+          input.value = item.path;
+          fields.appendChild(input);
+        });
+      }
+      if (empty) { empty.hidden = items.length > 0; }
+      setStatus('', false);
+      if (featuredInput && updateFeatured && managed) {
+        featuredInput.value = items.length ? items[0].path : '';
+      }
+    }
+
+    const controller = {
+      add: function (data) {
+        const mime = String(data && data.mime || '').toLowerCase();
+        const path = String(data && (data.path || data.public_path || data.url) || '').trim();
+        const url = String(data && data.url || path).trim();
+        if (!path || mime.indexOf('image/') !== 0) {
+          setStatus('Photo galleries only accept image files.', true);
+          return false;
+        }
+        if (items.some(function (item) { return item.path === path; })) {
+          setStatus('That photo is already in this gallery.', true);
+          return false;
+        }
+        if (items.length >= max) {
+          setStatus('This gallery already has the maximum of ' + max + ' photos.', true);
+          return false;
+        }
+        items.push({ path: path, url: url, alt: String(data.alt || 'Stream post photo'), mime: mime });
+        managed = true;
+        render(true);
+        return true;
+      },
+      count: function () { return items.length; }
+    };
+    form._bmsPhotoGalleryController = controller;
+    render(false);
+    return controller;
+  }
+
+  function addMediaToPhotoGallery(root, data) {
+    const form = root ? root.closest('form') : null;
+    const controller = setupEditorPhotoGallery(form, root);
+    return controller ? controller.add(data || {}) : false;
+  }
+
   function mediaItemButtonHtml(item) {
     const type = mediaTypeFromMimeOrUrl(item.mime, item.url);
     const label = cleanMediaLabel(item.label || item.alt || item.filename, 'Media');
@@ -942,6 +1059,7 @@
     return '<button type="button" class="media-picker-item" data-insert-media aria-label="Insert media"'
       + ' data-media-id="' + escapeHtml(item.id || '') + '"'
       + ' data-media-url="' + escapeHtml(item.url || '') + '"'
+      + ' data-media-path="' + escapeHtml(item.public_path || item.path || item.url || '') + '"'
       + ' data-media-alt="' + escapeHtml(item.alt || '') + '"'
       + ' data-media-caption="' + escapeHtml(item.caption || '') + '"'
       + ' data-media-label="' + escapeHtml(label) + '"'
@@ -996,6 +1114,17 @@
     if (!picker) {
       return false;
     }
+    const mode = trigger && trigger.getAttribute ? (trigger.getAttribute('data-media-picker-mode') || 'body') : 'body';
+    picker.setAttribute('data-media-picker-mode', mode);
+    const pickerTitle = picker.querySelector('#media-picker-title');
+    const pickerDescription = picker.querySelector('#media-picker-description');
+    if (pickerTitle) { pickerTitle.textContent = mode === 'gallery' ? 'Add Gallery Photo' : 'Add Media'; }
+    if (pickerDescription) { pickerDescription.textContent = mode === 'gallery' ? 'Choose or upload an image for this post gallery. Galleries support up to four photos.' : 'Upload a new file or insert something already in the library without leaving the editor.'; }
+    const uploadFileInput = picker.querySelector('[data-media-upload-form] input[type="file"]');
+    if (uploadFileInput) {
+      if (!uploadFileInput.getAttribute('data-original-accept')) { uploadFileInput.setAttribute('data-original-accept', uploadFileInput.getAttribute('accept') || ''); }
+      uploadFileInput.setAttribute('accept', mode === 'gallery' ? 'image/*' : (uploadFileInput.getAttribute('data-original-accept') || ''));
+    }
     activeDialogReturnTarget = trigger || document.activeElement;
     picker.hidden = false;
     picker.setAttribute('aria-hidden', 'false');
@@ -1037,7 +1166,7 @@
     const state = readStoredJson(key, {});
 
     sidebar.querySelectorAll('.side-card').forEach(function (card, index) {
-      if (card.classList.contains('publish-card')) { return; }
+      if (card.classList.contains('publish-card') || card.matches('details')) { return; }
       const heading = card.querySelector('h3');
       if (!heading || heading.querySelector('[data-side-card-toggle]')) { return; }
       const cardKey = cardKeyFrom(card, index);
@@ -1051,7 +1180,9 @@
       toggle.setAttribute('aria-label', 'Toggle ' + (heading.textContent || cardKey));
       heading.appendChild(toggle);
 
-      setCardCollapsed(card, toggle, state[cardKey] === true);
+      const hasStoredState = Object.prototype.hasOwnProperty.call(state, cardKey);
+      const defaultCollapsed = card.getAttribute('data-editor-default-collapsed') === '1';
+      setCardCollapsed(card, toggle, hasStoredState ? state[cardKey] === true : defaultCollapsed);
       toggle.addEventListener('click', function () {
         const current = readStoredJson(key, {});
         const collapsed = !card.classList.contains('is-collapsed');
@@ -1070,7 +1201,10 @@
         'post-url': true,
         'stream-post': true,
         'media': true,
+        'location': true,
         'revisions': true,
+        'page-url': true,
+        'page-settings': true,
       },
       metrics: true,
       previewTools: true,
@@ -1214,6 +1348,7 @@
         const sidebarState = readStoredJson(sideCardStorageKey(), {});
         form.querySelectorAll('.editor-sidebar-column .side-card').forEach(function (card, index) {
           if (card.classList.contains('publish-card')) { return; }
+          if (card.matches('details')) { card.open = true; return; }
           const key = card.getAttribute('data-side-card-key') || cardKeyFrom(card, index);
           sidebarState[key] = false;
           setCardCollapsed(card, card.querySelector('[data-side-card-toggle]'), false);
@@ -1229,6 +1364,7 @@
         const sidebarState = readStoredJson(sideCardStorageKey(), {});
         form.querySelectorAll('.editor-sidebar-column .side-card').forEach(function (card, index) {
           if (card.classList.contains('publish-card') || card.hidden) { return; }
+          if (card.matches('details')) { card.open = false; return; }
           const key = card.getAttribute('data-side-card-key') || cardKeyFrom(card, index);
           sidebarState[key] = true;
           setCardCollapsed(card, card.querySelector('[data-side-card-toggle]'), true);
@@ -1327,6 +1463,7 @@
     }
 
     const form = root.closest('form');
+    setupEditorPhotoGallery(form, root);
     const globalStateKey = editorGlobalStateKey();
     const postStateKey = editorPostStateKey(form);
     const globalState = readStoredJson(globalStateKey, {});
@@ -1458,10 +1595,16 @@
         const override = altInput && altInput.value.trim() ? altInput.value.trim() : '';
         const captionInput = picker.querySelector('[data-media-caption-input]');
         const captionOverride = captionInput && captionInput.value.trim() ? captionInput.value.trim() : '';
-        insertMediaIntoEditor(root, mediaFromButton(button), override, captionOverride);
-        if (altInput) { altInput.value = ''; }
-        if (captionInput) { captionInput.value = ''; }
-        closeMediaPicker(picker);
+        const selectedMedia = mediaFromButton(button);
+        const pickerMode = picker.getAttribute('data-media-picker-mode') || 'body';
+        const completed = pickerMode === 'gallery'
+          ? addMediaToPhotoGallery(root, selectedMedia)
+          : (insertMediaIntoEditor(root, selectedMedia, override, captionOverride), true);
+        if (completed) {
+          if (altInput) { altInput.value = ''; }
+          if (captionInput) { captionInput.value = ''; }
+          closeMediaPicker(picker);
+        }
       });
 
       const uploadForm = picker.querySelector('[data-media-upload-form]');
@@ -1505,6 +1648,9 @@
         }
         const payload = mediaUploadPayload();
         payload.append('action', 'upload');
+        if ((picker.getAttribute('data-media-picker-mode') || 'body') === 'gallery') {
+          payload.append('image_only', '1');
+        }
         setUploadStatus('Uploading media...');
         fetch(endpoint, { method: 'POST', body: payload, credentials: 'same-origin' })
           .then(function (response) { return response.json().then(function (json) { json.status = response.status; return json; }); })
@@ -1518,8 +1664,11 @@
             resetMediaUploadPanel();
             setUploadStatus(json.message || 'Media uploaded.');
             if (uploadShouldInsert && json.media) {
-              insertMediaIntoEditor(root, json.media, '');
-              closeMediaPicker(picker);
+              const pickerMode = picker.getAttribute('data-media-picker-mode') || 'body';
+              const completed = pickerMode === 'gallery'
+                ? addMediaToPhotoGallery(root, json.media)
+                : (insertMediaIntoEditor(root, json.media, ''), true);
+              if (completed) { closeMediaPicker(picker); }
             } else {
               setMediaTab(picker, 'library');
             }
@@ -2107,6 +2256,7 @@
     const titleInput = document.querySelector('#page_title');
     const slugInput = document.querySelector('[data-page-slug-input]');
     const permalinkPreview = document.querySelector('[data-page-permalink-preview]');
+    const finalUrlInput = document.querySelector('[data-page-final-url-input]');
     const warning = document.querySelector('[data-page-slug-warning]');
     const confirmChange = document.querySelector('[data-page-confirm-slug-change]');
     const seoInput = document.querySelector('[data-page-seo-title-input]');
@@ -2131,6 +2281,10 @@
       const base = permalinkPreview.getAttribute('data-page-permalink-base') || '/pages/';
       const clean = currentCleanSlug();
       permalinkPreview.textContent = base + clean + '/';
+      if (finalUrlInput) {
+        const absoluteBase = finalUrlInput.getAttribute('data-page-final-url-base') || '';
+        finalUrlInput.value = absoluteBase + clean + '/';
+      }
       if (warning && isPublished) {
         const changed = originalSlug !== '' && clean !== originalSlug;
         warning.hidden = !changed;
@@ -2207,6 +2361,105 @@
   }
 
 
+  function attachMobileEditorActions() {
+    const bars = Array.from(document.querySelectorAll('[data-editor-mobile-action-bar]'));
+    if (bars.length === 0) { return; }
+
+    document.body.classList.add('has-editor-mobile-actions');
+
+    bars.forEach(function (bar) {
+      if (bar.getAttribute('data-editor-mobile-bound') === '1') { return; }
+      bar.setAttribute('data-editor-mobile-bound', '1');
+
+      const publishCard = document.querySelector('.editor-publish-card');
+      const protectedControls = Array.from(document.querySelectorAll('.editor-command-bar, .visual-toolbar'));
+      const mobileQuery = window.matchMedia('(max-width: 900px)');
+      let publishVisible = false;
+      let keyboardOpen = false;
+      let frame = 0;
+
+      function dockHeight() {
+        const rect = bar.getBoundingClientRect();
+        return Math.max(68, Math.round(rect.height || 0));
+      }
+
+      function controlsEnterDockZone() {
+        if (!mobileQuery.matches) { return false; }
+        const boundary = window.innerHeight - dockHeight() - 6;
+        return protectedControls.some(function (control) {
+          if (!control || control.offsetParent === null) { return false; }
+          const rect = control.getBoundingClientRect();
+          return rect.top < window.innerHeight && rect.bottom > boundary;
+        });
+      }
+
+      function refreshDock() {
+        frame = 0;
+        const hidden = !mobileQuery.matches || publishVisible || keyboardOpen || controlsEnterDockZone();
+        bar.classList.toggle('is-context-hidden', hidden);
+        bar.toggleAttribute('inert', hidden);
+      }
+
+      function requestRefresh() {
+        if (frame) { return; }
+        frame = window.requestAnimationFrame(refreshDock);
+      }
+
+      bar.querySelectorAll('[data-editor-jump-publish]').forEach(function (button) {
+        if (button.getAttribute('data-editor-jump-bound') === '1') { return; }
+        button.setAttribute('data-editor-jump-bound', '1');
+        button.addEventListener('click', function () {
+          if (!publishCard) { return; }
+          bar.classList.add('is-context-hidden');
+          publishCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          window.setTimeout(function () {
+            const target = publishCard.querySelector('button, a, summary');
+            if (target && typeof target.focus === 'function') { target.focus({ preventScroll: true }); }
+          }, 350);
+        });
+      });
+
+      if (publishCard && 'IntersectionObserver' in window) {
+        const publishObserver = new IntersectionObserver(function (entries) {
+          const entry = entries[0];
+          publishVisible = Boolean(entry && entry.isIntersecting && entry.intersectionRatio >= 0.24);
+          requestRefresh();
+        }, {
+          threshold: [0, 0.24, 0.5],
+          rootMargin: '0px 0px -72px 0px'
+        });
+        publishObserver.observe(publishCard);
+      }
+
+      const viewport = window.visualViewport;
+      function refreshKeyboardState() {
+        if (!viewport || !mobileQuery.matches) {
+          keyboardOpen = false;
+        } else {
+          const lostHeight = Math.max(0, window.innerHeight - viewport.height);
+          keyboardOpen = lostHeight > 160 && viewport.height < window.innerHeight * 0.82;
+        }
+        requestRefresh();
+      }
+
+      window.addEventListener('scroll', requestRefresh, { passive: true });
+      window.addEventListener('resize', function () {
+        refreshKeyboardState();
+        requestRefresh();
+      }, { passive: true });
+      if (viewport) {
+        viewport.addEventListener('resize', refreshKeyboardState, { passive: true });
+        viewport.addEventListener('scroll', requestRefresh, { passive: true });
+      }
+      if (typeof mobileQuery.addEventListener === 'function') {
+        mobileQuery.addEventListener('change', requestRefresh);
+      }
+
+      refreshKeyboardState();
+      requestRefresh();
+    });
+  }
+
   function attachConfirmations() {
     document.querySelectorAll('form[data-confirm]').forEach(function (form) {
       form.addEventListener('submit', function (event) {
@@ -2251,6 +2504,7 @@
     attachSelectAll();
     attachCopyButtons();
     attachOpenMediaButtons();
+    attachMobileEditorActions();
     attachConfirmations();
   });
 }());

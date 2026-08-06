@@ -47,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $e) {
         bms_log_admin_exception('registration', $e);
-
         bms_flash('Could not update commenter registration controls. Please try again.', 'error');
         bms_redirect(bms_admin_url('registration.php'));
     }
@@ -61,116 +60,231 @@ $mailReady = bms_registration_mail_ready();
 $accountUrl = bms_url_path('account.php');
 $invites = bms_registration_list_invites();
 $pendingCounts = function_exists('bms_user_pending_counts') ? bms_user_pending_counts() : ['pending_verification' => 0, 'pending_approval' => 0];
+$modeLabel = bms_registration_modes()[$mode] ?? $mode;
+$registrationEnabled = $mode !== 'disabled';
+$verificationSummaryLabel = $verify
+    ? ($registrationEnabled ? 'Required' : 'Required when enabled')
+    : ($registrationEnabled ? 'Not required' : 'Not required when enabled');
+$approvalSummaryLabel = $approval
+    ? ($registrationEnabled ? 'Required' : 'Required when enabled')
+    : ($registrationEnabled ? 'Not required' : 'Not required when enabled');
+$publicVerificationLabel = $verify
+    ? ($registrationEnabled ? 'Email confirmation required' : 'Required when enabled')
+    : ($registrationEnabled ? 'No email confirmation' : 'Not required when enabled');
+$publicApprovalLabel = $approval
+    ? ($registrationEnabled ? 'Admin approval required' : 'Required when enabled')
+    : ($registrationEnabled ? 'Automatic after requirements' : 'Automatic when enabled');
+$activeInviteCount = 0;
+foreach ($invites as $inviteRow) {
+    if ((string)($inviteRow['status'] ?? 'active') === 'active' && !bms_registration_invite_is_expired($inviteRow)) {
+        $activeInviteCount++;
+    }
+}
 
-bms_admin_header('Commenter Registration', []);
+bms_admin_header('Registration', [
+    ['label' => 'Accounts', 'href' => bms_admin_url('users.php'), 'style' => 'secondary'],
+    ['label' => 'Open Account Page', 'href' => $accountUrl, 'style' => 'secondary', 'target' => true],
+]);
 ?>
-<section class="panel page-intro-panel">
-  <p class="eyebrow">Settings</p>
-  <h2>Commenter registration</h2>
-  <p class="meta">Control whether visitors can create commenter accounts. Commenters can participate through comments and profile/account features, but they cannot publish stream posts or enter the admin publishing system.</p>
+<section class="panel page-intro-panel registration-intro-panel">
+  <div class="registration-intro-copy">
+    <p class="eyebrow">Account access</p>
+    <h2>Control how commenter accounts are created.</h2>
+    <p class="meta">Commenters can sign in, manage a profile, and participate through comments. Public registration never creates another publisher or grants access to the admin publishing tools.</p>
+  </div>
+  <span class="status-pill <?= $mode === 'disabled' ? 'draft' : 'published' ?> registration-mode-pill"><?= htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') ?></span>
 </section>
 
-<?php if ($verify && !$mailReady): ?>
-<section class="panel admin-warning-panel">
-  <h2>Mail needs attention</h2>
-  <p>Registration currently requires email verification, but Mail is not ready. Configure <a href="<?= htmlspecialchars(bms_admin_url('mail.php'), ENT_QUOTES, 'UTF-8') ?>">Settings &gt; Mail</a> before opening registration.</p>
+<?php if ($registrationEnabled && $verify && !$mailReady): ?>
+<section class="panel admin-warning-panel registration-attention-panel">
+  <div>
+    <p class="eyebrow">Needs attention</p>
+    <h2>Mail is not ready for verification.</h2>
+    <p>Registration requires email verification, but Mail is disabled or missing a From address. Configure Mail before opening registration.</p>
+  </div>
+  <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('mail.php'), ENT_QUOTES, 'UTF-8') ?>">Open Mail Settings</a>
 </section>
 <?php endif; ?>
 
-<?php if ((int)($pendingCounts['pending_approval'] ?? 0) > 0): ?>
-<section class="panel admin-warning-panel">
-  <h2>Commenters waiting for approval</h2>
-  <p><?= (int)$pendingCounts['pending_approval'] ?> commenter account<?= (int)$pendingCounts['pending_approval'] === 1 ? ' is' : 's are' ?> verified and waiting for admin approval.</p>
-  <p><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('users.php'), ENT_QUOTES, 'UTF-8') ?>">Review pending commenters</a></p>
+<?php if ((int)($pendingCounts['pending_approval'] ?? 0) > 0 || (int)($pendingCounts['pending_verification'] ?? 0) > 0): ?>
+<section class="panel registration-attention-panel">
+  <div>
+    <p class="eyebrow">Account queue</p>
+    <h2>New commenter accounts need attention.</h2>
+    <p><?= (int)($pendingCounts['pending_verification'] ?? 0) ?> waiting for email verification and <?= (int)($pendingCounts['pending_approval'] ?? 0) ?> waiting for admin approval.</p>
+  </div>
+  <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('users.php?status=pending'), ENT_QUOTES, 'UTF-8') ?>">Review Pending Accounts</a>
 </section>
 <?php endif; ?>
 
-<section class="panel settings-panel">
-  <form method="post">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="action" value="save_settings">
-
-    <label for="registration_mode">Commenter registration</label>
-    <select id="registration_mode" name="registration_mode">
-      <?php foreach (bms_registration_modes() as $key => $label): ?>
-        <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $mode === $key ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
-      <?php endforeach; ?>
-    </select>
-    <p class="field-help">Disabled is safest. Open registration shows the account creation form. Invite only requires a valid invite code.</p>
-
-    <p class="field-help"><strong>Account type:</strong> Public registration only creates commenter accounts. The installer-created admin is the sole publisher.</p>
-
-    <label class="checkbox-line"><input type="checkbox" name="registration_require_email_verification" value="1" <?= $verify ? 'checked' : '' ?>> Require email verification before sign-in</label>
-    <p class="field-help">Recommended. Verification uses the mail settings configured under Settings &gt; Mail.</p>
-
-    <label class="checkbox-line"><input type="checkbox" name="registration_require_admin_approval" value="1" <?= $approval ? 'checked' : '' ?>> Require admin approval for new commenter accounts</label>
-    <p class="field-help">New commenter accounts stay pending after registration, or after email verification, until the admin activates them.</p>
-
-    <label class="checkbox-line"><input type="checkbox" name="registration_honeypot_enabled" value="1" <?= $honeypot ? 'checked' : '' ?>> Enable hidden anti-spam field on the registration form</label>
-    <p class="field-help">This is a quiet spam trap. It is not a full captcha, but it blocks simple bots without bothering real users.</p>
-
-    <button type="submit">Save Commenter Registration Settings</button>
-  </form>
+<section class="panel registration-summary-panel" aria-label="Current registration configuration">
+  <div class="info-grid registration-summary-grid">
+    <div class="info-card"><strong>Registration mode</strong><p><?= htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
+    <div class="info-card"><strong>Email verification</strong><p><?= htmlspecialchars($verificationSummaryLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
+    <div class="info-card"><strong>Admin approval</strong><p><?= htmlspecialchars($approvalSummaryLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
+    <div class="info-card"><strong>Active invite codes</strong><p><?= (int)$activeInviteCount ?></p></div>
+  </div>
 </section>
 
-<section class="panel">
-  <h2>Invite codes</h2>
-  <p class="meta">Invite codes create commenter accounts only. Codes are shown once when created. Bonumark stores a protected hash, a hint, limits, and expiration data.</p>
-  <form method="post" class="settings-grid compact-settings-grid">
+<div class="registration-workflow-grid">
+  <section class="panel registration-settings-panel">
+    <div class="registration-section-heading">
+      <div>
+        <p class="eyebrow">Registration rules</p>
+        <h2>Choose who can create an account.</h2>
+      </div>
+    </div>
+
+    <form method="post" class="registration-settings-form">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="action" value="save_settings">
+
+      <div class="registration-field-group">
+        <label for="registration_mode">Commenter registration</label>
+        <select id="registration_mode" name="registration_mode">
+          <?php foreach (bms_registration_modes() as $key => $label): ?>
+            <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $mode === $key ? 'selected' : '' ?>><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option>
+          <?php endforeach; ?>
+        </select>
+        <p class="field-help">Disabled closes public account creation. Open registration accepts anyone who completes the form. Invite only requires a valid invite code.</p>
+      </div>
+
+      <div class="registration-option-list">
+        <label class="registration-option-card">
+          <input type="checkbox" name="registration_require_email_verification" value="1" <?= $verify ? 'checked' : '' ?>>
+          <span>
+            <strong>Require email verification</strong>
+            <small>New commenters must confirm their email before signing in. This depends on Settings &gt; Mail.</small>
+          </span>
+        </label>
+
+        <label class="registration-option-card">
+          <input type="checkbox" name="registration_require_admin_approval" value="1" <?= $approval ? 'checked' : '' ?>>
+          <span>
+            <strong>Require admin approval</strong>
+            <small>New commenter accounts remain pending until the admin activates them.</small>
+          </span>
+        </label>
+
+        <label class="registration-option-card">
+          <input type="checkbox" name="registration_honeypot_enabled" value="1" <?= $honeypot ? 'checked' : '' ?>>
+          <span>
+            <strong>Use the quiet anti-spam field</strong>
+            <small>Blocks simple registration bots without adding a captcha or interrupting real people.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="registration-form-actions">
+        <button type="submit">Save Registration Settings</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel registration-public-panel">
+    <p class="eyebrow">Public account page</p>
+    <h2>What visitors can do now</h2>
+    <dl class="registration-public-summary">
+      <div><dt>Account creation</dt><dd><?= htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') ?></dd></div>
+      <div><dt>New account type</dt><dd>Commenter</dd></div>
+      <div><dt>Verification</dt><dd><?= htmlspecialchars($publicVerificationLabel, ENT_QUOTES, 'UTF-8') ?></dd></div>
+      <div><dt>Approval</dt><dd><?= htmlspecialchars($publicApprovalLabel, ENT_QUOTES, 'UTF-8') ?></dd></div>
+    </dl>
+    <a class="button-link secondary registration-public-action" href="<?= htmlspecialchars($accountUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Account Page</a>
+  </section>
+</div>
+
+<section class="panel registration-invites-panel">
+  <div class="registration-section-heading registration-invites-heading">
+    <div>
+      <p class="eyebrow">Invite access</p>
+      <h2>Create and manage invite codes.</h2>
+      <p class="meta">Codes are displayed only when created. Bonumark stores a protected hash, a short hint, usage limits, and expiration data.</p>
+    </div>
+  </div>
+
+  <form method="post" class="registration-invite-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="create_invite">
-    <label>Label<input name="label" placeholder="Example: Trusted commenters"></label>
-    <label>Usage limit<input name="max_uses" type="number" min="0" step="1" value="1"></label>
-    <p class="field-help">Use 0 for unlimited uses.</p>
-    <label>Expires at<input name="expires_at" type="datetime-local"></label>
-    <p class="field-help">Uses site timezone: <strong><?= htmlspecialchars(bms_site_timezone_name(), ENT_QUOTES, 'UTF-8') ?></strong>. Bonumark stores the expiration in UTC.</p>
+    <label>
+      <span>Label</span>
+      <input name="label" placeholder="Trusted commenters" autocomplete="off">
+      <small>Use a private label that explains who the code is for.</small>
+    </label>
+    <label>
+      <span>Usage limit</span>
+      <input name="max_uses" type="number" min="0" step="1" value="1" inputmode="numeric">
+      <small>Use 0 for unlimited uses.</small>
+    </label>
+    <label>
+      <span>Expiration</span>
+      <input name="expires_at" type="datetime-local">
+      <small>Site timezone: <?= htmlspecialchars(bms_site_timezone_name(), ENT_QUOTES, 'UTF-8') ?>.</small>
+    </label>
     <button type="submit">Create Invite Code</button>
   </form>
 
-  <table class="admin-table compact-table">
-    <thead><tr><th>Label</th><th>Hint</th><th>Uses</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead>
-    <tbody>
-    <?php if (!$invites): ?>
-      <tr><td colspan="6"><span class="meta">No invite codes have been created yet.</span></td></tr>
-    <?php endif; ?>
-    <?php foreach ($invites as $invite): ?>
-      <?php
-        $isExpired = bms_registration_invite_is_expired($invite);
-        $status = (string)($invite['status'] ?? 'active');
-        $statusLabel = $isExpired && $status === 'active' ? 'Expired' : ucfirst($status);
-      ?>
-      <tr>
-        <td><?= htmlspecialchars((string)($invite['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-        <td><code><?= htmlspecialchars((string)($invite['code_hint'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code></td>
-        <td><?= (int)($invite['used_count'] ?? 0) ?> / <?= (int)($invite['max_uses'] ?? 1) === 0 ? '∞' : (int)($invite['max_uses'] ?? 1) ?></td>
-        <td><?= htmlspecialchars(bms_registration_format_invite_expiration((string)($invite['expires_at'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
-        <td><span class="status-pill <?= $status === 'active' && !$isExpired ? 'published' : 'draft' ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span></td>
-        <td>
-          <?php if ($status === 'active'): ?>
-            <form method="post" class="inline-user-form">
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="action" value="revoke_invite">
-              <input type="hidden" name="invite_id" value="<?= (int)($invite['id'] ?? 0) ?>">
-              <button type="submit">Revoke</button>
-            </form>
-          <?php else: ?>
-            <span class="meta">No action</span>
-          <?php endif; ?>
-        </td>
-      </tr>
-    <?php endforeach; ?>
-    </tbody>
-  </table>
-</section>
+  <?php if (!$invites): ?>
+    <div class="empty-state registration-invites-empty">
+      <h3>No invite codes yet.</h3>
+      <p>Create a code when registration should be limited to people you choose.</p>
+    </div>
+  <?php else: ?>
+    <div class="registration-invite-summary">
+      <span><?= count($invites) ?> invite code<?= count($invites) === 1 ? '' : 's' ?></span>
+      <span><?= (int)$activeInviteCount ?> active</span>
+    </div>
 
-<section class="panel">
-  <h2>Current public account page</h2>
-  <div class="info-grid">
-    <div class="info-card"><strong>Mode</strong><p><?= htmlspecialchars(bms_registration_modes()[$mode] ?? $mode, ENT_QUOTES, 'UTF-8') ?></p></div>
-    <div class="info-card"><strong>New account type</strong><p>Commenter</p></div>
-    <div class="info-card"><strong>Email verification</strong><p><?= $verify ? 'Required' : 'Not required' ?></p></div>
-    <div class="info-card"><strong>Admin approval</strong><p><?= $approval ? 'Required for new commenters' : 'Not required' ?></p></div>
-  </div>
-  <p><a class="button-link secondary" href="<?= htmlspecialchars($accountUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Account Page</a></p>
+    <div class="registration-invite-header" aria-hidden="true">
+      <span>Invite</span>
+      <span>Usage</span>
+      <span>Expiration</span>
+      <span>Status</span>
+      <span>Action</span>
+    </div>
+
+    <div class="registration-invite-list" role="list" aria-label="Registration invite codes">
+      <?php foreach ($invites as $invite): ?>
+        <?php
+          $isExpired = bms_registration_invite_is_expired($invite);
+          $status = (string)($invite['status'] ?? 'active');
+          $statusLabel = $isExpired && $status === 'active' ? 'Expired' : ucfirst($status);
+          $isActive = $status === 'active' && !$isExpired;
+          $label = trim((string)($invite['label'] ?? '')) ?: 'Unlabeled invite';
+          $maxUses = (int)($invite['max_uses'] ?? 1);
+        ?>
+        <article class="registration-invite-record" role="listitem">
+          <div class="registration-invite-identity">
+            <strong><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></strong>
+            <code><?= htmlspecialchars((string)($invite['code_hint'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code>
+          </div>
+          <div class="registration-invite-usage">
+            <span class="registration-mobile-label">Usage</span>
+            <span><?= (int)($invite['used_count'] ?? 0) ?> / <?= $maxUses === 0 ? 'Unlimited' : $maxUses ?></span>
+          </div>
+          <div class="registration-invite-expiration">
+            <span class="registration-mobile-label">Expiration</span>
+            <span><?= htmlspecialchars(bms_registration_format_invite_expiration((string)($invite['expires_at'] ?? '')), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="registration-invite-status">
+            <span class="registration-mobile-label">Status</span>
+            <span class="status-pill <?= $isActive ? 'published' : 'draft' ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="registration-invite-actions">
+            <?php if ($status === 'active'): ?>
+              <form method="post" onsubmit="return confirm('Revoke this invite code?');">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="revoke_invite">
+                <input type="hidden" name="invite_id" value="<?= (int)($invite['id'] ?? 0) ?>">
+                <button type="submit" class="secondary-button danger-button">Revoke</button>
+              </form>
+            <?php else: ?>
+              <span class="meta">Closed</span>
+            <?php endif; ?>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 </section>
 <?php bms_admin_footer(); ?>

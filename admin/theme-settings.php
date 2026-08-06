@@ -49,68 +49,62 @@ $activeHealth = is_array($activeTheme['health'] ?? null) ? $activeTheme['health'
 
 bms_admin_header('Theme Settings', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
+    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
-<p class="meta theme-settings-lead">Adjust the active public presentation theme and the settings declared by that theme.</p>
+<section class="panel appearance-hero-panel appearance-theme-settings-hero">
+  <div class="appearance-hero-copy">
+    <p class="eyebrow">Active theme</p>
+    <h2>Configure <?= htmlspecialchars((string)($activeTheme['name'] ?? 'the active theme'), ENT_QUOTES, 'UTF-8') ?>.</h2>
+    <p class="meta">This screen edits the settings exposed by the active theme. Activate a different design from Themes before configuring it.</p>
+  </div>
+  <span class="status-pill <?= !empty($activeHealth['valid']) ? 'published' : 'trash' ?>"><?= htmlspecialchars((string)($activeHealth['label'] ?? 'Theme health'), ENT_QUOTES, 'UTF-8') ?></span>
+</section>
 
-<form method="post" class="settings-form theme-settings-form theme-settings-wide-form">
+<form method="post" class="appearance-theme-settings-form">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" name="active_public_theme" value="<?= htmlspecialchars($activePackage, ENT_QUOTES, 'UTF-8') ?>">
 
-  <div class="theme-settings-workbench">
-    <section class="panel theme-settings-theme-panel" aria-label="Active theme summary">
-      <div class="theme-settings-preview-frame">
+  <div class="appearance-settings-layout">
+    <aside class="panel appearance-active-theme-panel">
+      <div class="appearance-active-theme-preview">
         <?php if ($screenshotUrl !== ''): ?>
-          <img class="theme-settings-screenshot" src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($activeTheme['name'] ?? 'Active theme'), ENT_QUOTES, 'UTF-8') ?> screenshot">
+          <img src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($activeTheme['name'] ?? 'Active theme'), ENT_QUOTES, 'UTF-8') ?> screenshot">
         <?php else: ?>
-          <div class="theme-preview dark-preview theme-settings-screenshot-fallback" aria-hidden="true"></div>
+          <div class="appearance-theme-preview-empty"><span>No screenshot</span></div>
         <?php endif; ?>
       </div>
-
-      <div class="theme-settings-theme-copy">
-        <p class="eyebrow">Active theme</p>
+      <div class="appearance-active-theme-copy">
+        <p class="eyebrow">Current design</p>
         <h2><?= htmlspecialchars((string)($activeTheme['name'] ?? 'Midnight Ledger'), ENT_QUOTES, 'UTF-8') ?></h2>
         <p class="meta"><?= htmlspecialchars((string)($activeTheme['description'] ?? 'A Bonumark Stream public theme.'), ENT_QUOTES, 'UTF-8') ?></p>
       </div>
+      <dl class="appearance-theme-facts appearance-active-theme-facts">
+        <div><dt>Slug</dt><dd><code><?= htmlspecialchars((string)($activeTheme['slug'] ?? $activePackage), ENT_QUOTES, 'UTF-8') ?></code></dd></div>
+        <div><dt>Version</dt><dd><?= htmlspecialchars((string)($activeTheme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+        <div><dt>Author</dt><dd><?= htmlspecialchars((string)($activeTheme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+        <div><dt>Fields</dt><dd><?= count($settingsSchema) ?></dd></div>
+      </dl>
+      <a class="button-link secondary appearance-full-action" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Choose Another Theme</a>
+    </aside>
 
-      <div class="readonly-settings-grid compact-readonly-grid theme-settings-meta-grid">
-        <div><span>Slug</span><code><?= htmlspecialchars((string)($activeTheme['slug'] ?? $activePackage), ENT_QUOTES, 'UTF-8') ?></code></div>
-        <div><span>Version</span><code><?= htmlspecialchars((string)($activeTheme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></code></div>
-        <div><span>Author</span><code><?= htmlspecialchars((string)($activeTheme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></code></div>
-        <div><span>Health</span><code><?= htmlspecialchars((string)($activeHealth['label'] ?? 'Safe to activate'), ENT_QUOTES, 'UTF-8') ?></code></div>
-      </div>
-    </section>
-
-    <section class="panel theme-settings-control-panel" aria-label="Theme settings editor">
-      <div class="theme-settings-control-head">
+    <section class="panel appearance-theme-fields-panel">
+      <div class="appearance-section-heading">
         <div>
-          <p class="eyebrow">Settings</p>
-          <h2>Active theme settings</h2>
-          <p class="meta">Change the active presentation theme or edit the values this theme exposes.</p>
+          <p class="eyebrow">Theme values</p>
+          <h2>Presentation settings</h2>
+          <p class="meta">Changes apply immediately to dynamic public routes after saving.</p>
         </div>
         <button type="submit">Save Theme Settings</button>
       </div>
 
-      <div class="theme-settings-switcher">
-        <div class="theme-setting-info">
-          <label for="active_public_theme">Active public theme</label>
-          <p class="field-help">Changing themes updates the database setting. Dynamic public routes use the selected theme immediately.</p>
-        </div>
-        <div class="theme-setting-control">
-          <select id="active_public_theme" name="active_public_theme">
-            <?php foreach ($packages as $key => $theme): ?>
-              <?php $themeHealth = is_array($theme['health'] ?? null) ? $theme['health'] : (function_exists('bms_public_theme_package_health') ? bms_public_theme_package_health($theme) : ['valid' => true]); ?>
-              <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $key === $activePackage ? 'selected' : '' ?> <?= empty($themeHealth['valid']) ? 'disabled' : '' ?>><?= htmlspecialchars((string)($theme['name'] ?? $key), ENT_QUOTES, 'UTF-8') ?>, v<?= htmlspecialchars((string)($theme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?><?= empty($themeHealth['valid']) ? ' (not safe to activate)' : '' ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-      </div>
-
       <?php if (!$settingsSchema): ?>
-        <div class="theme-settings-empty-state">
-          <p class="meta">This theme does not expose any editable setting values yet.</p>
+        <div class="empty-state appearance-empty-state">
+          <h3>No editable settings.</h3>
+          <p class="meta">This theme provides a fixed presentation and does not expose configuration fields.</p>
         </div>
       <?php else: ?>
-        <div class="theme-settings-list">
+        <div class="appearance-setting-list">
           <?php foreach ($settingsSchema as $key => $setting): ?>
             <?php
               $type = (string)($setting['type'] ?? 'text');
@@ -119,17 +113,17 @@ bms_admin_header('Theme Settings', [
               $label = (string)($setting['label'] ?? $key);
               $description = (string)($setting['description'] ?? '');
             ?>
-            <div class="theme-setting-row theme-setting-row-<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>">
-              <div class="theme-setting-info">
+            <div class="appearance-setting-card appearance-setting-card-<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>">
+              <div class="appearance-setting-copy">
                 <label for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></label>
                 <?php if ($description !== ''): ?><p class="field-help"><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
               </div>
-              <div class="theme-setting-control">
+              <div class="appearance-setting-control">
                 <?php if ($type === 'checkbox'): ?>
                   <input type="hidden" name="theme_settings[<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>]" value="0">
-                  <label class="theme-toggle-line" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>">
+                  <label class="appearance-toggle-card" for="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>">
                     <input id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" type="checkbox" name="theme_settings[<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>]" value="1" <?= $value === '1' ? 'checked' : '' ?>>
-                    <span>Enabled</span>
+                    <span><?= $value === '1' ? 'Enabled' : 'Enable' ?></span>
                   </label>
                 <?php elseif ($type === 'select'): ?>
                   <select id="<?= htmlspecialchars($fieldId, ENT_QUOTES, 'UTF-8') ?>" name="theme_settings[<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>]">
@@ -148,9 +142,9 @@ bms_admin_header('Theme Settings', [
         </div>
       <?php endif; ?>
 
-      <div class="form-actions-row theme-settings-bottom-actions">
+      <div class="appearance-form-actions">
         <button type="submit">Save Theme Settings</button>
-        <a class="button-link" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
+        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
       </div>
     </section>
   </div>

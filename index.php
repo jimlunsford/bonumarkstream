@@ -48,7 +48,8 @@ require_once __DIR__ . '/_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/_bonumark_stream/app/renderer.php';
 
 if (bms_homepage_mode() === 'stream') {
-    $includeComposer = function_exists('bms_is_logged_in') && bms_is_logged_in() && bms_stream_composer_enabled();
+    $includeComposer = function_exists('bms_is_logged_in') && bms_is_logged_in()
+        && function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
     echo bms_render_stream_index(bms_list_content_records('published'), $includeComposer, 1, 'home');
     exit;
 }

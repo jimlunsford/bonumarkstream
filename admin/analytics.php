@@ -112,16 +112,17 @@ $rangeOptions = ['today' => 'Today', '7d' => 'Last 7 Days', '30d' => 'Last 30 Da
 
 bms_admin_header('Analytics', [
     ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
+    ['label' => 'System Check', 'href' => bms_admin_url('system-check.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel page-intro-panel analytics-intro-panel">
+<section class="panel operations-hero analytics-intro-panel"><div class="operations-hero-copy">
   <p class="eyebrow">Privacy-First Analytics</p>
   <h2>Useful publishing signals, without tracking people.</h2>
   <p class="meta">Optional, self-hosted, cookieless aggregate reporting. A page reload counts as a page view. Bonumark Stream does not estimate unique visitors or follow people across pages.</p>
-</section>
+</div><span class="operation-risk-label is-safe">Aggregate only</span></section>
 
 <section class="admin-two-column analytics-settings-grid">
-  <form method="post" class="panel settings-form">
+  <form method="post" class="panel operations-panel">
     <input type="hidden" name="csrf_token" value="<?= bms_analytics_admin_escape(bms_csrf_token()) ?>">
     <input type="hidden" name="analytics_action" value="save_settings">
     <p class="eyebrow">Status and retention</p>
@@ -138,7 +139,7 @@ bms_admin_header('Analytics', [
     <button type="submit">Save Analytics Settings</button>
   </form>
 
-  <section class="panel analytics-boundaries-card">
+  <section class="panel operations-diagnostic-panel analytics-boundaries-card">
     <p class="eyebrow">Privacy boundaries</p>
     <h2>What this mode does and does not do</h2>
     <div class="analytics-boundaries-columns">
@@ -148,7 +149,7 @@ bms_admin_header('Analytics', [
   </section>
 </section>
 
-<section class="panel analytics-report-panel">
+<section class="panel operations-panel analytics-report-panel">
   <div class="section-header-row analytics-report-header">
     <div><p class="eyebrow">Aggregate report</p><h2><?= bms_analytics_admin_escape($rangeOptions[$range]) ?></h2><p class="meta"><?= bms_analytics_admin_escape((string)$summary['dates']['start']) ?> through <?= bms_analytics_admin_escape((string)$summary['dates']['end']) ?>, using the configured site timezone.</p></div>
     <form method="get" class="analytics-range-form"><label for="analytics-range" class="screen-reader-text">Date range</label><select id="analytics-range" name="range" onchange="this.form.submit()"><?php foreach ($rangeOptions as $key => $label): ?><option value="<?= bms_analytics_admin_escape($key) ?>" <?= $range === $key ? 'selected' : '' ?>><?= bms_analytics_admin_escape($label) ?></option><?php endforeach; ?></select><noscript><button type="submit">View</button></noscript></form>
@@ -173,11 +174,11 @@ bms_admin_header('Analytics', [
 </section>
 
 <section class="admin-two-column analytics-settings-grid">
-  <form method="post" class="panel settings-form">
+  <form method="post" class="panel operations-panel">
     <input type="hidden" name="csrf_token" value="<?= bms_analytics_admin_escape(bms_csrf_token()) ?>"><input type="hidden" name="analytics_action" value="export_csv"><input type="hidden" name="range" value="<?= bms_analytics_admin_escape($range) ?>">
     <p class="eyebrow">Aggregate export</p><h2>Download this report</h2><p class="meta">The CSV contains aggregate reporting rows only. It has no visitor-level records, IPs, raw user agents, cookies, sessions, or identifiers.</p><button type="submit">Export <?= bms_analytics_admin_escape($rangeOptions[$range]) ?> CSV</button>
   </form>
-  <form method="post" class="panel settings-form analytics-danger-zone">
+  <form method="post" class="panel operations-danger-zone analytics-danger-zone">
     <input type="hidden" name="csrf_token" value="<?= bms_analytics_admin_escape(bms_csrf_token()) ?>"><input type="hidden" name="analytics_action" value="clear_data">
     <p class="eyebrow">Clear analytics data</p><h2>Delete all aggregate analytics</h2><p class="meta">This cannot be undone. It deletes only analytics aggregate rows.</p><label for="clear_confirmation">Type <code>CLEAR ANALYTICS DATA</code> to confirm</label><input id="clear_confirmation" type="text" name="clear_confirmation" autocomplete="off"><button type="submit" class="danger-button">Clear All Analytics Data</button>
   </form>

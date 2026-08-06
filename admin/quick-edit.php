@@ -65,6 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'category' => 'Stream',
         'tags' => '',
         'featured_media' => (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery(
+            $page['media_gallery'] ?? $page['front_matter']['media_gallery'] ?? [],
+            (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '')
+        ),
         'stream_created_at' => (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? $page['date'] ?? date('Y-m-d H:i:s')),
         'seo_title' => (string)($_POST['stream_seo_title'] ?? ($page['seo_title'] ?? '')),
         'robots' => (string)($_POST['stream_robots'] ?? ($page['robots'] ?? '')),

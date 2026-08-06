@@ -360,12 +360,14 @@ function bms_upgrade_cleanup_managed_path(string $relative): bool
     $managedExact = [
         '.htaccess' => true,
         '.gitignore' => true,
+        'CHANGELOG.md' => true,
         'CONTRIBUTING.md' => true,
         'LICENSE' => true,
         'README.md' => true,
         'SECURITY.md' => true,
         'VERSION' => true,
         'account.php' => true,
+        'analytics.php' => true,
         'comments.php' => true,
         'index.php' => true,
         'install.php' => true,
@@ -539,6 +541,7 @@ function bms_upgrade_software_items(string $packageRoot): array
 
     if ($manifestFiles) {
         $skipPrivate = ['config.php' => true, 'installed.lock' => true, 'data' => true, 'backups' => true, 'tmp' => true];
+        $skipPublic = ['media' => true, 'uploads' => true];
         foreach (array_keys($manifestFiles) as $relative) {
             $relative = str_replace('\\', '/', ltrim((string)$relative, '/'));
             if ($relative === '') {
@@ -554,7 +557,7 @@ function bms_upgrade_software_items(string $packageRoot): array
                 continue;
             }
             $topLevel = explode('/', $relative, 2)[0];
-            if ($topLevel !== '') {
+            if ($topLevel !== '' && !isset($skipPublic[$topLevel])) {
                 $items[] = $topLevel;
             }
         }
@@ -628,7 +631,15 @@ function bms_upgrade_copy_recursive(string $source, string $destination): void
 
 function bms_upgrade_backup_existing(array $items, string $backupRoot, string $publicRoot): void
 {
+    // Public media and upload directories are owner data preserved in place.
+    // The release package contains media/.gitkeep, but that must not cause a
+    // full media library copy inside every private upgrade backup.
+    $preservedRuntimeItems = ['media' => true, 'uploads' => true];
+
     foreach ($items as $item) {
+        if (isset($preservedRuntimeItems[$item])) {
+            continue;
+        }
         $source = $publicRoot . '/' . $item;
         if (!file_exists($source)) {
             continue;
@@ -1072,131 +1083,47 @@ try {
     $upgradeHistory = [];
 }
 
-bms_admin_header('Upgrade Bonumark Stream', [
+bms_admin_header('Upgrade', [
     ['label' => 'System Check', 'href' => bms_admin_url('system-check.php'), 'style' => 'secondary'],
+    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
 ]);
 ?>
+<section class="panel operations-hero operations-danger-zone">
+  <div class="operations-hero-copy"><p class="eyebrow">High-risk operation</p><h2>Replace Bonumark Stream software only after package and recovery checks pass.</h2><p class="meta">An upgrade can replace PHP, assets, bundled themes, documentation, and version markers, then run database migrations. Configuration, runtime data, uploads, media, backups, and custom themes remain protected.</p></div>
+  <span class="operation-risk-label is-destructive">Software replacement</span>
+</section>
+<section class="panel operations-summary-panel"><div class="operations-summary-grid"><div><span>Installed version</span><strong>v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?></strong></div><div><span>Package state</span><strong><?= $precheck ? 'Checked' : 'Not uploaded' ?></strong></div><div><span>Backup requirement</span><strong>Required before copy</strong></div><div><span>Recovery state</span><strong><?= $upgradeRecovery ? 'Resume required' : 'Clear' ?></strong></div></div></section>
+
 <?php if ($upgradeRecovery): ?>
-<section class="panel upgrade-recovery-panel">
-  <p class="eyebrow">Upgrade recovery</p>
-  <h2>Database migration recovery required</h2>
-  <p><?= htmlspecialchars(bms_upgrade_recovery_message($upgradeRecovery), ENT_QUOTES, 'UTF-8') ?></p>
-  <p class="meta">Recorded target: <strong>v<?= htmlspecialchars((string)($upgradeRecovery['to_version'] ?? 'unknown'), ENT_QUOTES, 'UTF-8') ?></strong>. Backup: <code><?= htmlspecialchars(basename((string)($upgradeRecovery['backup_path'] ?? '')), ENT_QUOTES, 'UTF-8') ?></code></p>
-</section>
+<section class="panel operations-danger-zone upgrade-recovery-panel"><div class="operations-panel-heading"><div><p class="eyebrow">Recovery required</p><h2>Database migration recovery must be resumed.</h2><p><?= htmlspecialchars(bms_upgrade_recovery_message($upgradeRecovery), ENT_QUOTES, 'UTF-8') ?></p><p class="meta">Recorded target: <strong>v<?= htmlspecialchars((string)($upgradeRecovery['to_version'] ?? 'unknown'), ENT_QUOTES, 'UTF-8') ?></strong>. Backup: <code class="operations-technical-value"><?= htmlspecialchars(basename((string)($upgradeRecovery['backup_path'] ?? '')), ENT_QUOTES, 'UTF-8') ?></code></p></div><span class="operation-risk-label is-destructive">Do not use another package</span></div></section>
 <?php endif; ?>
 
-<section class="panel upgrade-upload-panel">
-  <h2>Install a Bonumark Stream release ZIP</h2>
-  <p>Upload a release ZIP. Bonumark Stream will verify it before you can run the upgrade.</p>
+<div class="operations-workflow-grid">
+  <div class="operations-workflow-main">
+    <section class="panel operations-review-panel upgrade-upload-panel">
+      <div class="operations-panel-heading"><div><p class="eyebrow">Step 1</p><h2>Upload and check a release ZIP</h2><p class="meta">The package is staged and validated before the Run Upgrade action is available.</p></div><span class="operation-risk-label is-safe">Precheck only</span></div>
+      <form method="post" enctype="multipart/form-data" class="operations-workflow-main upgrade-form">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <label class="operations-upload-card" for="upgrade_zip"><strong>Bonumark Stream release ZIP</strong><input id="upgrade_zip" type="file" name="upgrade_zip" accept=".zip,application/zip" required><small class="meta">Upload only a release package you created or trust.</small></label>
+        <div class="operations-form-actions"><button type="submit">Upload and Check Package</button></div>
+      </form>
+    </section>
 
-  <div class="upgrade-current-version">
-    <span>Installed version</span>
-    <strong>v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?></strong>
+    <?php if ($precheck): ?>
+    <section class="panel operations-danger-zone upgrade-check-panel">
+      <div class="operations-panel-heading"><div><p class="eyebrow">Step 2 · Upgrade check</p><h2><?= !empty($precheck['recovery_resume']) ? 'Ready to resume recovery for' : 'Ready to upgrade from v' . htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') . ' to' ?> v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></h2><p class="meta"><?= !empty($precheck['recovery_resume']) ? 'This exact package matches the recorded recovery state.' : 'The package passed validation. Review backup and migration state before running it.' ?></p><?php if (!empty($precheck['release_notes'])): ?><p class="meta"><strong>Release notes:</strong> <?= htmlspecialchars((string)$precheck['release_notes'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?></div><span class="operation-risk-label is-destructive">Final confirmation</span></div>
+      <div class="upgrade-status-grid"><div class="upgrade-status-card pass"><span>Current version</span><strong>v<?= htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="upgrade-status-card pass"><span>Uploaded version</span><strong>v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="upgrade-status-card <?= !empty($precheck['backup_ready']) ? 'pass' : 'fail' ?>"><span>Backup status</span><strong><?= !empty($precheck['backup_ready']) ? 'Ready' : 'Not writable' ?></strong></div><div class="upgrade-status-card pass"><span>Migration status</span><strong><?= count($precheck['pending_migrations'] ?? []) ?> pending</strong></div><div class="upgrade-status-card pass"><span>Public output</span><strong><?= (int)($precheck['published_count'] ?? 0) ?> post(s)</strong></div></div>
+      <details class="upgrade-details upgrade-precheck-details"><summary>Advanced package and migration details</summary><div><p><strong>Uploaded package:</strong> <?= htmlspecialchars((string)$precheck['uploaded_name'], ENT_QUOTES, 'UTF-8') ?></p><?php if (!empty($precheck['pending_migrations'])): ?><div class="upgrade-migrations-list"><h3>Pending migrations</h3><ul><?php foreach ($precheck['pending_migrations'] as $migration): ?><li><code><?= htmlspecialchars((string)$migration, ENT_QUOTES, 'UTF-8') ?></code></li><?php endforeach; ?></ul></div><?php else: ?><p class="meta">No database migrations appear pending.</p><?php endif; ?><p>Running the upgrade creates a backup, replaces package-managed software, removes obsolete package files, preserves config and runtime data, then runs migrations.</p></div></details>
+      <form method="post" class="operations-form-actions upgrade-confirm-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><button type="submit" name="confirm_upgrade" value="1" class="danger-button" <?= empty($precheck['backup_ready']) ? 'disabled' : '' ?>>Run Upgrade</button><button type="submit" name="cancel_upgrade" value="1" class="secondary-button">Cancel Package</button></form>
+      <p class="field-help <?= empty($precheck['backup_ready']) ? 'warning-text' : '' ?>"><?= empty($precheck['backup_ready']) ? 'Upgrade is blocked until the backup folder is writable.' : 'A backup will be created before software files are replaced.' ?></p>
+    </section>
+    <?php endif; ?>
   </div>
+  <aside class="operations-workflow-rail is-sticky">
+    <section class="panel operations-panel"><div class="operations-panel-heading"><div><p class="eyebrow">What is protected</p><h2>Runtime and owner data</h2></div></div><dl class="operations-fact-list"><div><dt>Protected</dt><dd>Config, install lock, runtime data, backups, uploads, media, and custom themes.</dd></div><div><dt>Replaced</dt><dd>Package-managed PHP, assets, docs, migrations, bundled themes, and version markers.</dd></div><div><dt>Before migrations</dt><dd>Software-copy failures restore the previous files.</dd></div><div><dt>After migrations begin</dt><dd>The newer files remain and the same package can be retried safely.</dd></div></dl></section>
+    <section class="panel operations-danger-zone"><div class="operations-panel-heading"><div><p class="eyebrow">Trust boundary</p><h2>Release ZIPs contain executable PHP.</h2><p class="meta">Manifest and path validation cannot make a malicious trusted-admin package safe.</p></div></div></section>
+  </aside>
+  <section class="panel operations-panel operations-workflow-history"><div class="operations-record-heading"><div><p class="eyebrow">History</p><h2>Recent upgrade attempts</h2><p class="meta">Recorded software updates and outcomes.</p></div><span class="static-pill draft"><?= count($upgradeHistory) ?> RECORD<?= count($upgradeHistory) === 1 ? '' : 'S' ?></span></div><?php if (!$upgradeHistory): ?><div class="operations-empty-state"><h3>No upgrade history recorded.</h3><p class="meta">Completed or failed upgrade attempts will appear here.</p></div><?php else: ?><div class="operations-record-header operations-upgrade-record"><span>Version change</span><span>Status</span><span>Ran</span></div><div class="operations-record-list"><?php foreach ($upgradeHistory as $row): ?><article class="operations-record operations-upgrade-record"><div class="operations-record-cell is-version-change"><span class="operations-mobile-label">Version change</span><strong><span>v<?= htmlspecialchars((string)$row['from_version'], ENT_QUOTES, 'UTF-8') ?></span><span aria-hidden="true">→</span><span>v<?= htmlspecialchars((string)$row['to_version'], ENT_QUOTES, 'UTF-8') ?></span></strong></div><div class="operations-record-cell"><span class="operations-mobile-label">Status</span><span class="static-pill <?= strtolower((string)$row['status']) === 'completed' ? 'generated' : 'warning' ?>"><?= htmlspecialchars(strtoupper((string)$row['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="operations-record-cell"><span class="operations-mobile-label">Ran</span><?= htmlspecialchars((string)$row['ran_at'], ENT_QUOTES, 'UTF-8') ?></div></article><?php endforeach; ?></div><?php endif; ?></section>
+</div>
 
-  <form method="post" enctype="multipart/form-data" class="upgrade-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <label for="upgrade_zip">Bonumark Stream release ZIP</label>
-    <input id="upgrade_zip" type="file" name="upgrade_zip" accept=".zip,application/zip" required>
-    <button type="submit">Upload and check package</button>
-  </form>
-
-  <details class="upgrade-details">
-    <summary>What happens during upgrade?</summary>
-    <div>
-      <p><strong>Protected:</strong> <code>_bonumark_stream/config.php</code>, <code>_bonumark_stream/installed.lock</code>, runtime content, data, backups, media, uploads, and custom installed themes, including external themes that reuse retired bundled slugs.</p>
-      <p><strong>Updated:</strong> admin files, Stream app files, tools, assets, documentation, changelog, migrations, bundled themes, and version markers.</p>
-      <p>Bonumark Stream validates the release manifest, rejects unsafe ZIP paths, blocks symlinks, refuses unsupported versions, creates a backup, copies software files, and runs migrations. Failures before the database migration phase restore previous software files. Once database migration begins, the newer files stay in place and the same package can be retried safely.</p>
-    </div>
-  </details>
-</section>
-
-<?php if ($precheck): ?>
-<section class="panel upgrade-check-panel">
-  <div class="section-header-row">
-    <div>
-      <p class="eyebrow">Upgrade check</p>
-      <h2><?= !empty($precheck['recovery_resume']) ? 'Ready to resume recovery for' : 'Ready to upgrade from v' . htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') . ' to' ?> v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></h2>
-      <p class="meta"><?= !empty($precheck['recovery_resume']) ? 'This exact package matches the recorded recovery state. Review the status, then resume the upgrade.' : 'Package checked and ready. Review the status, then run the upgrade.' ?></p>
-      <?php if (!empty($precheck['release_notes'])): ?><p class="meta"><strong>Release notes:</strong> <?= htmlspecialchars((string)$precheck['release_notes'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
-    </div>
-  </div>
-
-  <div class="upgrade-status-grid">
-    <div class="upgrade-status-card pass">
-      <span>Current Version</span>
-      <strong>v<?= htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') ?></strong>
-    </div>
-    <div class="upgrade-status-card pass">
-      <span>Uploaded Version</span>
-      <strong>v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></strong>
-    </div>
-    <div class="upgrade-status-card <?= !empty($precheck['backup_ready']) ? 'pass' : 'fail' ?>">
-      <span>Backup Status</span>
-      <strong><?= !empty($precheck['backup_ready']) ? 'Ready' : 'Not writable' ?></strong>
-    </div>
-    <div class="upgrade-status-card pass">
-      <span>Migration Status</span>
-      <strong><?= count($precheck['pending_migrations'] ?? []) ?> pending</strong>
-    </div>
-    <div class="upgrade-status-card pass">
-      <span>Public Output</span>
-      <strong><?= (int)($precheck['published_count'] ?? 0) ?> stream post(s) to rebuild later</strong>
-    </div>
-  </div>
-
-  <details class="upgrade-details upgrade-precheck-details">
-    <summary>Advanced upgrade details</summary>
-    <div>
-      <p><strong>Uploaded package:</strong> <?= htmlspecialchars((string)$precheck['uploaded_name'], ENT_QUOTES, 'UTF-8') ?></p>
-      <?php if (!empty($precheck['pending_migrations'])): ?>
-        <div class="upgrade-migrations-list">
-          <h3>Pending migrations</h3>
-          <ul>
-            <?php foreach ($precheck['pending_migrations'] as $migration): ?>
-              <li><code><?= htmlspecialchars((string)$migration, ENT_QUOTES, 'UTF-8') ?></code></li>
-            <?php endforeach; ?>
-          </ul>
-        </div>
-      <?php else: ?>
-        <p class="meta">No database migrations appear to be pending for this package.</p>
-      <?php endif; ?>
-      <p>Running the upgrade creates a backup, replaces software files, removes obsolete package-managed files, preserves config, data, uploads, media, and runs pending migrations. This tool supports v0.4.0 and newer only. Dynamic public routes use the upgraded code immediately. Static Site Export remains optional export tooling.</p>
-    </div>
-  </details>
-
-  <form method="post" class="form-actions-row upgrade-confirm-actions">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <button type="submit" name="confirm_upgrade" value="1" <?= empty($precheck['backup_ready']) ? 'disabled' : '' ?>>Run Upgrade</button>
-    <button type="submit" name="cancel_upgrade" value="1" class="secondary-button">Cancel</button>
-  </form>
-  <?php if (empty($precheck['backup_ready'])): ?>
-    <p class="field-help warning-text">Upgrade is blocked until the upgrade backup folder is writable.</p>
-  <?php else: ?>
-    <p class="field-help">A backup will be created before software files are replaced.</p>
-  <?php endif; ?>
-</section>
-<?php endif; ?>
-
-<section class="panel">
-  <div class="section-header-row"><div><h2>Upgrade history</h2><p class="meta">Recent software updates recorded by Bonumark Stream.</p></div></div>
-  <?php if (!$upgradeHistory): ?>
-    <p class="meta">No upgrade history recorded yet.</p>
-  <?php else: ?>
-    <table class="admin-table compact-table"><thead><tr><th>From</th><th>To</th><th>Status</th><th>Ran</th></tr></thead><tbody>
-    <?php foreach ($upgradeHistory as $row): ?><tr><td><?= htmlspecialchars((string)$row['from_version'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string)$row['to_version'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string)$row['status'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string)$row['ran_at'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?>
-    </tbody></table>
-  <?php endif; ?>
-</section>
-
-<section class="panel upgrade-rule-panel">
-  <h2>Upgrade rule</h2>
-  <p>Only upload Bonumark Stream release ZIP files you created or trust.</p>
-  <details class="upgrade-details">
-    <summary>Why this matters</summary>
-    <div>
-      <p>A ZIP upgrade replaces PHP software files. Bonumark Stream validates the release manifest and rejects unsafe package paths, symlinks, older versions, and oversized packages, but a malicious trusted-admin upload can still compromise a site.</p>
-    </div>
-  </details>
-</section>
 <?php bms_admin_footer(); ?>

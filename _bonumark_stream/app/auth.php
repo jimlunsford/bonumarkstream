@@ -462,7 +462,7 @@ function bms_admin_route_capability(string $script): ?string
 {
     return match ($script) {
         'index.php', 'welcome.php', 'help.php', 'user.php' => 'view_admin',
-        'content.php', 'new.php', 'edit.php', 'preview.php', 'preview-current.php', 'quick-edit.php', 'delete.php', 'restore.php', 'delete-permanent.php' => 'edit_content',
+        'content.php', 'new.php', 'edit.php', 'preview.php', 'preview-current.php', 'quick-edit.php', 'stream-quick-edit.php', 'stream-trash.php', 'delete.php', 'restore.php', 'delete-permanent.php' => 'edit_content',
         'share-target.php' => 'publish_content',
         'publish.php', 'unpublish.php', 'pin.php' => 'publish_content',
         'pages.php', 'page-new.php', 'page-edit.php', 'page-delete.php', 'page-publish.php', 'page-unpublish.php', 'page-restore.php', 'page-delete-permanent.php' => 'manage_pages',
@@ -475,9 +475,9 @@ function bms_admin_route_capability(string $script): ?string
         'comments.php' => 'manage_comments',
         'revisions.php', 'compare-revision.php', 'restore-revision.php' => 'restore_revisions',
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
-        'settings.php', 'settings-writing.php', 'settings-reading.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
-        'users.php', 'user-edit.php' => 'manage_users',
-        'tools.php', 'analytics.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php', 'security.php' => 'view_system',
+        'settings.php', 'settings-writing.php', 'settings-reading.php', 'security.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
+        'users.php', 'user-new.php', 'user-edit.php' => 'manage_users',
+        'tools.php', 'analytics.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php' => 'view_system',
         default => null,
     };
 }
@@ -529,7 +529,7 @@ function bms_require_capability(string $capability, ?array $subject = null): voi
 function bms_list_users(): array
 {
     bms_require_installed();
-    $stmt = bms_db()->query('SELECT id, username, display_name, email, email_verified_at, role, status, created_at, updated_at FROM ' . bms_table('users') . ' ORDER BY display_name ASC, username ASC');
+    $stmt = bms_db()->query('SELECT id, username, display_name, email, email_verified_at, role, status, profile_visibility, avatar_path, created_at, updated_at FROM ' . bms_table('users') . ' ORDER BY display_name ASC, username ASC');
     return $stmt->fetchAll() ?: [];
 }
 

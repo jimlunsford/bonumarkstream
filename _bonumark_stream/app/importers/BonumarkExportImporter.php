@@ -92,9 +92,16 @@ class BMS_BonumarkExportImporter implements BMS_ImporterInterface
                 $body = $this->rewriteLocalMediaReferences($body, $zip, $mediaIndex, $stagingToken, $stagedMap, $stagedBytes, $itemWarnings);
 
                 $featuredMedia = trim((string)($parsed['featured_media'] ?? ''));
-                if ($featuredMedia !== '') {
-                    $featuredMedia = $this->stageFeaturedMedia($featuredMedia, $zip, $mediaIndex, $stagingToken, $stagedMap, $stagedBytes, $itemWarnings);
+                $mediaGallery = bms_normalize_media_gallery($parsed['media_gallery'] ?? [], $featuredMedia);
+                $stagedGallery = [];
+                foreach ($mediaGallery as $galleryMedia) {
+                    $stagedMedia = $this->stageFeaturedMedia($galleryMedia, $zip, $mediaIndex, $stagingToken, $stagedMap, $stagedBytes, $itemWarnings);
+                    if ($stagedMedia !== '') {
+                        $stagedGallery[] = $stagedMedia;
+                    }
                 }
+                $mediaGallery = bms_normalize_media_gallery($stagedGallery);
+                $featuredMedia = $mediaGallery[0] ?? '';
 
                 $title = trim((string)($parsed['title'] ?? ''));
                 if ($title === '') {
@@ -116,6 +123,7 @@ class BMS_BonumarkExportImporter implements BMS_ImporterInterface
                     'status' => $section,
                     'source' => 'Bonumark export: ' . $entry,
                     'featured_media' => $featuredMedia,
+                    'media_gallery' => $mediaGallery,
                     'content_type' => $contentType,
                     'tags' => $contentType === 'page' ? [] : $tags,
                     'warnings' => $itemWarnings,

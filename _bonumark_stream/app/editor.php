@@ -49,6 +49,7 @@ function bms_editor_media_payload(array $media): array
     return [
         'id' => (int)($media['id'] ?? 0),
         'url' => $url,
+        'public_path' => trim((string)($media['public_path'] ?? '')),
         'alt' => $alt,
         'caption' => (string)($media['caption'] ?? ''),
         'label' => $label,
@@ -74,6 +75,7 @@ function bms_editor_media_item_button(array $media): void
       data-insert-media
       data-media-id="<?= (int)$payload['id'] ?>"
       data-media-url="<?= htmlspecialchars($payload['url'], ENT_QUOTES, 'UTF-8') ?>"
+      data-media-path="<?= htmlspecialchars($payload['public_path'], ENT_QUOTES, 'UTF-8') ?>"
       data-media-alt="<?= htmlspecialchars($payload['alt'], ENT_QUOTES, 'UTF-8') ?>"
       data-media-caption="<?= htmlspecialchars($payload['caption'], ENT_QUOTES, 'UTF-8') ?>"
       data-media-label="<?= htmlspecialchars($payload['label'], ENT_QUOTES, 'UTF-8') ?>"
@@ -223,7 +225,7 @@ function bms_stream_url_fields(array $page, string $section = 'drafts'): void
         ? 'Save the draft to create the final URL.'
         : ($isPublished ? 'This is the live public URL for this Stream Post.' : 'This draft preview URL exists for logged-in previewing. The post is not live until published.');
     ?>
-    <section class="side-card permalink-card" data-editor-card="post-url" aria-label="Post URL">
+    <section class="side-card permalink-card editor-secondary-card" data-editor-card="post-url" data-editor-default-collapsed="1" aria-label="Post URL">
       <h3>Post URL</h3>
       <div class="permalink-preview-row">
         <span><?= htmlspecialchars($urlLabel, ENT_QUOTES, 'UTF-8') ?></span>
@@ -257,7 +259,7 @@ function bms_stream_settings_fields(array $page, string $section): void
 {
     $status = $section === 'published' ? 'published' : 'draft';
     ?>
-    <section class="side-card" data-editor-card="stream-post" aria-label="Stream post settings">
+    <section class="side-card editor-secondary-card" data-editor-card="stream-post" data-editor-default-collapsed="1" aria-label="Stream post settings">
       <h3>Stream Post</h3>
       <input type="hidden" name="stream_content_type" value="stream">
       <input type="hidden" name="stream_category" value="Stream">
@@ -306,7 +308,7 @@ function bms_stream_revision_fields(array $page): void
     }
     $url = bms_admin_url('revisions.php' . ($slug !== '' ? '?slug=' . urlencode($slug) : ''));
     ?>
-    <section class="side-card revisions-card" data-editor-card="revisions" aria-label="Revisions">
+    <section class="side-card revisions-card editor-secondary-card" data-editor-card="revisions" data-editor-default-collapsed="1" aria-label="Revisions">
       <h3>Revisions</h3>
       <div class="source-row"><span>Saved versions</span><strong><?= (int)$count ?></strong></div>
       <p class="field-help">Bonumark Stream keeps database revision snapshots so you have a recovery path when content changes.</p>
@@ -315,14 +317,66 @@ function bms_stream_revision_fields(array $page): void
     <?php
 }
 
-function bms_stream_media_fields(): void
+function bms_stream_editor_gallery_items(array $page): array
 {
+    $featured = (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '');
+    $raw = $page['media_gallery'] ?? $page['front_matter']['media_gallery'] ?? [];
+    $paths = function_exists('bms_normalize_media_gallery') ? bms_normalize_media_gallery($raw, $featured) : array_values(array_filter([$featured]));
+    $items = [];
+    foreach ($paths as $path) {
+        $path = trim((string)$path);
+        if ($path === '') {
+            continue;
+        }
+        $media = function_exists('bms_media_find_by_public_path') ? bms_media_find_by_public_path($path) : null;
+        $mime = is_array($media) ? strtolower((string)($media['mime_type'] ?? '')) : '';
+        if ($mime === '') {
+            $extension = strtolower((string)pathinfo((string)(parse_url($path, PHP_URL_PATH) ?: $path), PATHINFO_EXTENSION));
+            $mime = in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true) ? 'image/' . ($extension === 'jpg' ? 'jpeg' : $extension) : '';
+        }
+        if (!str_starts_with($mime, 'image/')) {
+            continue;
+        }
+        $url = is_array($media) && function_exists('bms_media_public_url_for_item')
+            ? bms_media_public_url_for_item($media)
+            : (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') ? $path : bms_url_path(ltrim($path, '/')));
+        $items[] = [
+            'path' => $path,
+            'url' => $url,
+            'alt' => trim((string)($media['alt_text'] ?? 'Stream post photo')),
+        ];
+        if (count($items) >= 4) {
+            break;
+        }
+    }
+    return $items;
+}
+
+function bms_stream_media_fields(array $page = []): void
+{
+    $galleryItems = bms_stream_editor_gallery_items($page);
     ?>
-    <section class="side-card media-helper-card" data-editor-card="media" aria-label="Media tools">
+    <section class="side-card media-helper-card editor-secondary-card" data-editor-card="media" data-editor-default-collapsed="1" aria-label="Media tools">
       <h3>Media</h3>
-      <p class="field-help">Add images, audio, video, and downloadable files without leaving the post editor.</p>
+      <p class="field-help">Build a photo gallery with up to four images, or insert images, audio, video, and files into the post body.</p>
+      <div class="editor-photo-gallery" data-editor-photo-gallery data-gallery-max="4">
+        <div class="editor-photo-gallery-list" data-editor-photo-gallery-list>
+          <?php foreach ($galleryItems as $index => $item): ?>
+            <div class="editor-photo-gallery-item" data-gallery-item data-gallery-path="<?= htmlspecialchars((string)$item['path'], ENT_QUOTES, 'UTF-8') ?>" data-gallery-url="<?= htmlspecialchars((string)$item['url'], ENT_QUOTES, 'UTF-8') ?>" data-gallery-alt="<?= htmlspecialchars((string)$item['alt'], ENT_QUOTES, 'UTF-8') ?>">
+              <img src="<?= htmlspecialchars((string)$item['url'], ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy">
+              <span>Photo <?= (int)($index + 1) ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <p class="field-help editor-photo-gallery-empty" data-editor-photo-gallery-empty<?= $galleryItems ? ' hidden' : '' ?>>No gallery photos selected.</p>
+        <p class="field-help" data-editor-photo-gallery-count><?= count($galleryItems) ?> of 4 photos</p>
+        <div data-editor-photo-gallery-fields>
+          <?php foreach ($galleryItems as $item): ?><input type="hidden" name="media_gallery[]" value="<?= htmlspecialchars((string)$item['path'], ENT_QUOTES, 'UTF-8') ?>"><?php endforeach; ?>
+        </div>
+      </div>
       <div class="side-card-actions">
-        <button type="button" class="secondary-button full-width-button" data-open-media-picker>Add Media</button>
+        <button type="button" class="secondary-button full-width-button" data-open-media-picker data-media-picker-mode="gallery">Add Gallery Photo</button>
+        <button type="button" class="secondary-button full-width-button" data-open-media-picker data-media-picker-mode="body">Insert Media in Post</button>
         <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Library</a>
       </div>
     </section>
@@ -330,10 +384,10 @@ function bms_stream_media_fields(): void
 }
 
 
-function bms_editor_screen_controls_action(): array
+function bms_editor_screen_controls_action(string $contentType = 'stream'): array
 {
     ob_start();
-    bms_editor_screen_controls();
+    bms_editor_screen_controls($contentType);
     return [
         'html' => ob_get_clean(),
         'class' => 'editor-screen-controls-action',
@@ -341,8 +395,9 @@ function bms_editor_screen_controls_action(): array
 }
 
 
-function bms_editor_screen_controls(): void
+function bms_editor_screen_controls(string $contentType = 'stream'): void
 {
+    $isPageContent = $contentType === 'page';
     ?>
     <section class="editor-screen-controls" data-editor-screen-controls-shell aria-label="Editor screen controls">
       <button type="button" class="secondary-button compact-button screen-controls-toggle" data-screen-controls-toggle aria-expanded="false" aria-controls="editor-screen-controls-panel">Screen Controls</button>
@@ -358,10 +413,16 @@ function bms_editor_screen_controls(): void
         <div class="screen-controls-grid">
           <fieldset>
             <legend>Sidebar cards</legend>
-            <label><input type="checkbox" data-screen-card-toggle="post-url" checked> Post URL</label>
-            <label><input type="checkbox" data-screen-card-toggle="stream-post" checked> Stream Post</label>
-            <label><input type="checkbox" data-screen-card-toggle="media" checked> Media</label>
-            <label><input type="checkbox" data-screen-card-toggle="revisions" checked> Revisions</label>
+            <?php if ($isPageContent): ?>
+              <label><input type="checkbox" data-screen-card-toggle="page-url" checked> Page URL</label>
+              <label><input type="checkbox" data-screen-card-toggle="page-settings" checked> Page Settings</label>
+            <?php else: ?>
+              <label><input type="checkbox" data-screen-card-toggle="post-url" checked> Post URL</label>
+              <label><input type="checkbox" data-screen-card-toggle="stream-post" checked> Stream Post</label>
+              <label><input type="checkbox" data-screen-card-toggle="media" checked> Media</label>
+              <label><input type="checkbox" data-screen-card-toggle="location" checked> Location</label>
+              <label><input type="checkbox" data-screen-card-toggle="revisions" checked> Revisions</label>
+            <?php endif; ?>
             <p class="field-help">The Publish card always stays visible.</p>
           </fieldset>
 
@@ -446,16 +507,20 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
     $page = is_array($context['page'] ?? null) ? $context['page'] : [];
     $isNew = $mode === 'new';
     $newDefaultStatus = (string)($context['default_status'] ?? ($isPublished ? 'published' : 'draft'));
-    $canPublishThis = function_exists('bms_current_user_can') ? bms_current_user_can('publish_content') : false;
-    if (!$isNew && $file !== '' && function_exists('bms_content_subject_for_file') && function_exists('bms_current_user_can')) {
+    $canPublishThis = function_exists('bms_current_user_can')
+        ? bms_current_user_can($isPageContent ? 'manage_pages' : 'publish_content')
+        : false;
+    if (!$isPageContent && !$isNew && $file !== '' && function_exists('bms_content_subject_for_file') && function_exists('bms_current_user_can')) {
         $canPublishThis = bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page));
     }
     $previewType = $isPageContent ? ($isPublished ? 'page-published' : 'page-draft') : ($isPublished ? 'published' : ($isScheduled ? 'scheduled' : 'draft'));
     $showScheduleControls = !$isPageContent && $canPublishThis && !$isPublished;
     ?>
-    <section class="side-card publish-card" data-editor-card="publish" aria-label="Publish settings">
-      <h3>Publish</h3>
-      <div class="status-line"><span>Status</span><strong><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
+    <section class="side-card publish-card editor-publish-card" data-editor-card="publish" aria-label="Publish settings">
+      <div class="publish-card-heading-row">
+        <h3>Publish</h3>
+        <span class="publish-status-badge publish-status-<?= htmlspecialchars(strtolower($statusLabel), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
+      </div>
 
       <?php if ($isScheduled && $showScheduleControls): ?>
         <?php bms_stream_schedule_fields($page, [
@@ -471,7 +536,7 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
           <?php if ($newDefaultStatus === 'published'): ?>
             <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Save Draft</button>
           <?php else: ?>
-            <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
+            <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button positive-action full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
           <?php endif; ?>
         </div>
         <?php if ($showScheduleControls): ?>
@@ -483,42 +548,29 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
           ]); ?>
         <?php endif; ?>
       <?php else: ?>
-        <div class="publish-card-actions" aria-label="Post actions">
+        <div class="publish-preview-actions" aria-label="Preview actions">
           <?php if ($file !== ''): ?>
-            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . urlencode($previewType) . '&file=' . urlencode($file) . '&frame=1'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'Preview Page' : 'Preview Post' ?></a>
+            <a class="button-link secondary compact-button" href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . urlencode($previewType) . '&file=' . urlencode($file) . '&frame=1'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Preview</a>
           <?php endif; ?>
-
           <?php if ($isPublished && $page): ?>
-            <a class="button-link secondary full-width-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'View Page' : 'View Post' ?></a>
-          <?php endif; ?>
-          <?php if ($isPublished && !$isPageContent && $file !== '' && $canPublishThis && function_exists('bms_is_pinned_stream_post')): ?>
-            <form method="post" action="<?= htmlspecialchars(bms_admin_url('pin.php'), ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="action" value="<?= bms_is_pinned_stream_post($page) ? 'unpin' : 'pin' ?>">
-              <input type="hidden" name="return_to" value="<?= htmlspecialchars(bms_admin_url('edit.php?type=published&file=' . rawurlencode($file)), ENT_QUOTES, 'UTF-8') ?>">
-              <button type="submit" class="secondary-button full-width-button"><?= bms_is_pinned_stream_post($page) ? 'Unpin from Stream' : 'Pin to Stream' ?></button>
-            </form>
-          <?php endif; ?>
-
-          <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
-
-          <?php if (!$isPublished): ?>
-            <?php if ($canPublishThis): ?>
-              <button type="submit" class="secondary-button full-width-button" form="publish-draft-action-form"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
-            <?php endif; ?>
-            <?php if ($isScheduled && $canPublishThis): ?>
-              <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Cancel Schedule</button>
-            <?php endif; ?>
-            <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Draft Page to Trash' : ($isScheduled ? 'Move Scheduled Post to Trash' : 'Move Draft to Trash') ?></button>
-            <p class="field-help publish-card-note">Preview uses the saved record. Save changes first if you edited the post.</p>
-          <?php else: ?>
-            <?php if ($canPublishThis): ?>
-              <button type="submit" class="secondary-button full-width-button" form="unpublish-post-action-form"><?= $isPageContent ? 'Move Page to Drafts' : 'Move to Drafts' ?></button>
-            <?php endif; ?>
-            <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? 'Move Page to Trash' : 'Move Post to Trash' ?></button>
+            <a class="button-link secondary compact-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View Live</a>
           <?php endif; ?>
         </div>
+
+        <div class="publish-card-actions publish-primary-actions" aria-label="Primary post actions">
+          <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
+          <?php if (!$isPublished && $canPublishThis): ?>
+            <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button positive-action full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
+          <?php endif; ?>
+          <?php if ($isScheduled && $canPublishThis): ?>
+            <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button full-width-button" data-editor-submit-button name="stream_submit_action" value="draft">Cancel Schedule</button>
+          <?php endif; ?>
+        </div>
+
+        <?php if (!$isPublished): ?>
+          <p class="field-help publish-card-note">Preview uses the saved record. Save changes first when the <?= $isPageContent ? 'page' : 'post' ?> has unsaved edits.</p>
+        <?php endif; ?>
+
         <?php if ($showScheduleControls && !$isScheduled): ?>
           <?php bms_stream_schedule_fields($page, [
               'is_scheduled' => false,
@@ -526,8 +578,57 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
               'submit_label' => 'Schedule',
           ]); ?>
         <?php endif; ?>
+
+        <details class="publish-more-actions">
+          <summary>More actions</summary>
+          <div class="publish-more-actions-body">
+            <?php if ($isPublished && !$isPageContent && $file !== '' && $canPublishThis && function_exists('bms_is_pinned_stream_post')): ?>
+              <button type="submit" class="secondary-button full-width-button" form="pin-post-action-form"><?= bms_is_pinned_stream_post($page) ? 'Unpin from Stream' : 'Pin to Stream' ?></button>
+            <?php endif; ?>
+            <?php if ($isPublished && $canPublishThis): ?>
+              <button type="submit" class="secondary-button full-width-button" form="unpublish-post-action-form"><?= $isPageContent ? 'Move Page to Drafts' : 'Move to Drafts' ?></button>
+            <?php endif; ?>
+            <button type="submit" class="secondary-button danger full-width-button" form="trash-post-action-form"><?= $isPageContent ? ($isPublished ? 'Move Page to Trash' : 'Move Draft Page to Trash') : ($isPublished ? 'Move Post to Trash' : ($isScheduled ? 'Move Scheduled Post to Trash' : 'Move Draft to Trash')) ?></button>
+          </div>
+        </details>
       <?php endif; ?>
     </section>
+    <?php
+}
+
+function bms_editor_mobile_action_bar(string $section, string $buttonLabel, array $context = []): void
+{
+    $isPublished = str_contains($section, 'published');
+    $isScheduled = trim($section, '/') === 'scheduled';
+    $contentType = (string)($context['content_type'] ?? 'stream');
+    $isPageContent = $contentType === 'page';
+    $isNew = (string)($context['mode'] ?? 'edit') === 'new';
+    $file = (string)($context['file'] ?? '');
+    $page = is_array($context['page'] ?? null) ? $context['page'] : [];
+    $canPublishThis = function_exists('bms_current_user_can')
+        ? bms_current_user_can($isPageContent ? 'manage_pages' : 'publish_content')
+        : false;
+    if (!$isPageContent && !$isNew && $file !== '' && function_exists('bms_content_subject_for_file') && function_exists('bms_current_user_can')) {
+        $canPublishThis = bms_current_user_can('publish_content', bms_content_subject_for_file($section, $file, $page));
+    }
+    $publishLabel = $isPageContent ? 'Publish Page' : 'Post Now';
+    $viewLabel = $isPageContent ? 'View Page' : 'View';
+    $viewUrl = '';
+    if ($isPublished && $page) {
+        $viewUrl = $isPageContent && function_exists('bms_page_url_for_page')
+            ? bms_page_url_for_page($page)
+            : bms_stream_url_for_post($page);
+    }
+    ?>
+    <nav class="editor-mobile-action-bar<?= (!$isPublished && !$canPublishThis) ? ' is-two-action' : '' ?>" aria-label="Editor actions" data-editor-mobile-action-bar>
+      <button type="submit" form="stream-editor-form" formnovalidate class="primary-button editor-mobile-save-button" data-editor-submit-button<?php if ($isNew): ?> name="stream_submit_action" value="draft"<?php endif; ?>><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
+      <?php if (!$isPublished && $canPublishThis): ?>
+        <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button positive-action editor-mobile-publish-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= htmlspecialchars($publishLabel, ENT_QUOTES, 'UTF-8') ?></button>
+      <?php elseif ($viewUrl !== ''): ?>
+        <a class="button-link secondary editor-mobile-view-button" href="<?= htmlspecialchars($viewUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= htmlspecialchars($viewLabel, ENT_QUOTES, 'UTF-8') ?></a>
+      <?php endif; ?>
+      <button type="button" class="secondary-button editor-mobile-options-button" data-editor-jump-publish><?= $isScheduled ? 'Schedule' : 'Options' ?></button>
+    </nav>
     <?php
 }
 
@@ -622,7 +723,7 @@ function bms_dual_editor(string $bodyMarkdown): void
             <button type="button" class="secondary-button compact-button" data-shortcuts-close aria-label="Close keyboard shortcuts">Close</button>
           </div>
           <dl class="editor-shortcuts-list">
-            <div><dt>Ctrl/Cmd + S</dt><dd>Save the current post.</dd></div>
+            <div><dt>Ctrl/Cmd + S</dt><dd>Save the current content.</dd></div>
             <div><dt>Ctrl/Cmd + B</dt><dd>Bold selected text.</dd></div>
             <div><dt>Ctrl/Cmd + I</dt><dd>Italicize selected text.</dd></div>
             <div><dt>Ctrl/Cmd + K</dt><dd>Insert or edit a link.</dd></div>
@@ -682,11 +783,11 @@ function bms_page_title_fields(array $page): void
 {
     $title = bms_page_field_value($page, 'title', '');
     ?>
-    <div class="editor-title-block">
-      <label for="page_title">Page Title</label>
-      <input type="text" id="page_title" name="page_title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" placeholder="About" maxlength="180" required>
-      <p class="field-help">Pages are stable site content, so the title displays publicly.</p>
-    </div>
+    <section class="editor-title-card page-editor-title-card" aria-label="Page title">
+      <label class="sr-only" for="page_title">Page Title</label>
+      <input class="editor-title-input" type="text" id="page_title" name="page_title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" placeholder="About" maxlength="180" required>
+      <p class="field-help">The title is public and should clearly identify the page.</p>
+    </section>
     <?php
 }
 
@@ -694,16 +795,30 @@ function bms_page_url_fields(array $page, string $section = 'pages/drafts'): voi
 {
     $slug = bms_page_field_value($page, 'slug', '');
     $published = $section === 'pages/published';
-    $previewSlug = $slug !== '' && !bms_page_slug_needs_generation($slug) ? $slug : 'example';
-    $previewUrl = bms_page_url($previewSlug);
+    $hasSavedSlug = $slug !== '' && !bms_page_slug_needs_generation($slug);
+    $previewSlug = $hasSavedSlug ? $slug : 'generated-on-save';
+    $relativeBase = rtrim(bms_url_path('pages'), '/') . '/';
+    $absoluteBase = rtrim(bms_site_url('pages'), '/') . '/';
+    $relativeUrl = $relativeBase . $previewSlug . '/';
+    $absoluteUrl = $absoluteBase . $previewSlug . '/';
+    $urlLabel = !$hasSavedSlug ? 'URL Preview' : ($published ? 'Live URL' : 'Draft URL');
     ?>
-    <section class="editor-card">
-      <h2>Page URL</h2>
+    <section class="side-card permalink-card editor-secondary-card page-url-card" data-editor-card="page-url" data-editor-default-collapsed="1" aria-label="Page URL">
+      <h3>Page URL</h3>
+      <div class="permalink-preview-row">
+        <span><?= htmlspecialchars($urlLabel, ENT_QUOTES, 'UTF-8') ?></span>
+        <code data-page-permalink-preview data-page-permalink-base="<?= htmlspecialchars($relativeBase, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($relativeUrl, ENT_QUOTES, 'UTF-8') ?></code>
+      </div>
       <label for="page_slug">Slug</label>
       <input type="text" id="page_slug" name="page_slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" maxlength="190" placeholder="about" data-page-slug-input data-original-slug="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" data-is-published="<?= $published ? '1' : '0' ?>">
-      <p class="field-help">Leave blank to generate this from the page title. Public URL after publishing: <code data-page-permalink-preview data-page-permalink-base="<?= htmlspecialchars(bms_url_path('pages/'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($previewUrl, ENT_QUOTES, 'UTF-8') ?></code></p>
+      <p class="field-help">Leave blank to generate the slug from the page title.</p>
+      <label for="page_final_url"><?= htmlspecialchars($urlLabel, ENT_QUOTES, 'UTF-8') ?></label>
+      <div class="permalink-copy-row">
+        <input class="readonly-field permalink-final-url" type="text" id="page_final_url" readonly value="<?= htmlspecialchars($absoluteUrl, ENT_QUOTES, 'UTF-8') ?>" data-page-final-url-input data-page-final-url-base="<?= htmlspecialchars($absoluteBase, ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($hasSavedSlug): ?><button type="button" class="secondary-button compact-button" data-copy-target="page_final_url">Copy</button><?php endif; ?>
+      </div>
       <?php if ($published): ?>
-        <label class="checkbox-row" data-page-slug-warning><input type="checkbox" name="confirm_slug_change" value="1" data-page-confirm-slug-change> I understand this can change the live page URL.</label>
+        <label class="checkbox-row page-slug-warning" data-page-slug-warning hidden><input type="checkbox" name="confirm_slug_change" value="1" data-page-confirm-slug-change> I understand this can change the live page URL.</label>
       <?php endif; ?>
     </section>
     <?php
@@ -718,22 +833,22 @@ function bms_page_settings_fields(array $page): void
     $siteName = trim((string)bms_setting_or_config('site_name', 'Bonumark Stream'));
     $robots = bms_page_field_value($page, 'robots', '');
     ?>
-    <section class="editor-card">
-      <h2>Page Settings</h2>
-      <label for="page_date">Date</label>
+    <section class="side-card editor-secondary-card page-settings-card" data-editor-card="page-settings" data-editor-default-collapsed="1" aria-label="Page settings">
+      <h3>Page Settings</h3>
+      <label for="page_date">Page Date</label>
       <input type="date" id="page_date" name="page_date" value="<?= htmlspecialchars($date, ENT_QUOTES, 'UTF-8') ?>" required>
       <label for="page_description">Meta Description</label>
-      <textarea class="small-textarea" id="page_description" name="page_description" maxlength="300"><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></textarea>
+      <textarea class="small-textarea" id="page_description" name="page_description" maxlength="300" placeholder="Describe this page for search results and link previews."><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></textarea>
       <label for="page_seo_title">Search Title</label>
       <input type="text" id="page_seo_title" name="page_seo_title" value="<?= htmlspecialchars($seoTitle, ENT_QUOTES, 'UTF-8') ?>" maxlength="180" placeholder="Leave blank to use the generated title" data-page-seo-title-input>
-      <p class="field-help">Blank uses the generated search title: <code data-page-seo-title-preview data-site-name="<?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($generatedSeoTitle, ENT_QUOTES, 'UTF-8') ?></code></p>
+      <p class="field-help">Blank uses: <code data-page-seo-title-preview data-site-name="<?= htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($generatedSeoTitle, ENT_QUOTES, 'UTF-8') ?></code></p>
       <label for="page_robots">Search Indexing</label>
       <select id="page_robots" name="page_robots">
         <option value="" <?= $robots === '' ? 'selected' : '' ?>>Site default</option>
-        <option value="index,follow" <?= $robots === 'index,follow' ? 'selected' : '' ?>>index,follow</option>
-        <option value="noindex,follow" <?= $robots === 'noindex,follow' ? 'selected' : '' ?>>noindex,follow</option>
+        <option value="index,follow" <?= $robots === 'index,follow' ? 'selected' : '' ?>>Index this page</option>
+        <option value="noindex,follow" <?= $robots === 'noindex,follow' ? 'selected' : '' ?>>Do not index this page</option>
       </select>
-      <p class="field-help">Public menu links are managed from Appearance → Navigation after the page is published.</p>
+      <p class="field-help">Add published pages to the public menu from Appearance → Navigation.</p>
     </section>
     <?php
 }
@@ -745,5 +860,8 @@ function bms_stream_location_fields(array $page = []): void
     if (!function_exists('bms_place_picker_markup')) {
         return;
     }
-    echo '<section class="editor-card editor-location-card">' . bms_place_picker_markup($page, 'editor') . '</section>';
+    echo '<section class="side-card editor-secondary-card editor-location-card" data-editor-card="location" data-editor-default-collapsed="1" aria-label="Location">';
+    echo '<h3>Location</h3>';
+    echo bms_place_picker_markup($page, 'editor');
+    echo '</section>';
 }

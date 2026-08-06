@@ -180,9 +180,6 @@ textarea {
 }
 
 .action-card {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 12px;
   padding: 18px;
 }
 
@@ -371,9 +368,7 @@ select:focus {
 }
 
 .admin-user {
-  color: var(--muted);
   font-size: .9rem;
-  text-align: right;
   margin-bottom: 8px;
 }
 
@@ -509,7 +504,6 @@ input[type="datetime-local"]:focus {
 .visual-editor,
 .visual-preview {
   width: 100%;
-  min-height: 68vh;
   background: #080808;
   color: var(--text);
   border: 1px solid var(--line);
@@ -619,19 +613,8 @@ input[type="datetime-local"]:focus {
 
 /* Admin interface */
 body.bonumark-admin {
-  --admin-bg: #f0f0f1;
-  --admin-surface: #ffffff;
-  --admin-text: #1d2327;
-  --admin-muted: #646970;
-  --admin-border: #c3c4c7;
-  --admin-sidebar: #1d2327;
-  --admin-sidebar-hover: #2c3338;
-  --admin-sidebar-text: #f0f0f1;
   --admin-blue: #2271b1;
   --admin-blue-dark: #135e96;
-  --admin-danger: #b32d2e;
-  background: var(--admin-bg);
-  color: var(--admin-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   line-height: 1.5;
 }
@@ -641,77 +624,23 @@ body.bonumark-admin a {
   text-underline-offset: 2px;
 }
 
-.admin-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-}
 
 .admin-sidebar {
-  background: var(--admin-sidebar);
   color: var(--admin-sidebar-text);
-  min-height: 100vh;
-  position: sticky;
   top: 0;
-  align-self: start;
 }
 
 .admin-brand {
-  display: block;
-  color: #fff;
-  text-decoration: none;
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: -.02em;
-  padding: 18px 18px 16px;
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
 .admin-sidebar-nav {
-  display: flex;
   flex-direction: column;
-  padding: 10px 0;
 }
 
-.admin-sidebar-nav a,
-.admin-sidebar-nav .nav-form button {
-  display: block;
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  color: var(--admin-sidebar-text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  margin: 0;
-  padding: 10px 18px;
-  text-align: left;
-  text-decoration: none;
-}
-
-.admin-sidebar-nav a:hover,
-.admin-sidebar-nav .nav-form button:hover {
-  background: var(--admin-sidebar-hover);
-  opacity: 1;
-}
-
-.admin-main {
-  min-width: 0;
-}
-
-.admin-topbar {
-  min-height: 48px;
-  background: #fff;
-  border-bottom: 1px solid var(--admin-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 0 24px;
-}
 
 .admin-topbar-title {
   font-size: 14px;
@@ -720,21 +649,13 @@ body.bonumark-admin a {
 }
 
 body.bonumark-admin .admin-user {
-  color: var(--admin-muted);
   font-size: 13px;
-  margin: 0;
-  text-align: right;
 }
 
 body.bonumark-admin .admin-user strong {
   color: var(--admin-text);
 }
 
-.admin-content {
-  max-width: 1280px;
-  margin: 0;
-  padding: 26px 30px 70px;
-}
 
 .admin-page-title h1,
 body.bonumark-admin h1 {
@@ -749,24 +670,9 @@ body.bonumark-admin h2 {
   color: var(--admin-text);
 }
 
-body.bonumark-admin .panel,
-body.bonumark-admin .action-card {
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  border-radius: 4px;
-  box-shadow: 0 1px 1px rgba(0,0,0,.04);
-  color: var(--admin-text);
-}
-
-body.bonumark-admin .panel {
-  padding: 22px 24px;
-  margin: 18px 0;
-}
 
 body.bonumark-admin .card {
-  background: var(--admin-surface);
   border-color: var(--admin-border);
-  color: var(--admin-text);
 }
 
 body.bonumark-admin .meta,
@@ -796,7 +702,6 @@ body.bonumark-admin textarea {
   background: #fff;
   color: var(--admin-text);
   border: 1px solid #8c8f94;
-  border-radius: 4px;
   box-shadow: inset 0 1px 2px rgba(0,0,0,.07);
   padding: 8px 10px;
 }
@@ -815,11 +720,8 @@ body.bonumark-admin .button-link,
 body.bonumark-admin .primary-button {
   background: var(--admin-blue);
   border: 1px solid var(--admin-blue-dark);
-  border-radius: 4px;
   color: #fff;
   font-weight: 600;
-  line-height: 1.2;
-  padding: 8px 12px;
   text-decoration: none;
 }
 
@@ -954,7 +856,6 @@ body.bonumark-admin .visual-preview {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 19px;
   line-height: 1.75;
-  min-height: 58vh;
   padding: 34px 42px;
   width: 100%;
 }
@@ -995,7 +896,6 @@ body.bonumark-admin .editor-form textarea#body_markdown {
   box-shadow: none;
   color: #1d2327;
   font-size: 15px;
-  min-height: 58vh;
   padding: 28px 34px;
 }
 
@@ -1025,12 +925,6 @@ body.bonumark-admin .publish-from-editor {
   width: 1px;
 }
 
-body.bonumark-admin .admin-footer {
-  color: var(--admin-muted);
-  border-top: 1px solid var(--admin-border);
-  margin-top: 28px;
-  padding-top: 16px;
-}
 
 @media (max-width: 860px) {
   .admin-shell {
@@ -1072,52 +966,19 @@ body.bonumark-admin .admin-footer {
 
 /* Dark admin interface */
 body.bonumark-admin {
-  --admin-bg: #0b0d10;
-  --admin-surface: #14171c;
-  --admin-surface-2: #1b1f26;
-  --admin-text: #f3f0ea;
-  --admin-muted: #a8a29a;
-  --admin-border: #2b3038;
-  --admin-sidebar: #08090b;
-  --admin-sidebar-hover: #171b21;
-  --admin-sidebar-text: #f3f0ea;
   --admin-blue: #d8d2c3;
   --admin-blue-dark: #bcb3a1;
-  --admin-danger: #d45b5b;
-  background: var(--admin-bg);
-  color: var(--admin-text);
 }
 
 body.bonumark-admin a {
   color: #efe8d8;
 }
 
-body.bonumark-admin .admin-sidebar {
-  background: var(--admin-sidebar);
-  border-right: 1px solid var(--admin-border);
-}
 
 body.bonumark-admin .admin-brand {
-  background: #0d0f13;
-  border-bottom: 1px solid var(--admin-border);
-  color: var(--admin-text);
-}
-
-body.bonumark-admin .admin-sidebar-nav a,
-body.bonumark-admin .admin-sidebar-nav .nav-form button {
-  color: var(--admin-sidebar-text);
-}
-
-body.bonumark-admin .admin-sidebar-nav a:hover,
-body.bonumark-admin .admin-sidebar-nav .nav-form button:hover {
-  background: var(--admin-sidebar-hover);
-  color: #ffffff;
-}
-
-body.bonumark-admin .admin-topbar {
-  background: #101318;
   border-bottom: 1px solid var(--admin-border);
 }
+
 
 body.bonumark-admin .admin-topbar-title,
 body.bonumark-admin .admin-user,
@@ -1136,10 +997,7 @@ body.bonumark-admin h3 {
 body.bonumark-admin .panel,
 body.bonumark-admin .action-card,
 body.bonumark-admin .card {
-  background: var(--admin-surface);
   border-color: var(--admin-border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
-  color: var(--admin-text);
 }
 
 body.bonumark-admin .panel strong,
@@ -1321,56 +1179,17 @@ body.bonumark-admin .readonly-field strong {
 
 body.bonumark-admin .admin-footer {
   border-top-color: var(--admin-border);
-  color: var(--admin-muted);
 }
 
 /* Admin workflow refinement */
-body.bonumark-admin {
-  --admin-bg: #0b0d10;
-  --admin-surface: #14171c;
-  --admin-surface-2: #1b1f26;
-  --admin-surface-3: #101318;
-  --admin-text: #f3f0ea;
-  --admin-muted: #a8a29a;
-  --admin-border: #2b3038;
-  --admin-sidebar: #08090b;
-  --admin-sidebar-hover: #171b21;
-  --admin-sidebar-text: #f3f0ea;
-  --admin-accent: #e8e0cf;
-  --admin-accent-dark: #c7bea9;
-  --admin-danger: #d45b5b;
-  --admin-success: #6fbf73;
-  background: var(--admin-bg);
-  color: var(--admin-text);
-}
 
-body.bonumark-admin .admin-shell {
-  grid-template-columns: 232px minmax(0, 1fr);
-}
-
-body.bonumark-admin .admin-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 18px;
-}
 
 .admin-brand-mark {
-  align-items: center;
-  background: var(--admin-accent);
-  border-radius: 8px;
-  color: #08090b;
-  display: inline-flex;
-  font-size: .95rem;
-  font-weight: 900;
-  height: 30px;
-  justify-content: center;
   width: 30px;
 }
 
 .admin-nav-section {
   border-top: 1px solid rgba(255,255,255,.06);
-  padding: 8px 0;
 }
 
 .admin-nav-section:first-child {
@@ -1389,7 +1208,6 @@ body.bonumark-admin .admin-brand {
 body.bonumark-admin .admin-sidebar-nav a,
 body.bonumark-admin .admin-sidebar-nav .nav-form button {
   border-left: 3px solid transparent;
-  padding: 9px 18px 9px 21px;
 }
 
 body.bonumark-admin .admin-sidebar-nav a:hover,
@@ -1397,14 +1215,6 @@ body.bonumark-admin .admin-sidebar-nav .nav-form button:hover {
   border-left-color: var(--admin-accent);
 }
 
-body.bonumark-admin .admin-topbar {
-  min-height: 52px;
-}
-
-body.bonumark-admin .admin-content {
-  max-width: 1400px;
-  padding: 28px 32px 76px;
-}
 
 .dashboard-welcome {
   align-items: center;
@@ -1655,8 +1465,6 @@ body.bonumark-admin .editor-header {
 .editor-workspace {
   align-items: start;
   display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(0, 1fr) 310px;
 }
 
 .editor-primary-column {
@@ -1666,7 +1474,6 @@ body.bonumark-admin .editor-header {
 .editor-sidebar-column {
   display: grid;
   gap: 14px;
-  position: sticky;
   top: 68px;
 }
 
@@ -1687,9 +1494,7 @@ body.bonumark-admin .editor-header {
   border: 0;
   box-shadow: none;
   color: var(--admin-text);
-  font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 750;
-  letter-spacing: -.055em;
   line-height: 1.05;
   padding: 0;
 }
@@ -1764,12 +1569,6 @@ body.bonumark-admin .editor-chrome {
   background: #101318;
 }
 
-body.bonumark-admin .visual-editor,
-body.bonumark-admin .visual-preview,
-body.bonumark-admin textarea#body_markdown,
-body.bonumark-admin .editor-form textarea#body_markdown {
-  min-height: 66vh;
-}
 
 body.bonumark-admin .visual-editor,
 body.bonumark-admin .visual-preview {
@@ -1792,10 +1591,7 @@ body.bonumark-admin .visual-preview {
     grid-template-columns: 1fr;
   }
 
-  .editor-sidebar-column {
-    position: static;
-  }
-
+  
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1851,9 +1647,6 @@ body.bonumark-admin .dashboard-welcome-actions {
   align-items: center;
 }
 
-body.bonumark-admin .editor-title-card {
-  padding: 22px 20px;
-}
 
 body.bonumark-admin .permalink-card .permalink-preview-row {
   background: var(--admin-surface-2);
@@ -1910,22 +1703,11 @@ body.bonumark-admin .admin-nav-section {
   padding-top: 4px;
 }
 
-body.bonumark-admin .admin-sidebar-nav a,
-body.bonumark-admin .admin-sidebar-nav .nav-form button {
-  border-radius: 8px;
-  display: block;
-  margin: 2px 8px;
-  padding: 8px 10px;
-}
 
 body.bonumark-admin .admin-sidebar-nav .nav-form {
   margin: 0;
 }
 
-body.bonumark-admin .admin-sidebar-nav .nav-form button {
-  width: calc(100% - 16px);
-  text-align: left;
-}
 
 .page-intro-panel h2,
 .dashboard-welcome h2 {
@@ -2233,25 +2015,9 @@ body.bonumark-admin .admin-sidebar-nav .nav-form button {
 
 /* Workflow feedback and header actions */
 body.bonumark-admin .admin-page-title {
-  align-items: center;
-  display: flex;
   flex-wrap: wrap;
-  gap: 14px 18px;
-  justify-content: space-between;
-  margin: 0 0 22px;
 }
 
-body.bonumark-admin .admin-page-title h1 {
-  margin: 0;
-}
-
-body.bonumark-admin .admin-page-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
 
 body.bonumark-admin .admin-page-actions .primary-button,
 body.bonumark-admin .admin-page-actions .button-link {
@@ -2262,20 +2028,11 @@ body.bonumark-admin .admin-page-actions .button-link {
 }
 
 body.bonumark-admin .notice-stack {
-  display: grid;
-  gap: 10px;
   margin: 0 0 20px;
 }
 
 body.bonumark-admin .flash.notice {
-  align-items: flex-start;
-  border: 1px solid var(--admin-border);
   border-left-width: 5px;
-  border-radius: 6px;
-  display: flex;
-  gap: 12px;
-  margin: 0;
-  padding: 13px 15px;
 }
 
 body.bonumark-admin .flash.notice .notice-icon {
@@ -2309,27 +2066,18 @@ body.bonumark-admin .flash.notice .notice-copy p {
   margin: 0;
 }
 
-body.bonumark-admin .flash.notice.success {
-  border-left-color: #6fbf73;
-}
 
 body.bonumark-admin .flash.notice.success .notice-icon,
 body.bonumark-admin .flash.notice.success .notice-copy strong {
   color: #8bd48f;
 }
 
-body.bonumark-admin .flash.notice.error {
-  border-left-color: var(--admin-danger);
-}
 
 body.bonumark-admin .flash.notice.error .notice-icon,
 body.bonumark-admin .flash.notice.error .notice-copy strong {
   color: #ff8a8a;
 }
 
-body.bonumark-admin .flash.notice.warning {
-  border-left-color: #d8a843;
-}
 
 body.bonumark-admin .flash.notice.warning .notice-icon,
 body.bonumark-admin .flash.notice.warning .notice-copy strong {
@@ -2863,18 +2611,9 @@ body.bonumark-admin .selectable-theme:hover {
 }
 
 .upgrade-status-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   margin: 18px 0;
 }
 
-.upgrade-status-card {
-  background: #0f1217;
-  border: 1px solid var(--admin-border);
-  border-radius: 14px;
-  padding: 14px;
-}
 
 .upgrade-status-card span {
   color: var(--admin-muted);
@@ -2891,13 +2630,6 @@ body.bonumark-admin .selectable-theme:hover {
   font-size: 1.05rem;
 }
 
-.upgrade-status-card.pass {
-  border-color: rgba(111, 191, 115, 0.36);
-}
-
-.upgrade-status-card.fail {
-  border-color: rgba(255, 137, 137, 0.5);
-}
 
 .upgrade-migrations-list ul {
   margin: 8px 0 0;
@@ -2951,9 +2683,6 @@ body.bonumark-admin .selectable-theme:hover {
 }
 
 /* Admin topbar cleanup */
-body.bonumark-admin .admin-topbar {
-  justify-content: space-between;
-}
 body.bonumark-admin .admin-topbar-title {
   min-width: 0;
   overflow: hidden;
@@ -2964,8 +2693,6 @@ body.bonumark-admin .admin-topbar-title {
 /* Sidebar workflow cleanup */
 body.bonumark-admin .admin-nav-section {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  margin: 6px 8px 0;
-  padding: 4px 0;
 }
 
 body.bonumark-admin details.admin-nav-section:first-of-type {
@@ -2973,30 +2700,11 @@ body.bonumark-admin details.admin-nav-section:first-of-type {
 }
 
 body.bonumark-admin .admin-nav-section > summary.admin-nav-heading {
-  align-items: center;
-  border-radius: 8px;
-  color: #8f98a3;
-  cursor: pointer;
-  display: flex;
-  font-size: 0.72rem;
-  font-weight: 800;
-  justify-content: space-between;
-  letter-spacing: 0.12em;
-  list-style: none;
   margin: 0;
-  padding: 9px 10px;
-  text-transform: uppercase;
-  user-select: none;
 }
 
-body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::-webkit-details-marker {
-  display: none;
-}
 
 body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::after {
-  content: "›";
-  font-size: 1rem;
-  line-height: 1;
   opacity: .72;
   transform: rotate(0deg);
   transition: transform .16s ease;
@@ -3023,9 +2731,6 @@ body.bonumark-admin .admin-sidebar-nav .admin-nav-links .nav-form button {
   padding-left: 18px;
 }
 
-body.bonumark-admin .admin-sidebar-nav > .nav-primary {
-  margin: 8px;
-}
 
 /* Admin navigation refinement */
 body.bonumark-admin .admin-sidebar-nav > .view-site-nav {
@@ -3041,15 +2746,7 @@ body.bonumark-admin .admin-sidebar-nav > .view-site-nav::after {
 }
 
 /* Sidebar link cleanup */
-body.bonumark-admin .admin-sidebar-nav a,
-body.bonumark-admin .admin-sidebar-nav .nav-form button {
-  width: auto;
-}
 
-body.bonumark-admin .admin-sidebar-nav > .nav-primary {
-  margin: 2px 8px;
-  width: auto;
-}
 
 body.bonumark-admin .admin-sidebar-nav > .view-site-nav {
   background: transparent;
@@ -3165,9 +2862,7 @@ body.bonumark-admin .editor-title-card {
 }
 
 body.bonumark-admin .editor-title-input {
-  font-size: clamp(1.9rem, 4vw, 3rem);
   font-weight: 800;
-  letter-spacing: -0.045em;
   line-height: 1.08;
 }
 
@@ -3453,9 +3148,6 @@ body.bonumark-admin .editor-preview-header span {
   margin-top: 2px;
 }
 
-body.bonumark-admin .visual-preview {
-  min-height: 520px;
-}
 
 body.bonumark-admin .editor-mode-panel.active {
   background: #0b0d10;
@@ -3528,7 +3220,6 @@ body.bonumark-admin .editor-sidebar-column .publish-card h3::after {
   border: 1px solid rgba(74, 222, 128, 0.22);
   border-radius: 999px;
   color: #86efac;
-  content: "Ready";
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   padding: 3px 7px;
@@ -4092,37 +3783,16 @@ body.bonumark-admin .visual-editor[role="textbox"] {
 
 /* Composer Viewport Fill Pass
    Keep the existing stacked sidebar/card flow. Dynamically stretch only the writing surface. */
-body.bonumark-admin .editor-layout-form {
-  --editor-composer-min-height: 720px;
-  --editor-composer-viewport-height: 72vh;
-  --editor-composer-surface-height: max(var(--editor-composer-min-height), var(--editor-composer-viewport-height));
-}
 
-body.bonumark-admin .editor-layout-form.is-density-compact {
-  --editor-composer-min-height: 620px;
-}
-
-body.bonumark-admin .editor-layout-form.is-density-spacious {
-  --editor-composer-min-height: 820px;
-}
-
-body.bonumark-admin .visual-editor,
-body.bonumark-admin .visual-preview,
-body.bonumark-admin textarea#body_markdown,
-body.bonumark-admin .editor-form textarea#body_markdown {
-  min-height: var(--editor-composer-surface-height);
-}
 
 @media (max-width: 900px) {
   body.bonumark-admin .editor-layout-form {
-    --editor-composer-min-height: 560px;
     --editor-composer-viewport-height: 68vh;
   }
 }
 
 @media (max-width: 640px) {
   body.bonumark-admin .editor-layout-form {
-    --editor-composer-min-height: 440px;
     --editor-composer-viewport-height: 62vh;
   }
 }
@@ -4131,34 +3801,11 @@ body.bonumark-admin .editor-form textarea#body_markdown {
 /* Desktop Composer Column Balance Pass
    Keep the existing desktop editor/sidebar columns. Balance only the writing surface
    against the visible sidebar card stack so the center column does not die early. */
-body.bonumark-admin .editor-layout-form {
-  --editor-composer-max-height: 2600px;
-}
 
-body.bonumark-admin .editor-layout-form.is-density-compact {
-  --editor-composer-max-height: 2200px;
-}
-
-body.bonumark-admin .editor-layout-form.is-density-spacious {
-  --editor-composer-max-height: 3000px;
-}
-
-body.bonumark-admin .visual-editor,
-body.bonumark-admin .visual-preview,
-body.bonumark-admin textarea#body_markdown,
-body.bonumark-admin .editor-form textarea#body_markdown {
-  max-height: var(--editor-composer-max-height);
-}
 
 @media (max-width: 1080px) {
   body.bonumark-admin .editor-layout-form {
     --editor-composer-max-height: 1400px;
-  }
-}
-
-@media (max-width: 640px) {
-  body.bonumark-admin .editor-layout-form {
-    --editor-composer-max-height: 950px;
   }
 }
 
@@ -4166,27 +3813,11 @@ body.bonumark-admin .editor-form textarea#body_markdown {
 /* Desktop Composer Full Balance Pass
    Let the main editor reach the natural height of the right-side card stack
    while preserving the normal desktop two-column layout. */
-body.bonumark-admin .editor-layout-form {
-  --editor-composer-max-height: 2600px;
-}
 
-body.bonumark-admin .editor-layout-form.is-density-compact {
-  --editor-composer-max-height: 2200px;
-}
-
-body.bonumark-admin .editor-layout-form.is-density-spacious {
-  --editor-composer-max-height: 3000px;
-}
 
 @media (max-width: 1080px) {
   body.bonumark-admin .editor-layout-form {
     --editor-composer-max-height: 1400px;
-  }
-}
-
-@media (max-width: 640px) {
-  body.bonumark-admin .editor-layout-form {
-    --editor-composer-max-height: 950px;
   }
 }
 
@@ -4195,24 +3826,13 @@ body.bonumark-admin .editor-layout-form.is-density-spacious {
    Keep desktop column balance, but let the active writing surface grow with content
    until a longform cap is reached. After that, the editor itself scrolls clearly. */
 body.bonumark-admin .editor-layout-form {
-  --editor-composer-max-height: 5400px;
   --editor-composer-content-height: 0px;
 }
 
-body.bonumark-admin .editor-layout-form.is-density-compact {
-  --editor-composer-max-height: 4600px;
-}
-
-body.bonumark-admin .editor-layout-form.is-density-spacious {
-  --editor-composer-max-height: 6500px;
-}
 
 body.bonumark-admin .editor-mode-panel.active .visual-editor,
 body.bonumark-admin .editor-mode-panel.active textarea#body_markdown,
 body.bonumark-admin .editor-mode-panel.active .visual-preview {
-  height: var(--editor-composer-surface-height);
-  min-height: var(--editor-composer-surface-height);
-  max-height: var(--editor-composer-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -4245,12 +3865,6 @@ body.bonumark-admin .dual-editor.is-focus-mode .editor-mode-panel.active .visual
 @media (max-width: 1080px) {
   body.bonumark-admin .editor-layout-form {
     --editor-composer-max-height: 2400px;
-  }
-}
-
-@media (max-width: 640px) {
-  body.bonumark-admin .editor-layout-form {
-    --editor-composer-max-height: 1600px;
   }
 }
 
@@ -4363,8 +3977,6 @@ body.bonumark-admin .composer-top-row .screen-controls-panel[hidden] {
    Screen Controls lives in the page action slot on composer screens, replacing the repeated All Stream Posts button.
    Autosave recovery actions are grouped and aligned so Restore and Discard sit cleanly together. */
 body.bonumark-admin .admin-page-actions .admin-page-action-custom {
-  align-items: center;
-  display: inline-flex;
   margin: 0;
   position: relative;
 }
@@ -4514,16 +4126,8 @@ body.bonumark-admin .admin-user a:focus-visible {
 
 
 /* Avatar and Profile Picture Pass*/
-body.bonumark-admin .admin-user {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
 
 body.bonumark-admin .admin-user-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   margin-right: 0.15rem;
 }
 
@@ -5215,30 +4819,6 @@ body.bonumark-admin .settings-panel pre {
     gap: 1rem;
 }
 
-.import-preview-heading {
-    align-items: flex-start;
-    display: flex;
-    gap: 1rem;
-    justify-content: space-between;
-}
-
-.import-options-card {
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 18px;
-    margin: 1.25rem 0;
-    padding: 1rem;
-}
-
-.import-preview-list {
-    display: grid;
-    gap: 1rem;
-}
-
-.import-preview-item {
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 18px;
-    padding: 1rem;
-}
 
 .import-preview-item h3 {
     margin-bottom: 0.35rem;
@@ -5298,57 +4878,19 @@ body.bonumark-admin .select-all-label input {
 
 /* Admin sidebar scroll behavior */
 body.bonumark-admin .admin-sidebar {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  max-height: 100vh;
-  min-height: 100vh;
-  overflow: hidden;
-  position: sticky;
   top: 0;
 }
 
-body.bonumark-admin .admin-brand {
-  flex: 0 0 auto;
-}
 
 body.bonumark-admin .admin-sidebar-nav {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding-bottom: 24px;
-  scrollbar-color: #343b46 #08090b;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
 }
 
-body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar {
-  width: 10px;
-}
-
-body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-track {
-  background: #08090b;
-}
-
-body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb {
-  background: #343b46;
-  border: 2px solid #08090b;
-  border-radius: 999px;
-}
 
 body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
   background: #46505f;
 }
 
-@supports (height: 100dvh) {
-  body.bonumark-admin .admin-sidebar {
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
-  }
-}
 
 @media (max-width: 860px) {
   body.bonumark-admin .admin-sidebar {
@@ -6001,10 +5543,8 @@ body.bonumark-admin .dashboard-hero {
 }
 
 .dashboard-hero h2 {
-  font-size: clamp(2rem, 4vw, 3.2rem);
   letter-spacing: -.055em;
   line-height: 1;
-  margin: 0 0 10px;
 }
 
 .dashboard-hero-copy {
@@ -6033,18 +5573,11 @@ body.bonumark-admin .dashboard-hero {
 
 .dashboard-metric-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin: 18px 0;
 }
 
 .dashboard-metric-card {
-  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
-  border: 1px solid var(--admin-border);
-  border-radius: 14px;
   color: var(--admin-text);
-  min-height: 112px;
-  padding: 18px;
   text-decoration: none;
 }
 
@@ -6073,7 +5606,6 @@ body.bonumark-admin .dashboard-hero {
 }
 
 .dashboard-metric-card:hover {
-  background: var(--admin-surface-2);
   opacity: 1;
 }
 
@@ -6100,8 +5632,6 @@ body.bonumark-admin .dashboard-hero {
 .dashboard-balanced-grid {
   align-items: start;
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 18px;
 }
 
@@ -6137,7 +5667,6 @@ body.bonumark-admin .dashboard-card {
   align-items: center;
   background: rgba(255,255,255,.025);
   border: 1px solid rgba(255,255,255,.055);
-  border-radius: 12px;
   color: var(--admin-text);
   display: grid;
   gap: 12px;
@@ -6153,7 +5682,6 @@ body.bonumark-admin .dashboard-card {
 .dashboard-attention-item:hover,
 .dashboard-status-item:hover,
 .dashboard-list-row:hover {
-  background: var(--admin-surface-2);
   opacity: 1;
 }
 
@@ -6239,13 +5767,10 @@ body.bonumark-admin .dashboard-card {
 .dashboard-action-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dashboard-action-grid .button-link {
-  justify-content: center;
   margin: 0;
-  text-align: center;
 }
 
 .dashboard-note-list p {
@@ -6314,7 +5839,6 @@ body.bonumark-admin textarea {
   appearance: none;
   background: #0f1217;
   border: 1px solid #3a404b;
-  border-radius: 8px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35);
   color: var(--admin-text);
   font: inherit;
@@ -6352,12 +5876,6 @@ body.bonumark-admin input[type="tel"]:focus {
 }
 
 /* Align upgrade confirmation actions so Run Upgrade and Cancel sit on the same baseline. */
-body.bonumark-admin .upgrade-confirm-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
 
 body.bonumark-admin .upgrade-confirm-actions button,
 body.bonumark-admin .upgrade-confirm-actions .secondary-button {
@@ -6784,7 +6302,6 @@ body.bonumark-admin .table-actions .inline-form.row-form {
   margin: 0;
   min-height: 18px;
 }
-
 
 
 /* Admin Content List Width Utilization Pass */
@@ -7275,7 +6792,6 @@ body.bonumark-admin .media-privacy-notice {
   min-height: 44px;
   padding: 9px 11px;
   border: 1px solid var(--admin-line, #334155);
-  border-radius: 10px;
   background: var(--admin-panel-soft, #111827);
 }
 .editor-location-card .local-places-selected.is-selected { display: flex; }
@@ -7550,3 +7066,52 @@ body.bonumark-admin .local-places-empty-state {
     width: 100%;
   }
 }
+
+/* Structured stream photo gallery editor. */
+.editor-photo-gallery {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.editor-photo-gallery-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.editor-photo-gallery-item {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.editor-photo-gallery-item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+.editor-photo-gallery-item > span {
+  display: block;
+  padding: 7px 8px 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.editor-photo-gallery-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px 8px;
+}
+.editor-photo-gallery-actions button {
+  min-width: 30px;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.75rem;
+}
+.editor-photo-gallery-actions button:last-child { margin-left: auto; }
+.editor-photo-gallery-actions button:disabled { opacity: 0.4; cursor: default; }
+[data-editor-photo-gallery-count].is-error { color: var(--danger); }

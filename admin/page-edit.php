@@ -28,8 +28,11 @@ if ($originalAuthorId === null && (int)($page['author_id'] ?? 0) > 0) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     bms_verify_csrf();
-    $status = $section === 'pages/published' ? 'published' : 'draft';
-    $raw = bms_build_page_markdown_from_request($status, (string)($page['slug'] ?? ''));
+    $submitAction = (string)($_POST['stream_submit_action'] ?? $_POST['page_submit_action'] ?? 'save');
+    $currentStatus = $section === 'pages/published' ? 'published' : 'draft';
+    $targetStatus = $currentStatus === 'draft' && $submitAction === 'publish' ? 'published' : $currentStatus;
+    $targetSection = bms_page_status_section($targetStatus);
+    $raw = bms_build_page_markdown_from_request($targetStatus, (string)($page['slug'] ?? ''));
     $raw = str_replace(["\r\n", "\r"], "\n", $raw);
     if (trim((string)($_POST['page_title'] ?? '')) === '') {
         bms_flash('Page title is required.', 'error');
@@ -44,38 +47,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newFilename = $updatedPage['slug'] . '.md';
         $oldSlug = bms_slugify((string)($page['slug'] ?? pathinfo($file, PATHINFO_FILENAME)));
         $newSlug = bms_slugify((string)($updatedPage['slug'] ?? pathinfo($newFilename, PATHINFO_FILENAME)));
-        $targetStatus = $section === 'pages/published' ? 'published' : 'draft';
-        if ($oldSlug !== $newSlug && function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($newSlug, $targetStatus, 'page')) {
+        $sameRecord = $oldSlug === $newSlug && $targetSection === $section;
+        if (!$sameRecord && function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($newSlug, $targetStatus, 'page')) {
             throw new RuntimeException('Another page already uses this slug.');
         }
         if ($section === 'pages/published' && $oldSlug !== $newSlug && empty($_POST['confirm_slug_change'])) {
             bms_flash('Confirm the live URL change before saving this published page.', 'warning');
             bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($file)));
         }
-        if (function_exists('bms_delete_post_metadata_by_filename') && $newFilename !== $file) {
+        if (function_exists('bms_delete_post_metadata_by_filename') && ($newFilename !== $file || $targetSection !== $section)) {
             bms_delete_post_metadata_by_filename($section, $file);
         }
         if (is_file($path)) {
             @unlink($path);
         }
-        bms_sync_page_metadata($updatedPage, $section, $newFilename, $originalAuthorId);
-        if ($section === 'pages/published') {
-            bms_flash('Updated page. “' . $updatedPage['title'] . '” is current through dynamic rendering.', 'success');
+        bms_sync_page_metadata($updatedPage, $targetSection, $newFilename, $originalAuthorId);
+        if ($targetStatus === 'published') {
+            $message = $currentStatus === 'published'
+                ? 'Updated page. “' . $updatedPage['title'] . '” is current through dynamic rendering.'
+                : 'Page published. “' . $updatedPage['title'] . '” is live through dynamic rendering.';
+            bms_flash($message, 'success');
             bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($newFilename)));
         }
         bms_flash('Draft page saved. “' . $updatedPage['title'] . '” is ready to preview or publish.', 'success');
         bms_redirect(bms_admin_url('page-edit.php?type=draft&file=' . urlencode($newFilename)));
     } catch (Throwable $e) {
         bms_log_admin_exception('page-edit', $e);
-
         bms_flash('Save failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('page-edit.php?type=' . urlencode($type) . '&file=' . urlencode($file)));
     }
 }
 
 bms_admin_header('Edit Page: ' . $page['title'], [
-    ['label' => 'All Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
-    $section === 'pages/published' ? ['label' => 'View Page', 'href' => bms_page_url_for_page($page), 'style' => 'secondary', 'target' => true] : ['label' => 'Preview', 'href' => bms_admin_url('preview.php?type=page-draft&file=' . urlencode($file)), 'style' => 'secondary'],
+    bms_editor_screen_controls_action('page'),
 ]);
 ?>
 <section class="editor-panel editor-composer-panel">
@@ -99,6 +103,12 @@ bms_admin_header('Edit Page: ' . $page['title'], [
       </aside>
     </div>
   </form>
+  <?php bms_editor_mobile_action_bar($section, $section === 'pages/published' ? 'Update' : 'Save Draft', [
+      'mode' => 'edit',
+      'content_type' => 'page',
+      'file' => $file,
+      'page' => $page,
+  ]); ?>
   <div class="editor-hidden-action-forms" aria-hidden="true">
     <?php if ($section !== 'pages/published'): ?>
       <form id="publish-draft-action-form" method="post" action="<?= htmlspecialchars(bms_admin_url('page-publish.php'), ENT_QUOTES, 'UTF-8') ?>">

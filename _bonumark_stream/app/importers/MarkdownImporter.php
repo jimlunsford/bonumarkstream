@@ -47,6 +47,7 @@ class BMS_MarkdownImporter implements BMS_ImporterInterface
         $description = trim((string)($parsed['description'] ?? ''));
         $slug = trim((string)($parsed['slug'] ?? ''));
         $featuredMedia = trim((string)($parsed['featured_media'] ?? ''));
+        $mediaGallery = bms_normalize_media_gallery($parsed['media_gallery'] ?? [], $featuredMedia);
         $tags = isset($parsed['tags']) && is_array($parsed['tags']) ? $parsed['tags'] : [];
 
         $result->addItem(bms_import_make_item([
@@ -59,6 +60,7 @@ class BMS_MarkdownImporter implements BMS_ImporterInterface
             'status' => $status,
             'source' => $name,
             'featured_media' => $featuredMedia,
+            'media_gallery' => $mediaGallery,
             'tags' => $tags,
         ]));
 

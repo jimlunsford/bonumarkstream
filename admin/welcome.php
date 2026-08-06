@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 bms_admin_header('Welcome to Bonumark Stream', [
-    ['label' => 'New Stream Post', 'href' => bms_admin_url('new.php'), 'style' => 'primary'],
+    ['label' => 'Open Stream Composer', 'href' => bms_stream_composer_url(), 'style' => 'primary'],
 ]);
 ?>
 <section class="panel welcome-panel big-welcome-panel">
@@ -30,7 +30,7 @@ bms_admin_header('Welcome to Bonumark Stream', [
 <section class="panel">
   <h2>The Bonumark Stream difference</h2>
   <div class="feature-grid">
-    <div><h3>Visual when you want it</h3><p>Write in a familiar editor without needing to understand Markdown first.</p></div>
+    <div><h3>Fast first, full editor when needed</h3><p>Create from the stream, then save a draft and continue in the Visual or Markdown editor when the post needs more work.</p></div>
     <div><h3>Markdown export</h3><p>Your live content is stored in database records, and your writing can still be exported as clean Markdown whenever you need it.</p></div>
     <div><h3>Static Site Export</h3><p>Published posts and pages can be included in optional static export packages from the Export screen without making generation part of every save.</p></div>
   </div>

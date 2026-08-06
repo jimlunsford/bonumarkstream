@@ -1,12 +1,24 @@
-const BMS_CACHE_NAME = 'bonumark-stream-static-v0.5.42';
+const BMS_CACHE_NAME = 'bonumark-stream-static-v0.5.76';
 const BMS_CACHE_PREFIX = 'bonumark-stream-static-';
 // Site Identity PWA icons use versioned dynamic URLs and are intentionally not cached here.
 const BMS_STATIC_ASSETS = [
   'assets/style.css',
   'assets/stream.css',
   'assets/admin.css',
+  'assets/admin-shell.css',
+  'assets/admin-content-list.css',
+  'assets/admin-editor-workflow.css',
+  'assets/admin-media-library.css',
+  'assets/admin-comments.css',
+  'assets/admin-accounts.css',
+  'assets/admin-registration.css',
+  'assets/admin-appearance.css',
+  'assets/admin-settings.css',
+  'assets/admin-places.css',
+  'assets/admin-operations.css',
   'assets/stream.js',
   'assets/admin.js',
+  'assets/admin-places.js',
   'assets/editor.js',
   'assets/pwa.js'
 ];

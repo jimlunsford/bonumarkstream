@@ -453,8 +453,11 @@ function bms_import_extract_staging_tokens_from_preview(?array $preview): array
         }
         $candidateUrls = bms_import_extract_staged_media_urls((string)($item['body'] ?? ''));
         $featuredMedia = trim((string)($item['featured_media'] ?? ''));
-        if ($featuredMedia !== '' && bms_import_is_staged_media_url($featuredMedia)) {
-            $candidateUrls[] = $featuredMedia;
+        $mediaGallery = bms_normalize_media_gallery($item['media_gallery'] ?? [], $featuredMedia);
+        foreach ($mediaGallery as $galleryMedia) {
+            if (bms_import_is_staged_media_url((string)$galleryMedia)) {
+                $candidateUrls[] = (string)$galleryMedia;
+            }
         }
         foreach ($candidateUrls as $url) {
             $parsed = bms_import_parse_staged_media_url($url);

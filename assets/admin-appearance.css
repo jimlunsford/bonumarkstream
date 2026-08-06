@@ -1,0 +1,1011 @@
+/*
+ * Bonumark Stream Admin Appearance
+ * Themes, theme settings, Site Identity, Navigation, and theme lifecycle screens.
+ */
+
+body.bonumark-admin.admin-screen-theme .admin-content,
+body.bonumark-admin.admin-screen-theme-settings .admin-content,
+body.bonumark-admin.admin-screen-theme-details .admin-content,
+body.bonumark-admin.admin-screen-theme-install .admin-content,
+body.bonumark-admin.admin-screen-theme-delete .admin-content,
+body.bonumark-admin.admin-screen-site-identity .admin-content,
+body.bonumark-admin.admin-screen-navigation .admin-content {
+  max-width: 1500px;
+}
+
+body.bonumark-admin .appearance-hero-panel,
+body.bonumark-admin .appearance-section-heading,
+body.bonumark-admin .appearance-theme-title-row,
+body.bonumark-admin .appearance-save-bar {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .appearance-hero-copy,
+body.bonumark-admin .appearance-section-heading > div,
+body.bonumark-admin .appearance-theme-title-row > div,
+body.bonumark-admin .appearance-save-bar > div {
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-hero-copy h2,
+body.bonumark-admin .appearance-section-heading h2,
+body.bonumark-admin .appearance-theme-title-row h2 {
+  margin-bottom: 7px;
+}
+
+body.bonumark-admin .appearance-hero-copy .meta,
+body.bonumark-admin .appearance-section-heading .meta {
+  margin: 0;
+  max-width: 850px;
+}
+
+body.bonumark-admin .appearance-hero-actions,
+body.bonumark-admin .appearance-theme-status,
+body.bonumark-admin .appearance-form-actions,
+body.bonumark-admin .appearance-theme-actions,
+body.bonumark-admin .appearance-support-list {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .appearance-hero-actions,
+body.bonumark-admin .appearance-theme-status {
+  flex: 0 0 auto;
+}
+
+body.bonumark-admin .appearance-summary-panel {
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .appearance-summary-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.bonumark-admin .appearance-summary-grid > div {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .appearance-summary-grid span,
+body.bonumark-admin .appearance-theme-facts dt,
+body.bonumark-admin .appearance-detail-facts dt,
+body.bonumark-admin .appearance-favicon-current span,
+body.bonumark-admin .appearance-navigation-item-copy > span {
+  color: var(--admin-muted);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .appearance-summary-grid strong {
+  color: var(--admin-text);
+  font-size: .96rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-attention-panel {
+  border-left: 3px solid var(--admin-accent);
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr);
+}
+
+body.bonumark-admin .appearance-issue-list,
+body.bonumark-admin .appearance-rule-list {
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+body.bonumark-admin .appearance-issue-list li,
+body.bonumark-admin .appearance-rule-list li {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+body.bonumark-admin .appearance-issue-list strong,
+body.bonumark-admin .appearance-rule-list strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .appearance-issue-list span,
+body.bonumark-admin .appearance-rule-list span {
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+
+body.bonumark-admin .appearance-issue-list.compact {
+  margin-top: 14px;
+}
+
+body.bonumark-admin .appearance-issue-list.warnings li {
+  border-color: rgba(229, 193, 129, .35);
+}
+
+body.bonumark-admin .appearance-theme-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .appearance-theme-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+body.bonumark-admin .appearance-theme-card.is-active {
+  border-color: rgba(111, 216, 159, .58);
+  box-shadow: inset 0 3px 0 rgba(111, 216, 159, .65);
+}
+
+body.bonumark-admin .appearance-theme-card.has-errors {
+  border-color: rgba(229, 115, 115, .55);
+}
+
+body.bonumark-admin .appearance-theme-preview,
+body.bonumark-admin .appearance-active-theme-preview,
+body.bonumark-admin .appearance-detail-preview {
+  background: #090d12;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+body.bonumark-admin .appearance-theme-preview {
+  aspect-ratio: 16 / 9;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+body.bonumark-admin .appearance-theme-preview img,
+body.bonumark-admin .appearance-active-theme-preview img,
+body.bonumark-admin .appearance-detail-preview img,
+body.bonumark-admin .appearance-delete-summary > img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+body.bonumark-admin .appearance-theme-preview-empty {
+  align-items: center;
+  background: linear-gradient(145deg, #0f151d, #171e28);
+  color: var(--admin-muted);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  min-height: 190px;
+  width: 100%;
+}
+
+body.bonumark-admin .appearance-theme-preview .appearance-theme-status {
+  bottom: 12px;
+  left: 12px;
+  position: absolute;
+  right: 12px;
+}
+
+body.bonumark-admin .appearance-theme-body {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+body.bonumark-admin .appearance-theme-title-row code {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-theme-description {
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-theme-facts,
+body.bonumark-admin .appearance-detail-facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-theme-facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.bonumark-admin .appearance-theme-facts > div,
+body.bonumark-admin .appearance-detail-facts > div {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+}
+
+body.bonumark-admin .appearance-theme-facts > div:not(:last-child) {
+  padding-right: 12px;
+}
+
+body.bonumark-admin .appearance-theme-facts dd,
+body.bonumark-admin .appearance-detail-facts dd {
+  color: var(--admin-text);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-theme-actions {
+  border-top: 1px solid var(--admin-border);
+  min-height: 72px;
+  padding: 14px 20px;
+}
+
+body.bonumark-admin .appearance-theme-actions form,
+body.bonumark-admin .appearance-theme-actions button,
+body.bonumark-admin .appearance-theme-actions .button-link {
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-theme-settings-form,
+body.bonumark-admin .appearance-identity-form,
+body.bonumark-admin .appearance-navigation-form {
+  display: grid;
+  gap: 18px;
+}
+
+body.bonumark-admin .appearance-settings-layout,
+body.bonumark-admin .appearance-identity-layout,
+body.bonumark-admin .appearance-install-layout,
+body.bonumark-admin .appearance-theme-detail-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+}
+
+body.bonumark-admin .appearance-settings-layout {
+  grid-template-columns: minmax(300px, .68fr) minmax(0, 1.32fr);
+}
+
+body.bonumark-admin .appearance-active-theme-panel {
+  overflow: hidden;
+  padding: 0;
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .appearance-active-theme-preview {
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+body.bonumark-admin .appearance-active-theme-copy,
+body.bonumark-admin .appearance-active-theme-facts,
+body.bonumark-admin .appearance-active-theme-panel > .appearance-full-action {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+body.bonumark-admin .appearance-active-theme-copy {
+  padding-top: 20px;
+}
+
+body.bonumark-admin .appearance-active-theme-copy .meta {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin .appearance-active-theme-facts {
+  margin-top: 15px;
+}
+
+body.bonumark-admin .appearance-active-theme-facts > div {
+  grid-template-columns: minmax(90px, .5fr) minmax(0, 1fr);
+}
+
+@media (min-width: 641px) {
+  body.bonumark-admin .appearance-active-theme-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .appearance-active-theme-facts > div {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  body.bonumark-admin .appearance-active-theme-facts > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  body.bonumark-admin .appearance-active-theme-facts code {
+    white-space: normal;
+  }
+}
+
+body.bonumark-admin .appearance-full-action {
+  margin-bottom: 20px !important;
+  margin-top: 14px !important;
+  width: calc(100% - 40px);
+}
+
+body.bonumark-admin .appearance-theme-fields-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-setting-list,
+body.bonumark-admin .appearance-field-list,
+body.bonumark-admin .appearance-option-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+body.bonumark-admin .appearance-setting-card,
+body.bonumark-admin .appearance-field-card,
+body.bonumark-admin .appearance-toggle-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+
+body.bonumark-admin .appearance-setting-card {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(210px, .75fr) minmax(220px, 1fr);
+  padding: 16px;
+}
+
+body.bonumark-admin .appearance-setting-copy,
+body.bonumark-admin .appearance-setting-control {
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-setting-copy label,
+body.bonumark-admin .appearance-field-card > label,
+body.bonumark-admin .appearance-navigation-item-fields label > span {
+  color: var(--admin-text);
+  display: block;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+body.bonumark-admin .appearance-setting-copy .field-help,
+body.bonumark-admin .appearance-field-card .field-help {
+  margin: 4px 0 0;
+}
+
+body.bonumark-admin .appearance-setting-control input,
+body.bonumark-admin .appearance-setting-control select,
+body.bonumark-admin .appearance-setting-control textarea,
+body.bonumark-admin .appearance-field-card input,
+body.bonumark-admin .appearance-field-card select,
+body.bonumark-admin .appearance-field-card textarea {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .appearance-toggle-card {
+  align-items: flex-start;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  margin: 0;
+  padding: 15px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+body.bonumark-admin .appearance-toggle-card:hover,
+body.bonumark-admin .appearance-toggle-card:focus-within {
+  background: #171d26;
+  border-color: var(--admin-accent-dark);
+}
+
+body.bonumark-admin .appearance-toggle-card input {
+  accent-color: var(--admin-accent);
+  height: 18px;
+  margin: 2px 0 0;
+  width: 18px;
+}
+
+body.bonumark-admin .appearance-toggle-card > span {
+  display: grid;
+  gap: 4px;
+}
+
+body.bonumark-admin .appearance-toggle-card strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .appearance-toggle-card small {
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+
+body.bonumark-admin .appearance-form-actions {
+  border-top: 1px solid var(--admin-border);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+
+body.bonumark-admin .appearance-empty-state {
+  margin: 20px 0 0;
+}
+
+body.bonumark-admin .appearance-theme-detail-layout {
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, .65fr);
+}
+
+body.bonumark-admin .appearance-theme-detail-preview-panel {
+  overflow: hidden;
+  padding: 0;
+}
+
+body.bonumark-admin .appearance-detail-preview {
+  aspect-ratio: 16 / 9;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+body.bonumark-admin .appearance-theme-package-panel {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .appearance-detail-facts > div {
+  grid-template-columns: minmax(120px, .55fr) minmax(0, 1fr);
+}
+
+body.bonumark-admin .appearance-support-list {
+  border-top: 1px solid var(--admin-border);
+  margin-top: 12px;
+  padding-top: 16px;
+}
+
+body.bonumark-admin .appearance-health-columns,
+body.bonumark-admin .appearance-detail-record-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .appearance-detail-record-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-record-count {
+  align-items: center;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-text);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 850;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 34px;
+  padding: 4px 10px;
+}
+
+body.bonumark-admin .appearance-record-list {
+  display: grid;
+  margin-top: 18px;
+}
+
+body.bonumark-admin .appearance-record {
+  align-items: center;
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 110px minmax(120px, .65fr);
+  padding: 14px 0;
+}
+
+body.bonumark-admin .appearance-record code,
+body.bonumark-admin .appearance-record span,
+body.bonumark-admin .appearance-record strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-record span {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .appearance-record.is-good strong {
+  color: #8ee9b4;
+}
+
+body.bonumark-admin .appearance-record.is-bad strong {
+  color: #ff9d9d;
+}
+
+body.bonumark-admin .appearance-install-layout {
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, .7fr);
+}
+
+body.bonumark-admin .appearance-upload-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+body.bonumark-admin .appearance-file-drop {
+  background: var(--admin-surface-2);
+  border: 1px dashed var(--admin-accent-dark);
+  border-radius: 14px;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+}
+
+body.bonumark-admin .appearance-file-drop-title {
+  color: var(--admin-text);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+body.bonumark-admin .appearance-file-drop input {
+  margin: 8px 0 0;
+  width: 100%;
+}
+
+body.bonumark-admin .appearance-package-rules-panel {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .appearance-package-tree {
+  margin: 18px 0 0;
+  overflow-x: auto;
+}
+
+body.bonumark-admin .appearance-danger-hero {
+  border-left: 3px solid #df7777;
+}
+
+body.bonumark-admin .appearance-delete-panel {
+  max-width: 980px;
+}
+
+body.bonumark-admin .appearance-delete-summary {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(180px, .55fr) minmax(0, 1fr);
+}
+
+body.bonumark-admin .appearance-delete-summary > img {
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+
+body.bonumark-admin .appearance-detail-facts.compact > div {
+  grid-template-columns: minmax(130px, .55fr) minmax(0, 1fr);
+}
+
+body.bonumark-admin .appearance-blocked-state,
+body.bonumark-admin .appearance-delete-form {
+  border-top: 1px solid var(--admin-border);
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+body.bonumark-admin .appearance-delete-warning {
+  background: rgba(223, 119, 119, .08);
+  border: 1px solid rgba(223, 119, 119, .4);
+  border-radius: 12px;
+  display: grid;
+  gap: 5px;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+
+body.bonumark-admin .appearance-delete-warning strong {
+  color: #ffb1b1;
+}
+
+body.bonumark-admin .appearance-delete-warning span {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .appearance-delete-form > input[type="text"] {
+  max-width: 520px;
+}
+
+body.bonumark-admin .appearance-identity-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, .72fr);
+}
+
+body.bonumark-admin .appearance-field-card {
+  padding: 15px;
+}
+
+body.bonumark-admin .appearance-credit-toggle {
+  margin-top: 14px;
+}
+
+body.bonumark-admin .appearance-favicon-panel {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .appearance-favicon-current {
+  align-items: center;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  padding: 16px;
+}
+
+body.bonumark-admin .appearance-favicon-current img,
+body.bonumark-admin .appearance-favicon-fallback {
+  border-radius: 18px;
+  flex: 0 0 84px;
+  height: 84px;
+  width: 84px;
+}
+
+body.bonumark-admin .appearance-favicon-current img {
+  object-fit: cover;
+}
+
+body.bonumark-admin .appearance-favicon-fallback {
+  align-items: center;
+  background: var(--admin-accent);
+  color: #111;
+  display: flex;
+  font-size: 2rem;
+  font-weight: 900;
+  justify-content: center;
+}
+
+body.bonumark-admin .appearance-favicon-current > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-favicon-current strong,
+body.bonumark-admin .appearance-favicon-current small {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-favicon-current small {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin .appearance-save-bar {
+  align-items: center;
+  position: sticky;
+  bottom: 14px;
+  z-index: 12;
+}
+
+body.bonumark-admin .appearance-save-bar > div {
+  display: grid;
+  gap: 3px;
+}
+
+body.bonumark-admin .appearance-save-bar span {
+  color: var(--admin-muted);
+  font-size: .82rem;
+}
+
+body.bonumark-admin .appearance-navigation-options-panel,
+body.bonumark-admin .appearance-navigation-items-panel,
+body.bonumark-admin .appearance-navigation-add-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-navigation-option-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .appearance-navigation-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+body.bonumark-admin .appearance-navigation-item {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+body.bonumark-admin .appearance-navigation-item-header {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  padding: 15px;
+}
+
+body.bonumark-admin .appearance-navigation-index {
+  align-items: center;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-text);
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+body.bonumark-admin .appearance-navigation-item-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-navigation-item-copy h3 {
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-navigation-item-copy code {
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .appearance-navigation-item-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+body.bonumark-admin .appearance-navigation-item-actions button {
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-navigation-item-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+body.bonumark-admin .appearance-navigation-item-fields {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, .7fr) minmax(260px, 1.3fr) 150px;
+  padding: 15px;
+}
+
+body.bonumark-admin .appearance-navigation-item-fields label {
+  margin: 0;
+  min-width: 0;
+}
+
+body.bonumark-admin .appearance-navigation-item-fields input,
+body.bonumark-admin .appearance-navigation-item-fields select {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .appearance-navigation-add-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+body.bonumark-admin .appearance-navigation-add-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+body.bonumark-admin .appearance-navigation-add-card h3 {
+  margin-bottom: 5px;
+}
+
+body.bonumark-admin .appearance-navigation-add-card label {
+  margin: 0;
+}
+
+body.bonumark-admin .appearance-navigation-add-card input,
+body.bonumark-admin .appearance-navigation-add-card select,
+body.bonumark-admin .appearance-navigation-add-card button {
+  margin: 0;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  body.bonumark-admin .appearance-theme-grid,
+  body.bonumark-admin .appearance-settings-layout,
+  body.bonumark-admin .appearance-identity-layout,
+  body.bonumark-admin .appearance-install-layout,
+  body.bonumark-admin .appearance-theme-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .appearance-active-theme-panel,
+  body.bonumark-admin .appearance-theme-package-panel,
+  body.bonumark-admin .appearance-package-rules-panel,
+  body.bonumark-admin .appearance-favicon-panel {
+    position: static;
+  }
+
+  body.bonumark-admin .appearance-active-theme-panel {
+    display: grid;
+    grid-template-columns: minmax(260px, .7fr) minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .appearance-active-theme-preview {
+    aspect-ratio: auto;
+    border-bottom: 0;
+    border-right: 1px solid var(--admin-border);
+    grid-row: 1 / span 3;
+    min-height: 280px;
+  }
+
+  body.bonumark-admin .appearance-detail-record-grid,
+  body.bonumark-admin .appearance-health-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  body.bonumark-admin .appearance-summary-grid,
+  body.bonumark-admin .appearance-theme-facts,
+  body.bonumark-admin .appearance-navigation-option-list,
+  body.bonumark-admin .appearance-navigation-add-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .appearance-attention-panel,
+  body.bonumark-admin .appearance-setting-card {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .appearance-navigation-item-header {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .appearance-navigation-item-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  body.bonumark-admin .appearance-navigation-item-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.bonumark-admin .appearance-navigation-target {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .appearance-hero-panel,
+  body.bonumark-admin .appearance-section-heading,
+  body.bonumark-admin .appearance-theme-title-row,
+  body.bonumark-admin .appearance-save-bar,
+  body.bonumark-admin .appearance-delete-summary {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .appearance-hero-actions,
+  body.bonumark-admin .appearance-theme-status,
+  body.bonumark-admin .appearance-form-actions,
+  body.bonumark-admin .appearance-theme-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  body.bonumark-admin .appearance-hero-actions > *,
+  body.bonumark-admin .appearance-form-actions > *,
+  body.bonumark-admin .appearance-theme-actions > *,
+  body.bonumark-admin .appearance-theme-actions form,
+  body.bonumark-admin .appearance-theme-actions button,
+  body.bonumark-admin .appearance-theme-actions .button-link,
+  body.bonumark-admin .appearance-save-bar button {
+    width: 100%;
+  }
+
+  body.bonumark-admin .appearance-summary-grid,
+  body.bonumark-admin .appearance-theme-facts,
+  body.bonumark-admin .appearance-navigation-option-list,
+  body.bonumark-admin .appearance-navigation-add-grid,
+  body.bonumark-admin .appearance-navigation-item-fields {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .appearance-theme-title-row code {
+    max-width: 100%;
+  }
+
+  body.bonumark-admin .appearance-theme-facts > div:not(:last-child) {
+    padding-right: 0;
+  }
+
+  body.bonumark-admin .appearance-active-theme-panel {
+    display: block;
+  }
+
+  body.bonumark-admin .appearance-active-theme-preview {
+    aspect-ratio: 16 / 10;
+    border-bottom: 1px solid var(--admin-border);
+    border-right: 0;
+    min-height: 0;
+  }
+
+  body.bonumark-admin .appearance-record {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-admin .appearance-delete-summary > img {
+    max-height: 240px;
+  }
+
+  body.bonumark-admin .appearance-favicon-current {
+    align-items: flex-start;
+  }
+
+  body.bonumark-admin .appearance-favicon-current img,
+  body.bonumark-admin .appearance-favicon-fallback {
+    flex-basis: 72px;
+    height: 72px;
+    width: 72px;
+  }
+
+  body.bonumark-admin .appearance-save-bar {
+    bottom: 8px;
+  }
+
+  body.bonumark-admin .appearance-navigation-item-header {
+    align-items: start;
+  }
+
+  body.bonumark-admin .appearance-navigation-item-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .appearance-navigation-item-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  body.bonumark-admin .appearance-navigation-target {
+    grid-column: auto;
+  }
+}

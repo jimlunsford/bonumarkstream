@@ -7,52 +7,108 @@ $previewId = (string)($data['preview_id'] ?? 'stream-compose-preview');
 $linkPreviewId = (string)($data['link_preview_id'] ?? 'stream-link-preview');
 $linkPreviewEndpoint = (string)($data['link_preview_endpoint'] ?? '');
 $timezoneLabel = (string)($data['timezone_label'] ?? 'UTC');
+$maxFiles = max(1, min(4, (int)($data['max_files'] ?? 4)));
+$canPublish = !empty($data['can_publish']);
 $schedulePanelId = 'stream-compose-schedule-panel';
 $scheduleInputId = 'stream_scheduled_at_front';
 $flashes = is_array($data['flashes'] ?? null) ? $data['flashes'] : [];
 $locationPickerHtml = (string)($data['location_picker_html'] ?? '');
 ?>
-<section class="stream-compose" aria-label="Quick stream post">
-  <form class="stream-compose-form" method="post" action="<?= htmlspecialchars((string)($data['action_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-stream-form data-stream-scheduled-runner-url="<?= htmlspecialchars((string)($data['scheduled_runner_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+<section id="stream-composer" class="stream-compose" aria-label="Create a Stream Post">
+  <form id="stream-composer-form" class="stream-compose-form" method="post" action="<?= htmlspecialchars((string)($data['action_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-stream-form data-stream-scheduled-runner-url="<?= htmlspecialchars((string)($data['scheduled_runner_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <div class="stream-compose-inner">
       <label for="<?= htmlspecialchars($textareaId, ENT_QUOTES, 'UTF-8') ?>" class="screen-reader-text">Write a stream post</label>
       <textarea id="<?= htmlspecialchars($textareaId, ENT_QUOTES, 'UTF-8') ?>" name="stream_body" class="stream-compose-textarea" rows="3" maxlength="5000" placeholder="<?= htmlspecialchars((string)($data['placeholder'] ?? 'What is happening?'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="<?= htmlspecialchars($helpId . ' ' . $previewId, ENT_QUOTES, 'UTF-8') ?>" data-stream-body><?= htmlspecialchars((string)($data['body_value'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
 
-      <div id="<?= htmlspecialchars($schedulePanelId, ENT_QUOTES, 'UTF-8') ?>" class="stream-compose-schedule-panel" data-stream-schedule-panel hidden>
-        <div class="stream-compose-schedule-fields">
-          <label class="stream-compose-schedule-label" for="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>">Schedule for</label>
-          <input id="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>" type="datetime-local" name="stream_scheduled_at" class="stream-compose-schedule-input" data-stream-scheduled-at>
-          <p class="stream-compose-schedule-timezone">Timezone: <strong><?= htmlspecialchars($timezoneLabel, ENT_QUOTES, 'UTF-8') ?></strong></p>
+      <?php if ($canPublish): ?>
+        <div id="<?= htmlspecialchars($schedulePanelId, ENT_QUOTES, 'UTF-8') ?>" class="stream-compose-schedule-panel" data-stream-schedule-panel hidden>
+          <div class="stream-compose-schedule-fields">
+            <label class="stream-compose-schedule-label" for="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>">Schedule for</label>
+            <input id="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>" type="datetime-local" name="stream_scheduled_at" class="stream-compose-schedule-input" data-stream-scheduled-at>
+            <p class="stream-compose-schedule-timezone">Timezone: <strong><?= htmlspecialchars($timezoneLabel, ENT_QUOTES, 'UTF-8') ?></strong></p>
+          </div>
+          <button type="button" class="stream-compose-schedule-cancel" data-stream-schedule-cancel>Cancel schedule</button>
         </div>
-        <button type="button" class="stream-compose-schedule-cancel" data-stream-schedule-cancel>Cancel schedule</button>
-      </div>
+      <?php endif; ?>
 
       <?= $locationPickerHtml ?>
 
+      <div id="stream-compose-advanced-panel" class="stream-compose-advanced" data-stream-advanced-panel hidden>
+        <div class="stream-compose-advanced-header">
+          <strong>Advanced options</strong>
+          <button type="button" class="stream-compose-advanced-close" aria-label="Close advanced options" title="Close advanced options" data-stream-advanced-close>×</button>
+        </div>
+        <div class="stream-compose-advanced-grid">
+          <div class="stream-compose-advanced-field">
+            <label for="stream_title_front">Internal title</label>
+            <input id="stream_title_front" type="text" name="stream_title" maxlength="180" placeholder="Generated from the post if blank">
+          </div>
+          <div class="stream-compose-advanced-field">
+            <label for="stream_slug_front">Slug</label>
+            <input id="stream_slug_front" type="text" name="stream_slug" maxlength="180" placeholder="Generated on save">
+          </div>
+          <div class="stream-compose-advanced-field stream-compose-advanced-wide">
+            <label for="stream_description_front">Meta description</label>
+            <textarea id="stream_description_front" name="stream_description" maxlength="300" rows="2" placeholder="Generated from the post if blank"></textarea>
+          </div>
+          <div class="stream-compose-advanced-field">
+            <label for="stream_seo_title_front">Search title</label>
+            <input id="stream_seo_title_front" type="text" name="stream_seo_title" maxlength="180" placeholder="Generated from the post if blank">
+          </div>
+          <div class="stream-compose-advanced-field">
+            <label for="stream_robots_front">Search indexing</label>
+            <select id="stream_robots_front" name="stream_robots">
+              <option value="">Use Stream setting</option>
+              <option value="index,follow">Index this post</option>
+              <option value="noindex,follow">Noindex this post</option>
+            </select>
+          </div>
+        </div>
+        <p class="stream-compose-advanced-help">Leave these blank to use Bonumark Stream’s automatic title, URL, description, and search metadata.</p>
+      </div>
+
       <div class="stream-compose-footer stream-compose-toolbar">
-        <div class="stream-compose-left stream-compose-actions" aria-label="Composer actions">
+        <div class="stream-compose-left stream-compose-actions" aria-label="Composer tools">
           <label class="stream-compose-attach stream-compose-tool" for="<?= htmlspecialchars($fileId, ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars((string)($data['attach_label'] ?? 'Attach media'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars((string)($data['attach_label'] ?? 'Attach media'), ENT_QUOTES, 'UTF-8') ?>">
             <span class="stream-compose-tool-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13Z"/><path d="m6.75 16.25 3.4-3.4a1.25 1.25 0 0 1 1.77 0l2.02 2.02.9-.9a1.25 1.25 0 0 1 1.77 0l.64.64"/><path d="M15.25 8.25h.01"/></svg>
             </span>
             <span class="stream-compose-attach-label screen-reader-text"><?= htmlspecialchars((string)($data['attach_label'] ?? 'Attach media'), ENT_QUOTES, 'UTF-8') ?></span>
-            <input id="<?= htmlspecialchars($fileId, ENT_QUOTES, 'UTF-8') ?>" type="file" name="stream_media" class="stream-compose-file" accept="<?= htmlspecialchars((string)($data['accept'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="<?= htmlspecialchars($helpId . ' ' . $previewId, ENT_QUOTES, 'UTF-8') ?>" data-stream-file>
+            <input id="<?= htmlspecialchars($fileId, ENT_QUOTES, 'UTF-8') ?>" type="file" name="stream_media[]" class="stream-compose-file" accept="<?= htmlspecialchars((string)($data['accept'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" multiple data-stream-max-files="<?= (int)$maxFiles ?>" aria-describedby="<?= htmlspecialchars($helpId . ' ' . $previewId, ENT_QUOTES, 'UTF-8') ?>" data-stream-file>
           </label>
-          <button type="button" class="stream-compose-tool stream-compose-schedule-toggle" title="Schedule post" aria-label="Schedule post" aria-controls="<?= htmlspecialchars($schedulePanelId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="false" data-stream-schedule-toggle>
-            <span class="stream-compose-tool-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false"><path d="M7 3v3"/><path d="M17 3v3"/><path d="M4.5 9.5h15"/><path d="M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z"/><path d="M12 13v3l2 1"/></svg>
-            </span>
-            <span class="screen-reader-text">Schedule post</span>
-          </button>
+          <?php if ($canPublish): ?>
+            <button type="button" class="stream-compose-tool stream-compose-schedule-toggle" title="Schedule post" aria-label="Schedule post" aria-controls="<?= htmlspecialchars($schedulePanelId, ENT_QUOTES, 'UTF-8') ?>" aria-expanded="false" data-stream-schedule-toggle>
+              <span class="stream-compose-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M7 3v3"/><path d="M17 3v3"/><path d="M4.5 9.5h15"/><path d="M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z"/><path d="M12 13v3l2 1"/></svg>
+              </span>
+              <span class="screen-reader-text">Schedule post</span>
+            </button>
+          <?php endif; ?>
           <?php if ($locationPickerHtml !== ''): ?>
             <button type="button" class="stream-compose-tool stream-compose-location-toggle" title="Add location" aria-label="Add location" aria-controls="local-places-front" aria-expanded="false" data-local-places-toggle>
               <span class="stream-compose-tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s7-5.35 7-12A7 7 0 1 0 5 9c0 6.65 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
               <span class="screen-reader-text">Add location</span>
             </button>
           <?php endif; ?>
+          <details class="stream-compose-more" data-stream-more-menu>
+            <summary class="stream-compose-tool" title="More options" aria-label="More options">
+              <span class="stream-compose-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+              </span>
+              <span class="screen-reader-text">More options</span>
+            </summary>
+            <div class="stream-compose-more-menu" aria-label="More options">
+              <?php if ($canPublish): ?>
+                <button type="submit" class="stream-compose-more-item" data-stream-action="draft" name="stream_submit_action_button" value="draft" data-busy-label="<?= htmlspecialchars((string)($data['draft_busy_label'] ?? 'Saving...'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($data['draft_label'] ?? 'Save draft'), ENT_QUOTES, 'UTF-8') ?></button>
+              <?php endif; ?>
+              <button type="submit" class="stream-compose-more-item" data-stream-action="continue" name="stream_submit_action_button" value="continue" data-busy-label="<?= htmlspecialchars((string)($data['continue_busy_label'] ?? 'Opening editor...'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($data['continue_label'] ?? 'Continue in full editor'), ENT_QUOTES, 'UTF-8') ?></button>
+              <button type="button" class="stream-compose-more-item" aria-controls="stream-compose-advanced-panel" aria-expanded="false" data-stream-advanced-toggle>Advanced options</button>
+            </div>
+          </details>
         </div>
-        <button type="submit" class="stream-compose-submit" data-stream-submit data-ready-label="<?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?>" data-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? 'Posting...'), ENT_QUOTES, 'UTF-8') ?>" data-publish-label="<?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?>" data-publish-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? 'Posting...'), ENT_QUOTES, 'UTF-8') ?>" data-schedule-label="Schedule" data-schedule-busy-label="Scheduling..."><?= htmlspecialchars((string)($data['submit_label'] ?? 'Post'), ENT_QUOTES, 'UTF-8') ?></button>
+        <button type="submit" class="stream-compose-submit" data-stream-submit data-stream-primary-submit data-stream-action="<?= $canPublish ? 'publish' : 'draft' ?>" name="stream_submit_action_button" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-ready-label="<?= htmlspecialchars((string)($data['submit_label'] ?? ($canPublish ? 'Post' : 'Save draft')), ENT_QUOTES, 'UTF-8') ?>" data-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? ($canPublish ? 'Posting...' : 'Saving...')), ENT_QUOTES, 'UTF-8') ?>" data-publish-label="Post" data-publish-busy-label="Posting..." data-schedule-label="Schedule" data-schedule-busy-label="Scheduling..."><?= htmlspecialchars((string)($data['submit_label'] ?? ($canPublish ? 'Post' : 'Save draft')), ENT_QUOTES, 'UTF-8') ?></button>
       </div>
+
 
       <p id="<?= htmlspecialchars($helpId, ENT_QUOTES, 'UTF-8') ?>" class="stream-compose-hint stream-compose-help-text"><?= htmlspecialchars((string)($data['help_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
       <div id="<?= htmlspecialchars($previewId, ENT_QUOTES, 'UTF-8') ?>" class="stream-compose-preview" role="status" aria-live="polite" aria-atomic="true" data-stream-preview></div>
@@ -60,7 +116,7 @@ $locationPickerHtml = (string)($data['location_picker_html'] ?? '');
     </div>
     <?php if ((string)($data['csrf'] ?? '') !== ''): ?><input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$data['csrf'], ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
     <input type="hidden" name="return_to" value="<?= htmlspecialchars((string)($data['return_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="stream_submit_action" value="publish" data-stream-submit-action>
+    <input type="hidden" name="stream_submit_action" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-stream-submit-action>
     <input type="hidden" name="stream_schedule_enabled" value="0" data-stream-schedule-enabled>
     <input type="hidden" name="link_preview_enabled" value="0" data-link-preview-enabled>
     <input type="hidden" name="link_preview_url" value="" data-link-preview-field="url">

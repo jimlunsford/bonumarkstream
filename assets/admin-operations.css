@@ -1,0 +1,777 @@
+/* Bonumark Stream Admin Operations
+ * Tools, import/export, upgrades, diagnostics, analytics, automation, API operations, and Help.
+ */
+
+body.bonumark-admin .operations-hero,
+body.bonumark-admin .operations-panel,
+body.bonumark-admin .operations-review-panel,
+body.bonumark-admin .operations-danger-zone,
+body.bonumark-admin .operations-diagnostic-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-hero {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .operations-hero-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-hero-copy > * {
+  margin: 0;
+}
+
+body.bonumark-admin .operations-hero-actions,
+body.bonumark-admin .operations-inline-actions,
+body.bonumark-admin .operations-form-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .operations-summary-panel {
+  padding: 16px;
+}
+
+body.bonumark-admin .operations-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.bonumark-admin .operations-summary-grid > div,
+body.bonumark-admin .operations-fact-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 15px;
+}
+
+body.bonumark-admin .operations-summary-grid span,
+body.bonumark-admin .operations-fact-card span,
+body.bonumark-admin .operations-mobile-label {
+  color: var(--admin-muted);
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .operations-summary-grid strong,
+body.bonumark-admin .operations-fact-card strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .operations-section-heading,
+body.bonumark-admin .operations-record-heading,
+body.bonumark-admin .operations-panel-heading {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+body.bonumark-admin .operations-section-heading > div,
+body.bonumark-admin .operations-record-heading > div,
+body.bonumark-admin .operations-panel-heading > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-section-heading h2,
+body.bonumark-admin .operations-section-heading h3,
+body.bonumark-admin .operations-record-heading h2,
+body.bonumark-admin .operations-panel-heading h2,
+body.bonumark-admin .operations-panel-heading h3,
+body.bonumark-admin .operations-section-heading p,
+body.bonumark-admin .operations-record-heading p,
+body.bonumark-admin .operations-panel-heading p {
+  margin: 0;
+}
+
+body.bonumark-admin .operations-group-list,
+body.bonumark-admin .operations-card-grid,
+body.bonumark-admin .operations-workflow-main,
+body.bonumark-admin .operations-workflow-rail,
+body.bonumark-admin .operations-record-list,
+body.bonumark-admin .operations-step-list,
+body.bonumark-admin .operations-help-grid {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-group-list {
+  gap: 24px;
+}
+
+body.bonumark-admin .operations-card-grid {
+  align-items: stretch;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.bonumark-admin .operations-action-card,
+body.bonumark-admin .operations-help-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-width: 0;
+  padding: 18px;
+}
+
+body.bonumark-admin .operations-action-card:hover,
+body.bonumark-admin .operations-action-card:focus-within,
+body.bonumark-admin .operations-help-card:hover,
+body.bonumark-admin .operations-help-card:focus-within {
+  border-color: rgba(229, 193, 129, .42);
+}
+
+body.bonumark-admin .operations-action-card h3,
+body.bonumark-admin .operations-help-card h3,
+body.bonumark-admin .operations-action-card p,
+body.bonumark-admin .operations-help-card p {
+  margin: 0;
+}
+
+body.bonumark-admin .operations-action-card p,
+body.bonumark-admin .operations-help-card p {
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+
+body.bonumark-admin .operations-action-card .operations-inline-actions,
+body.bonumark-admin .operations-help-card .operations-inline-actions {
+  margin-top: auto;
+}
+
+body.bonumark-admin .operation-risk-label {
+  align-self: flex-start;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: .66rem;
+  font-weight: 900;
+  justify-content: center;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  max-width: 100%;
+  min-height: 28px;
+  min-width: 0;
+  overflow-wrap: normal;
+  padding: 5px 10px;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+body.bonumark-admin .operation-risk-label.is-safe {
+  border-color: rgba(91, 201, 137, .42);
+  color: #91e8b6;
+}
+
+body.bonumark-admin .operation-risk-label.is-sensitive,
+body.bonumark-admin .operation-risk-label.is-warning {
+  border-color: rgba(229, 193, 129, .45);
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin .operation-risk-label.is-destructive {
+  border-color: rgba(229, 115, 115, .46);
+  color: #f0a0a0;
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .operation-risk-label {
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+}
+
+body.bonumark-admin .operations-action-card.is-sensitive,
+body.bonumark-admin .operations-review-panel,
+body.bonumark-admin .operations-attention-panel {
+  border-color: rgba(229, 193, 129, .34);
+}
+
+body.bonumark-admin .operations-action-card.is-destructive,
+body.bonumark-admin .operations-danger-zone {
+  border-color: rgba(229, 115, 115, .38);
+}
+
+body.bonumark-admin .operations-danger-zone {
+  background: rgba(98, 34, 34, .12);
+}
+
+body.bonumark-admin .operations-diagnostic-panel {
+  border-color: rgba(121, 155, 204, .34);
+}
+
+body.bonumark-admin .operations-workflow-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, .55fr);
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-workflow-grid > *,
+body.bonumark-admin .operations-workflow-main > *,
+body.bonumark-admin .operations-workflow-rail > *,
+body.bonumark-admin .operations-panel > *,
+body.bonumark-admin .operations-review-panel > * {
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-workflow-rail.is-sticky {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .operations-step-list {
+  counter-reset: operation-step;
+}
+
+body.bonumark-admin .operations-step {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+body.bonumark-admin .operations-step::before {
+  align-items: center;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-accent);
+  content: counter(operation-step);
+  counter-increment: operation-step;
+  display: flex;
+  font-size: .8rem;
+  font-weight: 900;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+body.bonumark-admin .operations-step strong,
+body.bonumark-admin .operations-step p {
+  display: block;
+  margin: 0;
+}
+
+body.bonumark-admin .operations-step p {
+  color: var(--admin-muted);
+  line-height: 1.55;
+  margin-top: 4px;
+}
+
+body.bonumark-admin .operations-field-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .operations-field-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.bonumark-admin .operations-field-card,
+body.bonumark-admin .operations-choice-card,
+body.bonumark-admin .operations-upload-card,
+body.bonumark-admin .operations-command-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 15px;
+}
+
+body.bonumark-admin .operations-field-card input,
+body.bonumark-admin .operations-field-card select,
+body.bonumark-admin .operations-field-card textarea,
+body.bonumark-admin .operations-upload-card input,
+body.bonumark-admin .operations-command-card input {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .operations-technical-value,
+body.bonumark-admin .operations-panel code,
+body.bonumark-admin .operations-record-cell code,
+body.bonumark-admin .operations-fact-list code {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
+body.bonumark-admin .operations-fact-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+body.bonumark-admin .operations-fact-list > div {
+  align-items: start;
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(140px, .55fr) minmax(0, 1fr);
+  padding: 12px 0;
+}
+
+body.bonumark-admin .operations-fact-list > div:first-child {
+  border-top: 0;
+}
+
+body.bonumark-admin .operations-fact-list dt {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .operations-fact-list dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+}
+
+body.bonumark-admin .operations-record-header,
+body.bonumark-admin .operations-record {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-record-header {
+  color: var(--admin-muted);
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  padding: 13px 16px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .operations-record {
+  align-items: center;
+  background: var(--admin-surface);
+  border-top: 1px solid var(--admin-border);
+  padding: 16px;
+}
+
+body.bonumark-admin .operations-record:hover,
+body.bonumark-admin .operations-record:focus-within {
+  background: #161c25;
+}
+
+body.bonumark-admin .operations-record-cell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .operations-record-cell.is-primary {
+  display: grid;
+  gap: 5px;
+}
+
+body.bonumark-admin .operations-mobile-label {
+  display: none;
+  margin-bottom: 5px;
+}
+
+body.bonumark-admin .operations-empty-state,
+body.bonumark-admin .operations-result-panel {
+  border: 1px dashed rgba(229, 193, 129, .3);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 28px 20px;
+}
+
+body.bonumark-admin .operations-empty-state > *,
+body.bonumark-admin .operations-result-panel > * {
+  margin: 0;
+}
+
+body.bonumark-admin .operations-result-panel.is-success {
+  border-color: rgba(91, 201, 137, .4);
+}
+
+body.bonumark-admin .operations-result-panel.is-error {
+  border-color: rgba(229, 115, 115, .42);
+}
+
+body.bonumark-admin .operations-check-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .operations-check-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .operations-check-card.is-pass {
+  border-color: rgba(91, 201, 137, .34);
+}
+
+body.bonumark-admin .operations-check-card.is-warning,
+body.bonumark-admin .operations-check-card.is-warn {
+  border-color: rgba(229, 193, 129, .38);
+}
+
+body.bonumark-admin .operations-check-card.is-fail,
+body.bonumark-admin .operations-check-card.is-error {
+  border-color: rgba(229, 115, 115, .42);
+}
+
+body.bonumark-admin .operations-check-card > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.bonumark-admin .operations-check-card h3,
+body.bonumark-admin .operations-check-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+body.bonumark-admin .operations-check-card p {
+  color: var(--admin-muted);
+  line-height: 1.55;
+}
+
+body.bonumark-admin .operations-preview-list,
+body.bonumark-admin .import-preview-list {
+  display: grid;
+  gap: 12px;
+}
+
+body.bonumark-admin .import-preview-item {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .import-preview-item > * {
+  min-width: 0;
+}
+
+body.bonumark-admin .import-preview-heading,
+body.bonumark-admin .settings-save-bar,
+body.bonumark-admin .upgrade-current-version,
+body.bonumark-admin .upgrade-confirm-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .import-options-card {
+  background: var(--admin-surface-2);
+  border: 1px solid rgba(229, 193, 129, .32);
+  border-radius: 14px;
+  margin: 18px 0;
+  padding: 18px;
+}
+
+body.bonumark-admin .upgrade-status-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+body.bonumark-admin .upgrade-status-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 15px;
+}
+
+body.bonumark-admin .upgrade-status-card.pass {
+  border-color: rgba(91, 201, 137, .34);
+}
+
+body.bonumark-admin .upgrade-status-card.fail {
+  border-color: rgba(229, 115, 115, .42);
+}
+
+body.bonumark-admin .operations-upgrade-record {
+  grid-template-columns: minmax(220px, 1fr) minmax(130px, .55fr) minmax(190px, .9fr);
+}
+
+body.bonumark-admin .operations-upgrade-record .is-version-change strong {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.bonumark-admin .operations-help-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .operations-help-card {
+  min-height: 150px;
+}
+
+body.bonumark-admin .operations-category-label {
+  color: var(--admin-accent);
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* Acceptance polish for the operational hub, diagnostics, and upgrade workflow. */
+body.admin-screen-tools .operations-group-list {
+  gap: 20px;
+}
+
+body.admin-screen-tools .operations-section-heading {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+body.admin-screen-tools .operations-card-grid {
+  gap: 14px;
+}
+
+body.admin-screen-tools .operations-action-card {
+  gap: 10px;
+  padding: 16px;
+}
+
+body.admin-screen-tools .operations-action-card p {
+  line-height: 1.5;
+}
+
+body.admin-screen-tools .operations-action-card .button-link {
+  min-height: 40px;
+}
+
+body.admin-screen-system-check .operations-check-card .operation-risk-label {
+  justify-self: start;
+  width: auto;
+}
+
+body.admin-screen-upgrade .operations-workflow-grid {
+  grid-template-areas:
+    "main rail"
+    "history rail";
+}
+
+body.admin-screen-upgrade .operations-workflow-main {
+  grid-area: main;
+}
+
+body.admin-screen-upgrade .operations-workflow-rail {
+  grid-area: rail;
+}
+
+body.admin-screen-upgrade .operations-workflow-history {
+  grid-area: history;
+  margin: 0;
+}
+
+/* Make operational screens feel distinct from routine Settings forms. */
+body.admin-screen-upgrade .operations-hero,
+body.admin-screen-import .operations-hero,
+body.admin-screen-import-markdown .operations-hero,
+body.admin-screen-export .operations-hero,
+body.admin-screen-system-check .operations-hero {
+  border-top: 3px solid rgba(229, 193, 129, .72);
+}
+
+body.admin-screen-upgrade .operations-hero {
+  border-top-color: rgba(229, 115, 115, .78);
+}
+
+body.admin-screen-scheduled-tasks .settings-workflow-hero,
+body.admin-screen-remote-posting .settings-workflow-hero,
+body.admin-screen-security .settings-workflow-hero {
+  border-top: 3px solid rgba(121, 155, 204, .56);
+}
+
+body.admin-screen-analytics .analytics-settings-card,
+body.admin-screen-analytics .analytics-boundaries-card,
+body.admin-screen-analytics .analytics-report-panel,
+body.admin-screen-analytics .analytics-report-card {
+  min-width: 0;
+}
+
+body.admin-screen-analytics .analytics-danger-zone {
+  border-color: rgba(229, 115, 115, .4);
+}
+
+@media (max-width: 1240px) {
+  body.bonumark-admin .operations-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .upgrade-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin .operations-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .operations-workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-screen-upgrade .operations-workflow-grid {
+    grid-template-areas:
+      "main"
+      "rail"
+      "history";
+  }
+
+  body.bonumark-admin .operations-workflow-rail.is-sticky {
+    position: static;
+  }
+
+  body.bonumark-admin .operations-record-header {
+    display: none;
+  }
+
+  body.bonumark-admin .operations-record,
+  body.bonumark-admin .operations-upgrade-record {
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 12px 0;
+  }
+
+  body.bonumark-admin .operations-upgrade-record .is-version-change {
+    grid-column: 1 / -1;
+  }
+
+  body.bonumark-admin .operations-mobile-label {
+    display: block;
+  }
+}
+
+@media (max-width: 720px) {
+  body.bonumark-admin .operations-hero,
+  body.bonumark-admin .operations-section-heading,
+  body.bonumark-admin .operations-record-heading,
+  body.bonumark-admin .operations-panel-heading,
+  body.bonumark-admin .import-preview-heading,
+  body.bonumark-admin .upgrade-current-version,
+  body.bonumark-admin .upgrade-confirm-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .operations-hero-actions,
+  body.bonumark-admin .operations-inline-actions,
+  body.bonumark-admin .operations-form-actions {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  body.bonumark-admin .operations-hero-actions .button-link,
+  body.bonumark-admin .operations-inline-actions .button-link,
+  body.bonumark-admin .operations-form-actions .button-link,
+  body.bonumark-admin .operations-form-actions button,
+  body.bonumark-admin .operations-inline-actions button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  body.bonumark-admin .operations-card-grid,
+  body.bonumark-admin .operations-field-grid,
+  body.bonumark-admin .operations-check-grid,
+  body.bonumark-admin .operations-help-grid,
+  body.bonumark-admin .operations-record,
+  body.bonumark-admin .operations-upgrade-record {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .operations-upgrade-record {
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px;
+  }
+
+  body.bonumark-admin .operations-upgrade-record .is-version-change {
+    grid-column: 1 / -1;
+  }
+
+  body.admin-screen-system-check .operations-check-card {
+    gap: 6px;
+    padding: 14px;
+  }
+
+  body.bonumark-admin .upgrade-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .operations-fact-list > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .operations-fact-list dd {
+    text-align: left;
+  }
+}
+
+@media (max-width: 420px) {
+  body.bonumark-admin .operations-summary-grid,
+  body.bonumark-admin .upgrade-status-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-screen-system-check .operations-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

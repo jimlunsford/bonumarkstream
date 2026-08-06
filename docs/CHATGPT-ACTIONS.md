@@ -356,3 +356,16 @@ If actual image bytes or a public image URL are not available, ask me to upload/
 
 ChatGPT Actions is only one Remote Posting API client. For PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier, Make, IFTTT, and generic no-code automation examples, see `docs/REMOTE-POSTING-CLIENTS.md`.
 
+## Photo gallery action pattern
+
+To create a structured gallery instead of inserting image Markdown, send one to four image media references or uploads with `"media_display": "gallery"`. The first image becomes the featured image, and Bonumark core handles responsive rendering for every theme.
+
+```json
+{
+  "content": "Photos from today.",
+  "status": "draft",
+  "media_ids": [42, 43, 44, 45],
+  "media_display": "gallery",
+  "client_request_id": "chatgpt-gallery-001"
+}
+```

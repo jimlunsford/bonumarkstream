@@ -171,11 +171,16 @@ bms_admin_header('Edit Stream Post: ' . $page['title'], $headerActions);
         <?php bms_stream_url_fields($page, $section); ?>
         <?php bms_stream_settings_fields($page, $section); ?>
         <?php bms_stream_location_fields($page); ?>
-        <?php bms_stream_media_fields(); ?>
+        <?php bms_stream_media_fields($page); ?>
         <?php bms_stream_revision_fields($page); ?>
       </aside>
     </div>
   </form>
+
+  <?php bms_editor_mobile_action_bar($section, $section === 'published' ? 'Update' : ($section === 'scheduled' ? 'Save' : 'Save Draft'), [
+      'file' => $file,
+      'page' => $page,
+  ]); ?>
 
   <div class="editor-hidden-action-forms" aria-hidden="true">
     <?php if ($section !== 'published'): ?>
@@ -186,6 +191,14 @@ bms_admin_header('Edit Stream Post: ' . $page['title'], $headerActions);
         <input type="hidden" name="autosave_key" value="<?= htmlspecialchars(bms_editor_autosave_key('edit', $file), ENT_QUOTES, 'UTF-8') ?>">
       </form>
     <?php else: ?>
+      <?php if (function_exists('bms_is_pinned_stream_post')): ?>
+        <form id="pin-post-action-form" method="post" action="<?= htmlspecialchars(bms_admin_url('pin.php'), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="action" value="<?= bms_is_pinned_stream_post($page) ? 'unpin' : 'pin' ?>">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars(bms_admin_url('edit.php?type=published&file=' . rawurlencode($file)), ENT_QUOTES, 'UTF-8') ?>">
+        </form>
+      <?php endif; ?>
       <form id="unpublish-post-action-form" method="post" action="<?= htmlspecialchars(bms_admin_url('unpublish.php'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">

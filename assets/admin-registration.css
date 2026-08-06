@@ -1,0 +1,430 @@
+/*
+ * Bonumark Stream Admin Registration
+ * Commenter registration settings, account queue context, and invite records.
+ */
+
+body.bonumark-admin.admin-screen-registration .admin-content {
+  max-width: 1500px;
+}
+
+body.bonumark-admin .registration-intro-panel,
+body.bonumark-admin .registration-attention-panel,
+body.bonumark-admin .registration-section-heading,
+body.bonumark-admin .registration-invites-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .registration-intro-copy,
+body.bonumark-admin .registration-attention-panel > div,
+body.bonumark-admin .registration-section-heading > div {
+  min-width: 0;
+}
+
+body.bonumark-admin .registration-mode-pill {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+body.bonumark-admin .registration-attention-panel {
+  border-left: 3px solid var(--admin-accent);
+}
+
+body.bonumark-admin .registration-attention-panel .button-link {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+body.bonumark-admin .registration-summary-panel {
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .registration-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+body.bonumark-admin .registration-workflow-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, .72fr);
+}
+
+body.bonumark-admin .registration-settings-panel,
+body.bonumark-admin .registration-public-panel,
+body.bonumark-admin .registration-invites-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .registration-settings-form {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+body.bonumark-admin .registration-field-group {
+  display: grid;
+  gap: 7px;
+}
+
+body.bonumark-admin .registration-field-group select {
+  margin: 0;
+  max-width: 520px;
+}
+
+body.bonumark-admin .registration-option-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.bonumark-admin .registration-option-card {
+  align-items: flex-start;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  margin: 0;
+  padding: 15px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+body.bonumark-admin .registration-option-card:hover,
+body.bonumark-admin .registration-option-card:focus-within {
+  background: #171d26;
+  border-color: var(--admin-accent-dark);
+}
+
+body.bonumark-admin .registration-option-card input {
+  accent-color: var(--admin-accent);
+  height: 18px;
+  margin: 2px 0 0;
+  width: 18px;
+}
+
+body.bonumark-admin .registration-option-card span {
+  display: grid;
+  gap: 4px;
+}
+
+body.bonumark-admin .registration-option-card strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .registration-option-card small,
+body.bonumark-admin .registration-public-summary dd,
+body.bonumark-admin .registration-invite-form small {
+  color: var(--admin-muted);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+body.bonumark-admin .registration-form-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .registration-public-panel {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .registration-public-summary {
+  display: grid;
+  gap: 0;
+  margin: 18px 0;
+}
+
+body.bonumark-admin .registration-public-summary > div {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: 12px 0;
+}
+
+body.bonumark-admin .registration-public-summary dt {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+
+body.bonumark-admin .registration-public-summary dd {
+  margin: 0;
+  text-align: right;
+}
+
+body.bonumark-admin .registration-public-action {
+  width: 100%;
+}
+
+body.bonumark-admin .registration-invite-form {
+  align-items: end;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, .42fr) minmax(220px, .7fr) auto;
+  margin: 20px 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .registration-invite-form label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+body.bonumark-admin .registration-invite-form input {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .registration-invite-form button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .registration-invites-empty {
+  margin: 0;
+  padding: 38px 22px;
+}
+
+body.bonumark-admin .registration-invite-summary {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  display: flex;
+  font-size: .84rem;
+  gap: 14px;
+  justify-content: flex-end;
+  min-height: 52px;
+  padding: 12px 0;
+}
+
+body.bonumark-admin .registration-invite-header,
+body.bonumark-admin .registration-invite-record {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(270px, 1.1fr) 130px minmax(210px, .8fr) 120px 100px;
+}
+
+body.bonumark-admin .registration-invite-header {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  padding: 13px 16px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .registration-invite-list {
+  background: rgba(0, 0, 0, .08);
+  margin: 0 -20px -20px;
+}
+
+body.bonumark-admin .registration-invite-record {
+  align-items: center;
+  background: var(--admin-surface);
+  border-top: 1px solid var(--admin-border);
+  min-width: 0;
+  padding: 17px 20px;
+}
+
+body.bonumark-admin .registration-invite-record:hover,
+body.bonumark-admin .registration-invite-record:focus-within {
+  background: #161c25;
+}
+
+body.bonumark-admin .registration-invite-identity,
+body.bonumark-admin .registration-invite-usage,
+body.bonumark-admin .registration-invite-expiration,
+body.bonumark-admin .registration-invite-status,
+body.bonumark-admin .registration-invite-actions {
+  min-width: 0;
+}
+
+body.bonumark-admin .registration-invite-identity {
+  display: grid;
+  gap: 5px;
+}
+
+body.bonumark-admin .registration-invite-identity code {
+  background: transparent;
+  border: 0;
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+  padding: 0;
+}
+
+body.bonumark-admin .registration-invite-usage,
+body.bonumark-admin .registration-invite-expiration {
+  color: var(--admin-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+body.bonumark-admin .registration-invite-actions form {
+  margin: 0;
+}
+
+body.bonumark-admin .registration-invite-actions button {
+  min-height: 38px;
+  width: 100%;
+}
+
+body.bonumark-admin .registration-mobile-label {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  body.bonumark-admin .registration-workflow-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+  }
+
+  body.bonumark-admin .registration-invite-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .registration-invite-form button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  body.bonumark-admin .registration-invite-header,
+  body.bonumark-admin .registration-invite-record {
+    gap: 12px;
+    grid-template-columns: minmax(230px, 1fr) 110px minmax(180px, .75fr) 110px 92px;
+  }
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .registration-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .registration-workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .registration-public-panel {
+    position: static;
+  }
+
+  body.bonumark-admin .registration-invite-header {
+    display: none;
+  }
+
+  body.bonumark-admin .registration-invite-list {
+    background: transparent;
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 0;
+  }
+
+  body.bonumark-admin .registration-invite-record {
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    padding: 16px;
+  }
+
+  body.bonumark-admin .registration-invite-identity {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+
+  body.bonumark-admin .registration-invite-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  body.bonumark-admin .registration-invite-usage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .registration-invite-expiration {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .registration-invite-status {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .registration-mobile-label {
+    color: var(--admin-muted);
+    display: block;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+}
+
+@media (max-width: 620px) {
+  body.bonumark-admin .registration-intro-panel,
+  body.bonumark-admin .registration-attention-panel,
+  body.bonumark-admin .registration-section-heading,
+  body.bonumark-admin .registration-invites-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .registration-mode-pill {
+    align-self: flex-start;
+  }
+
+  body.bonumark-admin .registration-attention-panel .button-link {
+    width: 100%;
+  }
+
+  body.bonumark-admin .registration-summary-grid,
+  body.bonumark-admin .registration-invite-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .registration-invite-form button {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  body.bonumark-admin .registration-public-summary > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .registration-public-summary dd {
+    text-align: left;
+  }
+
+  body.bonumark-admin .registration-invite-record {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body.bonumark-admin .registration-invite-identity {
+    grid-column: 1;
+  }
+
+  body.bonumark-admin .registration-invite-actions {
+    grid-column: 2;
+  }
+
+  body.bonumark-admin .registration-invite-usage,
+  body.bonumark-admin .registration-invite-expiration,
+  body.bonumark-admin .registration-invite-status {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}

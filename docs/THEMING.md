@@ -44,6 +44,62 @@ Themes do not provide public markup files or rendering logic. Bonumark Stream co
 
 Midnight Ledger is the reference package for the current code-free theme format. Copy it, rename it, update the manifest, and edit the CSS.
 
+## Photo gallery presentation
+
+Bonumark Stream core owns photo gallery storage, upload validation, responsive image attributes, accessibility, and public markup. A code-free theme only styles the stable gallery contract.
+
+Posts may contain one to four gallery photos. Existing single-image posts continue to use the same featured media behavior. Core provides a usable responsive fallback layout even when a custom theme does not declare gallery support.
+
+Core renders gallery markup with these stable classes:
+
+```html
+<div class="stream-card-media stream-media-gallery stream-media-gallery-count-3 stream-media-gallery-layout-trio" data-media-count="3" role="group">
+  <a class="stream-media-gallery-item stream-media-gallery-item-1" data-stream-media-viewer>…</a>
+  <a class="stream-media-gallery-item stream-media-gallery-item-2" data-stream-media-viewer>…</a>
+  <a class="stream-media-gallery-item stream-media-gallery-item-3" data-stream-media-viewer>…</a>
+</div>
+```
+
+Themes may style:
+
+- `.stream-media-gallery`
+- `.stream-media-gallery-count-1` through `.stream-media-gallery-count-4`
+- `.stream-media-gallery-layout-single`
+- `.stream-media-gallery-layout-pair`
+- `.stream-media-gallery-layout-trio`
+- `.stream-media-gallery-layout-grid`
+- `.stream-media-gallery-item`
+- `.stream-media-gallery-item-1` through `.stream-media-gallery-item-4`
+- `.stream-media-gallery-image`
+
+Core exposes these CSS custom properties as safe presentation hooks:
+
+```css
+:root {
+  --bms-media-gallery-gap: 0.5rem;
+  --bms-media-gallery-radius: 0.75rem;
+  --bms-media-gallery-item-aspect-ratio: 1 / 1;
+  --bms-media-gallery-feature-aspect-ratio: 16 / 9;
+  --bms-media-gallery-object-fit: cover;
+}
+```
+
+A theme may override those variables or the stable classes with CSS. It must not replace gallery markup, upload handling, image ordering, responsive sources, loading priorities, or permission logic.
+
+Core also owns the full-size photo viewer. Image links carrying `data-stream-media-viewer` open in an accessible overlay with a close button, Escape-key support, and previous/next controls for galleries. Theme packages should not remove that attribute or replace the viewer behavior. The viewer CSS lives in core so older themes receive the fix automatically.
+
+The optional `supports.media_galleries` declaration documents that the theme intentionally styles galleries:
+
+```json
+{
+  "supports": {
+    "media_galleries": true
+  }
+}
+```
+
+This declaration is informational. Older themes remain compatible and inherit the core fallback gallery layout.
+
 ## Pinned-post presentation
 
 Pinned-post queries, permissions, ordering, visibility, and duplicate prevention belong to Bonumark Stream core. Themes do not implement pinning logic.

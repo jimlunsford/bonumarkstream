@@ -124,6 +124,42 @@ function bms_places_list(int $limit = 250): array
     return array_map('bms_place_row', $rows);
 }
 
+function bms_place_search_text(string $value): string
+{
+    $value = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    return function_exists('mb_strtolower') ? mb_strtolower($value) : strtolower($value);
+}
+
+function bms_places_filter(array $places, string $query = '', string $category = ''): array
+{
+    $query = bms_place_search_text($query);
+    $category = strtolower(trim($category));
+    $categoryFilterActive = $category !== '' && array_key_exists($category, bms_place_categories());
+
+    return array_values(array_filter($places, static function (array $place) use ($query, $category, $categoryFilterActive): bool {
+        if ($categoryFilterActive && (string)($place['category'] ?? 'other') !== $category) {
+            return false;
+        }
+        if ($query === '') {
+            return true;
+        }
+
+        $categoryLabel = bms_place_categories()[(string)($place['category'] ?? 'other')] ?? 'Other';
+        $displayLabel = bms_place_display_modes()[(string)($place['default_display_mode'] ?? 'exact')] ?? 'Place name and city';
+        $haystack = bms_place_search_text(implode(' ', [
+            (string)($place['name'] ?? ''),
+            $categoryLabel,
+            (string)($place['area_label'] ?? ''),
+            (string)($place['locality'] ?? ''),
+            (string)($place['region'] ?? ''),
+            (string)($place['country'] ?? ''),
+            $displayLabel,
+        ]));
+
+        return str_contains($haystack, $query);
+    }));
+}
+
 function bms_place_save(array $input, int $id = 0): array
 {
     if (!bms_places_table_ready()) {

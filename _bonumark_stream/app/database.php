@@ -622,7 +622,7 @@ function bms_database_content_columns_ready(): bool
 function bms_content_front_matter_for_database(array $page): array
 {
     $frontMatter = is_array($page['front_matter'] ?? null) ? $page['front_matter'] : [];
-    foreach (['seo_title','robots','featured_media','stream_created_at','scheduled_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name','location_place_id','location_name','location_category','location_area','location_locality','location_region','location_country','location_display_mode'] as $key) {
+    foreach (['seo_title','robots','featured_media','media_gallery','stream_created_at','scheduled_at','link_preview_url','link_preview_title','link_preview_description','link_preview_image','link_preview_site_name','location_place_id','location_name','location_category','location_area','location_locality','location_region','location_country','location_display_mode'] as $key) {
         if (array_key_exists($key, $page) && !array_key_exists($key, $frontMatter)) {
             $frontMatter[$key] = $page[$key];
         }
@@ -642,6 +642,7 @@ function bms_database_content_raw(array $page): string
         'category' => (string)($page['category'] ?? 'Stream'),
         'tags' => $page['tags'] ?? [],
         'featured_media' => (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($page['media_gallery'] ?? $page['front_matter']['media_gallery'] ?? [], (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '')),
         'stream_created_at' => (string)($page['stream_created_at'] ?? $page['front_matter']['stream_created_at'] ?? ''),
         'scheduled_at' => (string)($page['scheduled_at'] ?? $page['front_matter']['scheduled_at'] ?? ''),
         'seo_title' => (string)($page['seo_title'] ?? $page['front_matter']['seo_title'] ?? ''),
@@ -718,6 +719,7 @@ function bms_database_row_to_content_page(array $row): array
         'body' => $body,
         'front_matter' => $frontMatter,
         'featured_media' => (string)($frontMatter['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($frontMatter['media_gallery'] ?? [], (string)($frontMatter['featured_media'] ?? '')),
         'stream_created_at' => $streamCreatedAt,
         'seo_title' => (string)($frontMatter['seo_title'] ?? ''),
         'robots' => (string)($frontMatter['robots'] ?? ''),
@@ -1036,6 +1038,10 @@ function bms_database_content_page_for_status(array $page, string $status, strin
         'category' => $postType === 'page' ? 'Page' : (string)($page['category'] ?? 'Stream'),
         'tags' => $page['tags'] ?? [],
         'featured_media' => (string)($page['featured_media'] ?? $frontMatter['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery(
+            $page['media_gallery'] ?? $frontMatter['media_gallery'] ?? [],
+            (string)($page['featured_media'] ?? $frontMatter['featured_media'] ?? '')
+        ),
         'stream_created_at' => (string)($page['stream_created_at'] ?? $frontMatter['stream_created_at'] ?? ''),
         'scheduled_at' => $status === 'scheduled' ? (string)($page['scheduled_at'] ?? $frontMatter['scheduled_at'] ?? '') : '',
         'seo_title' => (string)($page['seo_title'] ?? $frontMatter['seo_title'] ?? ''),
@@ -1088,6 +1094,7 @@ function bms_revision_page_from_row(array $revision): array
         'category' => 'Stream',
         'tags' => [],
         'featured_media' => (string)($frontMatter['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($frontMatter['media_gallery'] ?? [], (string)($frontMatter['featured_media'] ?? '')),
         'stream_created_at' => (string)($frontMatter['stream_created_at'] ?? ''),
         'seo_title' => (string)($frontMatter['seo_title'] ?? ''),
         'robots' => (string)($frontMatter['robots'] ?? ''),
@@ -1229,6 +1236,52 @@ function bms_sync_stream_metadata(array $page, string $section, string $filename
     }
 
     bms_sync_post_terms($postId, $page);
+}
+
+
+/**
+ * Update only the Markdown body of an existing database-first Stream Post.
+ *
+ * Front-end Quick edit deliberately leaves title, slug, status, publishing
+ * dates, media, Local Places, link previews, SEO data, authorship, pin state,
+ * likes, comments, and all other record fields untouched.
+ */
+function bms_update_stream_post_body(array $page, string $body): array
+{
+    if (!bms_is_installed() || !bms_database_content_columns_ready()) {
+        throw new RuntimeException('Database-first content is unavailable.');
+    }
+
+    $postId = (int)($page['post_id'] ?? 0);
+    if ($postId < 1 || (string)($page['post_type'] ?? $page['content_type'] ?? 'stream') !== 'stream') {
+        throw new RuntimeException('Stream post could not be updated.');
+    }
+
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+    $body = trim($body);
+    if (strlen($body) > 1024 * 1024 * 2) {
+        throw new RuntimeException('Stream post text is too large. Keep it under 2 MB.');
+    }
+
+    $updated = $page;
+    $updated['body'] = $body;
+    $updated['raw'] = bms_database_content_raw($updated);
+    $contentHash = hash('sha256', (string)$updated['raw']);
+
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('posts') . ' SET content_body = :content_body, content_hash = :content_hash, updated_at = NOW() WHERE id = :id AND post_type = :post_type');
+    $stmt->execute([
+        'content_body' => $body,
+        'content_hash' => $contentHash,
+        'id' => $postId,
+        'post_type' => 'stream',
+    ]);
+    if ($stmt->rowCount() < 1 && trim((string)($page['body'] ?? '')) !== $body) {
+        throw new RuntimeException('Stream post could not be updated.');
+    }
+
+    $updated['content_hash'] = $contentHash;
+    $updated['updated_at'] = gmdate('Y-m-d H:i:s');
+    return $updated;
 }
 
 
@@ -1517,6 +1570,7 @@ function bms_trash_row_to_content_page(array $row, string $postType = 'stream'):
         'body' => $body,
         'front_matter' => $frontMatter,
         'featured_media' => (string)($frontMatter['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($frontMatter['media_gallery'] ?? [], (string)($frontMatter['featured_media'] ?? '')),
         'stream_created_at' => (string)($frontMatter['stream_created_at'] ?? ''),
         'seo_title' => (string)($frontMatter['seo_title'] ?? ''),
         'robots' => (string)($frontMatter['robots'] ?? ''),

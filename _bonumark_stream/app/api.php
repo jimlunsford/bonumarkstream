@@ -3,6 +3,8 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/scheduler.php';
 require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/import-media.php';
+require_once __DIR__ . '/markdown.php';
+require_once __DIR__ . '/places.php';
 
 class BMS_Api_Exception extends RuntimeException
 {
@@ -79,6 +81,11 @@ function bms_api_token_scope_definitions(): array
         'status:read' => [
             'label' => 'Read API status',
             'description' => 'Allows a client to verify that the token works against the status endpoint.',
+            'available' => true,
+        ],
+        'stream:read' => [
+            'label' => 'Read published stream posts',
+            'description' => 'Allows an authorized client to retrieve published Stream posts through the read-only API.',
             'available' => true,
         ],
         'stream:draft' => [
@@ -964,6 +971,18 @@ function bms_api_media_embed_position(array $payload): string
     return $position === 'before' ? 'before' : 'after';
 }
 
+function bms_api_media_display_mode(array $payload): string
+{
+    $mode = strtolower(trim((string)($payload['media_display'] ?? 'inline')));
+    if ($mode === '') {
+        $mode = 'inline';
+    }
+    if (!in_array($mode, ['inline', 'gallery'], true)) {
+        throw new BMS_Api_Exception('media_display must be inline or gallery.', 422, 'invalid_media_display');
+    }
+    return $mode;
+}
+
 function bms_api_media_reference_record(array $item): array
 {
     $mediaId = (int)($item['media_id'] ?? 0);
@@ -1010,8 +1029,21 @@ function bms_api_embedded_media(array $payload, array $token): array
 {
     $embedded = [];
     $seen = [];
+    $display = bms_api_media_display_mode($payload);
+    $referenceItems = bms_api_payload_media_reference_items($payload);
+    $uploadItems = bms_api_payload_media_uploads($payload);
+    $importItems = bms_api_payload_media_imports($payload);
+    if ($display === 'gallery') {
+        $requestedCount = count($referenceItems) + count($uploadItems) + count($importItems);
+        if ($requestedCount < 1) {
+            throw new BMS_Api_Exception('Gallery mode requires at least one image.', 422, 'media_gallery_required');
+        }
+        if ($requestedCount > 4) {
+            throw new BMS_Api_Exception('Photo galleries support up to four images.', 422, 'media_gallery_limit');
+        }
+    }
 
-    foreach (bms_api_payload_media_reference_items($payload) as $item) {
+    foreach ($referenceItems as $item) {
         $media = bms_api_media_reference_record($item);
         $embed = bms_api_media_embed_item_from_record(
             $media,
@@ -1026,7 +1058,7 @@ function bms_api_embedded_media(array $payload, array $token): array
         }
     }
 
-    foreach (bms_api_payload_media_uploads($payload) as $uploadPayload) {
+    foreach ($uploadItems as $uploadPayload) {
         $file = bms_api_uploaded_file_from_json_payload($uploadPayload);
         $tmp = !empty($file['_bms_api_tmp']) ? (string)($file['tmp_name'] ?? '') : '';
         try {
@@ -1044,7 +1076,7 @@ function bms_api_embedded_media(array $payload, array $token): array
         }
     }
 
-    foreach (bms_api_payload_media_imports($payload) as $importPayload) {
+    foreach ($importItems as $importPayload) {
         $media = bms_api_import_remote_media($importPayload, $token);
         $key = 'id:' . (string)($media['media_id'] ?? '');
         if (!isset($seen[$key])) {
@@ -1052,6 +1084,28 @@ function bms_api_embedded_media(array $payload, array $token): array
             $media['source'] = 'imported';
             $embedded[] = $media;
         }
+    }
+
+    if ($display === 'gallery') {
+        if (count($embedded) > 4) {
+            throw new BMS_Api_Exception('Photo galleries support up to four images.', 422, 'media_gallery_limit');
+        }
+        $gallery = [];
+        foreach ($embedded as $item) {
+            $mime = strtolower(trim((string)($item['mime_type'] ?? '')));
+            $publicPath = trim((string)($item['public_path'] ?? ''));
+            if (!str_starts_with($mime, 'image/') || $publicPath === '') {
+                throw new BMS_Api_Exception('Photo galleries can contain image media only.', 422, 'media_gallery_images_only');
+            }
+            $gallery[] = $publicPath;
+        }
+        return [
+            'items' => $embedded,
+            'gallery' => bms_normalize_media_gallery($gallery),
+            'markdown' => '',
+            'position' => bms_api_media_embed_position($payload),
+            'display' => 'gallery',
+        ];
     }
 
     $markdownList = [];
@@ -1068,8 +1122,10 @@ function bms_api_embedded_media(array $payload, array $token): array
 
     return [
         'items' => $embedded,
+        'gallery' => [],
         'markdown' => implode("\n\n", $markdownList),
         'position' => bms_api_media_embed_position($payload),
+        'display' => 'inline',
     ];
 }
 
@@ -1086,6 +1142,300 @@ function bms_api_body_with_embedded_media(string $body, string $mediaMarkdown, s
     return $position === 'before'
         ? $mediaMarkdown . "\n\n" . $body
         : $body . "\n\n" . $mediaMarkdown;
+}
+
+
+function bms_api_query_integer(string $key, int $default, int $minimum, int $maximum): int
+{
+    $value = $_GET[$key] ?? $default;
+    if (is_array($value) || filter_var($value, FILTER_VALIDATE_INT) === false) {
+        throw new BMS_Api_Exception($key . ' must be an integer.', 422, 'invalid_' . $key);
+    }
+    return max($minimum, min($maximum, (int)$value));
+}
+
+function bms_api_query_choice(string $key, array $allowed, string $default): string
+{
+    $value = strtolower(trim((string)($_GET[$key] ?? $default)));
+    if (!in_array($value, $allowed, true)) {
+        throw new BMS_Api_Exception($key . ' has an unsupported value.', 422, 'invalid_' . $key);
+    }
+    return $value;
+}
+
+function bms_api_utc_datetime(mixed $value): string
+{
+    $value = trim((string)$value);
+    if ($value === '' || str_starts_with($value, '0000-00-00')) {
+        return '';
+    }
+    try {
+        $date = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        return $date->setTimezone(new DateTimeZone('UTC'))->format(DateTimeInterface::ATOM);
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+function bms_api_modified_after_utc(): string
+{
+    $value = trim((string)($_GET['modified_after'] ?? ''));
+    if ($value === '') {
+        return '';
+    }
+    try {
+        $date = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        return $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    } catch (Throwable $e) {
+        throw new BMS_Api_Exception('modified_after must be a valid date or ISO-8601 timestamp.', 422, 'invalid_modified_after');
+    }
+}
+
+function bms_api_stream_post_terms_map(array $postIds): array
+{
+    $postIds = array_values(array_unique(array_filter(array_map('intval', $postIds), static fn(int $id): bool => $id > 0)));
+    if (!$postIds) {
+        return [];
+    }
+    $result = [];
+    $params = [];
+    $placeholders = [];
+    foreach ($postIds as $index => $postId) {
+        $result[$postId] = ['category' => null, 'tags' => []];
+        $key = 'post_' . $index;
+        $placeholders[] = ':' . $key;
+        $params[$key] = $postId;
+    }
+    $stmt = bms_db()->prepare(
+        'SELECT pt.post_id, t.id, t.term_type, t.name, t.slug, pt.is_primary
+'
+        . 'FROM ' . bms_table('post_terms') . ' pt
+'
+        . 'INNER JOIN ' . bms_table('terms') . ' t ON t.id = pt.term_id
+'
+        . 'WHERE pt.post_id IN (' . implode(',', $placeholders) . ')
+'
+        . 'ORDER BY pt.post_id ASC, pt.is_primary DESC, t.name ASC'
+    );
+    $stmt->execute($params);
+    foreach ($stmt->fetchAll() as $term) {
+        $postId = (int)($term['post_id'] ?? 0);
+        if ($postId < 1 || !isset($result[$postId])) {
+            continue;
+        }
+        $item = [
+            'id' => (int)($term['id'] ?? 0),
+            'name' => (string)($term['name'] ?? ''),
+            'slug' => (string)($term['slug'] ?? ''),
+        ];
+        if ((string)($term['term_type'] ?? '') === 'category' && $result[$postId]['category'] === null) {
+            $result[$postId]['category'] = $item;
+        } elseif ((string)($term['term_type'] ?? '') === 'tag') {
+            $result[$postId]['tags'][] = $item;
+        }
+    }
+    return $result;
+}
+
+function bms_api_stream_post_terms(int $postId): array
+{
+    $terms = bms_api_stream_post_terms_map([$postId]);
+    return $terms[$postId] ?? ['category' => null, 'tags' => []];
+}
+
+function bms_api_stream_post_read_payload(array $row, bool $includeHtml = false, ?array $terms = null): array
+{
+    $page = bms_database_row_to_content_page($row);
+    $postId = (int)($page['post_id'] ?? $row['id'] ?? 0);
+    $slug = (string)($page['slug'] ?? '');
+    $status = (string)($page['status'] ?? 'draft');
+    $body = (string)($page['body'] ?? '');
+    $contentHash = trim((string)($row['content_hash'] ?? ''));
+    if ($contentHash === '') {
+        $contentHash = hash('sha256', $body);
+    }
+    $terms = is_array($terms) ? $terms : bms_api_stream_post_terms($postId);
+    $category = is_array($terms['category'] ?? null) ? $terms['category'] : [
+        'id' => 0,
+        'name' => (string)($page['category'] ?? 'Stream'),
+        'slug' => (string)($page['category_slug'] ?? 'stream'),
+    ];
+    $content = ['markdown' => $body];
+    if ($includeHtml) {
+        $content['html'] = bms_markdown_to_html($body, false);
+    }
+    $publicMetadata = [
+        'date_published' => (string)($page['date_published'] ?? $page['date'] ?? ''),
+        'stream_created_at' => (string)($page['stream_created_at'] ?? ''),
+        'seo_title' => (string)($page['seo_title'] ?? ''),
+        'robots' => (string)($page['robots'] ?? ''),
+        'featured_media' => (string)($page['featured_media'] ?? ''),
+        'media_gallery' => bms_normalize_media_gallery($page['media_gallery'] ?? [], (string)($page['featured_media'] ?? '')),
+        'link_preview_url' => (string)($page['link_preview_url'] ?? ''),
+        'link_preview_title' => (string)($page['link_preview_title'] ?? ''),
+        'link_preview_description' => (string)($page['link_preview_description'] ?? ''),
+        'link_preview_image' => (string)($page['link_preview_image'] ?? ''),
+        'link_preview_site_name' => (string)($page['link_preview_site_name'] ?? ''),
+    ];
+    $place = bms_place_from_page($page);
+    if (is_array($place)) {
+        $labels = bms_place_public_labels($place, (string)($place['default_display_mode'] ?? ''));
+        if (trim((string)($labels['primary'] ?? '')) !== '' || trim((string)($labels['secondary'] ?? '')) !== '') {
+            $publicMetadata['location'] = [
+                'mode' => (string)($labels['mode'] ?? ''),
+                'primary' => (string)($labels['primary'] ?? ''),
+                'secondary' => (string)($labels['secondary'] ?? ''),
+                'category' => (string)($place['category'] ?? ''),
+            ];
+        }
+    }
+    return [
+        'id' => $postId,
+        'type' => 'stream',
+        'title' => (string)($page['title'] ?? 'Untitled'),
+        'slug' => $slug,
+        'status' => $status,
+        'permalink' => $status === 'published' && $slug !== '' ? bms_site_url('stream/' . $slug . '/') : '',
+        'description' => (string)($page['description'] ?? ''),
+        'category' => $category,
+        'tags' => array_values((array)($terms['tags'] ?? [])),
+        'content' => $content,
+        'content_hash' => $contentHash,
+        'is_pinned' => !empty($page['is_pinned']),
+        'pinned_at' => bms_api_utc_datetime($page['pinned_at'] ?? ''),
+        'published_at' => bms_api_utc_datetime($page['published_at'] ?? ''),
+        'modified_at' => bms_api_utc_datetime($page['updated_at'] ?? ''),
+        'created_at' => bms_api_utc_datetime($page['created_at'] ?? ''),
+        'metadata' => $publicMetadata,
+    ];
+}
+
+function bms_api_read_stream_posts(): array
+{
+    $postId = bms_api_query_integer('id', 0, 0, PHP_INT_MAX);
+    $includeHtml = in_array(strtolower(trim((string)($_GET['include_html'] ?? '0'))), ['1', 'true', 'yes'], true);
+    if ($postId > 0) {
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id AND post_type = :post_type AND status = :status LIMIT 1');
+        $stmt->execute(['id' => $postId, 'post_type' => 'stream', 'status' => 'published']);
+        $row = $stmt->fetch();
+        if (!is_array($row)) {
+            throw new BMS_Api_Exception('Stream post not found.', 404, 'stream_post_not_found');
+        }
+        return ['single' => true, 'post' => bms_api_stream_post_read_payload($row, $includeHtml)];
+    }
+
+    $page = bms_api_query_integer('page', 1, 1, 1000000);
+    $perPage = bms_api_query_integer('per_page', 50, 1, 100);
+    $status = bms_api_query_choice('status', ['published'], 'published');
+    $order = bms_api_query_choice('order', ['asc', 'desc'], 'asc');
+    $orderby = bms_api_query_choice('orderby', ['id', 'created_at', 'updated_at', 'published_at'], 'id');
+    $modifiedAfter = bms_api_modified_after_utc();
+
+    $where = ['post_type = :post_type', 'status = :status'];
+    $params = ['post_type' => 'stream', 'status' => $status];
+    if ($modifiedAfter !== '') {
+        $where[] = 'updated_at > :modified_after';
+        $params['modified_after'] = $modifiedAfter;
+    }
+    $whereSql = implode(' AND ', $where);
+    $count = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE ' . $whereSql);
+    $count->execute($params);
+    $total = (int)$count->fetchColumn();
+    $totalPages = max(1, (int)ceil($total / $perPage));
+    if ($page > $totalPages && $total > 0) {
+        throw new BMS_Api_Exception('Requested page is outside the available catalog.', 400, 'page_out_of_range');
+    }
+    $orderColumns = [
+        'id' => 'id',
+        'created_at' => 'created_at',
+        'updated_at' => 'updated_at',
+        'published_at' => 'published_at',
+    ];
+    $offset = ($page - 1) * $perPage;
+    $sql = 'SELECT * FROM ' . bms_table('posts') . ' WHERE ' . $whereSql
+        . ' ORDER BY ' . $orderColumns[$orderby] . ' ' . strtoupper($order) . ', id ' . strtoupper($order)
+        . ' LIMIT ' . $perPage . ' OFFSET ' . $offset;
+    $stmt = bms_db()->prepare($sql);
+    $stmt->execute($params);
+    $rows = [];
+    $postIds = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $rows[] = $row;
+        $postId = (int)($row['id'] ?? 0);
+        if ($postId > 0) {
+            $postIds[] = $postId;
+        }
+    }
+    $termsByPost = bms_api_stream_post_terms_map($postIds);
+    $posts = [];
+    foreach ($rows as $row) {
+        $postId = (int)($row['id'] ?? 0);
+        $posts[] = bms_api_stream_post_read_payload($row, $includeHtml, $termsByPost[$postId] ?? null);
+    }
+    return [
+        'single' => false,
+        'posts' => $posts,
+        'pagination' => [
+            'page' => $page,
+            'per_page' => $perPage,
+            'returned' => count($posts),
+            'total' => $total,
+            'total_pages' => $totalPages,
+        ],
+        'filters' => [
+            'status' => $status,
+            'orderby' => $orderby,
+            'order' => $order,
+            'modified_after' => $modifiedAfter !== '' ? bms_api_utc_datetime($modifiedAfter) : '',
+            'include_html' => $includeHtml,
+        ],
+    ];
+}
+
+function bms_api_handle_stream_posts_read_endpoint(): never
+{
+    $token = null;
+    try {
+        if (!bms_is_installed()) {
+            throw new BMS_Api_Exception('Bonumark Stream is not installed.', 503, 'not_installed');
+        }
+        $method = bms_api_request_method();
+        if (!in_array($method, ['GET', 'HEAD'], true)) {
+            if (!headers_sent()) {
+                header('Allow: GET, HEAD, POST');
+            }
+            throw new BMS_Api_Exception('Method not allowed.', 405, 'method_not_allowed');
+        }
+        $token = bms_api_authenticate(['stream:read']);
+        $result = bms_api_read_stream_posts();
+        $tokenId = (int)($token['id'] ?? 0);
+        if (!empty($result['single'])) {
+            $post = (array)($result['post'] ?? []);
+            bms_api_record_audit($tokenId, 'stream_post_read', true, 200, 'Read stream post: ' . (int)($post['id'] ?? 0));
+            bms_api_json_response(['ok' => true, 'post' => $post], 200);
+        }
+        $pagination = (array)($result['pagination'] ?? []);
+        if (!headers_sent()) {
+            header('X-Bonumark-Total: ' . (int)($pagination['total'] ?? 0));
+            header('X-Bonumark-Total-Pages: ' . (int)($pagination['total_pages'] ?? 1));
+        }
+        bms_api_record_audit($tokenId, 'stream_posts_read', true, 200, 'Read ' . (int)($pagination['returned'] ?? 0) . ' stream post(s).');
+        bms_api_json_response([
+            'ok' => true,
+            'posts' => array_values((array)($result['posts'] ?? [])),
+            'pagination' => $pagination,
+            'filters' => (array)($result['filters'] ?? []),
+        ], 200);
+    } catch (Throwable $e) {
+        $tokenId = is_array($token) ? (int)($token['id'] ?? 0) : 0;
+        if ($e instanceof BMS_Api_Exception && !in_array($e->apiCode, ['missing_bearer_token', 'invalid_bearer_token', 'remote_posting_disabled', 'missing_scope', 'rate_limited'], true)) {
+            bms_api_record_audit($tokenId > 0 ? $tokenId : null, 'stream_read_error', false, $e->statusCode, $e->apiCode);
+        }
+        bms_api_error_response($e);
+    }
 }
 
 function bms_api_create_remote_stream_post(array $payload, array $token, string $targetStatus): array
@@ -1105,8 +1455,9 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
     $body = trim($body);
 
     $embeddedMedia = bms_api_embedded_media($payload, $token);
+    $mediaGallery = bms_normalize_media_gallery($embeddedMedia['gallery'] ?? []);
     $body = bms_api_body_with_embedded_media($body, (string)($embeddedMedia['markdown'] ?? ''), (string)($embeddedMedia['position'] ?? 'after'));
-    if ($body === '') {
+    if ($body === '' && !$mediaGallery) {
         throw new BMS_Api_Exception('Content or embedded media is required.', 422, 'content_required');
     }
     $bodyLength = function_exists('mb_strlen') ? mb_strlen($body) : strlen($body);
@@ -1146,7 +1497,8 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'description' => $description,
         'category' => 'Stream',
         'tags' => [],
-        'featured_media' => '',
+        'featured_media' => $mediaGallery[0] ?? '',
+        'media_gallery' => $mediaGallery,
         'stream_created_at' => $now,
         'scheduled_at' => $scheduledAtUtc,
         'seo_title' => $seoTitle,
@@ -1202,6 +1554,8 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'scheduled_at' => $targetStatus === 'scheduled' ? $scheduledAtUtc : null,
         'scheduled_for' => $targetStatus === 'scheduled' ? bms_format_scheduled_datetime($scheduledAtUtc) : null,
         'embedded_media' => $embeddedMedia['items'] ?? [],
+        'media_display' => (string)($embeddedMedia['display'] ?? 'inline'),
+        'media_gallery' => $mediaGallery,
         'media_position' => (string)($embeddedMedia['position'] ?? 'after'),
     ];
 }
@@ -1337,6 +1691,10 @@ function bms_api_handle_status_endpoint(): never
 
 function bms_api_handle_stream_posts_endpoint(): never
 {
+    if (in_array(bms_api_request_method(), ['GET', 'HEAD'], true)) {
+        bms_api_handle_stream_posts_read_endpoint();
+    }
+
     $token = null;
     $payload = [];
     $requestId = '';
@@ -1423,6 +1781,12 @@ function bms_api_status_payload(?array $token = null): array
         'default_status' => bms_api_default_status(),
         'publish_confirmation_required' => bms_api_publish_confirmation_required(),
         'remote_media_upload_enabled' => bms_api_remote_media_upload_enabled(),
+        'capabilities' => [
+            'stream_read' => true,
+            'stream_read_scope' => 'stream:read',
+            'stream_read_visibility' => 'published_only',
+            'stream_read_max_per_page' => 100,
+        ],
         'idempotency' => [
             'supported' => true,
             'header' => 'Idempotency-Key',

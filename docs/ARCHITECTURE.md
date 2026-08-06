@@ -24,6 +24,12 @@ Theme packages are presentation-only. A theme can provide metadata, settings, sc
 
 The bundled Midnight Ledger presentation theme is the reference package. Bonumark Stream core renders the public site; themes supply presentation assets and settings only.
 
+## Photo galleries
+
+Photo galleries are core behavior, not theme behavior. A Stream Post may store an ordered `media_gallery` list containing one to four image paths. The first item is also stored as `featured_media` so existing posts, custom themes, feeds, Open Graph metadata, and integrations remain compatible.
+
+Core owns upload validation, order, responsive derivatives, dimensions, `srcset`, `sizes`, loading priority, accessibility labels, and public gallery markup. Code-free themes style the stable `.stream-media-gallery*` contract and `--bms-media-gallery-*` variables. Themes that do not declare or style gallery support inherit the core fallback layout.
+
 ## Pinned posts
 
 Pinned posts are core behavior, not theme behavior. Core stores pin state on published stream records, orders the pinned group by `pinned_at` descending, renders the dedicated homepage pinned area, and removes those same records from the regular page-one timeline. Core also provides authorized front-end post actions through one compact three-dot menu. Themes receive the already-rendered core markup and only add presentation CSS.

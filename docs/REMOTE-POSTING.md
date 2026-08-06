@@ -4,7 +4,7 @@ Bonumark Stream includes a disabled-by-default Remote Posting API for trusted ex
 
 This feature is meant for site owners who want to connect Bonumark Stream to custom clients, automation systems, shortcuts, scripts, future apps, or ChatGPT Actions. The feature is platform-neutral.
 
-## Current status in v0.5.42
+## Current status in v0.5.76
 
 Included now:
 
@@ -17,7 +17,10 @@ Included now:
 - API rate limiting table
 - API idempotency table
 - `GET /api/v1/status`
+- `GET /api/v1/stream/posts`
 - `POST /api/v1/stream/posts`
+- `stream:read` scope for read-only published Stream catalog access
+- Paginated published Stream catalog with stable IDs, Markdown, optional HTML, terms, timestamps, and content hashes
 - Draft creation by default
 - Optional direct publishing
 - Optional scheduled publishing through `scheduled_at`
@@ -61,6 +64,17 @@ Token scopes: status:read, stream:draft
 ```
 
 That setup lets external clients create drafts for review without publishing directly.
+
+## Read-only integration setup
+
+For archival, migration, search, feed, mobile, or knowledge-library clients that only need to retrieve content:
+
+```text
+Enable Remote Posting API: On
+Token scopes: status:read, stream:read
+```
+
+The read token does not need draft, publish, or media-upload scopes.
 
 ## Direct publishing setup
 
@@ -130,7 +144,7 @@ Public request without a token:
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.5.42",
+  "version": "0.5.76",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,
@@ -148,6 +162,27 @@ Authorization: Bearer YOUR_API_TOKEN_HERE
 Authenticated response includes token metadata and scopes when the API is enabled and the token is valid.
 
 ## Stream posts endpoint
+
+Read published Stream posts:
+
+```text
+GET /api/v1/stream/posts
+```
+
+Read scope:
+
+```text
+stream:read
+```
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN_HERE" \
+  "https://example.com/api/v1/stream/posts?status=published&per_page=100&page=1&orderby=id&order=asc"
+```
+
+Create a Stream post:
 
 ```text
 POST /api/v1/stream/posts

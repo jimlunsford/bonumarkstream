@@ -175,8 +175,6 @@ $trashCount = $streamTrashCount + $pageTrashCount;
 
 $commentApprovedCount = $canManageComments ? bms_dashboard_count_query('SELECT COUNT(*) FROM ' . bms_table('comments') . ' WHERE status = :status', ['status' => 'approved']) : 0;
 $commentPendingCount = $canManageComments ? bms_dashboard_count_query('SELECT COUNT(*) FROM ' . bms_table('comments') . ' WHERE status = :status', ['status' => 'pending']) : 0;
-$commentTrashCount = $canManageComments ? bms_dashboard_count_query('SELECT COUNT(*) FROM ' . bms_table('comments') . ' WHERE status = :status', ['status' => 'trash']) : 0;
-$recentComments = $canManageComments && function_exists('bms_list_admin_comments') ? bms_list_admin_comments('pending', 5) : [];
 
 $userCount = $canManageUsers ? bms_dashboard_count_query('SELECT COUNT(*) FROM ' . bms_table('users') . ' WHERE status = :status', ['status' => 'active']) : 0;
 $pendingUsers = $canManageUsers && function_exists('bms_user_pending_counts') ? bms_user_pending_counts() : ['pending_verification' => 0, 'pending_approval' => 0];
@@ -212,21 +210,22 @@ foreach ($published as $item) {
     }
 }
 
-bms_admin_header('Dashboard', [
-    bms_view_site_action(),
-]);
+$dashboardActions = [];
+if ($canEditContent) {
+    $dashboardActions[] = [
+        'label' => 'Open Stream Composer',
+        'href' => bms_stream_composer_url(),
+        'style' => 'primary',
+    ];
+}
+$dashboardActions[] = bms_view_site_action();
+bms_admin_header('Dashboard', $dashboardActions);
 ?>
 <section class="dashboard-hero panel">
   <div class="dashboard-hero-copy">
-    <p class="eyebrow">Bonumark Stream</p>
-    <h2>Admin overview</h2>
-    <p class="meta">A quick read on publishing, site health, attention items, and the next actions that matter.</p>
-  </div>
-  <div class="dashboard-hero-actions">
-    <?php if ($canEditContent): ?><a class="primary-button" href="<?= bms_dashboard_escape(bms_admin_url('new.php')) ?>">New Stream Post</a><?php endif; ?>
-    <?php if ($canManagePages): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('page-new.php')) ?>">New Page</a><?php endif; ?>
-    <?php if ($canManageMedia): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('media-upload.php')) ?>">Upload Media</a><?php endif; ?>
-    <a class="button-link secondary" href="<?= bms_dashboard_escape(bms_url_path()) ?>" target="_blank" rel="noopener">View Site</a>
+    <p class="eyebrow">Publishing workspace</p>
+    <h2>What needs your attention today?</h2>
+    <p class="meta">Review the site snapshot, handle anything waiting, and move directly into the next publishing task.</p>
   </div>
 </section>
 
@@ -250,14 +249,10 @@ bms_admin_header('Dashboard', [
         </div>
       </div>
       <div class="dashboard-action-grid">
-        <?php if ($canEditContent): ?><a class="button-link" href="<?= bms_dashboard_escape(bms_admin_url('new.php')) ?>">New Stream Post</a><?php endif; ?>
         <a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('content.php')) ?>">Manage Stream Posts</a>
-        <?php if ($canManagePages): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('page-new.php')) ?>">New Page</a><?php endif; ?>
+        <?php if ($canManagePages): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('page-new.php')) ?>">Create a Page</a><?php endif; ?>
         <?php if ($canManageMedia): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('media-upload.php')) ?>">Upload Media</a><?php endif; ?>
-        <?php if ($canManageComments): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('comments.php')) ?>">Moderate Comments</a><?php endif; ?>
-        <?php if ($canViewSystem): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('export.php')) ?>">Export Backup</a><?php endif; ?>
-        <?php if ($canViewSystem): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('system-check.php')) ?>">System Check</a><?php endif; ?>
-        <a class="button-link secondary" href="<?= bms_dashboard_escape($sitemapUrl) ?>" target="_blank" rel="noopener">View Sitemap</a>
+        <?php if ($canViewSystem): ?><a class="button-link secondary" href="<?= bms_dashboard_escape(bms_admin_url('system-check.php')) ?>">Run System Check</a><?php endif; ?>
       </div>
     </div>
 
@@ -344,25 +339,6 @@ bms_admin_header('Dashboard', [
       </div>
     </div>
 
-    <?php if ($canManageComments || $canManageSettings): ?>
-    <div class="panel dashboard-card dashboard-notes-card">
-      <div class="section-header-row">
-        <div>
-          <h2>Admin Notes</h2>
-          <p class="meta">Small checks worth knowing before you move on.</p>
-        </div>
-      </div>
-      <div class="dashboard-note-list">
-        <?php if ($canManageComments): ?>
-          <p><strong>Comments:</strong> <?= bms_dashboard_escape((string)$commentPendingCount) ?> pending, <?= bms_dashboard_escape((string)$commentTrashCount) ?> in trash.</p>
-        <?php endif; ?>
-        <?php if ($canManageSettings): ?>
-          <p><strong>Sitemap:</strong> <?= $sitemapEnabled ? 'Enabled and linked from robots.txt.' : 'Disabled. Enable it before a search-focused launch.' ?></p>
-          <p><strong>Profiles in sitemap:</strong> <?= function_exists('bms_sitemap_include_profiles') && bms_sitemap_include_profiles() ? 'Included.' : 'Excluded by default.' ?></p>
-        <?php endif; ?>
-      </div>
-    </div>
-    <?php endif; ?>
   </div>
 </section>
 

@@ -13,6 +13,8 @@ class BMS_ImportItem
     public string $featuredMedia;
     public string $contentType;
     /** @var list<string> */
+    public array $mediaGallery;
+    /** @var list<string> */
     public array $tags;
     /** @var list<string> */
     public array $warnings;
@@ -33,7 +35,8 @@ class BMS_ImportItem
         string $featuredMedia = '',
         array $tags = [],
         array $warnings = [],
-        string $contentType = 'stream'
+        string $contentType = 'stream',
+        array $mediaGallery = []
     ) {
         $this->title = $title;
         $this->slug = $slug;
@@ -45,6 +48,7 @@ class BMS_ImportItem
         $this->source = $source;
         $this->featuredMedia = $featuredMedia;
         $this->contentType = in_array($contentType, ['stream', 'page'], true) ? $contentType : 'stream';
+        $this->mediaGallery = bms_normalize_media_gallery($mediaGallery, $featuredMedia);
         $this->tags = $tags;
         $this->warnings = $warnings;
     }
@@ -62,6 +66,7 @@ class BMS_ImportItem
             'status' => $this->status,
             'source' => $this->source,
             'featured_media' => $this->featuredMedia,
+            'media_gallery' => $this->mediaGallery,
             'content_type' => $this->contentType,
             'tags' => $this->tags,
             'warnings' => $this->warnings,
@@ -85,7 +90,8 @@ class BMS_ImportItem
             (string)($data['featured_media'] ?? ''),
             is_array($tags) ? array_values(array_filter(array_map('strval', $tags))) : [],
             is_array($warnings) ? array_values(array_filter(array_map('strval', $warnings))) : [],
-            in_array((string)($data['content_type'] ?? $data['post_type'] ?? 'stream'), ['stream', 'page'], true) ? (string)($data['content_type'] ?? $data['post_type'] ?? 'stream') : 'stream'
+            in_array((string)($data['content_type'] ?? $data['post_type'] ?? 'stream'), ['stream', 'page'], true) ? (string)($data['content_type'] ?? $data['post_type'] ?? 'stream') : 'stream',
+            is_array($data['media_gallery'] ?? null) ? $data['media_gallery'] : []
         );
     }
 }

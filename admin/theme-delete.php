@@ -40,51 +40,47 @@ $screenshotUrl = is_array($theme) && function_exists('bms_public_theme_screensho
 
 bms_admin_header('Delete Theme', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'Install Theme', 'href' => bms_admin_url('theme-install.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel page-intro-panel danger-zone">
-  <p class="eyebrow">Appearance</p>
-  <h2>Delete public theme</h2>
-  <p class="meta">Theme deletion removes the private theme folder and its public assets. This does not delete posts, users, media, comments, feeds, settings outside this theme, or core files.</p>
+<section class="panel appearance-hero-panel appearance-danger-hero">
+  <div class="appearance-hero-copy">
+    <p class="eyebrow">Theme deletion</p>
+    <h2>Remove <?= htmlspecialchars($name !== '' ? $name : 'theme', ENT_QUOTES, 'UTF-8') ?>.</h2>
+    <p class="meta">Deleting a theme removes its private package and public assets. It does not remove content, accounts, media, comments, navigation, or unrelated settings.</p>
+  </div>
+  <span class="status-pill trash">Permanent</span>
 </section>
 
-<section class="panel settings-panel theme-delete-panel">
-  <p class="eyebrow">Theme</p>
-  <h2><?= htmlspecialchars($name !== '' ? $name : 'Unknown theme', ENT_QUOTES, 'UTF-8') ?></h2>
-  <?php if ($screenshotUrl !== ''): ?>
-    <img class="theme-settings-screenshot theme-delete-screenshot" src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?> screenshot">
-  <?php endif; ?>
-  <div class="theme-meta-list">
-    <span><strong>Slug</strong> <code><?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></span>
-    <span><strong>Private folder</strong> <code>_bonumark_stream/themes/<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></span>
-    <span><strong>Public assets</strong> <code>assets/themes/<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></span>
+<section class="panel appearance-delete-panel">
+  <div class="appearance-delete-summary">
+    <?php if ($screenshotUrl !== ''): ?><img src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?> screenshot"><?php endif; ?>
+    <div>
+      <p class="eyebrow">Selected theme</p>
+      <h2><?= htmlspecialchars($name !== '' ? $name : 'Unknown theme', ENT_QUOTES, 'UTF-8') ?></h2>
+      <dl class="appearance-detail-facts compact">
+        <div><dt>Slug</dt><dd><code><?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></dd></div>
+        <div><dt>Private package</dt><dd><code>_bonumark_stream/themes/<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></dd></div>
+        <div><dt>Public assets</dt><dd><code>assets/themes/<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></dd></div>
+      </dl>
+    </div>
   </div>
 
   <?php if (!$slug || $errors): ?>
-    <div class="alert error">
-      <strong>This theme cannot be deleted.</strong>
-      <ul>
-        <?php foreach ($errors ?: ['Invalid theme slug.'] as $error): ?>
-          <li><?= htmlspecialchars((string)$error, ENT_QUOTES, 'UTF-8') ?></li>
-        <?php endforeach; ?>
-      </ul>
+    <div class="appearance-blocked-state">
+      <p class="eyebrow">Deletion blocked</p>
+      <h3>This theme cannot be deleted.</h3>
+      <ul class="appearance-issue-list"><?php foreach ($errors ?: ['Invalid theme slug.'] as $error): ?><li><span><?= htmlspecialchars((string)$error, ENT_QUOTES, 'UTF-8') ?></span></li><?php endforeach; ?></ul>
+      <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
     </div>
-    <p><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a></p>
   <?php else: ?>
-    <div class="alert warning">
-      <strong>Confirm deletion.</strong> This cannot be undone from inside Bonumark. Keep a copy of the theme ZIP if you may need it again.
-    </div>
-    <form method="post" class="settings-form theme-delete-form">
+    <form method="post" class="appearance-delete-form">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
-      <label for="confirm_slug">Type the theme slug to confirm</label>
-      <input id="confirm_slug" type="text" name="confirm_slug" required placeholder="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" autocomplete="off">
-      <p class="field-help">Bonumark blocks deletion of the active theme and protected core themes. Optional themes can be removed when they are not active.</p>
-      <div class="form-actions-row">
-        <button type="submit" class="danger">Delete Theme</button>
-        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
-      </div>
+      <div class="appearance-delete-warning"><strong>Keep a copy of the theme ZIP.</strong><span>This action cannot be reversed from inside Bonumark.</span></div>
+      <label for="confirm_slug">Type <code><?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code> to confirm</label>
+      <input id="confirm_slug" type="text" name="confirm_slug" required autocomplete="off" spellcheck="false">
+      <p class="field-help">Active and protected core themes remain blocked from deletion.</p>
+      <div class="appearance-form-actions"><button type="submit" class="danger">Delete Theme</button><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a></div>
     </form>
   <?php endif; ?>
 </section>

@@ -156,35 +156,70 @@ foreach ($items as $item) {
     $menuUrls[] = bms_sanitize_navigation_url((string)($item['url'] ?? ''));
 }
 
+$menuItemCount = count($items);
+$customItemCount = 0;
+$pageItemCount = 0;
+foreach ($items as $item) {
+    if ((string)($item['source'] ?? 'custom') === 'page') { $pageItemCount++; } else { $customItemCount++; }
+}
+
 bms_admin_header('Navigation', [
-    ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
+    ['label' => 'Site Identity', 'href' => bms_admin_url('site-identity.php'), 'style' => 'secondary'],
+    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
-<section class="panel page-intro-panel">
-  <p class="eyebrow">Appearance</p>
-  <h2>Manage the public menu in one place.</h2>
-  <p class="meta">Navigation is optional. Turn it on only if you want a public menu, then add the main links you want visitors to see.</p>
+<section class="panel appearance-hero-panel">
+  <div class="appearance-hero-copy">
+    <p class="eyebrow">Site design</p>
+    <h2>Build the public menu.</h2>
+    <p class="meta">Control whether navigation appears, let Bonumark add visitor-specific account links, and manage the pages and custom destinations visitors can reach.</p>
+  </div>
+  <span class="status-pill <?= $navigationEnabled ? 'published' : 'draft' ?>"><?= $navigationEnabled ? 'Navigation on' : 'Navigation hidden' ?></span>
 </section>
 
-<section class="panel settings-panel navigation-builder-panel">
-  <form method="post" class="navigation-manager-form">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="nav_action" value="save">
+<section class="panel appearance-summary-panel" aria-label="Navigation summary">
+  <div class="appearance-summary-grid">
+    <div><span>Public menu</span><strong><?= $navigationEnabled ? 'Shown' : 'Hidden' ?></strong></div>
+    <div><span>Menu items</span><strong><?= $menuItemCount ?></strong></div>
+    <div><span>Page links</span><strong><?= $pageItemCount ?></strong></div>
+    <div><span>Account links</span><strong><?= $accountLinksEnabled ? 'Automatic' : 'Manual' ?></strong></div>
+  </div>
+</section>
 
-    <div class="navigation-display-toggle">
-      <label class="checkbox-row"><input type="checkbox" name="primary_navigation_enabled" value="1" <?= $navigationEnabled ? 'checked' : '' ?>> Display public navigation</label>
-      <p class="field-help">When this is off, the public Menu button and navigation panel are hidden.</p>
-      <label class="checkbox-row"><input type="checkbox" name="public_navigation_account_links_enabled" value="1" <?= $accountLinksEnabled ? 'checked' : '' ?>> Show automatic account links</label>
-      <p class="field-help">When this is on, Bonumark adds the correct sign-in, registration, dashboard/account, profile, and sign-out links for the current visitor. Turn it off if you want to manage every menu link manually.</p>
+<form method="post" class="appearance-navigation-form">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" name="nav_action" value="save">
+
+  <section class="panel appearance-navigation-options-panel">
+    <div class="appearance-section-heading">
+      <div><p class="eyebrow">Menu behavior</p><h2>Choose what visitors see.</h2></div>
+      <button type="submit">Save Navigation</button>
+    </div>
+    <div class="appearance-option-list appearance-navigation-option-list">
+      <label class="appearance-toggle-card">
+        <input type="checkbox" name="primary_navigation_enabled" value="1" <?= $navigationEnabled ? 'checked' : '' ?>>
+        <span><strong>Display public navigation</strong><small>Show the public Menu button and navigation panel.</small></span>
+      </label>
+      <label class="appearance-toggle-card">
+        <input type="checkbox" name="public_navigation_account_links_enabled" value="1" <?= $accountLinksEnabled ? 'checked' : '' ?>>
+        <span><strong>Show automatic account links</strong><small>Add the correct sign-in, registration, dashboard or account, profile, and sign-out links for each visitor.</small></span>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel appearance-navigation-items-panel">
+    <div class="appearance-section-heading">
+      <div>
+        <p class="eyebrow">Current menu</p>
+        <h2>Order and edit menu items.</h2>
+        <p class="meta">Move controls save the new order immediately. Edit labels and URLs, then use Save Navigation.</p>
+      </div>
+      <span class="appearance-record-count"><?= $menuItemCount ?></span>
     </div>
 
-    <div class="navigation-manager-list" aria-label="Current menu items">
+    <div class="appearance-navigation-list" aria-label="Current menu items">
       <?php if (!$items): ?>
-        <div class="empty-state compact-empty-state">
-          <h3>No menu items yet.</h3>
-          <p class="meta">Add Home, a page, or a custom link below. The menu will stay hidden until public navigation is turned on.</p>
-        </div>
+        <div class="empty-state appearance-empty-state"><h3>No menu items yet.</h3><p class="meta">Add a published page or custom link below. The public menu remains empty until items are added.</p></div>
       <?php endif; ?>
       <?php foreach ($items as $index => $item): ?>
         <?php
@@ -195,74 +230,57 @@ bms_admin_header('Navigation', [
           $objectType = (string)($item['object_type'] ?? '');
           $objectSlug = (string)($item['object_slug'] ?? '');
         ?>
-        <article class="navigation-manager-item">
-          <div class="navigation-manager-item-summary">
-            <div class="navigation-manager-item-title-wrap">
-              <p class="navigation-manager-item-kicker">Menu item <?= $index + 1 ?></p>
+        <article class="appearance-navigation-item">
+          <input type="hidden" name="nav_source[]" value="<?= htmlspecialchars($source, ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="nav_object_type[]" value="<?= htmlspecialchars($objectType, ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="nav_object_slug[]" value="<?= htmlspecialchars($objectSlug, ENT_QUOTES, 'UTF-8') ?>">
+
+          <header class="appearance-navigation-item-header">
+            <span class="appearance-navigation-index"><?= $index + 1 ?></span>
+            <div class="appearance-navigation-item-copy">
+              <span><?= htmlspecialchars($source === 'page' ? 'Published page' : 'Custom link', ENT_QUOTES, 'UTF-8') ?></span>
               <h3><?= htmlspecialchars($label !== '' ? $label : 'Menu item', ENT_QUOTES, 'UTF-8') ?></h3>
-              <p class="navigation-manager-item-url"><?= htmlspecialchars($url !== '' ? $url : 'No URL set', ENT_QUOTES, 'UTF-8') ?></p>
+              <code><?= htmlspecialchars($url !== '' ? $url : 'No URL set', ENT_QUOTES, 'UTF-8') ?></code>
             </div>
-            <div class="navigation-manager-actions" aria-label="Menu item controls">
-              <button type="submit" class="secondary-button compact-button navigation-action-button" name="nav_action" value="move-up:<?= $index ?>" <?= $index === 0 ? 'disabled' : '' ?>>Move up</button>
-              <button type="submit" class="secondary-button compact-button navigation-action-button" name="nav_action" value="move-down:<?= $index ?>" <?= $index >= count($items) - 1 ? 'disabled' : '' ?>>Move down</button>
-              <button type="submit" class="link-button danger-link navigation-remove-button" name="nav_action" value="remove:<?= $index ?>">Remove</button>
+            <div class="appearance-navigation-item-actions" aria-label="Menu item controls">
+              <button type="submit" class="secondary-button compact-button" name="nav_action" value="move-up:<?= $index ?>" <?= $index === 0 ? 'disabled' : '' ?>>Up</button>
+              <button type="submit" class="secondary-button compact-button" name="nav_action" value="move-down:<?= $index ?>" <?= $index >= count($items) - 1 ? 'disabled' : '' ?>>Down</button>
+              <button type="submit" class="link-button danger-link" name="nav_action" value="remove:<?= $index ?>">Remove</button>
             </div>
-          </div>
-          <div class="navigation-manager-fields">
-            <input type="hidden" name="nav_source[]" value="<?= htmlspecialchars($source, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="nav_object_type[]" value="<?= htmlspecialchars($objectType, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="nav_object_slug[]" value="<?= htmlspecialchars($objectSlug, ENT_QUOTES, 'UTF-8') ?>">
-            <div class="navigation-manager-field">
-              <label for="nav_label_<?= $index ?>">Label</label>
-              <input type="text" id="nav_label_<?= $index ?>" name="nav_label[]" value="<?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>" maxlength="80" required>
-            </div>
-            <div class="navigation-manager-field">
-              <label for="nav_url_<?= $index ?>">URL</label>
-              <input type="text" id="nav_url_<?= $index ?>" name="nav_url[]" value="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required>
-            </div>
-            <div class="navigation-manager-field navigation-manager-field-small">
-              <label for="nav_target_<?= $index ?>">Open</label>
-              <select id="nav_target_<?= $index ?>" name="nav_target[]">
-                <option value="_self" <?= $target === '_self' ? 'selected' : '' ?>>Same tab</option>
-                <option value="_blank" <?= $target === '_blank' ? 'selected' : '' ?>>New tab</option>
-              </select>
-            </div>
+          </header>
+
+          <div class="appearance-navigation-item-fields">
+            <label><span>Label</span><input type="text" name="nav_label[]" value="<?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>" maxlength="80" required></label>
+            <label><span>URL</span><input type="text" name="nav_url[]" value="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" maxlength="255" required></label>
+            <label class="appearance-navigation-target"><span>Open</span><select name="nav_target[]"><option value="_self" <?= $target === '_self' ? 'selected' : '' ?>>Same tab</option><option value="_blank" <?= $target === '_blank' ? 'selected' : '' ?>>New tab</option></select></label>
           </div>
         </article>
       <?php endforeach; ?>
     </div>
 
-    <p class="field-help">Order is controlled by the Move up and Move down buttons. Bonumark stores the final order automatically.</p>
-    <button type="submit">Save Navigation</button>
-  </form>
-</section>
+    <?php if ($items): ?><div class="appearance-form-actions"><button type="submit">Save Navigation</button></div><?php endif; ?>
+  </section>
+</form>
 
-<section class="panel settings-panel navigation-add-panel">
-  <div class="panel-heading-row">
-    <div>
-      <p class="eyebrow">Add items</p>
-      <h2>Add pages and custom links.</h2>
-    </div>
+<section class="panel appearance-navigation-add-panel">
+  <div class="appearance-section-heading">
+    <div><p class="eyebrow">Add destinations</p><h2>Add pages and custom links.</h2></div>
     <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a>
   </div>
-  <div class="navigation-add-grid">
-    <form method="post" class="navigation-add-card">
+  <div class="appearance-navigation-add-grid">
+    <form method="post" class="appearance-navigation-add-card">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="nav_action" value="add_page">
       <?php if ($navigationEnabled): ?><input type="hidden" name="primary_navigation_enabled" value="1"><?php endif; ?>
       <?php if ($accountLinksEnabled): ?><input type="hidden" name="public_navigation_account_links_enabled" value="1"><?php endif; ?>
-      <h3>Add published page</h3>
+      <div><p class="eyebrow">Published content</p><h3>Add a page</h3><p class="meta">Use a published stable page as a menu destination.</p></div>
       <?php if (!$publishedPages): ?>
-        <p class="meta">No published pages are available yet.</p>
+        <div class="empty-state appearance-empty-state compact"><h3>No published pages.</h3><p class="meta">Publish a page before adding it to navigation.</p></div>
       <?php else: ?>
         <label for="page_slug">Page</label>
         <select id="page_slug" name="page_slug">
           <?php foreach ($publishedPages as $page): ?>
-            <?php
-              $slug = bms_slugify((string)($page['slug'] ?? ''));
-              $url = '/' . trim(bms_page_relative_directory($slug), '/') . '/';
-              $alreadyAdded = in_array(bms_sanitize_navigation_url($url), $menuUrls, true);
-            ?>
+            <?php $slug = bms_slugify((string)($page['slug'] ?? '')); $url = '/' . trim(bms_page_relative_directory($slug), '/') . '/'; $alreadyAdded = in_array(bms_sanitize_navigation_url($url), $menuUrls, true); ?>
             <option value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" <?= $alreadyAdded ? 'disabled' : '' ?>><?= htmlspecialchars((string)($page['title'] ?? 'Untitled Page'), ENT_QUOTES, 'UTF-8') ?><?= $alreadyAdded ? ' (already added)' : '' ?></option>
           <?php endforeach; ?>
         </select>
@@ -270,21 +288,15 @@ bms_admin_header('Navigation', [
       <?php endif; ?>
     </form>
 
-    <form method="post" class="navigation-add-card">
+    <form method="post" class="appearance-navigation-add-card">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="nav_action" value="add_custom">
       <?php if ($navigationEnabled): ?><input type="hidden" name="primary_navigation_enabled" value="1"><?php endif; ?>
       <?php if ($accountLinksEnabled): ?><input type="hidden" name="public_navigation_account_links_enabled" value="1"><?php endif; ?>
-      <h3>Add custom link</h3>
-      <label for="custom_label">Label</label>
-      <input type="text" id="custom_label" name="custom_label" maxlength="80" placeholder="Example: RSS">
-      <label for="custom_url">URL</label>
-      <input type="text" id="custom_url" name="custom_url" maxlength="255" placeholder="/feed.xml">
-      <label for="custom_target">Open</label>
-      <select id="custom_target" name="custom_target">
-        <option value="_self">Same tab</option>
-        <option value="_blank">New tab</option>
-      </select>
+      <div><p class="eyebrow">Any destination</p><h3>Add a custom link</h3><p class="meta">Link to feeds, external sites, downloads, or any valid URL.</p></div>
+      <label for="custom_label">Label</label><input type="text" id="custom_label" name="custom_label" maxlength="80" placeholder="Example: RSS">
+      <label for="custom_url">URL</label><input type="text" id="custom_url" name="custom_url" maxlength="255" placeholder="/feed.xml">
+      <label for="custom_target">Open</label><select id="custom_target" name="custom_target"><option value="_self">Same tab</option><option value="_blank">New tab</option></select>
       <button type="submit" class="secondary-button">Add Custom Link</button>
     </form>
   </div>

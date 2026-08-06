@@ -1,0 +1,611 @@
+/*
+ * Bonumark Stream Admin Settings
+ * General, Reading, Writing, Security, Mail, Remote Posting, and Scheduled Tasks.
+ */
+
+body.bonumark-admin.admin-screen-settings .admin-content,
+body.bonumark-admin.admin-screen-settings-reading .admin-content,
+body.bonumark-admin.admin-screen-settings-writing .admin-content,
+body.bonumark-admin.admin-screen-security .admin-content,
+body.bonumark-admin.admin-screen-mail .admin-content,
+body.bonumark-admin.admin-screen-remote-posting .admin-content,
+body.bonumark-admin.admin-screen-scheduled-tasks .admin-content {
+  max-width: 1500px;
+}
+
+body.bonumark-admin .settings-workflow-hero,
+body.bonumark-admin .settings-section-header,
+body.bonumark-admin .settings-save-bar,
+body.bonumark-admin .settings-record-heading,
+body.bonumark-admin .settings-token-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .settings-workflow-hero-copy,
+body.bonumark-admin .settings-section-header > div,
+body.bonumark-admin .settings-save-bar > div,
+body.bonumark-admin .settings-record-heading > div,
+body.bonumark-admin .settings-token-heading > div {
+  min-width: 0;
+}
+
+body.bonumark-admin .settings-workflow-hero h2,
+body.bonumark-admin .settings-section-header h2,
+body.bonumark-admin .settings-record-heading h3,
+body.bonumark-admin .settings-token-heading h3 {
+  margin-bottom: 7px;
+}
+
+body.bonumark-admin .settings-workflow-hero .meta,
+body.bonumark-admin .settings-section-header .meta,
+body.bonumark-admin .settings-record-heading .meta,
+body.bonumark-admin .settings-token-heading .meta {
+  margin: 0;
+  max-width: 850px;
+}
+
+body.bonumark-admin .settings-hero-actions,
+body.bonumark-admin .settings-form-actions,
+body.bonumark-admin .settings-inline-actions,
+body.bonumark-admin .settings-record-actions,
+body.bonumark-admin .settings-status-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.bonumark-admin .settings-hero-actions {
+  flex: 0 0 auto;
+}
+
+body.bonumark-admin .settings-summary-panel {
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .settings-summary-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.bonumark-admin .settings-summary-grid > div,
+body.bonumark-admin .settings-support-card,
+body.bonumark-admin .settings-security-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .settings-summary-grid span,
+body.bonumark-admin .settings-mobile-label,
+body.bonumark-admin .settings-fact-list dt,
+body.bonumark-admin .settings-record-facts dt,
+body.bonumark-admin .settings-endpoint-list span {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .settings-summary-grid strong {
+  color: var(--admin-text);
+  font-size: .96rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .settings-workflow-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, .55fr);
+}
+
+body.bonumark-admin .settings-workflow-main,
+body.bonumark-admin .settings-workflow-rail,
+body.bonumark-admin .settings-section-list,
+body.bonumark-admin .settings-option-list,
+body.bonumark-admin .settings-support-grid,
+body.bonumark-admin .settings-record-list,
+body.bonumark-admin .settings-security-grid {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+body.bonumark-admin .settings-workflow-rail.is-sticky {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .settings-section-panel {
+  min-width: 0;
+}
+
+/* Settings URL Overflow Hotfix: long technical values must shrink and wrap inside their panels. */
+body.bonumark-admin .settings-workflow-grid > *,
+body.bonumark-admin .settings-workflow-main > *,
+body.bonumark-admin .settings-workflow-rail > *,
+body.bonumark-admin .settings-section-panel > * {
+  min-width: 0;
+}
+
+body.bonumark-admin .settings-technical-value,
+body.bonumark-admin .settings-section-header .meta code,
+body.bonumark-admin .settings-endpoint-list code,
+body.bonumark-admin .settings-fact-list code,
+body.bonumark-admin .settings-record-facts code,
+body.bonumark-admin .settings-record-cell code {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+body.bonumark-admin .settings-endpoint-list code,
+body.bonumark-admin .settings-fact-list dd > code,
+body.bonumark-admin .settings-record-facts dd > code,
+body.bonumark-admin .settings-record-cell > code {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+}
+
+body.bonumark-admin .settings-section-header {
+  border-bottom: 1px solid var(--admin-border);
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+body.bonumark-admin .settings-field-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .settings-field-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.bonumark-admin .settings-field-card,
+body.bonumark-admin .settings-option-card,
+body.bonumark-admin .settings-endpoint-list > div {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 15px;
+}
+
+body.bonumark-admin .settings-field-card {
+  display: grid;
+  gap: 7px;
+}
+
+body.bonumark-admin .settings-field-card label,
+body.bonumark-admin .settings-field-card .field-label {
+  color: var(--admin-text);
+  font-weight: 800;
+  margin: 0;
+}
+
+body.bonumark-admin .settings-field-card input,
+body.bonumark-admin .settings-field-card select,
+body.bonumark-admin .settings-field-card textarea {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .settings-field-card .field-help,
+body.bonumark-admin .settings-option-card small,
+body.bonumark-admin .settings-support-card p,
+body.bonumark-admin .settings-security-card p {
+  color: var(--admin-muted);
+  font-size: .82rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+body.bonumark-admin .settings-option-card {
+  align-items: flex-start;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 0;
+}
+
+body.bonumark-admin .settings-option-card:hover,
+body.bonumark-admin .settings-option-card:focus-within,
+body.bonumark-admin .settings-field-card:focus-within,
+body.bonumark-admin .settings-security-card:hover,
+body.bonumark-admin .settings-security-card:focus-within {
+  border-color: rgba(229, 193, 129, .42);
+}
+
+body.bonumark-admin .settings-option-card input[type="checkbox"] {
+  margin: 3px 0 0;
+}
+
+body.bonumark-admin .settings-option-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body.bonumark-admin .settings-option-copy strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .settings-save-bar {
+  align-items: center;
+  border-top: 1px solid var(--admin-border);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+
+body.bonumark-admin .settings-fact-list,
+body.bonumark-admin .settings-record-facts {
+  display: grid;
+  gap: 0;
+  margin: 14px 0 0;
+}
+
+body.bonumark-admin .settings-fact-list > div,
+body.bonumark-admin .settings-record-facts > div {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr);
+  padding: 12px 0;
+}
+
+body.bonumark-admin .settings-fact-list dd,
+body.bonumark-admin .settings-record-facts dd {
+  color: var(--admin-text);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+body.bonumark-admin .settings-fact-list code,
+body.bonumark-admin .settings-record-facts code,
+body.bonumark-admin .settings-endpoint-list code {
+  white-space: normal;
+}
+
+body.bonumark-admin .settings-support-grid,
+body.bonumark-admin .settings-security-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.bonumark-admin .settings-support-card,
+body.bonumark-admin .settings-security-card {
+  align-content: start;
+}
+
+body.bonumark-admin .settings-support-card h3,
+body.bonumark-admin .settings-security-card h3 {
+  margin: 0;
+}
+
+body.bonumark-admin .settings-support-card .button-link,
+body.bonumark-admin .settings-security-card .button-link {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+body.bonumark-admin .settings-attention-panel {
+  border-left: 3px solid var(--admin-accent);
+}
+
+body.bonumark-admin .settings-attention-panel.is-danger {
+  border-left-color: #e57373;
+}
+
+body.bonumark-admin .settings-endpoint-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.bonumark-admin .settings-endpoint-list > div {
+  display: grid;
+  gap: 6px;
+}
+
+body.bonumark-admin .settings-token-once {
+  min-height: 110px;
+  resize: vertical;
+  width: 100%;
+}
+
+body.bonumark-admin .settings-scope-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .settings-scope-card {
+  align-items: flex-start;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 0;
+  min-width: 0;
+  padding: 14px;
+}
+
+body.bonumark-admin .settings-scope-card.is-reserved {
+  opacity: .58;
+}
+
+body.bonumark-admin .settings-scope-card input {
+  margin: 3px 0 0;
+}
+
+body.bonumark-admin .settings-scope-card span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.bonumark-admin .settings-scope-card small {
+  color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+body.bonumark-admin .settings-record-summary {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  display: flex;
+  font-size: .84rem;
+  gap: 14px;
+  justify-content: flex-end;
+  min-height: 52px;
+  padding: 12px 0;
+}
+
+body.bonumark-admin .settings-record-header,
+body.bonumark-admin .settings-token-record,
+body.bonumark-admin .settings-audit-record,
+body.bonumark-admin .settings-history-record,
+body.bonumark-admin .settings-mail-record {
+  display: grid;
+  gap: 16px;
+}
+
+body.bonumark-admin .settings-record-header {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  padding: 13px 16px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .settings-token-record {
+  grid-template-columns: minmax(220px, 1.1fr) minmax(250px, 1fr) 120px 150px 110px;
+}
+
+body.bonumark-admin .settings-audit-record {
+  grid-template-columns: minmax(180px, .75fr) minmax(190px, .8fr) minmax(160px, .65fr) 120px minmax(180px, .75fr) minmax(240px, 1fr);
+}
+
+body.bonumark-admin .settings-history-record {
+  grid-template-columns: minmax(190px, .85fr) minmax(160px, .65fr) 120px 100px minmax(280px, 1.3fr);
+}
+
+body.bonumark-admin .settings-mail-record {
+  grid-template-columns: minmax(190px, .8fr) minmax(240px, 1fr) minmax(150px, .65fr) 110px minmax(250px, 1fr);
+}
+
+body.bonumark-admin .settings-record-list {
+  background: rgba(0, 0, 0, .08);
+  margin: 0 -20px -20px;
+}
+
+body.bonumark-admin .settings-token-record:not(.settings-record-header),
+body.bonumark-admin .settings-audit-record:not(.settings-record-header),
+body.bonumark-admin .settings-history-record:not(.settings-record-header),
+body.bonumark-admin .settings-mail-record:not(.settings-record-header) {
+  align-items: center;
+  background: var(--admin-surface);
+  border-top: 1px solid var(--admin-border);
+  min-width: 0;
+  padding: 17px 20px;
+}
+
+body.bonumark-admin .settings-token-record:not(.settings-record-header):hover,
+body.bonumark-admin .settings-token-record:not(.settings-record-header):focus-within,
+body.bonumark-admin .settings-audit-record:not(.settings-record-header):hover,
+body.bonumark-admin .settings-audit-record:not(.settings-record-header):focus-within,
+body.bonumark-admin .settings-history-record:not(.settings-record-header):hover,
+body.bonumark-admin .settings-mail-record:not(.settings-record-header):hover {
+  background: #161c25;
+}
+
+body.bonumark-admin .settings-record-cell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .settings-record-cell.is-primary {
+  display: grid;
+  gap: 5px;
+}
+
+body.bonumark-admin .settings-record-cell.is-primary strong {
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .settings-record-cell code {
+  white-space: normal;
+}
+
+body.bonumark-admin .settings-mobile-label {
+  display: none;
+  margin-bottom: 5px;
+}
+
+body.bonumark-admin .settings-empty-state {
+  border: 1px dashed rgba(229, 193, 129, .28);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 30px 20px;
+}
+
+body.bonumark-admin .settings-empty-state h3,
+body.bonumark-admin .settings-empty-state p {
+  margin: 0;
+}
+
+body.bonumark-admin .settings-command-card {
+  display: grid;
+  gap: 12px;
+}
+
+body.bonumark-admin .settings-command-card input {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .settings-danger-zone {
+  border-color: rgba(229, 115, 115, .34);
+}
+
+@media (max-width: 1180px) {
+  body.bonumark-admin .settings-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .settings-workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .settings-workflow-rail.is-sticky {
+    position: static;
+  }
+
+  body.bonumark-admin .settings-support-grid,
+  body.bonumark-admin .settings-security-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .settings-record-header {
+    display: none;
+  }
+
+  body.bonumark-admin .settings-token-record,
+  body.bonumark-admin .settings-audit-record,
+  body.bonumark-admin .settings-history-record,
+  body.bonumark-admin .settings-mail-record {
+    align-items: start;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 12px 16px;
+    padding: 16px;
+  }
+
+  body.bonumark-admin .settings-record-list {
+    background: transparent;
+    margin: 0 -4px -4px;
+  }
+
+  body.bonumark-admin .settings-mobile-label {
+    display: block;
+  }
+
+  body.bonumark-admin .settings-record-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  body.bonumark-admin .settings-workflow-hero,
+  body.bonumark-admin .settings-section-header,
+  body.bonumark-admin .settings-save-bar,
+  body.bonumark-admin .settings-record-heading,
+  body.bonumark-admin .settings-token-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .settings-hero-actions,
+  body.bonumark-admin .settings-form-actions,
+  body.bonumark-admin .settings-inline-actions {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  body.bonumark-admin .settings-hero-actions .button-link,
+  body.bonumark-admin .settings-form-actions .button-link,
+  body.bonumark-admin .settings-inline-actions .button-link,
+  body.bonumark-admin .settings-form-actions button,
+  body.bonumark-admin .settings-inline-actions button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  body.bonumark-admin .settings-field-grid,
+  body.bonumark-admin .settings-support-grid,
+  body.bonumark-admin .settings-security-grid,
+  body.bonumark-admin .settings-scope-grid,
+  body.bonumark-admin .settings-token-record,
+  body.bonumark-admin .settings-audit-record,
+  body.bonumark-admin .settings-history-record,
+  body.bonumark-admin .settings-mail-record {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+
+  body.bonumark-admin .settings-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .settings-fact-list > div,
+  body.bonumark-admin .settings-record-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .settings-fact-list dd,
+  body.bonumark-admin .settings-record-facts dd {
+    text-align: left;
+  }
+
+  body.bonumark-admin .settings-option-card {
+    padding: 14px;
+  }
+
+  body.bonumark-admin .settings-record-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 420px) {
+  body.bonumark-admin .settings-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

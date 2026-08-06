@@ -136,8 +136,9 @@ function bms_render_stream_composer_mount(): string
 
 function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
 {
+    $canEdit = function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
     $canPublish = function_exists('bms_current_user_can') && bms_current_user_can('publish_content');
-    if (!function_exists('bms_is_logged_in') || !bms_is_logged_in() || !$canPublish || !bms_stream_composer_enabled()) {
+    if (!function_exists('bms_is_logged_in') || !bms_is_logged_in() || !$canEdit) {
         return null;
     }
 
@@ -186,10 +187,16 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         'scheduled_runner_url' => bms_admin_url('scheduled-runner.php'),
         'placeholder' => 'What is happening?',
         'body_value' => $prefillBody,
-        'submit_label' => 'Post',
-        'busy_label' => 'Posting...',
+        'can_publish' => $canPublish,
+        'submit_label' => $canPublish ? 'Post' : 'Save draft',
+        'busy_label' => $canPublish ? 'Posting...' : 'Saving...',
+        'draft_label' => 'Save draft',
+        'draft_busy_label' => 'Saving...',
+        'continue_label' => 'Continue in full editor',
+        'continue_busy_label' => 'Opening editor...',
         'attach_label' => 'Attach media',
-        'help_text' => 'You can attach one image, audio, video, or document file.',
+        'max_files' => 4,
+        'help_text' => 'Attach up to four photos, or one audio, video, or document file. Use Advanced only when you need manual URL or search controls.',
         'timezone_label' => function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : 'UTC',
         'flashes' => $flashes,
     ];
@@ -326,9 +333,9 @@ function bms_stream_display_date(array $page): string
     }
 }
 
-function bms_stream_media_url(array $page): string
+function bms_stream_media_url_from_value(string $media): string
 {
-    $media = trim((string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''));
+    $media = trim($media);
     if ($media === '') {
         return '';
     }
@@ -363,6 +370,37 @@ function bms_stream_media_url(array $page): string
     return bms_url_path($media);
 }
 
+function bms_stream_media_url(array $page): string
+{
+    return bms_stream_media_url_from_value((string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''));
+}
+
+function bms_stream_media_gallery_paths(array $page): array
+{
+    $featured = trim((string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''));
+    $raw = $page['media_gallery'] ?? $page['front_matter']['media_gallery'] ?? [];
+    $paths = function_exists('bms_normalize_media_gallery')
+        ? bms_normalize_media_gallery($raw, $featured)
+        : array_values(array_filter([$featured]));
+
+    $images = [];
+    foreach ($paths as $path) {
+        $url = bms_stream_media_url_from_value((string)$path);
+        if ($url === '' || !str_starts_with(bms_stream_media_mime_from_url($url), 'image/')) {
+            continue;
+        }
+        $images[] = [
+            'path' => (string)$path,
+            'url' => $url,
+        ];
+        if (count($images) >= 4) {
+            break;
+        }
+    }
+    return $images;
+}
+
+
 function bms_stream_media_mime_from_url(string $mediaUrl): string
 {
     $path = parse_url($mediaUrl, PHP_URL_PATH);
@@ -396,8 +434,81 @@ function bms_stream_media_label_from_url(string $mediaUrl): string
 }
 
 
+function bms_stream_media_item_alt(array $page, string $path, int $position = 1, int $count = 1): string
+{
+    $alt = '';
+    if (function_exists('bms_media_find_by_public_path')) {
+        $media = bms_media_find_by_public_path($path);
+        $candidate = trim((string)($media['alt_text'] ?? ''));
+        if ($candidate !== '' && !in_array(strtolower($candidate), ['uploaded image', 'uploaded media'], true)) {
+            $alt = $candidate;
+        }
+    }
+    if ($alt === '') {
+        $alt = bms_stream_media_alt($page);
+        if ($count > 1) {
+            $alt .= ' (photo ' . $position . ' of ' . $count . ')';
+        }
+    }
+    return $alt;
+}
+
+function bms_stream_gallery_image_sizes(int $count, int $position): string
+{
+    if ($count === 3 && $position === 1) {
+        return '(max-width: 720px) calc(100vw - 2rem), min(100vw - 4rem, 900px)';
+    }
+    return '(max-width: 720px) calc((100vw - 2.5rem) / 2), min((100vw - 5rem) / 2, 440px)';
+}
+
 function bms_stream_media_view_data(array $page, array $options = []): ?array
 {
+    $gallery = bms_stream_media_gallery_paths($page);
+    if (count($gallery) > 1) {
+        $count = count($gallery);
+        $items = [];
+        foreach ($gallery as $index => $galleryItem) {
+            $position = $index + 1;
+            $url = (string)$galleryItem['url'];
+            $path = (string)$galleryItem['path'];
+            $alt = bms_stream_media_item_alt($page, $path, $position, $count);
+            $imageAttributes = function_exists('bms_media_image_attributes') ? bms_media_image_attributes($url, $alt, [
+                'loading' => 'lazy',
+                'decoding' => 'async',
+                'fetchpriority' => '',
+                'sizes' => bms_stream_gallery_image_sizes($count, $position),
+                'widths' => [320, 480, 640, 768, 960, 1200],
+                'class' => 'stream-media-gallery-image',
+            ]) : '';
+            $items[] = [
+                'position' => $position,
+                'url' => $url,
+                'path' => $path,
+                'mime' => bms_stream_media_mime_from_url($url),
+                'alt' => $alt,
+                'label' => bms_stream_media_label_from_url($url),
+                'image_attributes' => $imageAttributes,
+            ];
+        }
+
+        return [
+            'url' => (string)$items[0]['url'],
+            'mime' => (string)$items[0]['mime'],
+            'type' => 'gallery',
+            'alt' => (string)$items[0]['alt'],
+            'label' => 'Photo gallery',
+            'image_attributes' => '',
+            'count' => $count,
+            'layout' => match ($count) {
+                2 => 'pair',
+                3 => 'trio',
+                default => 'grid',
+            },
+            'items' => $items,
+            'page' => $page,
+        ];
+    }
+
     $mediaUrl = bms_stream_media_url($page);
     if ($mediaUrl === '') {
         return null;
@@ -413,7 +524,7 @@ function bms_stream_media_view_data(array $page, array $options = []): ?array
         $type = 'video';
     }
 
-    $alt = bms_stream_media_alt($page);
+    $alt = bms_stream_media_item_alt($page, (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? ''), 1, 1);
     $imageAttributes = '';
     if ($type === 'image' && function_exists('bms_media_image_attributes')) {
         $imageAttributes = bms_media_image_attributes($mediaUrl, $alt, [
@@ -432,6 +543,9 @@ function bms_stream_media_view_data(array $page, array $options = []): ?array
         'alt' => $alt,
         'label' => bms_stream_media_label_from_url($mediaUrl),
         'image_attributes' => $imageAttributes,
+        'count' => 1,
+        'layout' => 'single',
+        'items' => [],
         'page' => $page,
     ];
 }
@@ -552,6 +666,8 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $commentCount = !$previewMode && function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
     $editUrl = '';
+    $quickEdit = [];
+    $trashAction = [];
     $pinAction = '';
     $pinActionUrl = '';
     $pinCsrf = '';
@@ -563,8 +679,32 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
             $section = ((string)($page['section'] ?? 'published')) === 'drafts' ? 'drafts' : 'published';
             $subject = bms_content_subject_for_file($section, $filename, $page);
         }
-        if (bms_stream_show_edit_links() && function_exists('bms_current_user_can') && bms_current_user_can('edit_content', $subject)) {
+        if (function_exists('bms_current_user_can') && bms_current_user_can('edit_content', $subject)) {
             $editUrl = bms_stream_edit_url($page);
+            if (!$previewMode && (string)($page['section'] ?? 'published') === 'published' && bms_is_stream_post($page)) {
+                $csrfToken = function_exists('bms_csrf_token') ? bms_csrf_token() : '';
+                $contentHash = hash('sha256', (string)($page['raw'] ?? ''));
+                $quickEdit = [
+                    'enabled' => true,
+                    'endpoint' => bms_admin_url('stream-quick-edit.php'),
+                    'csrf_token' => $csrfToken,
+                    'filename' => basename((string)($page['filename'] ?? '')),
+                    'body' => (string)($page['body'] ?? ''),
+                    'content_hash' => $contentHash,
+                ];
+                $trashReturnSource = $single
+                    ? bms_stream_home_url()
+                    : (string)($_SERVER['REQUEST_URI'] ?? bms_stream_home_url());
+                $trashAction = [
+                    'enabled' => true,
+                    'endpoint' => bms_admin_url('stream-trash.php'),
+                    'csrf_token' => $csrfToken,
+                    'filename' => basename((string)($page['filename'] ?? '')),
+                    'content_hash' => $contentHash,
+                    'return_to' => bms_stream_safe_return_url($trashReturnSource),
+                    'single' => $single,
+                ];
+            }
         }
         if (!$previewMode && function_exists('bms_current_user_can') && bms_current_user_can('publish_content', $subject) && bms_is_stream_post($page)) {
             $pinAction = bms_is_pinned_stream_post($page) ? 'unpin' : 'pin';
@@ -630,6 +770,8 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
         'back_url' => $single ? ($previewMode && $previewEditUrl !== '' ? $previewEditUrl : (function_exists('bms_stream_home_url') ? bms_stream_home_url() : bms_url_path())) : '',
         'back_label' => $previewMode ? 'Back to editor' : 'Back to stream',
         'edit_url' => $previewMode ? '' : $editUrl,
+        'quick_edit' => $previewMode ? [] : $quickEdit,
+        'trash_action' => $previewMode ? [] : $trashAction,
         'pin_action' => $previewMode ? '' : $pinAction,
         'pin_action_url' => $previewMode ? '' : $pinActionUrl,
         'pin_csrf' => $previewMode ? '' : $pinCsrf,

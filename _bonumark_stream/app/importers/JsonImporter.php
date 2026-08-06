@@ -106,6 +106,7 @@ class BMS_JsonImporter implements BMS_ImporterInterface
         $description = $this->firstString($record, ['description', 'summary', 'excerpt', 'seo_description']);
         $status = $this->firstString($record, ['status', 'post_status']);
         $featuredMedia = $this->firstString($record, ['featured_media', 'image', 'media', 'attachment']);
+        $mediaGallery = bms_normalize_media_gallery(is_array($record['media_gallery'] ?? null) ? $record['media_gallery'] : [], $featuredMedia);
         $tags = $this->termsFromRecord($record);
 
         if (trim($title) === '') {
@@ -122,6 +123,7 @@ class BMS_JsonImporter implements BMS_ImporterInterface
             'status' => bms_import_normalize_status($status),
             'source' => $sourceName . ' #' . $index,
             'featured_media' => $featuredMedia,
+            'media_gallery' => $mediaGallery,
             'tags' => $tags,
         ]);
     }

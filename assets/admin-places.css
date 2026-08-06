@@ -1,0 +1,758 @@
+/*
+ * Bonumark Stream Admin Local Places
+ * Private place directory, nearby search, place editor, public-label preview, and deletion confirmation.
+ */
+
+body.bonumark-admin.admin-screen-places .admin-content,
+body.bonumark-admin.admin-screen-place-edit .admin-content,
+body.bonumark-admin.admin-screen-place-delete .admin-content {
+  max-width: 1500px;
+}
+
+body.bonumark-admin .places-workflow-hero,
+body.bonumark-admin .places-section-header,
+body.bonumark-admin .places-nearby-result,
+body.bonumark-admin .places-coordinate-actions,
+body.bonumark-admin .places-delete-actions {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+body.bonumark-admin .places-workflow-hero-copy,
+body.bonumark-admin .places-section-header > div,
+body.bonumark-admin .places-nearby-result > div {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-workflow-hero h2,
+body.bonumark-admin .places-section-header h2,
+body.bonumark-admin .places-delete-hero h2,
+body.bonumark-admin .places-delete-summary h2,
+body.bonumark-admin .places-delete-confirmation h2,
+body.bonumark-admin .places-save-panel h2,
+body.bonumark-admin .places-danger-panel h2 {
+  margin-bottom: 7px;
+}
+
+body.bonumark-admin .places-workflow-hero .meta,
+body.bonumark-admin .places-section-header .meta,
+body.bonumark-admin .places-delete-hero .meta,
+body.bonumark-admin .places-delete-confirmation .meta,
+body.bonumark-admin .places-save-panel .meta,
+body.bonumark-admin .places-danger-panel .meta {
+  margin: 0;
+  max-width: 880px;
+}
+
+body.bonumark-admin .places-summary-panel {
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .places-summary-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.bonumark-admin .places-summary-grid > div {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 13px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+}
+
+body.bonumark-admin .places-summary-grid span,
+body.bonumark-admin .places-mobile-label,
+body.bonumark-admin .places-preview-facts dt {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .places-summary-grid strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.bonumark-admin .places-attention-panel {
+  border-left: 3px solid var(--admin-danger);
+}
+
+body.bonumark-admin .places-nearby-panel {
+  display: grid;
+  gap: 16px;
+}
+
+body.bonumark-admin .places-nearby-panel[aria-busy="true"] {
+  opacity: .82;
+}
+
+body.bonumark-admin .places-nearby-feedback {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  color: var(--admin-muted);
+  min-height: 52px;
+  padding: 14px 16px;
+}
+
+body.bonumark-admin .places-nearby-feedback p {
+  margin: 0;
+}
+
+body.bonumark-admin .places-nearby-feedback.is-error {
+  border-color: rgba(239, 68, 68, .42);
+  color: #ffaaaa;
+}
+
+body.bonumark-admin .places-nearby-results,
+body.bonumark-admin .places-editor-nearby-results {
+  display: grid;
+  gap: 10px;
+}
+
+body.bonumark-admin .places-nearby-results[hidden],
+body.bonumark-admin .places-editor-nearby-results[hidden] {
+  display: none !important;
+}
+
+body.bonumark-admin .places-nearby-result {
+  align-items: center;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+body.bonumark-admin .places-nearby-result strong,
+body.bonumark-admin .places-nearby-result span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .places-nearby-result span {
+  color: var(--admin-muted);
+  font-size: .82rem;
+  margin-top: 3px;
+}
+
+body.bonumark-admin .places-nearby-distance {
+  color: var(--admin-accent);
+  font-size: .78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+body.bonumark-admin .places-record-panel {
+  overflow: visible;
+  padding: 0;
+}
+
+body.bonumark-admin .places-search-region {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 18px 20px;
+}
+
+body.bonumark-admin .places-search-form {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 280px) auto auto;
+  margin: 0;
+}
+
+body.bonumark-admin .places-search-form input,
+body.bonumark-admin .places-search-form select,
+body.bonumark-admin .places-search-form button,
+body.bonumark-admin .places-search-form a {
+  margin: 0;
+  min-width: 0;
+}
+
+body.bonumark-admin .places-list-summary {
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  display: flex;
+  font-size: .84rem;
+  gap: 14px;
+  justify-content: flex-end;
+  min-height: 54px;
+  padding: 12px 20px;
+}
+
+body.bonumark-admin .places-record-header,
+body.bonumark-admin .places-record {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(360px, 1.25fr) minmax(150px, .45fr) minmax(250px, .8fr) 96px;
+}
+
+body.bonumark-admin .places-record-header {
+  align-items: center;
+  color: var(--admin-muted);
+  font-size: .73rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  padding: 13px 20px;
+  text-transform: uppercase;
+}
+
+body.bonumark-admin .places-record-list {
+  background: rgba(0, 0, 0, .08);
+}
+
+body.bonumark-admin .places-record {
+  align-items: center;
+  background: var(--admin-surface);
+  border-top: 1px solid var(--admin-border);
+  min-width: 0;
+  padding: 18px 20px;
+  position: relative;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+body.bonumark-admin .places-record:hover,
+body.bonumark-admin .places-record:focus-within {
+  background: #161c25;
+}
+
+body.bonumark-admin .places-record:has(.content-actions-menu[open]) {
+  z-index: 20;
+}
+
+body.bonumark-admin .places-record-main,
+body.bonumark-admin .places-record-category,
+body.bonumark-admin .places-record-display,
+body.bonumark-admin .places-record-actions {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-record-main h2 {
+  font-size: .98rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+body.bonumark-admin .places-record-main h2 a {
+  color: var(--admin-text);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+body.bonumark-admin .places-record-main h2 a:hover,
+body.bonumark-admin .places-record-main h2 a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+body.bonumark-admin .places-record-main > p {
+  color: var(--admin-muted);
+  font-size: .84rem;
+  line-height: 1.5;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .places-record-chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+body.bonumark-admin .places-record-category,
+body.bonumark-admin .places-record-display {
+  display: grid;
+  gap: 4px;
+}
+
+body.bonumark-admin .places-record-category strong,
+body.bonumark-admin .places-record-display strong {
+  color: var(--admin-text);
+  font-size: .86rem;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .places-record-display small {
+  color: var(--admin-muted);
+  font-size: .78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .places-mobile-label {
+  display: none;
+}
+
+body.bonumark-admin .places-empty-state {
+  margin: 0;
+  padding: 44px 24px;
+}
+
+body.bonumark-admin .places-editor-form,
+body.bonumark-admin .places-editor-layout,
+body.bonumark-admin .places-editor-main,
+body.bonumark-admin .places-editor-rail {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-editor-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr);
+}
+
+body.bonumark-admin .places-editor-main,
+body.bonumark-admin .places-editor-rail {
+  display: grid;
+  gap: 16px;
+}
+
+body.bonumark-admin .places-editor-rail {
+  position: sticky;
+  top: 86px;
+}
+
+body.bonumark-admin .places-section-panel,
+body.bonumark-admin .places-preview-panel,
+body.bonumark-admin .places-save-panel,
+body.bonumark-admin .places-danger-panel {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-section-header {
+  border-bottom: 1px solid var(--admin-border);
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+body.bonumark-admin .places-field-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-admin .places-field-card {
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 15px;
+}
+
+body.bonumark-admin .places-field-card:focus-within {
+  border-color: rgba(229, 193, 129, .42);
+}
+
+body.bonumark-admin .places-field-card label {
+  color: var(--admin-text);
+  font-weight: 800;
+  margin: 0;
+}
+
+body.bonumark-admin .places-field-card input,
+body.bonumark-admin .places-field-card select {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .places-field-card .field-help {
+  color: var(--admin-muted);
+  font-size: .82rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+body.bonumark-admin .places-field-span {
+  grid-column: 1 / -1;
+}
+
+body.bonumark-admin .places-coordinate-actions {
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
+body.bonumark-admin .places-coordinate-actions button {
+  margin: 0;
+}
+
+body.bonumark-admin .places-coordinate-feedback {
+  margin: 10px 0 0;
+}
+
+body.bonumark-admin .places-coordinate-feedback.is-error {
+  color: #ff9d9d;
+}
+
+body.bonumark-admin .places-public-preview {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(229, 193, 129, .09), rgba(255, 255, 255, .02));
+  border: 1px solid rgba(229, 193, 129, .3);
+  border-radius: 13px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+  min-height: 86px;
+  padding: 16px;
+}
+
+/* v0.5.69 Local Places Preview Polish Hotfix */
+body.bonumark-admin .places-preview-marker {
+  align-items: center;
+  color: var(--admin-accent);
+  display: inline-flex;
+  flex: 0 0 22px;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+body.bonumark-admin .places-preview-marker svg {
+  display: block;
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 20px;
+}
+
+body.bonumark-admin .places-public-preview.is-empty {
+  background: rgba(255, 255, 255, .025);
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin .places-public-preview strong.is-placeholder {
+  color: var(--admin-muted);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+body.bonumark-admin .places-public-preview > div {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-public-preview strong,
+body.bonumark-admin .places-public-preview span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .places-public-preview strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+}
+
+body.bonumark-admin .places-public-preview span {
+  color: var(--admin-muted);
+  font-size: .84rem;
+  margin-top: 4px;
+}
+
+body.bonumark-admin .places-preview-facts {
+  display: grid;
+  gap: 0;
+  margin: 16px 0 0;
+}
+
+body.bonumark-admin .places-preview-facts > div {
+  align-items: start;
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, .45fr) minmax(0, 1fr);
+  padding: 12px 0;
+}
+
+body.bonumark-admin .places-preview-facts dd {
+  color: var(--admin-text);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+body.bonumark-admin .places-save-panel,
+body.bonumark-admin .places-danger-panel {
+  display: grid;
+  gap: 12px;
+}
+
+body.bonumark-admin .places-save-panel .primary-button,
+body.bonumark-admin .places-save-panel .button-link.secondary,
+body.bonumark-admin .places-danger-panel .button-link.secondary {
+  box-sizing: border-box;
+  margin: 0;
+  text-align: center;
+  width: 100%;
+}
+
+body.bonumark-admin .places-danger-panel {
+  border-color: rgba(239, 68, 68, .3);
+}
+
+body.bonumark-admin .places-danger-panel .danger-link {
+  color: #ffaaaa;
+}
+
+body.bonumark-admin .places-delete-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, .7fr) minmax(0, 1.3fr);
+}
+
+body.bonumark-admin .places-delete-summary,
+body.bonumark-admin .places-delete-confirmation {
+  min-width: 0;
+}
+
+body.bonumark-admin .places-delete-confirmation {
+  border-color: rgba(239, 68, 68, .32);
+}
+
+body.bonumark-admin .places-delete-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+body.bonumark-admin .places-delete-form label {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+
+body.bonumark-admin .places-delete-form input {
+  margin: 0;
+  width: 100%;
+}
+
+body.bonumark-admin .places-delete-actions {
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+body.bonumark-admin .places-delete-actions a,
+body.bonumark-admin .places-delete-actions button {
+  margin: 0;
+}
+
+body.bonumark-admin .places-delete-actions .danger-button {
+  background: #a72b2b;
+  border-color: #a72b2b;
+  color: #fff;
+}
+
+body.bonumark-admin .places-delete-actions .danger-button:hover,
+body.bonumark-admin .places-delete-actions .danger-button:focus-visible {
+  background: #872222;
+  border-color: #872222;
+}
+
+/* Bring the existing Local Places picker into the same component language. */
+body.bonumark-admin .editor-location-card .local-places-selected,
+body.bonumark-admin .editor-location-card .local-places-nearby-result,
+body.bonumark-admin .local-places-create-dialog {
+  border-color: var(--admin-border);
+  border-radius: 12px;
+}
+
+body.bonumark-admin .editor-location-card .local-places-nearby-result {
+  background: var(--admin-surface-2);
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+body.bonumark-admin .editor-location-card .local-places-nearby-result:hover,
+body.bonumark-admin .editor-location-card .local-places-nearby-result:focus-visible {
+  border-color: var(--admin-accent-dark);
+}
+
+@media (max-width: 1120px) {
+  body.bonumark-admin .places-record-header,
+  body.bonumark-admin .places-record {
+    gap: 12px;
+    grid-template-columns: minmax(300px, 1.15fr) 140px minmax(220px, .75fr) 92px;
+  }
+
+  body.bonumark-admin .places-editor-layout {
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+  }
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin .places-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.bonumark-admin .places-search-form {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, .55fr) auto;
+  }
+
+  body.bonumark-admin .places-search-form .button-link.secondary {
+    grid-column: 1 / -1;
+    justify-content: center;
+    width: 100%;
+  }
+
+  body.bonumark-admin .places-record-panel {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  body.bonumark-admin .places-search-region,
+  body.bonumark-admin .places-list-summary {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  body.bonumark-admin .places-list-summary {
+    justify-content: space-between;
+  }
+
+  body.bonumark-admin .places-record-header {
+    display: none;
+  }
+
+  body.bonumark-admin .places-record-list {
+    background: transparent;
+    display: grid;
+    gap: 12px;
+  }
+
+  body.bonumark-admin .places-record {
+    align-items: start;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    padding: 16px;
+  }
+
+  body.bonumark-admin .places-record-main {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+
+  body.bonumark-admin .places-record-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  body.bonumark-admin .places-record-category {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .places-record-display {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .places-mobile-label {
+    display: block;
+  }
+
+  body.bonumark-admin .places-editor-layout,
+  body.bonumark-admin .places-delete-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .places-editor-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin .places-workflow-hero,
+  body.bonumark-admin .places-section-header,
+  body.bonumark-admin .places-nearby-result,
+  body.bonumark-admin .places-coordinate-actions,
+  body.bonumark-admin .places-delete-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.bonumark-admin .places-workflow-hero > .static-pill,
+  body.bonumark-admin .places-section-header > .status-pill {
+    align-self: flex-start;
+  }
+
+  body.bonumark-admin .places-summary-grid,
+  body.bonumark-admin .places-field-grid,
+  body.bonumark-admin .places-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .places-search-form button,
+  body.bonumark-admin .places-search-form a,
+  body.bonumark-admin .places-nearby-panel [data-places-nearby-find],
+  body.bonumark-admin .places-coordinate-actions button,
+  body.bonumark-admin .places-delete-actions a,
+  body.bonumark-admin .places-delete-actions button {
+    box-sizing: border-box;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  body.bonumark-admin .places-record {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body.bonumark-admin .places-record-main {
+    grid-column: 1;
+  }
+
+  body.bonumark-admin .places-record-actions {
+    grid-column: 2;
+  }
+
+  body.bonumark-admin .places-record-category,
+  body.bonumark-admin .places-record-display {
+    grid-column: 1 / -1;
+  }
+
+  body.bonumark-admin .places-record-category {
+    grid-row: 2;
+  }
+
+  body.bonumark-admin .places-record-display {
+    grid-row: 3;
+  }
+
+  body.bonumark-admin .places-preview-facts > div {
+    gap: 5px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .places-preview-facts dd {
+    text-align: left;
+  }
+
+  body.bonumark-admin .places-field-span {
+    grid-column: auto;
+  }
+
+  body.bonumark-admin .places-public-preview {
+    min-height: 76px;
+  }
+}

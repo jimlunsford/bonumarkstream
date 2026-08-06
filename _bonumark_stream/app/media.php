@@ -520,6 +520,60 @@ function bms_media_user_scope_sql(string $alias = ''): array
     return ['', []];
 }
 
+function bms_media_upload_files(mixed $field): array
+{
+    if (!is_array($field) || !array_key_exists('name', $field)) {
+        return [];
+    }
+
+    if (!is_array($field['name'])) {
+        return (($field['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) ? [] : [$field];
+    }
+
+    $files = [];
+    $count = count($field['name']);
+    $keys = ['name', 'full_path', 'type', 'tmp_name', 'error', 'size'];
+    for ($index = 0; $index < $count; $index++) {
+        $file = [];
+        foreach ($keys as $key) {
+            if (isset($field[$key]) && is_array($field[$key])) {
+                $file[$key] = $field[$key][$index] ?? ($key === 'error' ? UPLOAD_ERR_NO_FILE : '');
+            }
+        }
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $files[] = $file;
+        }
+    }
+
+    return $files;
+}
+
+function bms_media_discard_new_upload(array $media): void
+{
+    $id = (int)($media['id'] ?? 0);
+    $publicPath = trim((string)($media['public_path'] ?? ''));
+    if ($publicPath !== '' && str_starts_with($publicPath, 'media/')) {
+        $file = bms_public_path($publicPath);
+        if (is_file($file)) {
+            @unlink($file);
+        }
+        if (function_exists('bms_media_delete_recorded_variants')) {
+            bms_media_delete_recorded_variants($media);
+        }
+        if (function_exists('bms_media_delete_generated_variants')) {
+            bms_media_delete_generated_variants($publicPath);
+        }
+    }
+    if ($id > 0) {
+        try {
+            $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('media') . ' WHERE id = :id');
+            $stmt->execute(['id' => $id]);
+        } catch (Throwable $e) {
+            // Best-effort cleanup for a newly uploaded item that was never attached.
+        }
+    }
+}
+
 function bms_media_upload(array $file, string $altText = '', string $caption = '', array $options = []): array
 {
     if (!bms_is_installed()) {
@@ -528,7 +582,7 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
 
     $valid = bms_media_validate_upload($file);
     if (!empty($options['image_only']) && !str_starts_with((string)$valid['mime'], 'image/')) {
-        throw new RuntimeException('Remote media uploads currently support image files only.');
+        throw new RuntimeException('This upload must be an image file.');
     }
     $generateDerivatives = array_key_exists('generate_derivatives', $options) ? (bool)$options['generate_derivatives'] : true;
     $relative = bms_media_unique_relative_path((string)$valid['original_name'], (string)$valid['extension']);
@@ -538,50 +592,66 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
         throw new RuntimeException('Could not create the media upload folder.');
     }
 
-    $privacy = bms_media_privacy_store_upload($valid, $destination);
-    @chmod($destination, 0644);
-    $altText = trim($altText);
-    $caption = trim($caption);
-    if ($altText === '') {
-        $altText = str_starts_with((string)$valid['mime'], 'image/') ? 'Uploaded image' : 'Uploaded media';
-    }
-
-    $storedSize = is_file($destination) ? (int)filesize($destination) : (int)$valid['size'];
-    $storedWidth = (int)$valid['width'];
-    $storedHeight = (int)$valid['height'];
-    if (str_starts_with((string)$valid['mime'], 'image/')) {
-        $storedInfo = @getimagesize($destination);
-        if (is_array($storedInfo) && !empty($storedInfo[0]) && !empty($storedInfo[1])) {
-            $storedWidth = (int)$storedInfo[0];
-            $storedHeight = (int)$storedInfo[1];
-        }
-    }
-
     $imageVariants = [];
-    if ($generateDerivatives && str_starts_with((string)$valid['mime'], 'image/')) {
-        $imageVariants = bms_media_generate_upload_derivatives('media/' . $relative);
+    try {
+        $privacy = bms_media_privacy_store_upload($valid, $destination);
+        @chmod($destination, 0644);
+        $altText = trim($altText);
+        $caption = trim($caption);
+        if ($altText === '') {
+            $altText = str_starts_with((string)$valid['mime'], 'image/') ? 'Uploaded image' : 'Uploaded media';
+        }
+
+        $storedSize = is_file($destination) ? (int)filesize($destination) : (int)$valid['size'];
+        $storedWidth = (int)$valid['width'];
+        $storedHeight = (int)$valid['height'];
+        if (str_starts_with((string)$valid['mime'], 'image/')) {
+            $storedInfo = @getimagesize($destination);
+            if (is_array($storedInfo) && !empty($storedInfo[0]) && !empty($storedInfo[1])) {
+                $storedWidth = (int)$storedInfo[0];
+                $storedHeight = (int)$storedInfo[1];
+            }
+        }
+
+        if ($generateDerivatives && str_starts_with((string)$valid['mime'], 'image/')) {
+            $imageVariants = bms_media_generate_upload_derivatives('media/' . $relative);
+        }
+        $imageVariantsJson = $imageVariants ? json_encode($imageVariants, JSON_UNESCAPED_SLASHES) : null;
+
+        $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, privacy_status, privacy_note, privacy_checked_at, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, :privacy_status, :privacy_note, NOW(), NOW(), NOW())');
+        $stmt->execute([
+            'filename' => basename($relative),
+            'original_filename' => (string)$valid['original_name'],
+            'public_path' => 'media/' . $relative,
+            'mime_type' => (string)$valid['mime'],
+            'file_size' => $storedSize,
+            'width' => $storedWidth > 0 ? $storedWidth : null,
+            'height' => $storedHeight > 0 ? $storedHeight : null,
+            'alt_text' => $altText,
+            'caption' => $caption,
+            'uploaded_by' => array_key_exists('uploaded_by', $options) ? ($options['uploaded_by'] !== null ? (int)$options['uploaded_by'] : null) : bms_current_user_id(),
+            'file_hash' => bms_media_file_hash($destination),
+            'image_variants_json' => $imageVariantsJson,
+            'privacy_status' => (string)($privacy['status'] ?? 'unconfirmed'),
+            'privacy_note' => (string)($privacy['note'] ?? bms_media_privacy_default_note('unconfirmed')),
+        ]);
+
+        return bms_media_find((int)bms_db()->lastInsertId()) ?? [];
+    } catch (Throwable $e) {
+        if (is_file($destination)) {
+            @unlink($destination);
+        }
+        foreach ($imageVariants as $variant) {
+            $path = trim((string)($variant['path'] ?? ''));
+            if ($path !== '') {
+                $filePath = bms_public_path($path);
+                if (is_file($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+        }
+        throw $e;
     }
-    $imageVariantsJson = $imageVariants ? json_encode($imageVariants, JSON_UNESCAPED_SLASHES) : null;
-
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, privacy_status, privacy_note, privacy_checked_at, created_at, updated_at) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :image_variants_json, :privacy_status, :privacy_note, NOW(), NOW(), NOW())');
-    $stmt->execute([
-        'filename' => basename($relative),
-        'original_filename' => (string)$valid['original_name'],
-        'public_path' => 'media/' . $relative,
-        'mime_type' => (string)$valid['mime'],
-        'file_size' => $storedSize,
-        'width' => $storedWidth > 0 ? $storedWidth : null,
-        'height' => $storedHeight > 0 ? $storedHeight : null,
-        'alt_text' => $altText,
-        'caption' => $caption,
-        'uploaded_by' => array_key_exists('uploaded_by', $options) ? ($options['uploaded_by'] !== null ? (int)$options['uploaded_by'] : null) : bms_current_user_id(),
-        'file_hash' => bms_media_file_hash($destination),
-        'image_variants_json' => $imageVariantsJson,
-        'privacy_status' => (string)($privacy['status'] ?? 'unconfirmed'),
-        'privacy_note' => (string)($privacy['note'] ?? bms_media_privacy_default_note('unconfirmed')),
-    ]);
-
-    return bms_media_find((int)bms_db()->lastInsertId()) ?? [];
 }
 
 function bms_media_list(int $limit = 100, string $search = '', string $status = 'active'): array

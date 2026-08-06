@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bonumark Stream API",
-    "version": "0.5.42",
-    "description": "Optional Remote Posting API for Bonumark Stream with status, post creation, scheduled publishing, media upload, media import, and media embedding."
+    "version": "0.5.76",
+    "description": "Optional token-scoped API for Bonumark Stream with read-only Stream retrieval, post creation, scheduled publishing, media upload, media import, inline media embedding, and structured one-to-four-photo galleries."
   },
   "servers": [
     {
@@ -151,6 +151,127 @@
             "$ref": "#/components/responses/ErrorResponse"
           },
           "428": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "429": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listStreamPosts",
+        "summary": "List or retrieve published Stream posts",
+        "description": "Returns authorized published Stream content. Requires the stream:read scope. Use id for a single published record or pagination filters for the catalog.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "published"
+              ],
+              "default": "published"
+            },
+            "description": "Only published content is available through this scope."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "orderby",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "created_at",
+                "updated_at",
+                "published_at"
+              ],
+              "default": "id"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "name": "modified_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "include_html",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stream post or paginated Stream catalog."
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
             "$ref": "#/components/responses/ErrorResponse"
           },
           "429": {
@@ -592,6 +713,15 @@
           "publish_at": {
             "type": "string",
             "description": "Alias for scheduled_at."
+          },
+          "media_display": {
+            "type": "string",
+            "enum": [
+              "inline",
+              "gallery"
+            ],
+            "default": "inline",
+            "description": "Use inline to insert media into Markdown, or gallery to store one to four image items as the post photo gallery."
           }
         },
         "additionalProperties": true
@@ -623,7 +753,9 @@
           "edit_url",
           "public_url",
           "embedded_media",
-          "media_position"
+          "media_position",
+          "media_display",
+          "media_gallery"
         ],
         "properties": {
           "post_id": {
@@ -683,6 +815,22 @@
               "null"
             ],
             "description": "Human-readable scheduled time in the site timezone."
+          },
+          "media_display": {
+            "type": "string",
+            "enum": [
+              "inline",
+              "gallery"
+            ],
+            "description": "How supplied media was stored for this post."
+          },
+          "media_gallery": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            },
+            "description": "Ordered Bonumark public media paths used by the structured photo gallery."
           }
         }
       },

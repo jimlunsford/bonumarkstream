@@ -143,15 +143,101 @@ function bms_update_comment_status(int $id, string $status): void
 
 function bms_delete_comment_permanently(int $id): void
 {
-    $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('comments') . ' WHERE id = :id');
-    $stmt->execute(['id' => $id]);
+    $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('comments') . ' WHERE id = :id AND status = :status');
+    $stmt->execute(['id' => $id, 'status' => 'trash']);
+    if ($stmt->rowCount() < 1) {
+        throw new RuntimeException('Only comments in Trash can be deleted permanently.');
+    }
 }
 
-function bms_list_admin_comments(string $status = 'approved', int $limit = 100): array
+function bms_admin_comment_status_counts(): array
+{
+    $counts = ['approved' => 0, 'pending' => 0, 'trash' => 0];
+    $stmt = bms_db()->query('SELECT status, COUNT(*) AS total FROM ' . bms_table('comments') . ' GROUP BY status');
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $status = bms_comment_normalize_status((string)($row['status'] ?? ''));
+        if (array_key_exists($status, $counts)) {
+            $counts[$status] = (int)($row['total'] ?? 0);
+        }
+    }
+    return $counts;
+}
+
+function bms_comment_normalize_ids(array $ids): array
+{
+    $normalized = [];
+    foreach ($ids as $id) {
+        $id = (int)$id;
+        if ($id > 0) {
+            $normalized[$id] = $id;
+        }
+    }
+    return array_values($normalized);
+}
+
+function bms_update_comment_statuses(array $ids, string $status): int
+{
+    $ids = bms_comment_normalize_ids($ids);
+    if (!$ids) {
+        return 0;
+    }
+    $status = bms_comment_normalize_status($status);
+    $params = ['status' => $status, 'approval_status' => $status];
+    $placeholders = [];
+    foreach ($ids as $index => $id) {
+        $key = 'id_' . $index;
+        $placeholders[] = ':' . $key;
+        $params[$key] = $id;
+    }
+    $stmt = bms_db()->prepare(
+        'UPDATE ' . bms_table('comments') .
+        ' SET status = :status, updated_at = NOW(), approved_at = CASE WHEN :approval_status = \'approved\' THEN COALESCE(approved_at, NOW()) ELSE approved_at END' .
+        ' WHERE id IN (' . implode(', ', $placeholders) . ')'
+    );
+    $stmt->execute($params);
+    return $stmt->rowCount();
+}
+
+function bms_delete_trashed_comments_permanently(array $ids): int
+{
+    $ids = bms_comment_normalize_ids($ids);
+    if (!$ids) {
+        return 0;
+    }
+    $params = ['status' => 'trash'];
+    $placeholders = [];
+    foreach ($ids as $index => $id) {
+        $key = 'id_' . $index;
+        $placeholders[] = ':' . $key;
+        $params[$key] = $id;
+    }
+    $stmt = bms_db()->prepare(
+        'DELETE FROM ' . bms_table('comments') .
+        ' WHERE status = :status AND id IN (' . implode(', ', $placeholders) . ')'
+    );
+    $stmt->execute($params);
+    return $stmt->rowCount();
+}
+
+function bms_list_admin_comments(string $status = 'approved', int $limit = 100, string $query = ''): array
 {
     $status = bms_comment_normalize_status($status);
-    $stmt = bms_db()->prepare('SELECT c.*, u.username, u.display_name, p.title AS post_title FROM ' . bms_table('comments') . ' c INNER JOIN ' . bms_table('users') . ' u ON u.id = c.user_id LEFT JOIN ' . bms_table('posts') . ' p ON p.id = c.post_id WHERE c.status = :status ORDER BY c.created_at DESC LIMIT ' . max(1, min(200, $limit)));
-    $stmt->execute(['status' => $status]);
+    $limit = max(1, min(200, $limit));
+    $query = trim($query);
+    $where = ['c.status = :status'];
+    $params = ['status' => $status];
+    if ($query !== '') {
+        $where[] = '(c.body LIKE :query OR u.display_name LIKE :query OR u.username LIKE :query OR p.title LIKE :query OR c.post_slug LIKE :query)';
+        $params['query'] = '%' . $query . '%';
+    }
+    $sql = 'SELECT c.*, u.username, u.display_name, u.role, u.profile_visibility, u.avatar_path, p.title AS post_title '
+        . 'FROM ' . bms_table('comments') . ' c '
+        . 'INNER JOIN ' . bms_table('users') . ' u ON u.id = c.user_id '
+        . 'LEFT JOIN ' . bms_table('posts') . ' p ON p.id = c.post_id '
+        . 'WHERE ' . implode(' AND ', $where) . ' '
+        . 'ORDER BY c.created_at DESC, c.id DESC LIMIT ' . $limit;
+    $stmt = bms_db()->prepare($sql);
+    $stmt->execute($params);
     return $stmt->fetchAll() ?: [];
 }
 

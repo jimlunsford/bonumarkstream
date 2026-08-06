@@ -40,7 +40,10 @@ try {
             bms_media_picker_json(['ok' => false, 'message' => 'Choose a media file and try again.'], 400);
         }
 
-        $media = bms_media_upload($file, (string)($_POST['alt_text'] ?? ''), (string)($_POST['caption'] ?? ''));
+        $imageOnly = (string)($_POST['image_only'] ?? '0') === '1';
+        $media = bms_media_upload($file, (string)($_POST['alt_text'] ?? ''), (string)($_POST['caption'] ?? ''), [
+            'image_only' => $imageOnly,
+        ]);
         bms_media_picker_json([
             'ok' => true,
             'message' => 'Media uploaded.',
