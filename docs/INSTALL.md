@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.5.76 is the current fresh-install public development release.
+Bonumark Stream v0.5.77 is the current fresh-install public development release.
 
 ## Requirements
 

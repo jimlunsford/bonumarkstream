@@ -1,7 +1,7 @@
 {
   "name": "bonumark-stream",
-  "version": "0.5.76",
-  "generated_at": "2026-08-06T07:15:26Z",
+  "version": "0.5.77",
+  "generated_at": "2026-08-06T07:40:34Z",
   "files": [
     {
       "path": ".gitignore",
@@ -13,7 +13,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "0c4a4b510fdb4901c645663bf87af259d99a74677198d45fe82e0fa651e561ed"
+      "sha256": "2a3f69f0cab093179acefa9daa650d2a374eeb0ab1942fae6a93261d6356569d"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -25,7 +25,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "b72a8c47b6bfdcf88a6f33d4095c4c281259e3d3ea5c61db5bbccaaee5577edb"
+      "sha256": "906cfbd89ba39f96d5483ce75582d955dea1f8f97be840961994bda850a370c0"
     },
     {
       "path": "SECURITY.md",
@@ -33,7 +33,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "fe14e2228d0d51d7326b1545fc3b7ff8e5cc8f6c95af98bcd27c2a3771628477"
+      "sha256": "d6b038d6497f318943a397b75e43fe2c0aedfe025117b06f6fb2dc1ca8280573"
     },
     {
       "path": "_bonumark_stream/.htaccess",
@@ -41,15 +41,15 @@
     },
     {
       "path": "_bonumark_stream/CHANGELOG.md",
-      "sha256": "7f09bb7baab75cf016c8c4e3f4b7dc8723e121b5f7aa04ce81f5e2c80a65bd2f"
+      "sha256": "d4bdbed930d0c4cf24057dbf270e91e10cce0f92c53e9e8458d225e41bad4f74"
     },
     {
       "path": "_bonumark_stream/PACKAGE.json",
-      "sha256": "306e0db638d7ebc2cd494281f69c8c2846a1b38d39c0dc1d62dae52d63ce1be3"
+      "sha256": "369e5da3ed1d7565dd33a07ad0a4bdaf4f0bf9dd1f498289f8e84e7fe5dba512"
     },
     {
       "path": "_bonumark_stream/VERSION",
-      "sha256": "fe14e2228d0d51d7326b1545fc3b7ff8e5cc8f6c95af98bcd27c2a3771628477"
+      "sha256": "d6b038d6497f318943a397b75e43fe2c0aedfe025117b06f6fb2dc1ca8280573"
     },
     {
       "path": "_bonumark_stream/app/analytics.php",
@@ -81,7 +81,7 @@
     },
     {
       "path": "_bonumark_stream/app/functions.php",
-      "sha256": "1b77f10db1b6c8dc3dea46fc7fc403c467c5bdbe53198b908ca1fe90dba1c6c5"
+      "sha256": "7b11424209b05c779c918984e4a82995725d1d4230e51d21b218a750934a3d65"
     },
     {
       "path": "_bonumark_stream/app/import-media.php",
@@ -293,7 +293,7 @@
     },
     {
       "path": "_bonumark_stream/config.sample.php",
-      "sha256": "867831e5c1d6683a0ef61c407be52abd90f594b6af53d902969fda0a923e05db"
+      "sha256": "aae972c9e10e760fe535c7281b607fe5875d9d2aa1a4bebfe71f8a5eff2c7308"
     },
     {
       "path": "_bonumark_stream/data/.gitkeep",
@@ -833,7 +833,7 @@
     },
     {
       "path": "docs/API.md",
-      "sha256": "ba7dd8d04942e246654d35b3e26345d7a263ea550dd55546573e432c34d45f3a"
+      "sha256": "e65dadcfeee25ef4a55cfdc903d64e42cbef2f6d8757931e15b9bee623cdbd3d"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -853,7 +853,7 @@
     },
     {
       "path": "docs/INSTALL.md",
-      "sha256": "305854dbb98cacdec52f6cf9bb9a8345767111038f07d5baa3817c5df3b492af"
+      "sha256": "a4d5caeb4828024dabaaf791420460133b0457f4ff59f453e2f659f26369f18d"
     },
     {
       "path": "docs/MEDIA-PRIVACY.md",
@@ -865,7 +865,7 @@
     },
     {
       "path": "docs/REMOTE-POSTING.md",
-      "sha256": "7a23a483aba551f35d439cfcb4144a2cec1aa535f1f65bcdced92103c865a855"
+      "sha256": "7a67369ee4da8f662c7c5137f692a396a9be81e1d2b22148dfe4e27229b5f071"
     },
     {
       "path": "docs/SCHEDULED-TASKS.md",
@@ -877,11 +877,11 @@
     },
     {
       "path": "docs/UPGRADING.md",
-      "sha256": "f9b09b96fdb73d5ccf579ffb330bcf7d74054f2c721fc2f4bdd57d3ae6a008ad"
+      "sha256": "fee7af55c4a4035ffcced09a8b20a8c15ba3da3052c16263888838a6b6bbddaa"
     },
     {
       "path": "docs/openapi/bonumark-stream-api.json",
-      "sha256": "0c4878566edf053a11e92612edcc7cf2f9a7be175361b2deb56777ad785a28db"
+      "sha256": "c567297fc2b37b14a374ad2d13707186ba6f7e07376124b679d9e490c0817385"
     },
     {
       "path": "index.php",
@@ -937,7 +937,7 @@
     },
     {
       "path": "scripts/smoke-test.php",
-      "sha256": "c83e085686972e32a421d899c17f3019f4871902d0485d5513ea34d1ee6974b8"
+      "sha256": "0ec5eb97651a4784fd7e8011e4a4213994b6deb1ffe90ce74e640c0f6b95d2d1"
     },
     {
       "path": "search.php",
@@ -949,7 +949,7 @@
     },
     {
       "path": "sw.js",
-      "sha256": "fb0f075b14ff7ec8eb5d92d033aa9608882af9f9bc90cf98fae2d3d643c2e1c7"
+      "sha256": "d172f8818e4b2d078cdd7a6791b882fc41ce6915e4aa027adc36710d526ec178"
     }
   ]
 }

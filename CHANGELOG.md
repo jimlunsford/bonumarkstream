@@ -1,3 +1,11 @@
+## 0.5.77 - GitHub README Cleanup
+
+- Restores `README.md` as a product-first GitHub landing page instead of using it as a release archive.
+- Removes the 26 embedded v0.5.49 through v0.5.76 release sections that appeared before the product overview.
+- Keeps the current version visible and links directly to `CHANGELOG.md` for complete release history.
+- Adds smoke-test coverage preventing release history from being dumped back into the README.
+- Changes no application code, database schema, routes, publishing behavior, permissions, content, media, uploads, themes, settings, or user data.
+
 ## 0.5.76 - Public Release Hardening Pass
 
 - Prevents admin ZIP upgrades from copying the entire live `media/` directory into every private upgrade backup merely because the release package contains `media/.gitkeep`.

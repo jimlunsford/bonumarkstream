@@ -1,4 +1,4 @@
-const BMS_CACHE_NAME = 'bonumark-stream-static-v0.5.76';
+const BMS_CACHE_NAME = 'bonumark-stream-static-v0.5.77';
 const BMS_CACHE_PREFIX = 'bonumark-stream-static-';
 // Site Identity PWA icons use versioned dynamic URLs and are intentionally not cached here.
 const BMS_STATIC_ASSETS = [

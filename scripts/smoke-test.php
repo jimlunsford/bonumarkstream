@@ -145,6 +145,12 @@ if (str_contains($upgradeDocs, '## Scheduled Tasks run-history alignment')) {
 if ($rootVersion !== '' && !str_contains($readme, 'Current version: **' . $rootVersion . '**')) {
     bm_smoke_fail($failures, 'README.md current version is stale.');
 }
+if (preg_match('/^## v0\./m', $readme)) {
+    bm_smoke_fail($failures, 'README.md contains release-history sections that belong in CHANGELOG.md.');
+}
+if (!str_contains($readme, '[CHANGELOG.md](CHANGELOG.md)')) {
+    bm_smoke_fail($failures, 'README.md does not link to the complete release history.');
+}
 
 $installDocs = @file_get_contents($root . '/docs/INSTALL.md') ?: '';
 $remotePostingDocs = @file_get_contents($root . '/docs/REMOTE-POSTING.md') ?: '';

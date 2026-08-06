@@ -1,7 +1,11 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.5.76 continues the v0.4.0+ clean-break foundation.
+Bonumark Stream v0.5.77 continues the v0.4.0+ clean-break foundation.
 
+
+## v0.5.77 - GitHub README Cleanup
+
+v0.5.77 changes no application behavior or database schema. It restores the root README as a product-first GitHub landing page, removes embedded release-by-release notes from the README, and directs readers to `CHANGELOG.md` for complete release history. Existing config, database records, posts, pages, drafts, revisions, comments, users, media, uploads, custom themes, settings, analytics, API tokens, scheduled tasks, cron history, Local Places, and all other owner data are unchanged.
 
 ## v0.5.76 - Public Release Hardening Pass
 
@@ -235,7 +239,7 @@ v0.5.25 repairs the legacy timestamp-cutover fallback used by direct upgrades, c
 
 The built-in upgrade tool supports upgrades from v0.4.0 and newer only.
 
-Pre-v0.4 development builds are not supported by the current upgrader. Install the current v0.5.76 package fresh instead of trying to upgrade an older development build.
+Pre-v0.4 development builds are not supported by the current upgrader. Install the current v0.5.77 package fresh instead of trying to upgrade an older development build.
 
 ## What the upgrader preserves
 
