@@ -1,49 +1,91 @@
 # Bonumark Stream Architecture
 
-Bonumark Stream is a dynamic database-first microblog CMS.
+Bonumark Stream is a dynamic, database-first microblog CMS designed for normal shared hosting.
 
 ## Source of truth
 
-The database is the source of truth for posts, pages, accounts, profiles, comments, media records, settings, likes, drafts, trash, revisions, and registration data. The account model has two types: Admin, the sole publisher and site manager, and Commenter, for comment participation and profile/account features.
+The database is the runtime source of truth for posts, pages, accounts, Profiles, comments, media records, settings, likes, drafts, trash, revisions, scheduled work, Local Places, analytics, and registration data.
 
-Markdown exists for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
+Markdown is used for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
+
+## Account model
+
+Bonumark Stream has two account types:
+
+- **Admin**: sole publisher and site manager.
+- **Commenter**: participation account for comments and Profile/account features when enabled.
+
+The publishing model is intentionally owner-controlled rather than multi-author.
 
 ## Request flow
 
-- `/` renders the stream home.
-- `/stream/` is a supported alias.
-- Clean public routes are sent to `index.php`.
+- `/` renders the Stream home.
+- `/stream/` remains a supported alias.
+- Clean public routes are handled by `index.php`.
 - Admin routes live under `/admin/`.
-- Public rendering is dynamic.
+- Public rendering is dynamic by default.
+- Static Site Export reuses the normal core rendering path as optional tooling.
+
+## Core boundary
+
+Core owns:
+
+- Routing and request handling
+- Database access and migrations
+- Authentication and permissions
+- Forms and CSRF protection
+- Publishing, drafts, scheduling, revisions, and trash
+- Media processing and validation
+- Comments and likes
+- Profiles and Profile metadata
+- Local Places
+- Feeds, sitemap, search, and SEO
+- Remote Posting API and Scheduled Tasks
+- Public component markup and accessibility semantics
+- Theme validation and rendering execution
+- Install, upgrade, backup, and recovery behavior
 
 ## Theme boundary
 
-Bonumark Stream core owns routing, data preparation, permissions, database writes, rendering execution, forms, comments, media, and imports.
+Theme packages are presentation-only.
 
-Theme packages are presentation-only. A theme can provide metadata, settings, screenshots, CSS, images, fonts, and documentation. It cannot provide PHP, JavaScript, HTML files, route handlers, database writes, permission logic, server config files, or application behavior.
+A theme may provide metadata, settings, screenshots, CSS, images, fonts, documentation, and validated private declarative layout JSON.
 
-The bundled Midnight Ledger presentation theme is the reference package. Bonumark Stream core renders the public site; themes supply presentation assets and settings only.
+A theme may not provide PHP, JavaScript, HTML templates, SQL, routes, database writes, permission logic, callbacks, expressions, server configuration, or application behavior.
 
-## Photo galleries
+## Theme Architecture 2.0
 
-Photo galleries are core behavior, not theme behavior. A Stream Post may store an ordered `media_gallery` list containing one to four image paths. The first item is also stored as `featured_media` so existing posts, custom themes, feeds, Open Graph metadata, and integrations remain compatible.
+Bonumark Stream v0.6.0 supports Layout Schema 1 declarative composition for four public surfaces:
 
-Core owns upload validation, order, responsive derivatives, dimensions, `srcset`, `sizes`, loading priority, accessibility labels, and public gallery markup. Code-free themes style the stable `.stream-media-gallery*` contract and `--bms-media-gallery-*` variables. Themes that do not declare or style gallery support inherit the core fallback layout.
+- `profile`
+- `stream-card`
+- `site-header`
+- `home`
 
-## Pinned posts
+Layout files contain only validated `group` and registered `component` nodes. Core renders every component and owns the outer semantic/application boundaries.
 
-Pinned posts are core behavior, not theme behavior. Core stores pin state on published stream records, orders the pinned group by `pinned_at` descending, renders the dedicated homepage pinned area, and removes those same records from the regular page-one timeline. Core also provides authorized front-end post actions through one compact three-dot menu. Themes receive the already-rendered core markup and only add presentation CSS.
+A theme may adopt any supported subset. Undeclared surfaces continue through the fixed legacy composition, so CSS-only themes remain compatible.
 
-Pinning does not alter original publish time, public URLs, RSS/feed order, sitemap output, search results, normal archive ordering, static export output, or Remote Posting API behavior. A post is pin-eligible only while it is a published stream post. Moving it to draft, scheduled, or trash clears pin state.
+Midnight Ledger is the single bundled/default reference theme and uses all four current declarative surfaces. Materially different proof compositions remain under `scripts/fixtures/declarative-themes/` for regression testing only.
 
-## Static export
+See [DECLARATIVE-LAYOUTS.md](DECLARATIVE-LAYOUTS.md) for the public Layout Schema contract.
 
-Static Site Export is optional portability/deployment tooling. It does not replace dynamic database-first operation.
+## Public template SEO boundary
 
-## Scheduled publishing
+Document SEO processing applies only to complete public documents such as Home, archives, single Stream Posts, Pages, Profiles, accounts, and search.
 
-Scheduled publishing is core behavior, not theme behavior. Scheduled records use their own `scheduled` status and UTC `scheduled_at` value. Public queries, feeds, sitemap, search, static export, and single-post routing receive published records only, so scheduled posts are not exposed before they are due.
+Reusable fragments such as link previews, cards, media, comments, pagination, and composer output must preserve the domain data supplied by their owning renderer. In particular, a remote link-preview title must not be converted into a local Bonumark document title or receive the local site-name suffix.
 
-The persisted General Settings timezone controls PHP runtime date formatting and local authoring defaults. Database session timestamps are canonical UTC, and public timestamp rendering converts them explicitly back to the saved site timezone.
+## Media boundary
 
-Scheduled work now runs through one core task runner with a global lock. The runner can be invoked by server cron, protected web cron, manual admin execution, safe public traffic, or signed-in browser heartbeats. Server cron is the recommended dependable path. Public traffic and browser heartbeats are configurable fallbacks, not replacements for cron. The runner records health state and manual/cron history, and provides the base for future features that need scheduled execution without adding theme responsibilities.
+Upload validation, privacy handling, gallery ordering, responsive derivative generation, media dimensions, loading behavior, viewer behavior, and accessibility labels are core responsibilities.
+
+Themes style stable media contracts but do not implement media behavior.
+
+Profile covers and Profile photos use dedicated responsive candidate sets because their rendered slots differ from normal Stream media. Original uploads remain the source of truth.
+
+## Upgrade boundary
+
+The upgrader treats configuration, the database, media/uploads, backups, data, and custom themes as protected owner data. Package-managed application files and the bundled theme can be replaced by a validated release package.
+
+Supported upgrades begin at v0.4.0. Earlier v0.1.x, v0.2.x, and v0.3.x development builds require a fresh install.

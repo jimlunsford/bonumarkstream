@@ -105,7 +105,7 @@ function bms_admin_header(string $title, array $actions = []): void
     $displayName = 'Admin';
     $username = 'admin';
     $adminProfileUrl = bms_admin_url('user.php');
-    $publicProfileUrl = bms_url_path('profile.php');
+    $publicProfileUrl = bms_url_path('profile');
     if (function_exists('bms_is_logged_in') && bms_is_logged_in()) {
         $user = bms_current_user();
         $displayName = (string)($user['display_name'] ?? 'Admin');
@@ -113,7 +113,7 @@ function bms_admin_header(string $title, array $actions = []): void
         if (function_exists('bms_public_profile_url_for_user')) {
             $publicProfileUrl = bms_public_profile_url_for_user($user);
         } elseif (trim($username) !== '') {
-            $publicProfileUrl = bms_url_path('profile.php?user=' . rawurlencode($username));
+            $publicProfileUrl = bms_url_path('profile/' . rawurlencode($username));
         }
     }
 
@@ -272,7 +272,7 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '<header class="admin-mobile-bar">';
     echo '<button class="admin-mobile-menu-button" type="button" data-admin-nav-open aria-controls="admin-sidebar" aria-expanded="false"><span class="admin-menu-icon" aria-hidden="true"><span></span><span></span><span></span></span><span class="screen-reader-text">Open admin navigation</span></button>';
     echo '<a class="admin-mobile-brand" href="' . htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') . '"><span class="admin-brand-mark">B</span><span>' . $safeTitle . '</span></a>';
-    echo '<a class="admin-mobile-profile" href="' . $safeAdminProfileUrl . '" aria-label="Edit profile for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="screen-reader-text">Profile</span></a>';
+    echo '<a class="admin-mobile-profile" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="screen-reader-text">Profile</span></a>';
     echo '</header>';
     echo '<div class="admin-sidebar-backdrop" data-admin-nav-close hidden></div>';
 
@@ -311,7 +311,7 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '</div></aside>';
 
     echo '<section class="admin-main">';
-    echo '<header class="admin-topbar"><div class="admin-topbar-context"><span>Bonumark Stream</span><strong>Administration</strong></div><div class="admin-topbar-actions"><a class="admin-topbar-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site <span aria-hidden="true">↗</span></a><a class="admin-user" href="' . $safeAdminProfileUrl . '" aria-label="Edit profile for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="admin-user-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a></div></header>';
+    echo '<header class="admin-topbar"><div class="admin-topbar-context"><span>Bonumark Stream</span><strong>Administration</strong></div><div class="admin-topbar-actions"><a class="admin-topbar-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site <span aria-hidden="true">↗</span></a><a class="admin-user" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="admin-user-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a></div></header>';
     echo '<main class="admin-content">';
 
     $flashes = bms_get_flash();

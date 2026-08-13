@@ -6,7 +6,8 @@ Bonumark Stream is a shared-hosting-friendly PHP/MySQL microblog CMS built on th
 
 | Version | Supported |
 |---|---|
-| 0.5.x | Yes |
+| 0.6.x | Yes |
+| 0.5.x | Upgrade source only |
 | 0.4.x | Upgrade source only |
 | Earlier development builds | No |
 

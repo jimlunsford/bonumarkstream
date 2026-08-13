@@ -1,0 +1,41 @@
+{
+  "surface": "home",
+  "root": {
+    "type": "group",
+    "name": "editorial-home",
+    "children": [
+      {
+        "type": "component",
+        "name": "home.notices"
+      },
+      {
+        "type": "group",
+        "name": "editorial-home-reading",
+        "children": [
+          {
+            "type": "component",
+            "name": "home.pinned-posts"
+          },
+          {
+            "type": "component",
+            "name": "home.feed"
+          },
+          {
+            "type": "component",
+            "name": "home.pagination"
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "name": "editorial-home-publish",
+        "children": [
+          {
+            "type": "component",
+            "name": "home.composer"
+          }
+        ]
+      }
+    ]
+  }
+}

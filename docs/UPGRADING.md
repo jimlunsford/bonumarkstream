@@ -1,6 +1,213 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.5.77 continues the v0.4.0+ clean-break foundation.
+Bonumark Stream v0.6.0 continues the v0.4.0+ clean-break upgrade foundation.
+
+## v0.6.0 - Profiles & Theme Architecture 2.0
+
+v0.6.0 is the next public release after v0.5.77. The built-in upgrader supports v0.4.0 and newer, including a direct upgrade from v0.5.77.
+
+### Before upgrading
+
+1. Back up the database.
+2. Back up the complete site files, especially `_bonumark_stream/config.php`, uploads/media, and custom themes.
+3. Confirm the Admin > Upgrade screen reports the package as valid before running the upgrade.
+4. Do not interrupt the upgrade while package replacement or migrations are running.
+
+### Database changes from v0.5.77
+
+The v0.6.0 package adds three Profile migrations:
+
+- `0015_profile_identity_foundation.php` creates `user_profiles` and seeds existing users with empty Profile records.
+- `0016_profile_featured_work.php` adds Featured Work storage.
+- `0017_profile_photos.php` adds Profile photo-gallery storage.
+
+Existing Stream Posts, Pages, comments, media records, analytics, API records, scheduled-task history, Local Places, and settings are not rewritten by these migrations.
+
+### Theme compatibility
+
+Theme Architecture 2.0 is additive. Existing CSS-only themes remain valid and continue through the fixed legacy composition for surfaces they do not declare. Layout-aware themes may opt into Layout Schema 1 for Profile, Stream Card, Site Header, and Home.
+
+Custom installed themes remain owner data and are preserved by the upgrader. The package manages only the bundled Midnight Ledger theme and explicitly identified retired bundled proof themes.
+
+### After upgrading
+
+- Open the public stream and a single Stream Post.
+- Open the public Profile and Profile editor.
+- Open Admin > Appearance and confirm Theme Health for the active theme.
+- Confirm comments, likes, media, and the Stream composer work normally.
+- If the Remote Posting API is enabled, confirm Admin > Remote Posting and the status endpoint.
+- Review Admin > System Check if the host changed PHP extensions or image-processing support.
+
+### Detailed development notes
+
+The sections below preserve internal v0.5.x development-build upgrade notes for maintainers and regression traceability. Normal site owners upgrading to v0.6.0 do not need to work through them individually.
+
+## v0.5.120 - Profile Modern Image Delivery Pass
+
+v0.5.120 makes no database changes and stays scoped to Profile image delivery. Profile cover and gallery images now prefer Profile-only WebP `<picture>` sources when the server can encode WebP, while retaining the v0.5.119 responsive JPEG/PNG/WebP fallback `srcset`. The Profile cover receives an explicit responsive `<link rel="preload" as="image">` in the document head plus eager high fetch priority, and below-fold Profile photos remain lazy with low fetch priority. New uploads generate the modern Profile derivatives at upload time; upgraded installs can create missing modern derivatives from the already-bounded Profile fallback images when supported. Original uploads remain untouched. Stream/Home media rendering, Midnight Ledger layout JSON, Profile composition, Theme Architecture 2.0, publishing, comments, likes, routes, APIs, and database schema are unchanged.
+
+## v0.5.119 - Profile Image Delivery Optimization Pass
+
+v0.5.119 makes no database changes and does not alter Declarative Layout Schema 1 or the finished Midnight Ledger Profile composition. Core Profile media delivery now exposes verified cover derivatives directly even though Profile covers are stored outside the normal Media Library record path, keeps the cover eager with `fetchpriority="high"`, adds 240px and 360px Profile-photo derivatives for smaller gallery slots, and uses `sizes="auto"` for lazy gallery images with safe fallback lengths. Existing Profile covers and photos may generate a small bounded set of missing responsive derivatives the first time they are rendered after upgrade when a server-side image resize engine is available. Original uploads remain untouched.
+
+## v0.5.118 - Midnight Ledger Profile Content Resilience Pass
+
+v0.5.118 makes no database changes and does not alter Declarative Layout Schema 1. Midnight Ledger recomposes only its Profile layout: About and the flexible Now/Interests/Links/Details rail share the upper desktop row, while Featured and Photos begin below whichever upper column is taller and span the full 1040px identity canvas. The mobile order remains predictable as About, Featured, Photos, then supporting information. Link pills continue to wrap naturally, longer Now text grows the rail, and the wider Photos section uses a responsive count-aware desktop grid. Header, Home, Stream Card, publishing, comments, likes, permissions, routes, media behavior, APIs, metadata, and core application behavior are unchanged.
+
+
+## v0.5.117 - Midnight Ledger Profile Banner Alignment Pass
+
+v0.5.117 makes no database changes and does not alter Declarative Layout Schema 1. Midnight Ledger keeps the same four declarative layouts while explicitly aligning the Profile cover wrapper, panel, and image to the centered 1040px identity canvas. The cover image crop is explicitly centered, and the older 980px Profile shell limit in the theme stylesheet is normalized to the current 1040px canvas. Header, Home, Stream Card, Profile component order, publishing, comments, likes, permissions, routes, media processing, APIs, metadata, and core application behavior are unchanged.
+
+## v0.5.116 - Midnight Ledger Canvas Alignment Pass
+
+v0.5.116 makes no database changes and does not alter any Declarative Layout Schema 1 contract. Midnight Ledger keeps the same Site Header composition but aligns the masthead to the intentional content canvas of the active public surface: Home, single Stream posts, Stream archives, and search use the focused 860px reading canvas, while Profile uses the wider 1040px identity canvas. On small screens both continue to collapse naturally to the viewport. All four Midnight Ledger layout JSON files, core templates, publishing behavior, comments, likes, permissions, routes, media processing, APIs, and metadata remain unchanged.
+
+## v0.5.115 - Midnight Ledger Responsive Polish Pass
+
+v0.5.115 makes no database changes and does not alter the four-surface Layout Schema 1 contract. It keeps Midnight Ledger fully declarative while polishing responsive behavior: the masthead uses a compact one-line title through common medium phone/tablet widths when space permits, single-post body text is restrained in that same range, mobile comment textareas use an explicit compact default height, and the post-to-comments transition is tightened. Profile, Home, Stream Card, and Site Header layout JSON are unchanged. Publishing, comments logic, likes, permissions, routes, media processing, APIs, metadata, and core application behavior are unchanged.
+
+
+## v0.5.114 - Midnight Ledger Home Composition Pass
+
+v0.5.114 makes no database changes. Midnight Ledger moves `home` onto Layout Schema 1 using the existing core `home.notices`, `home.composer`, `home.pinned-posts`, `home.feed`, and `home.pagination` components. The theme keeps a single-column publish-first workflow, then the normal pinned/feed/pagination timeline. This completes Midnight Ledger declarative adoption across Profile, Stream Card, Site Header, and Home. The pass also refines medium-width masthead title wrapping and tightens the single-post-to-comments transition. Publishing, comments logic, likes, permissions, routes, media processing, APIs, metadata, and core application behavior are unchanged.
+
+## v0.5.113 - Midnight Ledger Stream & Mobile Refinement Pass
+
+v0.5.113 makes no database changes. Midnight Ledger moves `site-header` onto Layout Schema 1 using only the core site identity, Menu toggle, and primary navigation components; the old theme-specific Live microblog and published-post-count controls are removed from Midnight Ledger. The pass also compacts link previews on mobile, reduces per-post action chrome, flattens the comments region into the single-post reading flow, and tightens small-screen typography and spacing. Profile and Stream Card remain declarative, while Home remains on the legacy composition path. Application behavior, publishing, comments logic, likes, permissions, routes, media processing, APIs, and metadata are unchanged.
+
+## v0.5.112 - Midnight Ledger Visual Foundation Pass
+
+v0.5.112 makes no database changes. It begins the intentional redesign of the single bundled Midnight Ledger theme. Profile remains on Layout Schema 1 but now uses a more deliberate cover/identity/content-grid composition, while Stream Card keeps the same core component order with a refined visual system. Header and Home remain on their existing legacy composition paths in this pass. The upgrade changes only presentation/layout JSON, theme CSS, release metadata, and regression coverage; publishing, comments, likes, permissions, routes, media, APIs, metadata, and application behavior remain unchanged.
+
+## v0.5.111 Midnight Ledger Declarative Baseline Pass
+
+v0.5.111 keeps Midnight Ledger as the only bundled/default theme and converts only its `profile` and `stream-card` surfaces to validated Layout Schema 1 composition. `site-header` and `home` remain on the legacy renderer in this release. No database migration or owner-data transformation is required. Existing third-party themes remain unchanged.
+
+## v0.5.110 - Theme Consolidation Pass
+
+v0.5.110 makes no database changes and keeps all four Theme Architecture 2.0 Schema 1 surfaces intact. Midnight Ledger becomes the only bundled/default theme. Editorial Profile and Split Profile are removed from the installable theme collection and retained only as internal regression fixtures. During an upgrade, Bonumark removes old Editorial/Split copies only when their installed `theme.json` explicitly identifies them as Bonumark bundled proof themes; a custom or user-replaced theme with the same slug is preserved. If a removed proof theme had been selected previously, normal active-theme resolution safely falls back to Midnight Ledger. Third-party CSS-only and declarative themes remain supported.
+
+## v0.5.109 - Site Composition Proof & Hardening Pass
+
+v0.5.109 makes no database changes and adds no new declarative surface. It hardens and accepts the existing Schema 1 `profile`, `stream-card`, `site-header`, and `home` stack as one composition system. Editorial Profile and Split Profile advance to theme version 1.3.1 with Header/Home containment rules for narrow widths and long content, while Midnight Ledger remains on the fixed legacy fallback for all four surfaces. The package also adds an integrated nested-composition regression and a dedicated `docs/DECLARATIVE-LAYOUTS.md` theme-author contract.
+
+## v0.5.108 - Declarative Home Composition Pass
+
+v0.5.108 makes no database changes. It enables `home` as the fourth Schema 1 declarative surface using the five core-owned Home components established in v0.5.107: notices, atomic composer, pinned posts, feed/empty state, and pagination. The document shell and `<main>` remain core-owned, each post still renders through `stream-card`, and themes without `layouts.home` continue through the complete fixed legacy Home arrangement unchanged. Editorial Profile and Split Profile now provide different Home compositions and are bumped to theme version 1.3.0.
+
+
+## v0.5.107 - Home Composition Foundation Pass
+
+v0.5.107 makes no database changes and does not enable declarative Home composition yet. It separates the current Home rendering preparation into notices, composer, pinned posts, normal feed/empty state, and pagination boundaries and registers five core-owned Home components. The existing `home.php` layout remains unchanged and still consumes the reconstructed legacy `items_html` output. Themes that attempt to declare `layouts.home` are rejected in this release. The Stream composer remains atomic, and Home post rendering continues to reuse the existing `stream-card` surface.
+
+## v0.5.106 - Declarative Site Header Composition Pass
+
+v0.5.106 makes no database changes. It enables `site-header` as the third Schema 1 declarative surface while keeping the outer semantic public Header shell, site-title heading choice, navigation data/URLs, account-state decisions, menu behavior, and accessibility in core. Themes may arrange only the four registered Site Header components through private validated JSON. Themes without `layouts.site-header`, including Midnight Ledger, continue through the complete fixed Header composition unchanged. Editorial Profile and Split Profile now provide different Header compositions as bundled proof themes and are bumped to theme version 1.2.0.
+
+## v0.5.105 - Site Header Component Foundation Pass
+
+v0.5.105 makes no database changes and does not enable declarative Site Header composition yet. It extracts the stable public Header concepts into four core-owned components: `site-header.site-identity`, `site-header.primary-navigation`, optional `site-header.menu-toggle`, and optional `site-header.stream-count`. The existing `header.php` composition remains the active renderer for all themes in this release. Core continues to own navigation records, URLs, active state, authenticated account decisions, menu behavior, heading semantics, accessibility, and application logic. Static Site Export now suppresses session-specific account destinations while generating the export artifact so an authenticated admin session is not baked into exported navigation.
+
+
+## v0.5.104 - Runtime Diagnostic Cleanup Pass
+
+v0.5.104 makes no database changes. It removes the temporary user-facing PHP Runtime Cache diagnostic that was introduced while investigating the link-preview title bug. Bonumark still handles PHP runtime cache reliability automatically during admin ZIP upgrades by invalidating replaced PHP files when supported and requesting an OPcache reset after software replacement completes. The v0.5.102 Fragment SEO Boundary Fix and its regression coverage remain intact.
+
+## v0.5.103 - Link Preview Metadata Integrity Pass
+
+v0.5.103 makes no database changes. It hardens external link-preview metadata when a fetched remote title incorrectly contains the local Bonumark Stream site name as its suffix even though the remote page reports a different site name. The shared preview sanitizer now replaces only that suspicious local suffix with the remote site name, leaves unrelated titles alone, corrects future composer previews before storage, and also normalizes already-saved preview metadata at render time.
+
+## v0.5.96 - Dual Stream Card Layout Proof Pass
+
+v0.5.96 makes no database changes. It extends the bundled Editorial Profile and Split Profile proof themes to the Schema 1 `stream-card` surface. Editorial Profile renders post body/media/link preview first and collects avatar, author/date, location, and actions into a byline footer. Split Profile renders a desktop author/meta/action rail beside the main post body/media/link preview column, then collapses to a safe one-column mobile flow. Both use the same seven core-owned Stream Card components and the same prepared card data. Layout JSON remains private, theme CSS remains presentation-only, and the core article shell, Quick edit, likes, comments, Post Options, pin/trash/editor actions, CSRF, accessibility, routing, and static/dynamic shared rendering remain core-controlled. Midnight Ledger continues on the fixed legacy Stream Card composition.
+
+## v0.5.95 - Declarative Stream Card Composition Pass
+
+v0.5.95 makes no database changes. It enables `stream-card` as the second Schema 1 declarative surface and allows a theme to arrange the seven v0.5.94 core-owned Stream Card components through private `layouts/stream-card.json`. Bonumark Stream still owns the outer article, prepared card data, Quick edit, likes, comments, pin/trash/editor actions, CSRF, accessibility and interaction hooks. Themes that do not declare a Stream Card layout continue through the exact fixed `stream-card-inner` / `stream-card-main` composition, and the three bundled themes remain on that legacy card composition in this pass. Dynamic rendering and Static Site Export continue to share the same card renderer, so a future theme that declares Stream Card composition uses the same composition system in both paths.
+
+
+## v0.5.94 - Stream Card Component Extraction Pass
+
+v0.5.94 makes no database changes and does not enable declarative Stream Card composition. It extracts the current Stream card interior into seven core-owned component files for avatar, header, body/Quick edit, location, link preview, media, and actions while preserving the existing article/inner/main shell and all prepared renderer data, permissions, interaction hooks, and markup behavior. `stream-card` is registered as a core component family but remains outside the supported declarative surface list, so existing themes and Stream output continue through the fixed legacy card composition unchanged.
+
+
+## v0.5.93 - Declarative Profile Responsive Hardening Pass
+
+v0.5.93 makes no database changes. It hardens the two bundled Declarative Layout Profile proof themes after real-device desktop/mobile testing exposed horizontal clipping in Editorial Profile. Declarative Profile wrappers now include explicit `min-width: 0` and text-containment rules, Editorial Profile uses viewport-safe calculated widths instead of relying on grid stretch plus side margins, and an additional small-phone breakpoint protects the identity and narrative flow. Editorial Profile and Split Profile both advance to theme version 1.0.1 so the corrected CSS receives a new theme-owned cache revision. Profile data, the Schema 1 layout contract, core Profile component markup, Midnight Ledger, legacy rendering, and Stream cards are unchanged.
+
+## v0.5.92 - Dual Profile Layout Proof Pass
+
+v0.5.92 makes no database changes. It adds two protected bundled Declarative Layout proof themes, Editorial Profile and Split Profile, that render identical prepared Profile data through the same ten core-owned components but materially different Schema 1 compositions. Both include explicit responsive CSS for mobile collapse. Midnight Ledger remains on the Legacy Core Renderer, and existing user-installed themes are not rewritten or migrated.
+
+## v0.5.91 - Declarative Profile Composition Pass
+
+v0.5.91 makes no database changes. It enables validated Schema 1 declarative composition for the public Profile interior when a theme explicitly declares `layouts.profile`, while preserving the complete fixed Profile composition for legacy CSS-only themes. Core continues to render all ten Profile components and own data, semantics, accessibility, behavior, security, routes, and application actions.
+
+## v0.5.90 - Profile Component Extraction Pass
+
+v0.5.90 makes no database changes and does not yet enable declarative Profile composition. It extracts the current Profile interior into ten core-owned component files and maps those components through the Theme Architecture 2.0 registry while preserving the existing Profile order, hero wrapper, markup behavior, renderer path, and legacy theme compatibility.
+
+## v0.5.89 - Declarative Theme Integration Pass
+
+v0.5.89 makes no database changes and leaves public Profile composition on the existing renderer. It integrates the v0.5.88 Declarative Layout Themes foundation with theme installation, activation-time Theme Health validation, Theme Manager reporting, and theme-version asset cache revisions.
+
+Layout-aware theme updates may now include explicitly declared private `layouts/*.json` files. The upgrader does not migrate or rewrite existing themes. Legacy CSS-only themes that omit `layout_schema` and `layouts` remain valid and continue through the Legacy Core Renderer.
+
+## v0.5.88 - Declarative Layout Foundation Pass
+
+v0.5.88 makes no database changes and does not change public rendering. It establishes the first inert Theme Architecture 2.0 layer: optional `layout_schema` and `layouts` manifest fields, a core-owned Profile component registry, private `layouts/*.json` path rules, strict `group` and `component` node validation, node/depth limits, required component cardinality, and rejection of unknown properties or unregistered components.
+
+Existing CSS-only themes remain valid without adding any layout fields and continue through the existing default core renderer. The bundled Midnight Ledger theme remains a legacy CSS-only theme in this pass. Theme installer copying, Theme Manager layout reporting, Profile component extraction, and declarative Profile composition are intentionally deferred to later passes so the new contract can be validated before it affects output.
+
+## v0.5.87 - Profile Gallery Pass
+
+v0.5.87 adds `profile_photos_json` to the existing `user_profiles` table. Existing Profiles begin with no Profile photos, and no posts, Pages, post media, Media Library records, links, Featured Work, metadata, accounts, themes, settings, credentials, or existing Profile media are rewritten.
+
+Profile owners may upload and order up to four JPG, PNG, or WebP photos with optional alt text and captions. The files live under the dedicated `media/profile-photos/{user}/` path, use Bonumark's existing image validation, configured media upload limit, privacy cleaning, and responsive derivative generation, and remain independent from Stream publishing and the Media Library. Removing or replacing a Profile photo cleans up its original file and generated variants. Profile exports now include original Profile photos and their portable metadata.
+
+## v0.5.86 - Profile Portability Pass
+
+v0.5.86 makes no schema changes. It adds an owner-controlled Profile ZIP export to the existing Profile editor and a dedicated CSRF-protected download endpoint. The package contains structured `profile.json`, readable `profile.md`, and original local Profile media when available. It exports identity, links, interests, Featured Work references, visibility, and optional-public-detail preferences while excluding email, credentials, roles, activity counts, security records, post/comment contents, API data, generated image variants, and theme presentation state. Existing Profiles, metadata, featured items, posts, Pages, media, accounts, themes, settings, and credentials are preserved.
+
+## v0.5.85 - Profile Identity Metadata Pass
+
+v0.5.85 makes no schema changes. It keeps the accepted Profile identity, Featured Work, editor, Stream, and theme presentation unchanged while adding Profile-specific search/share metadata, cover/avatar social images, ProfilePage/Person structured data, base-path-safe canonical Profile URLs, sitemap Profile last-modified handling, and public Stream article-author Profile references. Private Profiles remain excluded from public sitemap output and structured identity data, and owner/admin views of private Profiles receive `noindex,nofollow`. Existing Profiles, featured items, posts, Pages, media, accounts, themes, settings, and credentials are preserved.
+
+## v0.5.84 - Profile Featured Polish and Empty Stream Layout Fix
+
+v0.5.84 makes no schema changes. It keeps v0.5.83 Featured Work data and Profile behavior intact while polishing the bundled Midnight Ledger theme and correcting short public-page layout. The outer public flex wrapper now top-aligns the site grid so empty or short pages do not distribute grid rows across the viewport height. Featured cards also handle one-to-four item sets and long text more cleanly. Existing Profiles, featured items, posts, Pages, media, accounts, themes, settings, and credentials are preserved.
+
+## v0.5.83 - Profile Featured Work Pass
+
+v0.5.83 adds `featured_items_json` to the existing `user_profiles` table. The migration does not move or rewrite existing Profile identity, posts, Pages, media, accounts, links, interests, settings, themes, or credentials. Existing Profiles simply begin with no featured work selected.
+
+Featured work is deliberate curation only. A Profile owner may save up to four references to published Stream posts, published Pages, or validated external URLs. No recent posts are added automatically, no per-profile Stream or feed is created, and an internal item disappears from the public Featured section if its referenced content is no longer published.
+
+## v0.5.82 - Profile Foundation Cleanup Pass
+
+v0.5.82 makes no schema changes. It keeps the Profile Identity Foundation data model, routes, and public Profile unchanged while finishing the tested editor cleanup: saved Profiles show only saved link rows, empty Profiles keep one first-link starter row, Add Link does not duplicate an untouched starter row, image-removal actions are visually contained, and the About editor opens at a more practical height. Existing Profile identity data, media, accounts, posts, comments, themes, settings, and credentials are preserved.
+
+## v0.5.81 - Profile Foundation Editor Polish Pass
+
+v0.5.81 makes no schema changes. It keeps the v0.5.80 Profile Identity Foundation data model and routes intact while polishing the Profile editor: compact link rows with Add Link and Remove controls, Profile visibility and optional details grouped under Profile settings, improved image controls, and corrected checkbox alignment. Existing Profile identity data, media, accounts, posts, comments, themes, settings, and credentials are preserved.
+
+## v0.5.80 - Profile Identity Foundation Pass
+
+v0.5.80 adds the `user_profiles` identity table. The migration creates one row for each existing account and carries the existing ordered social-link JSON forward as the starting flexible Profile links. Existing usernames, display names, short bios, websites, visibility, avatars, posts, comments, media, themes, settings, and account credentials remain in place.
+
+The public Profile now uses the unique username as its canonical route. Old numeric `profile.php?id=` links remain readable as a compatibility fallback, but display names are not routing identifiers. No per-profile Stream route, feed, or duplicate publishing surface is added.
+
+Profile presentation remains theme-owned. Core supplies semantic Profile data and markup, while the bundled Midnight Ledger theme styles the new sections. The migration adds no Profile layout or Profile accent setting to core.
+
+## v0.5.79 - Upgrade Protected Data Layout Hotfix
+
+v0.5.79 changes no upgrade behavior or database schema. It corrects the desktop presentation of the Upgrade page's protected-data explanation so its labels and values remain readable inside the narrow operations rail. Existing config, database records, posts, pages, drafts, revisions, comments, users, media, uploads, custom themes, settings, analytics, API tokens, scheduled tasks, cron history, Local Places, and all other owner data are unchanged.
+
+
+## v0.5.78 - Admin UI Contract
+
+v0.5.78 changes no application behavior or database schema. It adds `docs/ADMIN-UI-GUIDELINES.md` as the repository-level contract for future Admin work, links the standard from `README.md` and `CONTRIBUTING.md`, and adds smoke-test coverage for the documentation boundary. Existing config, database records, posts, pages, drafts, revisions, comments, users, media, uploads, custom themes, settings, analytics, API tokens, scheduled tasks, cron history, Local Places, and all other owner data are unchanged.
 
 
 ## v0.5.77 - GitHub README Cleanup

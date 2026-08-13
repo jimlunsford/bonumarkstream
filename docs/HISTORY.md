@@ -1,6 +1,6 @@
 # Bonumark Stream development history
 
-This file preserves the private pre-v0.4.0 development history. The public changelog starts clean at v0.4.0.
+This file preserves the pre-v0.4.0 development history. The public changelog starts clean at v0.4.0.
 
 # Changelog
 

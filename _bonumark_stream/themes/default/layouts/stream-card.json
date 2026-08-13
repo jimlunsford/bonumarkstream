@@ -1,0 +1,43 @@
+{
+  "surface": "stream-card",
+  "root": {
+    "type": "group",
+    "name": "midnight-stream-card-inner",
+    "children": [
+      {
+        "type": "component",
+        "name": "stream-card.avatar"
+      },
+      {
+        "type": "group",
+        "name": "midnight-stream-card-main",
+        "children": [
+          {
+            "type": "component",
+            "name": "stream-card.header"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.body"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.location"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.link-preview"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.media"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.actions"
+          }
+        ]
+      }
+    ]
+  }
+}

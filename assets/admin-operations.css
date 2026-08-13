@@ -617,6 +617,17 @@ body.admin-screen-upgrade .operations-workflow-history {
   margin: 0;
 }
 
+@media (min-width: 1081px) {
+  body.admin-screen-upgrade .operations-workflow-rail .operations-fact-list > div {
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-screen-upgrade .operations-workflow-rail .operations-fact-list dd {
+    text-align: left;
+  }
+}
+
 /* Make operational screens feel distinct from routine Settings forms. */
 body.admin-screen-upgrade .operations-hero,
 body.admin-screen-import .operations-hero,

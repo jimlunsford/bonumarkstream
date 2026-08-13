@@ -225,6 +225,19 @@ function bms_theme_installer_manifest_asset_refs(array $manifest): array
     return array_values(array_unique($refs));
 }
 
+function bms_theme_installer_manifest_layout_refs(array $manifest): array
+{
+    $refs = [];
+    foreach ((array)($manifest['layouts'] ?? []) as $surface => $layout) {
+        $surface = strtolower(trim((string)$surface));
+        $layout = bms_theme_layout_reference((string)$layout);
+        if ($surface !== '' && $layout !== '') {
+            $refs[$surface] = $layout;
+        }
+    }
+    return $refs;
+}
+
 function bms_theme_installer_install_candidate(array $candidate, bool $replaceExisting = false, bool $activate = false): array
 {
     $manifest = bms_read_theme_manifest_file((string)$candidate['manifest']);
@@ -237,8 +250,12 @@ function bms_theme_installer_install_candidate(array $candidate, bool $replaceEx
         throw new RuntimeException('The uploaded theme slug is missing or invalid.');
     }
 
-    if (in_array($slug, ['default'], true)) {
+    if (bms_public_theme_is_bundled($slug)) {
         throw new RuntimeException('Protected themes cannot be replaced through the theme uploader. Use a different theme slug.');
+    }
+
+    if (function_exists('bms_public_theme_cleanup_retired_bundled_leftovers')) {
+        bms_public_theme_cleanup_retired_bundled_leftovers();
     }
 
     $privateRoot = rtrim((string)$candidate['private_root'], '/\\');
@@ -255,6 +272,15 @@ function bms_theme_installer_install_candidate(array $candidate, bool $replaceEx
     $installedAssets = false;
 
     try {
+        $manifestErrors = is_array($manifest['manifest_errors'] ?? null) ? $manifest['manifest_errors'] : [];
+        if ($manifestErrors) {
+            throw new RuntimeException('Theme manifest did not pass validation: ' . implode(' ', $manifestErrors));
+        }
+        $layoutErrors = bms_theme_layout_file_errors($manifest, $privateRoot);
+        if ($layoutErrors) {
+            throw new RuntimeException('Theme layout did not pass validation: ' . implode(' ', $layoutErrors));
+        }
+
         if (!is_dir($privateStage) && !mkdir($privateStage, 0755, true)) {
             throw new RuntimeException('Could not prepare theme install staging area.');
         }
@@ -264,6 +290,10 @@ function bms_theme_installer_install_candidate(array $candidate, bool $replaceEx
 
         bms_theme_installer_copy_file($privateRoot . '/theme.json', $privateStage . '/theme.json');
         bms_theme_installer_copy_optional_doc_files($privateRoot, $privateStage);
+
+        foreach (bms_theme_installer_manifest_layout_refs($manifest) as $layout) {
+            bms_theme_installer_copy_file($privateRoot . '/' . $layout, $privateStage . '/' . $layout);
+        }
 
         foreach (bms_theme_installer_manifest_asset_refs($manifest) as $asset) {
             $source = '';

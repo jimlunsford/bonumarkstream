@@ -2,6 +2,7 @@
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/markdown.php';
 
+
 function bms_link_preview_first_url(string $text): string
 {
     if (preg_match('~\bhttps?://[^\s<>()\[\]{}"\']+~iu', $text, $m) !== 1) {
@@ -235,33 +236,49 @@ function bms_link_preview_resolve_url(string $base, string $url): string
     return bms_link_preview_clean_url($origin . ($dir !== '' ? $dir : '') . '/' . $url);
 }
 
-function bms_link_preview_from_url(string $url): array
+function bms_link_preview_document_title(string $html): string
+{
+    if (preg_match('~<title\b[^>]*>(.*?)</title>~isu', $html, $m) !== 1) {
+        return '';
+    }
+
+    return bms_link_preview_trim_text((string)$m[1], 120);
+}
+
+function bms_link_preview_from_html(string $url, string $html): array
 {
     $url = bms_link_preview_clean_url($url);
     if ($url === '') {
         throw new RuntimeException('Enter a valid http or https URL.');
     }
-
-    $html = bms_link_preview_fetch_html($url);
     if ($html === '') {
         throw new RuntimeException('No preview metadata was found.');
     }
 
-    $title = bms_link_preview_meta_value($html, ['og:title', 'twitter:title']);
-    if ($title === '' && preg_match('~<title[^>]*>(.*?)</title>~isu', $html, $m) === 1) {
-        $title = bms_link_preview_trim_text((string)$m[1], 120);
+    /*
+     * External preview titles belong to the linked document.
+     *
+     * Prefer the remote HTML <title>. Open Graph and Twitter title metadata
+     * are fallbacks only when the document does not provide a usable title.
+     * The local Bonumark installation name is never appended, substituted,
+     * or used to reconstruct an external title.
+     */
+    $title = bms_link_preview_document_title($html);
+    if ($title === '') {
+        $title = bms_link_preview_meta_value($html, ['og:title', 'twitter:title']);
     }
+
     $description = bms_link_preview_meta_value($html, ['og:description', 'twitter:description', 'description']);
     $siteName = bms_link_preview_meta_value($html, ['og:site_name', 'application-name']);
     $image = bms_link_preview_meta_value($html, ['og:image:secure_url', 'og:image', 'twitter:image']);
     $image = $image !== '' ? bms_link_preview_resolve_url($url, $image) : '';
 
+    $host = (string)(parse_url($url, PHP_URL_HOST) ?: '');
     if ($title === '') {
-        $host = (string)(parse_url($url, PHP_URL_HOST) ?: $url);
-        $title = $host;
+        $title = $host !== '' ? $host : $url;
     }
     if ($siteName === '') {
-        $siteName = (string)(parse_url($url, PHP_URL_HOST) ?: '');
+        $siteName = $host;
     }
 
     return bms_link_preview_sanitize_payload([
@@ -273,17 +290,60 @@ function bms_link_preview_from_url(string $url): array
     ]);
 }
 
+function bms_link_preview_from_url(string $url): array
+{
+    $url = bms_link_preview_clean_url($url);
+    if ($url === '') {
+        throw new RuntimeException('Enter a valid http or https URL.');
+    }
+
+    return bms_link_preview_from_html($url, bms_link_preview_fetch_html($url));
+}
+
+function bms_link_preview_strip_local_site_suffix(string $title, string $remoteSiteName = ''): string
+{
+    $title = bms_link_preview_trim_text($title, 0);
+    if ($title === '') {
+        return '';
+    }
+
+    $localSiteName = bms_link_preview_trim_text((string)bms_setting_or_config('site_name', 'Bonumark Stream'), 0);
+    $remoteSiteName = bms_link_preview_trim_text($remoteSiteName, 0);
+
+    /*
+     * External metadata must never inherit this Bonumark installation's own
+     * site name when the linked page identifies itself as a different site.
+     *
+     * This does not reconstruct the remote title and does not substitute a
+     * different suffix. It only removes trailing local-site contamination.
+     */
+    if ($localSiteName === '' || $remoteSiteName === '' || strcasecmp($remoteSiteName, $localSiteName) === 0) {
+        return $title;
+    }
+
+    $localQuoted = preg_quote($localSiteName, '~');
+    $cleaned = preg_replace(
+        '~\s*(?:\||-|–|—|»|:)\s*' . $localQuoted . '\s*$~iu',
+        '',
+        $title,
+        1
+    );
+
+    return trim(is_string($cleaned) ? $cleaned : $title);
+}
+
 function bms_link_preview_sanitize_payload(array $payload): array
 {
     $url = bms_link_preview_clean_url((string)($payload['url'] ?? ''));
-    $image = bms_link_preview_clean_url((string)($payload['image'] ?? ''));
+    $siteName = bms_link_preview_trim_text((string)($payload['site_name'] ?? ''), 80);
+    $title = bms_link_preview_strip_local_site_suffix((string)($payload['title'] ?? ''), $siteName);
 
     return [
         'url' => $url,
-        'title' => bms_link_preview_trim_text((string)($payload['title'] ?? ''), 120),
+        'title' => bms_link_preview_trim_text($title, 120),
         'description' => bms_link_preview_trim_text((string)($payload['description'] ?? ''), 220),
-        'image' => $image,
-        'site_name' => bms_link_preview_trim_text((string)($payload['site_name'] ?? ''), 80),
+        'image' => bms_link_preview_clean_url((string)($payload['image'] ?? '')),
+        'site_name' => $siteName,
     ];
 }
 

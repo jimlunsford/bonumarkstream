@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/pwa.php';
+require_once __DIR__ . '/theme-layouts.php';
 
 function bms_theme_slug(string $slug): string
 {
@@ -250,6 +251,7 @@ function bms_public_theme_package_health_at_paths(array $theme, string $privateT
     $errors = array_merge($errors, bms_theme_directory_disallowed_code_errors($privateThemeRoot));
     $errors = array_merge($errors, bms_theme_directory_disallowed_code_errors($publicAssetRoot));
     $errors = array_merge($errors, bms_public_theme_core_view_errors($theme));
+    $errors = array_merge($errors, bms_theme_layout_file_errors($theme, $privateThemeRoot));
 
 
     $assets = is_array($theme['assets'] ?? null) ? $theme['assets'] : [];
@@ -285,6 +287,10 @@ function bms_public_theme_package_health_at_paths(array $theme, string $privateT
         'errors' => array_values(array_unique($errors)),
         'warnings' => array_values(array_unique($warnings)),
         'core_view' => bms_public_theme_core_view_slug($theme),
+        'renderer' => bms_theme_layout_renderer_label($theme),
+        'layout_aware' => !empty($theme['layout_aware']),
+        'layout_schema' => $theme['layout_schema'] ?? null,
+        'layout_surfaces' => bms_theme_layout_declared_surfaces($theme),
     ];
 }
 
@@ -399,11 +405,18 @@ function bms_read_theme_manifest_file(string $manifestPath, ?string $expectedSlu
     $decoded['version'] = trim((string)($decoded['version'] ?? '1.0.0')) ?: '1.0.0';
     $decoded['author'] = trim((string)($decoded['author'] ?? 'Bonumark')) ?: 'Bonumark';
     $decoded['description'] = trim((string)($decoded['description'] ?? 'A Bonumark Stream public theme.')) ?: 'A Bonumark Stream public theme.';
-    $decoded['manifest_errors'] = bms_theme_manifest_asset_errors($decoded);
+    $decoded['manifest_errors'] = array_values(array_unique(array_merge(
+        bms_theme_manifest_asset_errors($decoded),
+        bms_theme_layout_manifest_errors($decoded)
+    )));
     $decoded['screenshot'] = bms_theme_asset_reference((string)($decoded['screenshot'] ?? ''));
     $decoded['supports'] = is_array($decoded['supports'] ?? null) ? $decoded['supports'] : [];
     $decoded['assets'] = is_array($decoded['assets'] ?? null) ? bms_normalize_theme_assets($decoded['assets']) : ['css' => [], 'images' => [], 'fonts' => []];
     $decoded['settings'] = is_array($decoded['settings'] ?? null) ? bms_normalize_theme_settings_schema($decoded['settings']) : [];
+    $layoutManifest = bms_normalize_theme_layout_manifest($decoded);
+    $decoded['layout_schema'] = $layoutManifest['layout_schema'];
+    $decoded['layouts'] = $layoutManifest['layouts'];
+    $decoded['layout_aware'] = $layoutManifest['layout_aware'];
 
     return $decoded;
 }
@@ -412,6 +425,79 @@ function bms_read_theme_manifest(string $slug): ?array
 {
     $slug = bms_theme_slug($slug);
     return bms_read_theme_manifest_file(bms_themes_path($slug . '/theme.json'), $slug);
+}
+
+function bms_public_theme_retired_bundled_slugs(): array
+{
+    return ['profile-editorial', 'profile-split'];
+}
+
+function bms_public_theme_is_retired_bundled_manifest(array $theme): bool
+{
+    $slug = bms_theme_slug_or_empty((string)($theme['slug'] ?? ''));
+    if ($slug === '' || !in_array($slug, bms_public_theme_retired_bundled_slugs(), true)) {
+        return false;
+    }
+    return strtolower(trim((string)($theme['package'] ?? ''))) === 'bundled-declarative-proof-theme';
+}
+
+/**
+ * Retire old package-owned proof themes left behind by an upgrader that was
+ * loaded before v0.5.110 knew those themes were being removed. Only the exact
+ * former Bonumark package marker is eligible. A custom theme using the same
+ * slug is never treated as a retired bundled leftover.
+ */
+function bms_public_theme_cleanup_retired_bundled_leftovers(): array
+{
+    static $ran = false;
+    if ($ran) {
+        return [];
+    }
+    $ran = true;
+
+    $removed = [];
+    foreach (bms_public_theme_retired_bundled_slugs() as $slug) {
+        $privatePath = bms_themes_path($slug);
+        $manifest = bms_read_theme_manifest_file($privatePath . '/theme.json', $slug);
+        if (!is_array($manifest) || !bms_public_theme_is_retired_bundled_manifest($manifest)) {
+            continue;
+        }
+
+        if (function_exists('bms_setting_or_config')
+            && function_exists('bms_set_setting')
+            && (string)bms_setting_or_config('active_public_theme', 'default') === $slug) {
+            try {
+                bms_set_setting('active_public_theme', 'default');
+            } catch (Throwable $e) {
+                if (function_exists('bms_log_admin_exception')) {
+                    bms_log_admin_exception('retired-bundled-theme-active-reset', $e);
+                }
+            }
+        }
+
+        foreach ([
+            [$privatePath, bms_themes_path(), 'retired bundled theme'],
+            [bms_public_theme_asset_path($slug), bms_public_theme_asset_path(), 'retired bundled theme assets'],
+        ] as [$target, $root, $label]) {
+            if (!is_dir($target)) {
+                continue;
+            }
+            try {
+                bms_public_theme_delete_directory_tree($target, $root, $label);
+                $removed[] = $target;
+            } catch (Throwable $e) {
+                if (function_exists('bms_log_admin_exception')) {
+                    bms_log_admin_exception('retired-bundled-theme-cleanup', $e);
+                }
+            }
+        }
+
+        if (function_exists('bms_delete_setting_record')) {
+            bms_delete_setting_record(bms_public_theme_settings_storage_key($slug));
+        }
+    }
+
+    return $removed;
 }
 
 function bms_public_theme_discovery_issues(): array
@@ -472,6 +558,7 @@ function bms_public_theme_discovery_issues(): array
 
 function bms_public_theme_packages(): array
 {
+    bms_public_theme_cleanup_retired_bundled_leftovers();
     $themes = [];
     $root = bms_themes_path();
     if (is_dir($root)) {
@@ -481,7 +568,7 @@ function bms_public_theme_packages(): array
                 continue;
             }
             $manifest = bms_read_theme_manifest($slug);
-            if ($manifest !== null) {
+            if ($manifest !== null && !bms_public_theme_is_retired_bundled_manifest($manifest)) {
                 $manifest['health'] = bms_public_theme_package_health($manifest);
                 $themes[$slug] = $manifest;
             }
@@ -541,12 +628,14 @@ function bms_public_theme_asset_url(string $assetPath, ?string $slug = null): st
         return '';
     }
 
-    if (preg_match('#^(https?://|/)#i', $assetPath) === 1) {
-        return bms_asset_url(ltrim($assetPath, '/'));
-    }
-
     $themeSlug = bms_theme_slug($slug ?? bms_active_public_theme_slug());
-    return bms_asset_url('assets/themes/' . $themeSlug . '/' . $assetPath);
+    $url = bms_url_path('assets/themes/' . $themeSlug . '/' . $assetPath);
+    $theme = bms_read_theme_manifest($themeSlug);
+    $revision = trim((string)($theme['version'] ?? ''));
+    if ($revision === '') {
+        $revision = bms_version();
+    }
+    return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . rawurlencode($revision);
 }
 
 function bms_public_theme_screenshot_url(array|string|null $theme = null): string
@@ -865,6 +954,26 @@ function bms_public_theme_asset_inventory(array $theme): array
     return $rows;
 }
 
+function bms_public_theme_layout_inventory(array $theme): array
+{
+    $slug = bms_theme_slug((string)($theme['slug'] ?? 'default'));
+    $rows = [];
+    foreach ((array)($theme['layouts'] ?? []) as $surface => $reference) {
+        $surface = strtolower(trim((string)$surface));
+        $reference = bms_theme_layout_reference((string)$reference);
+        if ($surface === '' || $reference === '') {
+            continue;
+        }
+        $rows[] = [
+            'surface' => $surface,
+            'label' => bms_theme_layout_surface_label($surface),
+            'file' => $reference,
+            'exists' => is_file(bms_themes_path($slug . '/' . $reference)),
+        ];
+    }
+    return $rows;
+}
+
 function bms_public_theme_status_class(array $theme): string
 {
     $health = is_array($theme['health'] ?? null) ? $theme['health'] : bms_public_theme_package_health($theme);
@@ -896,6 +1005,8 @@ function bms_public_theme_manager_summary(array $theme): array
     $errors = is_array($health['errors'] ?? null) ? $health['errors'] : [];
     $warnings = is_array($health['warnings'] ?? null) ? $health['warnings'] : [];
     $assets = bms_public_theme_asset_inventory($theme);
+    $layouts = bms_public_theme_layout_inventory($theme);
+    $layoutSurfaces = bms_theme_layout_declared_surfaces($theme);
 
     return [
         'valid' => !empty($health['valid']),
@@ -907,6 +1018,11 @@ function bms_public_theme_manager_summary(array $theme): array
         'asset_missing' => count(array_filter($assets, static fn($row) => empty($row['exists']))),
         'setting_total' => count((array)($theme['settings'] ?? [])),
         'support_total' => count(bms_public_theme_supports_list($theme)),
+        'renderer' => bms_theme_layout_renderer_label($theme),
+        'layout_aware' => !empty($theme['layout_aware']),
+        'layout_schema' => $theme['layout_schema'] ?? null,
+        'layout_total' => count($layouts),
+        'layout_surfaces' => $layoutSurfaces,
     ];
 }
 
@@ -1026,6 +1142,103 @@ function bms_inject_public_seo_head(string $html, array $data): string
     return $html;
 }
 
+
+function bms_inject_profile_identity_metadata_head(string $html, array $data): string
+{
+    $metadata = is_array($data['profile_metadata'] ?? null) ? $data['profile_metadata'] : [];
+    if (!$metadata || $html === '' || preg_match('/<head\b[^>]*>(.*?)<\/head>/is', $html) !== 1) {
+        return $html;
+    }
+
+    $description = trim((string)($metadata['description'] ?? $data['description'] ?? ''));
+    $canonical = trim((string)($metadata['canonical'] ?? $data['canonical'] ?? ''));
+    $ogType = trim((string)($metadata['og_type'] ?? 'profile')) ?: 'profile';
+    $siteName = trim((string)($data['site_name'] ?? ''));
+    $username = trim((string)($metadata['username'] ?? ''));
+    $authorName = trim((string)($metadata['author_name'] ?? ''));
+    $imageUrl = trim((string)($metadata['image_url'] ?? ''));
+    $imageAlt = trim((string)($metadata['image_alt'] ?? ''));
+    $twitterCard = trim((string)($metadata['twitter_card'] ?? '')) ?: ($imageUrl !== '' ? 'summary_large_image' : 'summary');
+    $robots = trim((string)($metadata['robots'] ?? ''));
+
+    if ($description !== '') {
+        $safe = htmlspecialchars($description, ENT_QUOTES, 'UTF-8');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*name=["\']description["\'][^>]*>/i', '<meta name="description" content="' . $safe . '">');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*property=["\']og:description["\'][^>]*>/i', '<meta property="og:description" content="' . $safe . '">');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*name=["\']twitter:description["\'][^>]*>/i', '<meta name="twitter:description" content="' . $safe . '">');
+    }
+
+    if ($canonical !== '') {
+        $safe = htmlspecialchars($canonical, ENT_QUOTES, 'UTF-8');
+        $html = bms_public_head_replace_or_add_tag($html, '/<link\s+[^>]*rel=["\']canonical["\'][^>]*>/i', '<link rel="canonical" href="' . $safe . '">');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*property=["\']og:url["\'][^>]*>/i', '<meta property="og:url" content="' . $safe . '">');
+    }
+
+    $html = bms_public_head_replace_or_add_tag(
+        $html,
+        '/<meta\s+[^>]*property=["\']og:type["\'][^>]*>/i',
+        '<meta property="og:type" content="' . htmlspecialchars($ogType, ENT_QUOTES, 'UTF-8') . '">'
+    );
+    $html = bms_public_head_replace_or_add_tag(
+        $html,
+        '/<meta\s+[^>]*name=["\']twitter:card["\'][^>]*>/i',
+        '<meta name="twitter:card" content="' . htmlspecialchars($twitterCard, ENT_QUOTES, 'UTF-8') . '">'
+    );
+
+    if ($siteName !== '') {
+        $html = bms_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*property=["\']og:site_name["\'][^>]*>/i',
+            '<meta property="og:site_name" content="' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . '">'
+        );
+    }
+    if ($username !== '') {
+        $html = bms_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*property=["\']profile:username["\'][^>]*>/i',
+            '<meta property="profile:username" content="' . htmlspecialchars($username, ENT_QUOTES, 'UTF-8') . '">'
+        );
+    }
+    if ($authorName !== '') {
+        $html = bms_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*name=["\']author["\'][^>]*>/i',
+            '<meta name="author" content="' . htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') . '">'
+        );
+    }
+
+    if ($imageUrl !== '') {
+        $safeImage = htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*property=["\']og:image["\'][^>]*>/i', '<meta property="og:image" content="' . $safeImage . '">');
+        $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*name=["\']twitter:image["\'][^>]*>/i', '<meta name="twitter:image" content="' . $safeImage . '">');
+        if ($imageAlt !== '') {
+            $safeAlt = htmlspecialchars($imageAlt, ENT_QUOTES, 'UTF-8');
+            $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*property=["\']og:image:alt["\'][^>]*>/i', '<meta property="og:image:alt" content="' . $safeAlt . '">');
+            $html = bms_public_head_replace_or_add_tag($html, '/<meta\s+[^>]*name=["\']twitter:image:alt["\'][^>]*>/i', '<meta name="twitter:image:alt" content="' . $safeAlt . '">');
+        }
+    }
+
+    if ($robots !== '') {
+        $html = bms_public_head_replace_or_add_tag(
+            $html,
+            '/<meta\s+[^>]*name=["\']robots["\'][^>]*>/i',
+            '<meta name="robots" content="' . htmlspecialchars($robots, ENT_QUOTES, 'UTF-8') . '">'
+        );
+    }
+
+    $structured = is_array($metadata['structured_data'] ?? null) ? $metadata['structured_data'] : [];
+    $html = preg_replace('/\s*<script\b[^>]*data-bonumark-profile-metadata[^>]*>.*?<\/script>/is', '', $html) ?? $html;
+    if ($structured) {
+        $json = json_encode($structured, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        if (is_string($json) && $json !== '') {
+            $script = '<script type="application/ld+json" data-bonumark-profile-metadata>' . $json . '</script>';
+            $html = preg_replace('/<\/head>/i', '  ' . $script . "\n</head>", $html, 1) ?? $html;
+        }
+    }
+
+    return $html;
+}
+
 function bms_render_public_theme_template(string $template, array $data = []): ?string
 {
     $template = bms_theme_template_reference($template);
@@ -1064,6 +1277,9 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     include $path;
     $html = (string)ob_get_clean();
     $html = bms_inject_public_seo_head($html, $data);
+    if ($template === 'profile') {
+        $html = bms_inject_profile_identity_metadata_head($html, $data);
+    }
     $html = bms_inject_public_favicon_tags($html);
     $html = function_exists('bms_inject_public_pwa_tags') ? bms_inject_public_pwa_tags($html) : $html;
     return function_exists('bms_inject_public_analytics_script') ? bms_inject_public_analytics_script($html) : $html;

@@ -1,0 +1,41 @@
+{
+  "surface": "home",
+  "root": {
+    "type": "group",
+    "name": "midnight-home",
+    "children": [
+      {
+        "type": "component",
+        "name": "home.notices"
+      },
+      {
+        "type": "group",
+        "name": "midnight-home-publish",
+        "children": [
+          {
+            "type": "component",
+            "name": "home.composer"
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "name": "midnight-home-timeline",
+        "children": [
+          {
+            "type": "component",
+            "name": "home.pinned-posts"
+          },
+          {
+            "type": "component",
+            "name": "home.feed"
+          },
+          {
+            "type": "component",
+            "name": "home.pagination"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -2,473 +2,292 @@
 
 **Bonumark Stream is a self-hosted microblog CMS for publishing short-form posts on a site you control.**
 
-It is built for people who want the speed and simplicity of a personal stream without handing their words, media, and history to a platform they do not own.
+It is built for people who want the speed of a personal stream without handing their writing, media, identity, and publishing history to a social platform.
 
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.5.77**
+- Current version: **0.6.0**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## What Bonumark Stream is
 
-Bonumark Stream is a lightweight PHP/MySQL publishing system for short-form posts, pages, media, comments, profiles, likes, feeds, imports, exports, and code-free presentation themes.
+Bonumark Stream is a lightweight PHP/MySQL publishing system for short posts, notes, links, photos, pages, comments, profiles, likes, feeds, imports, exports, and owner-controlled site presentation.
 
-It is not a social network. It is not a multi-author publishing platform. It is not a WordPress theme.
+The normal runtime is database-first and dynamically rendered. Markdown remains part of the system for import, export, backup, and portability, but it is not the runtime source of truth.
 
-Bonumark Stream is for running your own microblog on your own site.
+Bonumark Stream is intentionally not a social network and not a multi-author publishing platform. The Admin account owns publishing. Optional Commenter accounts can participate through comments and profile/account features when enabled.
 
-## Who it is for
+## Why it exists
 
-Bonumark Stream is for people who want:
+Bonumark Stream is designed around a simple idea: short-form publishing should be as easy as posting to a social platform while the site owner keeps control of the domain, database, media, presentation, and archive.
 
-- A self-hosted place for short posts, notes, updates, links, photos, and public thoughts
-- Ownership of their posts, media, comments, and publishing history
-- A smaller publishing system that can run on normal shared hosting
-- A site where the owner remains the only publisher
-- Optional commenter participation without turning the site into a multiuser publishing platform
-- A code-free theme system where themes control presentation, not application behavior
+That means the project favors:
 
-## Current foundation
+- Self-hosting and content ownership
+- Fast short-form publishing
+- A single owner/publisher model
+- Shared-hosting compatibility
+- Portable data and media
+- Privacy-conscious defaults
+- Code-free themes with a strict application boundary
+- Upgrade paths that preserve owner data
 
-Bonumark Stream v0.5.77 is a public development release built on the clean-break v0.4.0+ foundation. This release preserves legacy post timestamp interpretation from before the v0.5.23 timezone pass, while retaining canonical UTC handling for new timestamps. It does not rewrite existing content or post records.
+## Release highlights
 
-The current model is:
+v0.6.0 is the first public release after v0.5.77. It consolidates the development work completed since that release into a smaller set of user-facing milestones instead of exposing every internal build pass.
 
-- One Admin account
-- Optional Commenter accounts
-- Admin is the sole publisher
-- Commenters can participate through comments and profile/account features when enabled
-- Database-first normal operation
-- Markdown for import, export, backup, and portability
-- Dynamic rendering by default
-- Static export as optional tooling
-- Code-free presentation themes
-- Midnight Ledger as the bundled reference theme
+### First-class Profiles
+
+Profiles are now a full public identity surface rather than a basic account page. The Profile system supports:
+
+- Headline, About, Now, location, interests, and flexible links
+- Featured Work that can point to published Stream Posts, Pages, or validated external URLs
+- Profile cover images and a photo gallery
+- Optional public activity details
+- Canonical Profile URLs and social/structured identity metadata
+- Owner-controlled Profile export to JSON, Markdown, and original local Profile media
+
+### Theme Architecture 2.0
+
+Bonumark Stream themes remain code-free, but they can now control validated composition as well as CSS presentation.
+
+Layout Schema 1 supports declarative composition for four public surfaces:
+
+- Profile
+- Stream Card
+- Site Header
+- Home
+
+Themes arrange registered core components through private JSON layout files. Core still owns behavior, data, routing, permissions, forms, publishing, media, comments, likes, SEO, accessibility semantics, and rendering logic. There is no expression language and themes cannot ship executable application code.
+
+CSS-only themes remain supported through legacy composition fallback.
+
+### Midnight Ledger rebuilt as the reference theme
+
+Midnight Ledger is the single bundled/default theme and now exercises the complete Theme Architecture 2.0 stack. The v0.6.0 package includes the responsive Home, Stream Card, Site Header, and Profile composition used as the reference implementation for third-party themes.
+
+### Link-preview and SEO hardening
+
+The release strengthens the boundary between local document SEO and reusable fragments such as external link previews. Remote titles remain remote titles, local site-name suffixes are not injected into external preview metadata, and fragment data is kept separate from full-document SEO processing.
+
+### Upgrade and package hardening
+
+The upgrader preserves configuration, the database, uploads, media, custom themes, backups, and owner data while replacing package-managed application files. v0.6.0 also retains the existing v0.4.0+ upgrade line and includes the Profile migrations needed by installations upgrading from v0.5.77.
+
+### Profile image delivery
+
+Profile cover and gallery delivery now use bounded responsive candidates. When the host supports WebP encoding, Profile media can expose modern-format picture sources while retaining safe JPEG/PNG fallbacks. The Profile cover receives high-priority loading treatment while below-fold gallery images remain lazy.
 
 ## Major features
 
-Bonumark Stream currently includes:
+### Publishing
 
-- Stream posts
-- Private Local Places directory and optional location check-ins with no external places API
-- Drafts, scheduled posts, published posts, pinned posts, trash, revisions, and previews
-- Optional cookieless, self-hosted Privacy-First Analytics with aggregate reporting, CSV export, retention controls, and no visitor identity layer
-- Basic pages
-- Media library, validated uploads, and responsive one-to-four-photo post galleries
-- Public comments and comment moderation
+- Front-end Stream composer as the primary creation surface
+- Post now, schedule, save draft, or continue in the full editor
+- Drafts, scheduled posts, published posts, revisions, previews, trash, and restoration
+- Pinned posts
+- Inline Markdown Quick edit for published Stream Posts
+- Stale-content conflict protection
+- One-to-four-photo galleries with preview, ordering, responsive layouts, and full-size viewing
+- Link previews
+- Local Places check-ins
+- Search and indexing controls
+
+### Media
+
+- Media Library with validated uploads
+- Randomized public filenames for new uploads
+- Best-effort image metadata removal with optional strict privacy mode
+- Responsive image derivatives where supported
+- Profile cover and gallery delivery optimized independently from normal Stream media
+
+### Profiles and participation
+
+- Public owner Profile
+- Optional Commenter accounts
+- Public comments with moderation
 - Public likes with rate limiting
-- Admin dashboard and publishing tools
-- Admin-only imports and exports
+- Password reset and verification flows
+- Remember-this-device login persistence
+- Profile portability export
+
+### Site and discovery
+
+- Pages
 - RSS/feed support
 - Sitemap and robots.txt handling
-- Public profiles and optional commenter accounts
-- Password reset and verification flows
-- Code-free theme installation and management
-- Dynamic database-first rendering
+- Site Identity and navigation controls
+- Optional cookieless Privacy-First Analytics
+- Basic installable PWA metadata and conservative service worker
+- Mobile Web Share Target for text and URLs
+
+### Automation and integrations
+
+- Scheduled Tasks runner with server cron, protected web cron, health reporting, and history
+- Optional token-scoped Remote Posting API
+- Read-only Stream API catalog
+- Remote draft, publish, schedule, media upload, media import, and gallery workflows
+- OpenAPI schema and client examples
+
+### Ownership and portability
+
+- Database-first runtime
+- Markdown import/export
+- Bonumark import/export tooling
 - Optional static export
-- Remote API with a token-scoped read-only Stream catalog and remote posting for trusted external clients
-- Basic PWA install metadata and conservative service worker support
-- Mobile share-target flow for loading shared text and URLs into the front-end composer
-- New-post scheduling from the stream composer, with rescheduling and schedule management in the full editor
-- Shared Scheduled Tasks runner with server cron, protected web cron, task health, and execution history
+- Owner-controlled Profile export
+- Upgrade backups and recovery boundaries
 
-
-## Install as app and mobile share
-
-Bonumark Stream includes a clean PWA layer and routes mobile shares into the front-end composer.
-
-When enabled in **Admin → Settings → Stream**, supported browsers can install the site as a basic app on mobile or desktop. Bonumark Stream adds a web app manifest, mobile app metadata, app icons, and a conservative service worker. When a Site Identity favicon is selected, Bonumark generates versioned 192 × 192 and 512 × 512 PNG install icons when the server supports GD or Imagick. On servers without either extension, it uses the selected favicon directly, with its real image type and dimensions, rather than reverting to the Bonumark B. Use a square 512 × 512 PNG for the strongest install-icon result. The bundled B remains the fallback only when no valid Site Identity favicon exists.
-
-The service worker caches only safe static assets such as core CSS and JavaScript. Site Identity PWA icon URLs are versioned so a changed favicon can replace the installed app icon without stale service-worker icon entries. The service worker does not cache admin pages, draft pages, account pages, CSRF forms, API responses, private files, user-specific content, or the selected favicon media path.
-
-Bonumark Stream also exposes a Web Share Target for supported mobile browsers. Shared text, titles, and URLs enter through the secure share-target intake route, then the user is sent back to the public stream with the front-end composer prefilled.
-
-The user still has to review the content and choose **Post**, **Schedule**, **Save draft**, or **Continue in full editor**. Shared content never publishes automatically.
-
-Image/file sharing through the Web Share Target is intentionally deferred. Browser support and upload handoff behavior vary, and this release keeps the first mobile share layer focused on safe text and URL composer handoff.
-
-Browser support varies. Some browsers support installable apps but not Web Share Target. Some desktop browsers may ignore share-target metadata entirely.
-
-## Remote Posting API
-
-Bonumark Stream includes an optional Remote Posting API for trusted external tools.
-
-The API includes:
-
-- Disabled-by-default API setting
-- Admin-created scoped API tokens
-- Hashed token storage
-- Token revocation
-- API audit logging
-- API rate limiting
-- `GET /api/v1/status` status endpoint
-- `POST /api/v1/stream/posts` stream post endpoint
-- Draft creation by default
-- Optional direct publishing
-- Optional scheduled publishing through `scheduled_at` for trusted API clients
-- `stream:publish` token scope
-- Default remote status setting
-- Publish confirmation behavior
-- Idempotency keys to prevent duplicate posts
-- Edit URL returned after remote creation
-- Public URL returned after direct publish
-- OpenAPI schema and ChatGPT Actions documentation
-- Remote Posting client examples for PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier, Make, IFTTT, and generic no-code tools
-- Optional remote image uploads through `POST /api/v1/media`
-- `media:upload` token scope
-- Remote media audit logging
-- Returned media URL and Markdown image embed
-- Safe remote image import through `POST /api/v1/media/import`
-- Guardrails that reject known fake placeholder media uploads
-- Stream post requests can embed existing media by media ID or media URL
-- Stream post requests can upload image media and embed it inline or store one to four images as a structured gallery
-- Remote post responses include embedded media details
-- Media embedding persistence so media IDs and media URLs are written into the saved post body
-- Imported media rendering protection so responsive image metadata does not appear as post text
-- GPT Actions-compatible OpenAPI schema cleanup
-
-Remote posting is disabled by default. Site owners must create scoped tokens and enable the API from the admin area before external clients can post.
-
-## Documentation
-
-Package documentation is included under `docs/`:
-
-- `docs/INSTALL.md` for installation
-- `docs/UPGRADING.md` for supported upgrades
-- `docs/API.md` for Remote Posting API endpoint details
-- `docs/REMOTE-POSTING.md` for Remote Posting API setup and security notes
-- `docs/REMOTE-POSTING-CLIENTS.md` for PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier, Make, IFTTT, and generic no-code client examples
-- `docs/CHATGPT-ACTIONS.md` for ChatGPT Actions setup
-- `docs/IMPORTERS.md` for importer behavior
-- `docs/THEMING.md` for code-free theme development
-- `docs/ARCHITECTURE.md` for system architecture notes
-- `docs/SCHEDULED-TASKS.md` for server cron, web cron, task health, and fallback setup
-- `docs/ANALYTICS.md` for Privacy-First Analytics behavior, data boundaries, retention, export, and deletion
-- `docs/MEDIA-PRIVACY.md` for randomized filenames, image metadata cleanup, media privacy modes, and shared-hosting behavior
-- `CHANGELOG.md` for the public release summary and `_bonumark_stream/CHANGELOG.md` for detailed package history
-- `SECURITY.md` for vulnerability reporting and security boundaries
-- `CONTRIBUTING.md` for contribution rules and verification expectations
-
-## Important upgrade notice
-
-Bonumark Stream v0.5.77 continues the v0.4.0+ clean-break upgrade line.
-
-The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
-
-Direct upgrades from older development packages, including v0.1.x, v0.2.x, and v0.3.x, are not supported.
-
-If you are using an older development package, install Bonumark Stream v0.5.77 as a fresh installation.
-
-## Requirements
-
-Bonumark Stream is designed for standard shared hosting.
-
-Minimum requirements:
-
-- PHP 8.1 or newer
-- MySQL or MariaDB
-- PDO MySQL extension
-- ZIP extension for package/theme handling
-- Apache or LiteSpeed recommended for included `.htaccess` rules
-
-Recommended:
-
-- PHP 8.2 or newer
-- HTTPS enabled
-- Regular database and file backups
-- A hosting account that allows writable application directories
-
-## Installation
-
-1. Download the latest release ZIP from GitHub.
-2. Upload the package files to your web server.
-3. Visit `install.php` in your browser.
-4. Enter your database details.
-5. Create the first Admin account.
-6. Complete installation.
-7. Remove or lock the installer when prompted.
-
-After installation, the stream is available at the site root.
-
-Example:
-
-```text
-https://example.com/
-```
-
-The `/stream/` path remains supported as an alias.
-
-Example:
-
-```text
-https://example.com/stream/
-```
-
-## Fresh install behavior
-
-A new Bonumark Stream install starts clean.
-
-By default:
-
-- No sample posts are created
-- No sample pages are created
-- No public demo content is installed
-- One Admin account is created during installation
-- Registration is disabled or controlled by settings
-- Commenter accounts are optional
-- Midnight Ledger is the active bundled theme
-
-## Admin account
-
-The Admin account is the site owner and sole publisher.
-
-The Admin can:
-
-- Publish posts
-- Create pages
-- Upload and manage media
-- Manage comments
-- Manage commenter accounts
-- Configure site settings
-- Manage themes
-- Run imports and exports
-- Run supported upgrades
-
-Bonumark Stream does not include editor or author roles.
-
-## Commenter accounts
-
-Commenter accounts are for participation, not publishing.
-
-Commenters may be able to:
-
-- Register, if registration is enabled
-- Log in
-- Manage basic profile/account details
-- Comment, if comments are enabled
-- Use password reset and verification flows
-
-Commenters cannot:
-
-- Publish posts
-- Create pages
-- Upload media
-- Access publishing tools
-- Access site settings
-- Manage themes
-- Run imports or upgrades
-
-## Publishing
-
-Bonumark Stream is designed for short-form publishing.
-
-Posts are stored in the database and rendered dynamically. Markdown is available for import, export, backup, and portability, but Markdown files are not the runtime source of truth.
-
-The Admin creates Stream Posts from the front-end composer and manages saved content in the admin area. Trusted Remote Posting API clients can also publish when enabled.
-
-## Scheduled posts
-
-The Admin can schedule new Stream Posts from the front-end composer and reschedule saved posts from the full editor. The default behavior remains normal posting. Scheduling only happens when the user chooses the schedule action and provides a future time. In the back-end editor, scheduling is intentionally quiet: Save Draft and Post Now remain the main visible actions, and the schedule date/time field appears only after choosing Schedule for later or Reschedule.
-
-User-facing schedule fields and normal Stream post dates use the saved site timezone setting. Bonumark keeps canonical database timestamps in UTC, then displays them back in the site timezone. The General Settings timezone is applied to the PHP runtime after installation, so it remains authoritative even when `config.php` contains an older install-time timezone. If no site timezone is configured, Bonumark falls back safely to UTC.
-
-Scheduled posts stay out of the public timeline, single post routes, RSS/feed output, search, sitemap, author/profile output, and static export until they are published. Guessing the URL of a scheduled post does not expose it early because public routes only receive published records.
-
-Bonumark Stream runs scheduled work through one reusable **Scheduled Tasks** runner. Server cron is the recommended option because it runs independently of site traffic. Shared-hosting and external services can use protected web cron. Safe public traffic and signed-in browser heartbeats remain configurable fallback checks, and an admin can run tasks manually from **Admin → Settings → Scheduled Tasks**.
-
-The Scheduled Tasks screen shows task health, the last run, execution source, server cron instructions, web cron setup, and retained manual/cron run history. It also controls whether public traffic and signed-in browser heartbeats remain active as fallback paths. See `docs/SCHEDULED-TASKS.md` for setup details.
-
-Scheduled posts can be edited, rescheduled, canceled back to draft, moved to trash, restored, or published immediately by authorized users.
-
-## Pages
-
-Bonumark Stream includes basic page support for static content such as:
-
-- About
-- Contact
-- Uses
-- Now
-- Project notes
-
-Pages are managed by the Admin.
-
-## Local Places
-
-Local Places is a self-contained location feature stored entirely on the Bonumark Stream instance.
-
-- Location access starts only after the signed-in owner presses **Find nearby** or **Use current location**.
-- The browser supplies coordinates with permission. Bonumark Stream does not perform background location tracking.
-- Nearby matching searches only the instance's saved place directory.
-- The stream composer and full editor use a compact saved-place picker with nearby search.
-- New places created from either writing surface ask only for a place name and optional public location label.
-- Detailed categories, address fields, coordinates, and display defaults are managed under **Admin → Local Places**.
-- Public posts use the saved place's default display automatically.
-- Coordinates stay private and are not rendered in public HTML, feeds, or post text.
-- Local Places continues to work with saved places when browser location permission is denied.
-- No external places service, paid API, or shared directory is required.
-
-Location snapshots are stored with the post in database front matter and included in Markdown exports for portability. Deleting a saved place does not remove the public location text already stored with existing posts.
-
-
-## Media
-
-The Admin can upload and manage media through the media library.
-
-Bonumark Stream supports media attachments for posts and pages, with validation handled by the core application.
-
-Commenters cannot upload media.
-
-## Comments
-
-Bonumark Stream supports comments when enabled.
-
-The Admin can moderate comments and manage commenter participation. Commenter accounts can be used to support more controlled participation while keeping publishing authority with the Admin.
-
-## Likes
-
-Public likes are supported and rate-limited.
-
-Likes do not require commenter accounts by default.
 
 ## Pinned posts
 
-Published stream posts can be pinned from the three-dot **Post options** menu on the front end, the back-end editor, or **Admin → Stream Posts**. The same menu also holds the front-end Edit action, keeping reader actions separate from Admin controls. Only the Admin publishing role can pin or unpin posts.
+Published Stream Posts can be pinned from the front-end Post options menu, the full editor, or Admin > Stream Posts. Multiple pinned posts are ordered by their most recent pin time and appear above the normal homepage timeline without being duplicated in the page-one feed.
 
-- More than one published stream post can be pinned.
-- Pinned posts appear in a quiet **Pinned** area above the homepage timeline.
-- Pinned posts are ordered by the most recently pinned first.
-- A pinned post is removed from the normal page-one timeline so it is not shown twice on the same page.
-- Pinning again refreshes the pin time and moves the post to the top of the pinned area.
-- Pinning does not change the post URL, original publish date, RSS/feed order, sitemap behavior, search results, archive behavior, static export output, or Remote Posting API behavior.
-- Drafts, scheduled posts, private/unpublished posts, and trashed posts cannot appear in the pinned area. Moving a pinned post out of published status clears its pin state.
+Pinning does not change the post URL, original publish date, RSS/feed order, sitemap behavior, search results, archive ordering, static export output, or Remote Posting API behavior. Moving a pinned post out of published status clears its pin state.
+
+## Account model
+
+Bonumark Stream uses two account types.
+
+**Admin** is the site owner and sole publisher. The Admin can publish posts, create pages, manage media and comments, configure the site, manage themes, run imports/exports, manage integrations, and run supported upgrades.
+
+**Commenter** is a participation account. Commenters may manage their basic account/Profile details and comment when those features are enabled. Commenters cannot publish Stream Posts, create Pages, upload media, manage themes, or access publishing/system administration.
 
 ## Themes
 
-Bonumark Stream themes are code-free presentation packages.
+Bonumark Stream themes are presentation packages, not plugins.
 
-Themes can provide:
+Themes may include:
 
 - `theme.json`
 - CSS
 - Images
 - Fonts
 - Screenshots
-- Theme metadata
 - Theme settings
-- Documentation files
+- Documentation
+- Validated private Layout Schema JSON for supported declarative surfaces
 
-Themes cannot provide:
+Themes may not include:
 
-- PHP files
-- JavaScript files
-- HTML templates
+- PHP
+- JavaScript
+- Arbitrary HTML templates
+- SQL
 - Routes
-- Database logic
+- Database access
 - Permission logic
 - Publishing behavior
-- Application code
+- Callbacks or expressions
+- Other executable application code
 
-Bonumark Stream core handles rendering and application behavior. Themes control presentation.
+Core renders the site and owns application behavior. Themes control presentation and validated composition.
 
-The bundled default theme is **Midnight Ledger**. It is also the reference example for how Bonumark Stream themes should be structured.
+The bundled default and reference theme is **Midnight Ledger**.
 
-## Import and export
+See [docs/THEMING.md](docs/THEMING.md) and [docs/DECLARATIVE-LAYOUTS.md](docs/DECLARATIVE-LAYOUTS.md).
 
-Bonumark Stream includes import and export tools to support content ownership and portability.
+## Requirements
 
-Supported tooling includes:
+Minimum:
 
-- Bonumark import/export
-- Markdown import/export
-- Static export
-- Supported external importers included in the package
+- PHP 8.1 or newer
+- MySQL or MariaDB
+- PDO MySQL extension
+- ZIP extension for package/theme handling
+- A writable application environment
 
-Export tools are intended to help you keep control of your content and move or back up your work.
+Recommended:
 
-## Static export
+- PHP 8.2 or newer
+- HTTPS
+- Apache or LiteSpeed for the included `.htaccess` rules
+- Regular file and database backups
+- GD or Imagick for stronger image processing and generated variants
 
-Normal Bonumark Stream operation is dynamic and database-first.
+Nginx and other non-Apache servers need equivalent routing and deny rules for private application directories and CLI test scripts.
 
-Static export is optional tooling for portability, backup, or deployment workflows. It is not required for normal publishing.
+## Installation
 
-## Feeds and sitemap
+1. Download the latest release ZIP.
+2. Upload the package contents to the target web root or subdirectory.
+3. Visit `install.php`.
+4. Confirm the server checks and enter the database connection details.
+5. Create the first Admin account.
+6. Complete installation and sign in at `/admin/`.
 
-Bonumark Stream includes:
+A fresh install starts empty. Bonumark Stream does not create sample posts or Pages.
 
-- RSS/feed support
-- Sitemap support
-- Robots.txt handling
-
-These are handled by core.
-
-## Security
-
-Bonumark Stream includes protections for:
-
-- Admin authentication
-- CSRF-protected admin actions
-- Upload validation
-- Private application folders
-- Theme package validation
-- Rate-limited public interactions
-- Protected configuration files
-- Scoped and hashed API tokens for Remote Posting
-
-Apache/LiteSpeed protections are included through `.htaccess`.
-
-If you run Bonumark Stream on Nginx or another server stack, you must configure equivalent private-folder and routing protections yourself.
-
-## Backups
-
-Before upgrading or making major changes, back up:
-
-- Database
-- Uploaded media
-- Configuration files
-- Theme files
-- Exported content, if applicable
-
-Do not rely on hosting alone. Keep your own backups.
+Full instructions: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Upgrading
 
 The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
 
-Older development packages are not supported upgrade sources.
+For the v0.6.0 release, an upgrade from the last public GitHub release, v0.5.77, runs the included Profile migrations and preserves existing posts, pages, drafts, scheduled posts, revisions, comments, accounts, media, uploads, settings, analytics, API tokens, scheduled-task history, Local Places, custom themes, and other owner data.
 
-For v0.1.x, v0.2.x, or v0.3.x packages, use a fresh v0.5.77 install.
+Back up the site files and database before upgrading a production installation.
+
+Direct upgrades from v0.1.x, v0.2.x, and v0.3.x development packages are not supported. Use a fresh v0.6.0 install for those older builds.
+
+Full instructions: [docs/UPGRADING.md](docs/UPGRADING.md).
+
+## Security model
+
+Bonumark Stream includes:
+
+- Authenticated and capability-checked Admin routes
+- CSRF protection for mutating Admin actions and public comments
+- Rate-limited public likes
+- Validated media uploads with SVG uploads blocked
+- Hashed Remote Posting API tokens
+- Code-free theme package validation
+- Private-directory protection for Apache/LiteSpeed
+- Conservative service-worker caching that excludes private and user-specific content
+
+See [SECURITY.md](SECURITY.md) for reporting and deployment boundaries.
+
+## Documentation
+
+Project documentation is included under `docs/`:
+
+- [Installation](docs/INSTALL.md)
+- [Upgrading](docs/UPGRADING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Theming](docs/THEMING.md)
+- [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
+- [Admin UI Guidelines](docs/ADMIN-UI-GUIDELINES.md)
+- [Remote Posting API](docs/REMOTE-POSTING.md)
+- [API reference](docs/API.md)
+- [Remote Posting clients](docs/REMOTE-POSTING-CLIENTS.md)
+- [ChatGPT Actions](docs/CHATGPT-ACTIONS.md)
+- [Importers](docs/IMPORTERS.md)
+- [Scheduled Tasks](docs/SCHEDULED-TASKS.md)
+- [Privacy-First Analytics](docs/ANALYTICS.md)
+- [Media Privacy](docs/MEDIA-PRIVACY.md)
+
+Detailed package-by-package development history is kept in `_bonumark_stream/CHANGELOG.md`. The root [CHANGELOG.md](CHANGELOG.md) is intentionally limited to public GitHub release summaries.
+
+## Development and verification
+
+Before proposing changes:
+
+- Run PHP lint on changed PHP files
+- Run JavaScript syntax checks on changed JavaScript files
+- Validate changed JSON files
+- Run `php scripts/smoke-test.php`
+- Run the disposable MySQL/MariaDB database smoke test for installer, migration, or upgrade changes
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project rules and the release verification contract.
 
 ## Project status
 
-Bonumark Stream is under active development.
+Bonumark Stream is under active pre-1.0 development. v0.6.x is the current public development line, so APIs, internals, installer behavior, and other pre-1.0 details may still change before 1.0.
 
-The v0.5.x line is the current public development release line. APIs, internals, installer behavior, and other pre-1.0 details may still change before a stable 1.0 release.
-
-Use caution before running it on mission-critical sites.
-
-## Contributing
-
-Contributions, issue reports, testing notes, and thoughtful feedback are welcome through the GitHub repository:
-
-https://github.com/jimlunsford/bonumarkstream
-
-Before contributing, please keep the project direction in mind:
-
-- Self-hosted
-- Database-first
-- Short-form publishing
-- One Admin publisher
-- Optional commenter participation
-- Code-free themes
-- Shared-hosting compatibility
-- Ownership and portability
+Use appropriate backups and testing before running pre-1.0 software on a mission-critical site.
 
 ## License
 
-See `LICENSE` for license information.
-
-## App login persistence
-
-Bonumark Stream includes a Remember this device login option for app-style use. It uses rotating persistent device tokens, not a longer normal PHP session, and remembered devices are revoked on logout, password changes, password resets, and admin password resets.
+Bonumark Stream is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE).

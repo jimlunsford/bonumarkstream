@@ -1,168 +1,176 @@
 # Bonumark Stream Themes
 
-Bonumark Stream uses Midnight Ledger as the working example for code-free presentation themes.
+Bonumark Stream uses **Midnight Ledger** as the bundled/default reference for code-free presentation themes.
 
+## Core rule
 
-## Copying Midnight Ledger
+Core runs the application. Themes provide presentation and validated composition.
 
-To create a theme, copy `_bonumark_stream/themes/default/`, rename the folder and slug, update `theme.json`, replace `assets/images/screenshot.svg`, edit the design tokens at the top of `assets/css/theme.css`, zip the folder, and upload it from Appearance.
-
-## Rule
-
-Core runs the code. Themes provide presentation.
-
-Bonumark Stream core owns routing, data preparation, permissions, database writes, rendering execution, forms, comments, media, importers, feeds, sitemaps, static export, and upgrades.
+Core owns routing, data preparation, permissions, database access, publishing, forms, comments, likes, media processing, Profiles, feeds, sitemaps, imports, exports, static export, scheduled work, APIs, SEO, accessibility semantics, and upgrades.
 
 A theme package may include:
 
 - `theme.json`
-- metadata
-- supports declarations
-- editable settings schema
-- screenshot
+- Metadata
+- Supports declarations
+- Editable settings schema
+- Screenshot
 - CSS assets
-- image assets
-- font assets
-- documentation
+- Image assets
+- Font assets
+- Documentation
+- Private declarative Layout Schema JSON for supported surfaces
 
 A theme package may not include:
 
-- PHP files
-- JavaScript files
-- HTML files
-- route handlers
-- database writes
-- permission logic
-- business logic
-- server config files
-- symlinks
-- arbitrary executable code
+- PHP
+- JavaScript
+- HTML templates
+- SQL
+- Route handlers
+- Database writes
+- Permission logic
+- Business logic
+- Callbacks or expressions
+- Server configuration files
+- Symlinks
+- Arbitrary executable code
+
+## Copying Midnight Ledger
+
+To create a theme:
+
+1. Copy `_bonumark_stream/themes/default/`.
+2. Rename the folder and theme slug.
+3. Update `theme.json` metadata and version.
+4. Replace `assets/images/screenshot.svg`.
+5. Edit the design tokens and presentation rules in `assets/css/theme.css`.
+6. Adjust or remove declarative layouts as needed.
+7. Zip the theme folder.
+8. Upload it through **Admin > Appearance**.
+9. Run Theme Health before activation.
 
 ## Rendering boundary
 
-Themes do not provide public markup files or rendering logic. Bonumark Stream core renders the public site, and the active theme supplies presentation assets and settings.
+Themes do not provide public markup files or rendering logic. Bonumark Stream core renders the site and the active theme supplies presentation assets, settings, and optional validated composition.
 
-Midnight Ledger is the reference package for the current code-free theme format. Copy it, rename it, update the manifest, and edit the CSS.
+Theme CSS should use stable public hooks instead of depending on accidental DOM ancestry.
+
+## Theme manifest
+
+A typical theme manifest can declare metadata, assets, settings, supports, and optional Layout Schema surfaces.
+
+Example:
+
+```json
+{
+  "name": "Example Theme",
+  "slug": "example-theme",
+  "version": "1.0.0",
+  "layout_schema": 1,
+  "layouts": {
+    "profile": "layouts/profile.json",
+    "stream-card": "layouts/stream-card.json",
+    "site-header": "layouts/site-header.json",
+    "home": "layouts/home.json"
+  }
+}
+```
+
+Only declared private layout files are installed. Layout JSON is never copied into public theme assets.
+
+## Declarative Layout Themes
+
+Theme Architecture 2.0 lets a code-free theme arrange registered core components through Layout Schema 1.
+
+The four supported v0.6.0 surfaces are:
+
+- `profile`
+- `stream-card`
+- `site-header`
+- `home`
+
+Each layout contains only `group` and `component` nodes. The validator rejects unsupported properties, components, surfaces, paths, nesting, occurrence counts, and malformed documents.
+
+There is no expression language. A theme cannot query data, inspect permissions, run conditionals, or recreate application behavior. Optional state is handled by the core component itself.
+
+A theme may declare any supported subset. Older themes remain compatible because a surface without a declarative layout continues through the fixed legacy composition.
+
+See [DECLARATIVE-LAYOUTS.md](DECLARATIVE-LAYOUTS.md) for the complete component registry and schema rules.
+
+## Stable hooks
+
+Declarative output provides stable hooks such as:
+
+- `[data-bms-layout="profile"]`
+- `[data-bms-layout="stream-card"]`
+- `[data-bms-layout="site-header"]`
+- `[data-bms-layout="home"]`
+- `[data-bms-layout-group="..."]`
+- `[data-bms-component="..."]`
+
+Themes should allow grid/flex children to shrink with `min-width: 0`, constrain composed regions to the available width, and allow long user-controlled text to wrap.
+
+## Theme Health
+
+Theme Health validates installed theme metadata and every declared layout before activation.
+
+A declared but missing, malformed, unsupported, or structurally invalid layout must fail validation. Bonumark Stream does not execute or interpret unvalidated theme input.
+
+## Theme asset versioning
+
+Theme assets use the theme manifest `version` as their cache revision. Bump the theme version whenever CSS, images, fonts, screenshots, or layout JSON changes.
+
+## Profile presentation
+
+Profile data, visibility, owner controls, Profile metadata, canonical URLs, social metadata, JSON-LD, media behavior, and component markup are core-owned.
+
+A declarative theme can arrange the registered Profile components but cannot change Profile data access or application behavior.
+
+Profile cover and photo-gallery image delivery is also core-owned. Themes control the visual slot and cropping presentation around the generated media contract.
+
+## Stream Card presentation
+
+Core owns the outer Stream Post `<article>`, prepared post data, Quick edit, likes, comments, Post Options, pin/trash/editor actions, media, interaction hooks, and accessibility.
+
+Themes may arrange the registered Stream Card components and style them. Static Site Export and dynamic output use the same core Stream Card renderer.
+
+## Site Header presentation
+
+Core owns the semantic header shell, site identity data, navigation URLs, active state, authenticated account destinations, menu behavior, heading semantics, and accessibility.
+
+A declarative theme may arrange site identity, primary navigation, optional menu toggle, and optional published Stream count components.
+
+## Home presentation
+
+Core owns the Home document shell and `<main>`.
+
+The Home declarative surface consists of notices, the atomic composer, pinned posts, the feed/empty state, and pagination. Pinned and normal posts are already rendered through the active Stream Card composition before Home receives them.
 
 ## Photo gallery presentation
 
-Bonumark Stream core owns photo gallery storage, upload validation, responsive image attributes, accessibility, and public markup. A code-free theme only styles the stable gallery contract.
+Photo galleries are core behavior, not theme behavior. A Stream Post may store an ordered `media_gallery` list containing one to four image paths. The first item is also stored as `featured_media` for compatibility with existing posts, feeds, metadata, and integrations.
 
-Posts may contain one to four gallery photos. Existing single-image posts continue to use the same featured media behavior. Core provides a usable responsive fallback layout even when a custom theme does not declare gallery support.
+Core owns upload validation, ordering, responsive derivatives, dimensions, `srcset`, `sizes`, loading priority, accessibility labels, and gallery markup. Core also owns the full-size photo viewer and its keyboard/click-outside behavior.
 
-Core renders gallery markup with these stable classes:
+Themes style the stable `.stream-media-gallery*` contract and `--bms-media-gallery-*` variables. Older themes remain compatible through the core fallback gallery layout.
 
-```html
-<div class="stream-card-media stream-media-gallery stream-media-gallery-count-3 stream-media-gallery-layout-trio" data-media-count="3" role="group">
-  <a class="stream-media-gallery-item stream-media-gallery-item-1" data-stream-media-viewer>…</a>
-  <a class="stream-media-gallery-item stream-media-gallery-item-2" data-stream-media-viewer>…</a>
-  <a class="stream-media-gallery-item stream-media-gallery-item-3" data-stream-media-viewer>…</a>
-</div>
-```
+## Pinned posts
 
-Themes may style:
+Pinned posts are core behavior. Core stores pin state, orders the pinned group, removes duplicates from the normal page-one timeline, and provides authorized post actions.
 
-- `.stream-media-gallery`
-- `.stream-media-gallery-count-1` through `.stream-media-gallery-count-4`
-- `.stream-media-gallery-layout-single`
-- `.stream-media-gallery-layout-pair`
-- `.stream-media-gallery-layout-trio`
-- `.stream-media-gallery-layout-grid`
-- `.stream-media-gallery-item`
-- `.stream-media-gallery-item-1` through `.stream-media-gallery-item-4`
-- `.stream-media-gallery-image`
+Themes receive rendered markup and style it. Pinning does not change original publish time, URLs, RSS/feed order, sitemap output, search, archives, or static export.
 
-Core exposes these CSS custom properties as safe presentation hooks:
+## Scheduled publishing
 
-```css
-:root {
-  --bms-media-gallery-gap: 0.5rem;
-  --bms-media-gallery-radius: 0.75rem;
-  --bms-media-gallery-item-aspect-ratio: 1 / 1;
-  --bms-media-gallery-feature-aspect-ratio: 16 / 9;
-  --bms-media-gallery-object-fit: cover;
-}
-```
+Scheduled publishing is core behavior. Scheduled records remain outside public queries, feeds, sitemap, search, static export, and single-post routing until they are published.
 
-A theme may override those variables or the stable classes with CSS. It must not replace gallery markup, upload handling, image ordering, responsive sources, loading priorities, or permission logic.
+The saved site timezone controls authoring/display while canonical database scheduling uses UTC. Scheduled work runs through the shared Scheduled Tasks runner.
 
-Core also owns the full-size photo viewer. Image links carrying `data-stream-media-viewer` open in an accessible overlay with a close button, Escape-key support, and previous/next controls for galleries. Theme packages should not remove that attribute or replace the viewer behavior. The viewer CSS lives in core so older themes receive the fix automatically.
+## Static export
 
-The optional `supports.media_galleries` declaration documents that the theme intentionally styles galleries:
+Static Site Export is optional portability/deployment tooling. It reuses normal core public rendering and does not replace dynamic database-first operation.
 
-```json
-{
-  "supports": {
-    "media_galleries": true
-  }
-}
-```
+## Compatibility promise
 
-This declaration is informational. Older themes remain compatible and inherit the core fallback gallery layout.
-
-## Pinned-post presentation
-
-Pinned-post queries, permissions, ordering, visibility, and duplicate prevention belong to Bonumark Stream core. Themes do not implement pinning logic.
-
-When one or more posts are pinned, core places this stable markup inside the existing stream feed output on the homepage:
-
-```html
-<section class="stream-pinned-posts">
-  <div class="stream-pinned-heading">
-    <span class="stream-pinned-label">Pinned</span>
-  </div>
-  <div class="stream-pinned-feed">
-    <article class="stream-card stream-card-pinned">…</article>
-  </div>
-</section>
-```
-
-Core includes usable fallback styling in `assets/style.css`. A theme may refine `.stream-pinned-posts`, `.stream-pinned-heading`, `.stream-pinned-label`, `.stream-pinned-feed`, and `.stream-card-pinned` with CSS only. Do not add a second pinned query, change public visibility rules, or duplicate pinned posts in a theme.
-
-Authorized front-end controls are also core markup. The compact post options menu uses `.stream-post-actions-menu`, `.stream-post-actions-toggle`, `.stream-post-actions-popover`, and `.stream-post-action-item`. A theme may style those classes, but it must preserve one consistent action-item alignment for links and buttons and must not add its own Edit or Pin logic, permission checks, or pin form handling.
-
-## Reference theme structure
-
-```text
-_bonumark_stream/themes/default/
-  theme.json
-  README.md
-  THEME-DATA.md
-  assets/
-    css/theme.css
-    images/screenshot.svg
-```
-
-## theme.json example
-
-```json
-{
-  "name": "My Theme",
-  "slug": "my-theme",
-  "version": "1.0.0",
-  "author": "Theme Author",
-  "description": "A code-free Bonumark Stream presentation theme.",
-  "screenshot": "assets/images/screenshot.svg",
-  "assets": {
-    "css": ["assets/css/theme.css"],
-    "images": ["assets/images/screenshot.svg"]
-  },
-  "settings": {
-    "accent": {
-      "type": "select",
-      "label": "Accent",
-      "default": "blue",
-      "options": {
-        "blue": "Blue",
-        "green": "Green"
-      }
-    }
-  }
-}
-```
-
-## Installation
-
-Theme ZIP installation is enabled for code-free presentation themes. Upload one theme at a time from **Admin → Themes → Install Theme**.
-
-Bonumark Stream validates the ZIP before installation and rejects packages with PHP, JavaScript, HTML files, server configuration files, symlinks, unsafe paths, missing declared assets, invalid manifests, or protected bundled slugs.
+Layout Schema 1 component identifiers documented in [DECLARATIVE-LAYOUTS.md](DECLARATIVE-LAYOUTS.md) are public theme-author APIs for the schema. Bonumark Stream may add new surfaces or components in later releases, but an existing valid theme is not required to adopt them. Undeclared surfaces continue through legacy fallback.

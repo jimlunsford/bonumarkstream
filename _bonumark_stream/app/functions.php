@@ -60,7 +60,7 @@ function bms_default_config(): array
         'analytics_enabled' => '0',
         'analytics_retention_days' => '90',
         'analytics_last_cleanup_date' => '',
-        'version' => '0.5.77',
+        'version' => '0.6.0',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -827,6 +827,21 @@ function bms_seo_home_title(int $limit = 70): string
 function bms_public_seo_view_data(string $template, array $data): array
 {
     $template = strtolower(trim($template));
+
+    /*
+     * Only complete public documents own document SEO.
+     *
+     * Fragment templates such as link-preview, card, media, location,
+     * composer, comments, pagination, and empty states receive domain data
+     * that can legitimately contain a `title` key. Running those fragments
+     * through document-title SEO rewrites that domain title and can append
+     * the local Bonumark site name. Keep fragment payloads untouched.
+     */
+    $documentTemplates = ['layout', 'home', 'archive', 'single', 'page', 'profile', 'account', 'search'];
+    if (!in_array($template, $documentTemplates, true)) {
+        return $data;
+    }
+
     $siteTitle = bms_seo_site_title();
     $primary = '';
     $documentTitle = '';

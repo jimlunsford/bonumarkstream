@@ -13,6 +13,17 @@ require_once __DIR__ . '/places.php';
 
 
 
+
+function bms_static_site_export_rendering(): bool
+{
+    return !empty($GLOBALS['bms_static_site_export_rendering']);
+}
+
+function bms_set_static_site_export_rendering(bool $enabled): void
+{
+    $GLOBALS['bms_static_site_export_rendering'] = $enabled;
+}
+
 function bms_render_stream_index(array $pages, bool $includeComposer = false, int $pageNumber = 1, string $context = 'home'): string
 {
     $siteNameRaw = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
@@ -50,7 +61,14 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
             'message' => $includeComposer ? 'Write your first stream post above.' : 'No stream posts have been published yet.',
         ]);
     }
-    $items = bms_render_public_flash_notices() . bms_render_pinned_stream_posts($pinnedPosts) . $streamItems;
+
+    // Prepare Home composition boundaries independently while retaining the
+    // complete legacy items_html concatenation used by legacy home.php and archive.php.
+    // Schema 1 declarative Home themes consume the granular boundaries in home.php.
+    $notices = bms_render_public_flash_notices();
+    $pinnedItems = bms_render_pinned_stream_posts($pinnedPosts);
+    $feedItems = $streamItems;
+    $items = $notices . $pinnedItems . $feedItems;
 
     $composer = '';
     if (!$isArchive && $pageNumber === 1) {
@@ -80,7 +98,10 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
         'body_class' => bms_public_theme_class($bodyContext),
         'header_html' => bms_render_public_header($isArchive ? 'stream' : 'home', $totalPosts, $navCurrentPath),
         'footer_html' => bms_render_public_footer($navCurrentPath),
+        'notices_html' => $notices,
         'composer_html' => $composer,
+        'pinned_posts_html' => $pinnedItems,
+        'feed_html' => $feedItems,
         'items_html' => $items,
         'pagination_html' => $pagination,
         'total_posts' => $totalPosts,
@@ -880,6 +901,18 @@ function bms_render_stream_single(array $page): string
     if ($publishedRaw !== '') {
         $publishedMeta = '<meta property="article:published_time" content="' . htmlspecialchars($publishedIso, ENT_QUOTES, 'UTF-8') . '">';
     }
+    $authorUser = function_exists('bms_author_for_stream_page') ? bms_author_for_stream_page($page) : [];
+    if ((int)($authorUser['id'] ?? 0) > 0
+        && (string)($authorUser['profile_visibility'] ?? 'public') === 'public'
+        && function_exists('bms_public_profile_url_for_user')) {
+        $authorProfileUrl = bms_public_profile_url_for_user($authorUser);
+        $authorProfileAbsolute = function_exists('bms_profile_absolute_public_url')
+            ? bms_profile_absolute_public_url($authorProfileUrl)
+            : bms_site_url(ltrim($authorProfileUrl, '/'));
+        if ($authorProfileAbsolute !== '') {
+            $publishedMeta .= '<meta property="article:author" content="' . htmlspecialchars($authorProfileAbsolute, ENT_QUOTES, 'UTF-8') . '">';
+        }
+    }
     $imageUrl = bms_stream_media_absolute_url($page);
     $imageMime = $imageUrl !== '' ? bms_stream_media_mime_from_url((string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '')) : '';
     $imageMeta = ($imageUrl !== '' && str_starts_with($imageMime, 'image/')) ? '<meta property="og:image" content="' . htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') . '">' : '';
@@ -1220,20 +1253,27 @@ function bms_generate_static_site_index(?array $pages = null, ?string $targetRoo
 function bms_generate_static_site_export(?string $targetRoot = null): int
 {
     $targetRoot = $targetRoot !== null && trim($targetRoot) !== '' ? $targetRoot : bms_static_site_export_root('current');
-    bms_delete_directory($targetRoot);
-    $pages = bms_list_content_records('published');
-    $count = 0;
-    foreach ($pages as $page) {
-        $pageIndexPath = bms_stream_export_index_path_for_post($page, $targetRoot);
-        bms_write_file($pageIndexPath, bms_render_public_content_page($page));
-        $count++;
-    }
-    bms_generate_static_site_index($pages, $targetRoot);
-    if (is_file(__DIR__ . '/pages.php')) {
-        require_once __DIR__ . '/pages.php';
-        if (function_exists('bms_generate_static_page_exports')) {
-            $count += bms_generate_static_page_exports($targetRoot);
+    $previousStaticRenderState = bms_static_site_export_rendering();
+    bms_set_static_site_export_rendering(true);
+
+    try {
+        bms_delete_directory($targetRoot);
+        $pages = bms_list_content_records('published');
+        $count = 0;
+        foreach ($pages as $page) {
+            $pageIndexPath = bms_stream_export_index_path_for_post($page, $targetRoot);
+            bms_write_file($pageIndexPath, bms_render_public_content_page($page));
+            $count++;
         }
+        bms_generate_static_site_index($pages, $targetRoot);
+        if (is_file(__DIR__ . '/pages.php')) {
+            require_once __DIR__ . '/pages.php';
+            if (function_exists('bms_generate_static_page_exports')) {
+                $count += bms_generate_static_page_exports($targetRoot);
+            }
+        }
+        return $count;
+    } finally {
+        bms_set_static_site_export_rendering($previousStaticRenderState);
     }
-    return $count;
 }

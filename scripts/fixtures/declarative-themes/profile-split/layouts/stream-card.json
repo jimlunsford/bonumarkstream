@@ -1,0 +1,49 @@
+{
+  "surface": "stream-card",
+  "root": {
+    "type": "group",
+    "name": "split-stream-card",
+    "children": [
+      {
+        "type": "group",
+        "name": "split-card-rail",
+        "children": [
+          {
+            "type": "component",
+            "name": "stream-card.avatar"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.header"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.location"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.actions"
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "name": "split-card-main",
+        "children": [
+          {
+            "type": "component",
+            "name": "stream-card.body"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.media"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.link-preview"
+          }
+        ]
+      }
+    ]
+  }
+}

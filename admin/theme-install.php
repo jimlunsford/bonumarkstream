@@ -34,7 +34,7 @@ bms_admin_header('Install Theme', [
   <div class="appearance-hero-copy">
     <p class="eyebrow">Theme installation</p>
     <h2>Add a code-free presentation package.</h2>
-    <p class="meta">Theme ZIPs can provide metadata, CSS, images, screenshots, fonts, documentation, and settings declarations. Core keeps control of application behavior.</p>
+    <p class="meta">Theme ZIPs can provide metadata, CSS, images, screenshots, fonts, documentation, settings declarations, and validated private JSON layout files. Core keeps control of application behavior.</p>
   </div>
   <span class="status-pill published">Code-free only</span>
 </section>
@@ -64,7 +64,7 @@ bms_admin_header('Install Theme', [
     <h2>Presentation, not application code.</h2>
     <ul class="appearance-rule-list">
       <li><strong>Required</strong><span><code>theme.json</code> with valid theme metadata.</span></li>
-      <li><strong>Allowed</strong><span>CSS, images, fonts, screenshots, Markdown, and text documentation.</span></li>
+      <li><strong>Allowed</strong><span>CSS, images, fonts, screenshots, Markdown, text documentation, and declared private <code>layouts/*.json</code> files.</span></li>
       <li><strong>Rejected</strong><span>PHP, JavaScript, HTML, server configuration, symlinks, and executable files.</span></li>
       <li><strong>Protected</strong><span>Bundled core themes cannot be replaced through the uploader.</span></li>
     </ul>
@@ -73,7 +73,9 @@ bms_admin_header('Install Theme', [
   README.md
   assets/
     css/theme.css
-    images/screenshot.svg</code></pre>
+    images/screenshot.svg
+  layouts/
+    profile.json</code></pre>
   </aside>
 </div>
 <?php bms_admin_footer(); ?>

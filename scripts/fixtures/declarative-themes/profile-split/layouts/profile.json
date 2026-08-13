@@ -1,0 +1,37 @@
+{
+  "surface": "profile",
+  "root": {
+    "type": "group",
+    "name": "split-profile",
+    "children": [
+      {"type": "component", "name": "profile.cover"},
+      {
+        "type": "group",
+        "name": "profile-split",
+        "children": [
+          {
+            "type": "group",
+            "name": "profile-sidebar",
+            "children": [
+              {"type": "component", "name": "profile.avatar"},
+              {"type": "component", "name": "profile.identity"},
+              {"type": "component", "name": "profile.details"},
+              {"type": "component", "name": "profile.links"}
+            ]
+          },
+          {
+            "type": "group",
+            "name": "profile-content",
+            "children": [
+              {"type": "component", "name": "profile.about"},
+              {"type": "component", "name": "profile.now"},
+              {"type": "component", "name": "profile.featured"},
+              {"type": "component", "name": "profile.photos"},
+              {"type": "component", "name": "profile.interests"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

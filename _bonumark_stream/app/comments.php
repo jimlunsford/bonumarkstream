@@ -249,7 +249,7 @@ function bms_comments_view_data(string $slug, string $notice = ''): array
         $comments[] = [
             'author_name' => (string)($comment['display_name'] ?? 'Commenter'),
             'username' => (string)($comment['username'] ?? ''),
-            'profile_url' => function_exists('bms_public_profile_url_for_user') ? bms_public_profile_url_for_user($comment) : bms_url_path('profile.php?user=' . rawurlencode((string)($comment['username'] ?? ''))),
+            'profile_url' => function_exists('bms_public_profile_url_for_user') ? bms_public_profile_url_for_user($comment) : bms_url_path('profile/' . rawurlencode((string)($comment['username'] ?? ''))),
             'avatar_html' => function_exists('bms_user_avatar_markup') ? bms_user_avatar_markup($comment, 'comment-avatar-image', 96, 96, false) : '<span class="stream-author-avatar stream-author-initials">' . htmlspecialchars(bms_user_initials($comment), ENT_QUOTES, 'UTF-8') . '</span>',
             'body' => (string)($comment['body'] ?? ''),
             'created_at' => (string)($comment['created_at'] ?? ''),

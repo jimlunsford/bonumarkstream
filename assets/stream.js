@@ -1809,7 +1809,7 @@
     viewer.dataset.mediaViewerControllerInitialized = '1';
 
     function itemLinks(link) {
-      var gallery = link.closest('.stream-media-gallery');
+      var gallery = link.closest('.stream-media-gallery, .profile-photo-gallery');
       if (!gallery) {
         return [link];
       }
@@ -2181,6 +2181,422 @@
     });
   }
 
+  function setupProfileEditor(root) {
+    var scope = root || document;
+    var editor = scope.querySelector('[data-profile-links-editor]');
+    if (!editor || editor.dataset.profileLinksInitialized === '1') {
+      return;
+    }
+    editor.dataset.profileLinksInitialized = '1';
+
+    var list = editor.querySelector('[data-profile-link-list]');
+    var template = editor.querySelector('[data-profile-link-template]');
+    var addButton = editor.querySelector('[data-profile-link-add]');
+    var limitMessage = editor.querySelector('[data-profile-link-limit]');
+    var maxLinks = parseInt(editor.getAttribute('data-max-links') || '8', 10);
+    if (!Number.isFinite(maxLinks) || maxLinks < 1) {
+      maxLinks = 8;
+    }
+
+    if (!list || !template || !addButton) {
+      return;
+    }
+
+    function rows() {
+      return Array.prototype.slice.call(list.querySelectorAll('[data-profile-link-row]'));
+    }
+
+    function updateState() {
+      var atLimit = rows().length >= maxLinks;
+      addButton.disabled = atLimit;
+      addButton.hidden = atLimit;
+      if (limitMessage) {
+        limitMessage.hidden = !atLimit;
+      }
+    }
+
+    addButton.addEventListener('click', function () {
+      var currentRows = rows();
+      if (currentRows.length >= maxLinks) {
+        updateState();
+        return;
+      }
+
+      if (currentRows.length === 1) {
+        var starterInputs = currentRows[0].querySelectorAll('input');
+        var starterIsBlank = Array.prototype.every.call(starterInputs, function (input) {
+          return String(input.value || '').trim() === '';
+        });
+        if (starterIsBlank) {
+          if (starterInputs[0]) {
+            starterInputs[0].focus();
+          }
+          return;
+        }
+      }
+
+      var fragment = template.content.cloneNode(true);
+      var newRow = fragment.querySelector('[data-profile-link-row]');
+      list.appendChild(fragment);
+      updateState();
+
+      if (newRow) {
+        var firstInput = newRow.querySelector('input');
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+    });
+
+    list.addEventListener('click', function (event) {
+      var removeButton = event.target.closest('[data-profile-link-remove]');
+      if (!removeButton) {
+        return;
+      }
+      var row = removeButton.closest('[data-profile-link-row]');
+      if (!row) {
+        return;
+      }
+      row.remove();
+      updateState();
+      addButton.focus();
+    });
+
+    updateState();
+  }
+
+  function setupProfileFeaturedEditor(root) {
+    var scope = root || document;
+    var editor = scope.querySelector('[data-profile-featured-editor]');
+    if (!editor || editor.dataset.profileFeaturedInitialized === '1') {
+      return;
+    }
+    editor.dataset.profileFeaturedInitialized = '1';
+
+    var list = editor.querySelector('[data-profile-featured-list]');
+    var template = editor.querySelector('[data-profile-featured-template]');
+    var addButton = editor.querySelector('[data-profile-featured-add]');
+    var limitMessage = editor.querySelector('[data-profile-featured-limit]');
+    var maxFeatured = parseInt(editor.getAttribute('data-max-featured') || '4', 10);
+    if (!Number.isFinite(maxFeatured) || maxFeatured < 1) {
+      maxFeatured = 4;
+    }
+    if (!list || !template || !addButton) {
+      return;
+    }
+
+    function rows() {
+      return Array.prototype.slice.call(list.querySelectorAll('[data-profile-featured-row]'));
+    }
+
+    function rowIsBlank(row) {
+      if (!row) {
+        return true;
+      }
+      var values = row.querySelectorAll('input, textarea');
+      return Array.prototype.every.call(values, function (field) {
+        return String(field.value || '').trim() === '';
+      });
+    }
+
+    function syncRow(row) {
+      if (!row) {
+        return;
+      }
+      var type = row.querySelector('[data-profile-featured-type]');
+      var target = row.querySelector('[data-profile-featured-target]');
+      var title = row.querySelector('[data-profile-featured-title]');
+      if (!type || !target || !title) {
+        return;
+      }
+      var value = type.value || 'external';
+      if (value === 'stream') {
+        target.setAttribute('list', target.getAttribute('data-stream-list') || 'profile-featured-stream-options');
+        target.setAttribute('placeholder', 'published-post-slug');
+        title.required = false;
+        title.setAttribute('placeholder', 'Optional custom title');
+      } else if (value === 'page') {
+        target.setAttribute('list', target.getAttribute('data-page-list') || 'profile-featured-page-options');
+        target.setAttribute('placeholder', 'published-page-slug');
+        title.required = false;
+        title.setAttribute('placeholder', 'Optional custom title');
+      } else {
+        target.removeAttribute('list');
+        target.setAttribute('placeholder', 'https://example.com');
+        title.required = true;
+        title.setAttribute('placeholder', 'Title shown on your Profile');
+      }
+    }
+
+    function updateState() {
+      var atLimit = rows().length >= maxFeatured;
+      addButton.disabled = atLimit;
+      addButton.hidden = atLimit;
+      if (limitMessage) {
+        limitMessage.hidden = !atLimit;
+      }
+    }
+
+    rows().forEach(syncRow);
+
+    list.addEventListener('change', function (event) {
+      var type = event.target.closest('[data-profile-featured-type]');
+      if (!type) {
+        return;
+      }
+      syncRow(type.closest('[data-profile-featured-row]'));
+    });
+
+    addButton.addEventListener('click', function () {
+      var currentRows = rows();
+      if (currentRows.length >= maxFeatured) {
+        updateState();
+        return;
+      }
+      if (currentRows.length === 1 && rowIsBlank(currentRows[0])) {
+        var firstTarget = currentRows[0].querySelector('[data-profile-featured-target]');
+        if (firstTarget) {
+          firstTarget.focus();
+        }
+        return;
+      }
+      var fragment = template.content.cloneNode(true);
+      var newRow = fragment.querySelector('[data-profile-featured-row]');
+      list.appendChild(fragment);
+      syncRow(newRow);
+      updateState();
+      if (newRow) {
+        var firstSelect = newRow.querySelector('[data-profile-featured-type]');
+        if (firstSelect) {
+          firstSelect.focus();
+        }
+      }
+    });
+
+    list.addEventListener('click', function (event) {
+      var removeButton = event.target.closest('[data-profile-featured-remove]');
+      if (!removeButton) {
+        return;
+      }
+      var row = removeButton.closest('[data-profile-featured-row]');
+      if (!row) {
+        return;
+      }
+      row.remove();
+      updateState();
+      addButton.focus();
+    });
+
+    updateState();
+  }
+
+  function setupProfilePhotosEditor(root) {
+    var scope = root || document;
+    var editor = scope.querySelector('[data-profile-photos-editor]');
+    if (!editor || editor.dataset.profilePhotosInitialized === '1') {
+      return;
+    }
+    editor.dataset.profilePhotosInitialized = '1';
+
+    var list = editor.querySelector('[data-profile-photo-list]');
+    var template = editor.querySelector('[data-profile-photo-template]');
+    var addButton = editor.querySelector('[data-profile-photo-add]');
+    var limitMessage = editor.querySelector('[data-profile-photo-limit]');
+    var removals = editor.querySelector('[data-profile-photo-removals]');
+    var maxPhotos = parseInt(editor.getAttribute('data-max-photos') || '4', 10);
+    if (!Number.isFinite(maxPhotos) || maxPhotos < 1) {
+      maxPhotos = 4;
+    }
+    if (!list || !template || !addButton || !removals) {
+      return;
+    }
+
+    function allRows() {
+      return Array.prototype.slice.call(list.querySelectorAll('[data-profile-photo-row]'));
+    }
+
+    function activeRows() {
+      return allRows().filter(function (row) {
+        return !row.hidden;
+      });
+    }
+
+    function rowIsBlank(row) {
+      if (!row) {
+        return true;
+      }
+      var existing = row.querySelector('[data-profile-photo-existing]');
+      var file = row.querySelector('[data-profile-photo-file]');
+      var alt = row.querySelector('[data-profile-photo-alt]');
+      var caption = row.querySelector('[data-profile-photo-caption]');
+      return String(existing && existing.value || '').trim() === ''
+        && String(file && file.value || '').trim() === ''
+        && String(alt && alt.value || '').trim() === ''
+        && String(caption && caption.value || '').trim() === '';
+    }
+
+    function usedSlots() {
+      var used = {};
+      allRows().forEach(function (row) {
+        var slot = parseInt(row.getAttribute('data-profile-photo-slot') || '-1', 10);
+        if (slot >= 0 && slot < maxPhotos) {
+          used[slot] = true;
+        }
+      });
+      return used;
+    }
+
+    function nextSlot() {
+      var used = usedSlots();
+      for (var slot = 0; slot < maxPhotos; slot += 1) {
+        if (!used[slot]) {
+          return slot;
+        }
+      }
+      return -1;
+    }
+
+    function assignSlot(row, slot) {
+      if (!row || slot < 0) {
+        return;
+      }
+      row.setAttribute('data-profile-photo-slot', String(slot));
+      var order = row.querySelector('[data-profile-photo-order]');
+      var existing = row.querySelector('[data-profile-photo-existing]');
+      var file = row.querySelector('[data-profile-photo-file]');
+      var alt = row.querySelector('[data-profile-photo-alt]');
+      var caption = row.querySelector('[data-profile-photo-caption]');
+      if (order) {
+        order.name = 'profile_photo_order[]';
+        order.value = String(slot);
+      }
+      if (existing) {
+        existing.name = 'profile_photos[' + slot + '][existing_path]';
+      }
+      if (file) {
+        file.name = 'profile_photo_files[' + slot + ']';
+      }
+      if (alt) {
+        alt.name = 'profile_photos[' + slot + '][alt]';
+      }
+      if (caption) {
+        caption.name = 'profile_photos[' + slot + '][caption]';
+      }
+    }
+
+    function updateState() {
+      var active = activeRows();
+      var atLimit = active.length >= maxPhotos;
+      addButton.hidden = atLimit;
+      addButton.disabled = atLimit;
+      if (limitMessage) {
+        limitMessage.hidden = !atLimit;
+      }
+      active.forEach(function (row, index) {
+        var up = row.querySelector('[data-profile-photo-up]');
+        var down = row.querySelector('[data-profile-photo-down]');
+        if (up) {
+          up.disabled = index === 0;
+        }
+        if (down) {
+          down.disabled = index === active.length - 1;
+        }
+      });
+    }
+
+    var starter = list.querySelector('[data-profile-photo-starter="1"]');
+    if (starter && allRows().length > 1 && rowIsBlank(starter)) {
+      starter.hidden = true;
+    }
+
+    addButton.addEventListener('click', function () {
+      var active = activeRows();
+      if (active.length >= maxPhotos) {
+        updateState();
+        return;
+      }
+      if (active.length === 1 && rowIsBlank(active[0])) {
+        var firstFile = active[0].querySelector('[data-profile-photo-file]');
+        if (firstFile) {
+          firstFile.focus();
+        }
+        return;
+      }
+
+      var hiddenStarter = list.querySelector('[data-profile-photo-starter="1"][hidden]');
+      if (hiddenStarter) {
+        hiddenStarter.hidden = false;
+        hiddenStarter.removeAttribute('data-profile-photo-starter');
+        updateState();
+        var starterFile = hiddenStarter.querySelector('[data-profile-photo-file]');
+        if (starterFile) {
+          starterFile.focus();
+        }
+        return;
+      }
+
+      var slot = nextSlot();
+      if (slot < 0) {
+        updateState();
+        return;
+      }
+      var fragment = template.content.cloneNode(true);
+      var row = fragment.querySelector('[data-profile-photo-row]');
+      assignSlot(row, slot);
+      list.appendChild(fragment);
+      updateState();
+      var file = row && row.querySelector('[data-profile-photo-file]');
+      if (file) {
+        file.focus();
+      }
+    });
+
+    list.addEventListener('click', function (event) {
+      var removeButton = event.target.closest('[data-profile-photo-remove]');
+      if (removeButton) {
+        var row = removeButton.closest('[data-profile-photo-row]');
+        if (!row) {
+          return;
+        }
+        var existing = row.querySelector('[data-profile-photo-existing]');
+        var existingPath = String(existing && existing.value || '').trim();
+        if (existingPath !== '') {
+          var removal = document.createElement('input');
+          removal.type = 'hidden';
+          removal.name = 'profile_photo_remove_paths[]';
+          removal.value = existingPath;
+          removals.appendChild(removal);
+        }
+        row.remove();
+        updateState();
+        addButton.focus();
+        return;
+      }
+
+      var upButton = event.target.closest('[data-profile-photo-up]');
+      var downButton = event.target.closest('[data-profile-photo-down]');
+      if (!upButton && !downButton) {
+        return;
+      }
+      var moveRow = (upButton || downButton).closest('[data-profile-photo-row]');
+      var active = activeRows();
+      var index = active.indexOf(moveRow);
+      if (index < 0) {
+        return;
+      }
+      if (upButton && index > 0) {
+        list.insertBefore(moveRow, active[index - 1]);
+      } else if (downButton && index < active.length - 1) {
+        var next = active[index + 1];
+        list.insertBefore(moveRow, next.nextSibling);
+      }
+      updateState();
+      (upButton || downButton).focus();
+    });
+
+    updateState();
+  }
+
   function setupCards(root) {
     var scope = root || document;
     scope.querySelectorAll('[data-stream-card]').forEach(function (card) {
@@ -2211,6 +2627,9 @@
     setupCopyLinks(document);
     setupLinkPreviewImages(document);
     setupMediaViewer(document);
+    setupProfileEditor(document);
+    setupProfileFeaturedEditor(document);
+    setupProfilePhotosEditor(document);
     if (!isPreviewMode()) {
       setupLikes(document);
       setupCards(document);

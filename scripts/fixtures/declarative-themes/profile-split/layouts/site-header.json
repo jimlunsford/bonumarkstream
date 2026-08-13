@@ -1,0 +1,37 @@
+{
+  "surface": "site-header",
+  "root": {
+    "type": "group",
+    "name": "split-site-header",
+    "children": [
+      {
+        "type": "group",
+        "name": "split-header-top",
+        "children": [
+          {
+            "type": "component",
+            "name": "site-header.site-identity"
+          },
+          {
+            "type": "group",
+            "name": "split-header-tools",
+            "children": [
+              {
+                "type": "component",
+                "name": "site-header.stream-count"
+              },
+              {
+                "type": "component",
+                "name": "site-header.menu-toggle"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "component",
+        "name": "site-header.primary-navigation"
+      }
+    ]
+  }
+}

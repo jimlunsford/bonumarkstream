@@ -1,0 +1,27 @@
+{
+  "surface": "site-header",
+  "root": {
+    "type": "group",
+    "name": "midnight-site-header",
+    "children": [
+      {
+        "type": "group",
+        "name": "midnight-site-header-bar",
+        "children": [
+          {
+            "type": "component",
+            "name": "site-header.site-identity"
+          },
+          {
+            "type": "component",
+            "name": "site-header.menu-toggle"
+          }
+        ]
+      },
+      {
+        "type": "component",
+        "name": "site-header.primary-navigation"
+      }
+    ]
+  }
+}

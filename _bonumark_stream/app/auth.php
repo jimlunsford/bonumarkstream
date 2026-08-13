@@ -739,6 +739,34 @@ function bms_admin_delete_user(int $id, int $reassignToUserId, string $confirmat
     }
 
     $pdo = bms_db();
+    $profileCoverPath = '';
+    $profilePhotoPaths = [];
+    try {
+        $profileStmt = $pdo->prepare('SELECT cover_image_path, profile_photos_json FROM ' . bms_table('user_profiles') . ' WHERE user_id = :id LIMIT 1');
+        $profileStmt->execute(['id' => $id]);
+        $profileRow = $profileStmt->fetch();
+        if (is_array($profileRow)) {
+            $profileCoverPath = (string)($profileRow['cover_image_path'] ?? '');
+            $profilePhotos = json_decode((string)($profileRow['profile_photos_json'] ?? '[]'), true);
+            if (is_array($profilePhotos)) {
+                foreach ($profilePhotos as $photo) {
+                    if (is_array($photo) && trim((string)($photo['path'] ?? '')) !== '') {
+                        $profilePhotoPaths[] = (string)$photo['path'];
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        $profilePhotoPaths = [];
+        try {
+            $profileStmt = $pdo->prepare('SELECT cover_image_path FROM ' . bms_table('user_profiles') . ' WHERE user_id = :id LIMIT 1');
+            $profileStmt->execute(['id' => $id]);
+            $profileCoverPath = (string)($profileStmt->fetchColumn() ?: '');
+        } catch (Throwable $fallbackError) {
+            $profileCoverPath = '';
+        }
+    }
+
     $pdo->beginTransaction();
     try {
         $updates = [
@@ -780,6 +808,13 @@ function bms_admin_delete_user(int $id, int $reassignToUserId, string $confirmat
             // Cleanup-only.
         }
 
+        try {
+            $stmt = $pdo->prepare('DELETE FROM ' . bms_table('user_profiles') . ' WHERE user_id = :id');
+            $stmt->execute(['id' => $id]);
+        } catch (Throwable $e) {
+            // Profile identity table is optional on pre-migration installs.
+        }
+
         $stmt = $pdo->prepare('DELETE FROM ' . bms_table('users') . ' WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $id]);
         $pdo->commit();
@@ -792,6 +827,14 @@ function bms_admin_delete_user(int $id, int $reassignToUserId, string $confirmat
 
     if (function_exists('bms_user_avatar_delete_file')) {
         bms_user_avatar_delete_file((string)($user['avatar_path'] ?? ''));
+    }
+    if ($profileCoverPath !== '' && function_exists('bms_profile_cover_delete_file')) {
+        bms_profile_cover_delete_file($profileCoverPath);
+    }
+    if ($profilePhotoPaths && function_exists('bms_profile_photo_delete_file')) {
+        foreach ($profilePhotoPaths as $profilePhotoPath) {
+            bms_profile_photo_delete_file((string)$profilePhotoPath, $id);
+        }
     }
 }
 
@@ -948,6 +991,41 @@ function bms_profile_social_links_for_user(array $user): array
         ];
     }
     return $links;
+}
+
+
+function bms_update_current_user_account(string $username, string $email = ''): array
+{
+    $current = bms_current_user();
+    $currentId = (int)($current['id'] ?? 0);
+    if ($currentId < 1) {
+        throw new RuntimeException('You must be signed in to update account details.');
+    }
+
+    $username = bms_normalize_username($username);
+    $email = trim($email);
+
+    if (strlen($username) < 3) {
+        throw new RuntimeException('Username must be at least 3 characters.');
+    }
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Enter a valid email address or leave it blank.');
+    }
+
+    $stmt = bms_db()->prepare('SELECT id FROM ' . bms_table('users') . ' WHERE username = :username AND id <> :id LIMIT 1');
+    $stmt->execute(['username' => $username, 'id' => $currentId]);
+    if ($stmt->fetchColumn() !== false) {
+        throw new RuntimeException('That username is already taken.');
+    }
+
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, email = :email, updated_at = NOW() WHERE id = :id');
+    $stmt->execute([
+        'username' => $username,
+        'email' => $email,
+        'id' => $currentId,
+    ]);
+
+    return bms_find_user_by_id($currentId) ?? bms_current_user();
 }
 
 function bms_update_current_user_profile(string $username, string $displayName, string $email = '', string $bio = '', string $website = '', string $profileVisibility = 'public', array $socialLinksInput = []): array

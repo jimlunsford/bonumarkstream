@@ -1,3 +1,497 @@
+## 0.6.0 - Profiles & Theme Architecture 2.0
+
+- Creates the next public GitHub milestone after v0.5.77 by consolidating the completed v0.5.78 through v0.5.120 development work into one release identity.
+- Promotes Profiles into a first-class identity surface with structured identity metadata, Featured Work, Profile portability, cover media, and Profile photo galleries.
+- Delivers Theme Architecture 2.0 Layout Schema 1 across Profile, Stream Card, Site Header, and Home while keeping core responsible for application behavior, data, security, accessibility semantics, and component rendering.
+- Preserves legacy CSS-only themes through fixed composition fallback and keeps custom installed themes outside package-managed bundled-theme cleanup.
+- Consolidates the first-party theme collection to Midnight Ledger and makes it the complete bundled/default reference implementation for all four declarative surfaces.
+- Includes the Midnight Ledger visual, responsive, Home, Stream, Profile, canvas-alignment, content-resilience, and image-delivery work completed after the architecture foundation.
+- Locks external link-preview title fidelity and the fragment/document SEO boundary so remote metadata cannot be rewritten as local Bonumark document SEO.
+- Retains upgrade-time PHP cache invalidation while removing temporary runtime and pipeline diagnostics from the user-facing product.
+- Adds Profile-only responsive image delivery with bounded fallbacks, optional WebP picture sources, high-priority cover loading, and lazy gallery delivery without changing normal Stream/Home media behavior.
+- Adds migrations `0015_profile_identity_foundation.php`, `0016_profile_featured_work.php`, and `0017_profile_photos.php` for upgrades from the v0.5.77 public baseline.
+- Rewrites the root README as a GitHub project landing page and separates public release summaries from detailed package development history.
+- Fixes Midnight Ledger's empty-Profile state so the identity card stays below the Site Header when no Profile cover is present, while preserving the intended cover overlap when a cover is rendered on desktop and mobile.
+- Bumps Midnight Ledger to theme version 1.9.1 so the corrected Profile CSS receives a fresh theme-owned asset cache revision.
+- Updates current-version documentation, API examples, OpenAPI metadata, package metadata, service-worker cache revision, security support policy, and release manifest to v0.6.0.
+
+## 0.5.120 - Profile Modern Image Delivery Pass
+
+- Adds Profile-only WebP responsive derivatives for cover and gallery images when the host provides GD WebP or Imagick WebP encoding support.
+- Wraps Profile cover and gallery images in `<picture>` with WebP `source` candidates while preserving the existing responsive JPEG/PNG/WebP `<img>` fallback path.
+- Adds an explicit responsive Profile-cover preload in the document head and keeps the cover eager with `fetchpriority="high"` to improve LCP discovery.
+- Keeps below-fold Profile gallery photos lazy and marks them `fetchpriority="low"` so they do not compete with the cover during initial rendering.
+- Uses bounded fallback derivatives as the source for legacy-image WebP backfill when available, avoiding repeated decoding of multi-megapixel originals on the first upgraded Profile request.
+- Uses bounded fallback `src` values for the Profile cover and gallery instead of pointing the base `src` at a full-size original when a suitable derivative exists.
+- Generates modern Profile derivatives at upload time and can create missing Profile-only WebP candidates for existing Profile media when supported; originals remain untouched.
+- Falls back cleanly to the v0.5.119 responsive image path when WebP encoding is unavailable.
+- Does not change Stream/Home media delivery, Midnight Ledger layout or CSS, Profile composition, publishing, comments, likes, routing, APIs, Theme Architecture 2.0, or the database schema.
+- Adds no database migration.
+
+## 0.5.119 - Profile Image Delivery Optimization Pass
+
+- Fixes the Profile cover delivery path so existing generated cover derivatives are actually exposed through `srcset` instead of always sending the original upload.
+- Keeps the above-fold Profile cover eager and `fetchpriority="high"` while preserving verified width/height attributes for layout stability.
+- Adds 240px and 360px Profile-photo derivative candidates alongside 480px, 800px, and 1200px sizes so mobile and four-column desktop gallery slots do not over-download 480px images.
+- Uses `sizes="auto"` for lazy Profile gallery images with safe fallback lengths so browser selection follows the real rendered slot even when a code-free theme changes gallery columns.
+- Generates the full Profile-photo derivative set at upload time and can create missing bounded Profile cover/photo candidates once for upgraded installs when resize support is available.
+- Leaves original uploads untouched, preserves lazy loading for below-fold Profile photos, and makes no changes to Profile composition, Midnight Ledger layout JSON, Header, Home, Stream Card, publishing, comments, likes, routing, APIs, or Theme Architecture 2.0.
+- Adds no database migration.
+
+## 0.5.118 - Midnight Ledger Profile Content Resilience Pass
+
+- Reorganizes Midnight Ledger's declarative Profile composition so About and the supporting Now/Interests/Links/Details rail share the upper desktop row.
+- Moves Featured and Photos out of the primary text column so both begin below the taller upper column and span the full 1040px Profile identity canvas.
+- Keeps mobile order predictable as About, Featured, Photos, then the supporting rail instead of using masonry or content-dependent reordering.
+- Allows longer Now text, additional links, more interests, and optional Details content to grow naturally without colliding with the showcase sections.
+- Keeps public Profile links as wrapping pills so additional links increase card height instead of overflowing horizontally.
+- Makes the full-width desktop photo showcase count-aware: one photo remains constrained, two use two columns, three use three equal columns, and four use four equal columns; smaller viewports keep the core two-column gallery behavior.
+- Bumps Midnight Ledger to theme version 1.9.0 for a fresh theme-owned asset cache revision.
+- Adds no database migration and makes no changes to Header, Home, Stream Card, publishing, comments, likes, permissions, routing, media behavior, APIs, metadata, or Theme Architecture 2.0.
+
+## 0.5.117 - Midnight Ledger Profile Banner Alignment Pass
+
+- Explicitly centers the Midnight Ledger Profile cover within the 1040px identity canvas used by the Profile masthead and composition.
+- Makes the declarative `profile.cover` wrapper and cover panel stretch to the full centered Profile canvas instead of relying on implicit grid stretching.
+- Explicitly centers the cover image crop with `object-position: 50% 50%`.
+- Normalizes Midnight Ledger's older 980px base Profile shell limit to the current 1040px identity canvas.
+- Preserves all four Midnight Ledger layout JSON files byte-for-byte and makes no changes to the layout engine, renderer, public templates, or application behavior.
+- Bumps Midnight Ledger to theme version 1.8.3 for a fresh theme-owned asset cache revision.
+- Adds no database migration and makes no changes to publishing, comments, likes, permissions, routing, media processing, APIs, metadata, or Theme Architecture 2.0.
+
+## 0.5.116 - Midnight Ledger Canvas Alignment Pass
+
+- Aligns the shared Midnight Ledger Site Header to the intentional content canvas of each major public surface instead of keeping the wider shell width everywhere.
+- Uses the focused 860px reading canvas for Home, single Stream posts, Stream archives, and search.
+- Keeps Profile on the wider 1040px identity canvas so the masthead continues to align with the cover and profile composition.
+- Preserves the exact declarative Site Header layout and core Header components; only theme-level surface alignment changes.
+- Keeps mobile behavior naturally fluid because both canvas widths collapse to 100% of the available viewport.
+- Preserves all four Midnight Ledger layout JSON files byte-for-byte and makes no changes to the layout engine, renderer, public templates, or application behavior.
+- Bumps Midnight Ledger to theme version 1.8.2 for a fresh theme-owned asset cache revision.
+- Adds no database migration and makes no changes to publishing, comments, likes, permissions, routing, media processing, APIs, metadata, or Theme Architecture 2.0.
+
+## 0.5.115 - Midnight Ledger Responsive Polish Pass
+
+- Polishes Midnight Ledger responsive behavior without changing its four declarative Schema 1 layouts or any application behavior.
+- Extends the compact one-line masthead treatment into common medium phone/tablet widths while preserving natural title wrapping on truly narrow screens.
+- Restrains single-post body typography and paragraph rhythm at medium responsive widths so moderate posts do not become oversized editorial blocks.
+- Gives the mobile comment textarea an explicit compact default height while retaining vertical resize behavior.
+- Tightens the single-post-to-comments spacing and keeps the flattened discussion treatment introduced in v0.5.113.
+- Preserves the existing Home, Profile, Stream Card, and Site Header layout JSON byte-for-byte.
+- Bumps Midnight Ledger to theme version 1.8.1 for a fresh theme-owned asset cache revision.
+- Adds no database migration and makes no changes to publishing, comments logic, likes, permissions, routing, media processing, APIs, metadata, or Theme Architecture 2.0.
+
+## 0.5.114 - Midnight Ledger Home Composition Pass
+
+- Moves Midnight Ledger's `home` surface onto Layout Schema 1 using the existing core-owned Home component contract.
+- Adds a private `layouts/home.json` composition with notices first, a dedicated publish region containing the atomic composer, and a timeline region containing pinned posts, feed, and pagination.
+- Completes Midnight Ledger declarative adoption across all four current Schema 1 public surfaces: Profile, Stream Card, Site Header, and Home.
+- Preserves Bonumark's single-column publish-first Home workflow instead of introducing sidebar, dashboard, or reading-first experiments.
+- Refines the Home composer proportions and composed-region spacing without changing composer fields, validation, CSRF, scheduling, media, or publishing behavior.
+- Keeps the masthead title on one line at intermediate phone/small-tablet widths when space permits while allowing natural wrapping on truly narrow screens.
+- Tightens the single-post-to-comments transition while preserving the flatter v0.5.113 comments treatment.
+- Bumps Midnight Ledger to theme version 1.8.0 for a fresh theme-owned asset cache revision.
+- Adds no database migration and makes no changes to Profile composition, Stream Card composition, routing, permissions, comments logic, likes, APIs, media processing, metadata, or core application behavior.
+
+## 0.5.113 - Midnight Ledger Stream & Mobile Refinement Pass
+
+- Moves Midnight Ledger's `site-header` surface onto Layout Schema 1 using core-owned site identity, Menu toggle, and primary navigation components.
+- Removes Midnight Ledger's theme-specific Live microblog status chip, published-post-count chip, and their Theme Settings controls.
+- Reworks mobile link previews into compact horizontal cards so linked content supports the post instead of dominating the viewport.
+- Reduces the visual weight of likes, comments, and Post Options controls while preserving all existing behavior and accessibility hooks.
+- Flattens the public comments area into the single-post reading flow and reduces form/container chrome.
+- Tightens mobile masthead, post, preview, action, and comment spacing without changing Profile composition.
+- Bumps Midnight Ledger to theme version 1.7.0 for a fresh theme-owned asset cache revision.
+- Adds no database migration and does not change publishing, comments logic, likes, permissions, routing, media processing, APIs, or metadata behavior.
+
+## 0.5.112 - Midnight Ledger Visual Foundation Pass
+
+- Begins the intentional Midnight Ledger redesign after Theme Architecture 2.0 consolidation, using the real desktop/mobile acceptance screenshots as the visual baseline.
+- Widens the public shell while constraining Home, archive, search, and single-post reading surfaces to a calmer focused column instead of stretching every screen to the same width.
+- Reworks Midnight Ledger design tokens, spacing rhythm, borders, shadows, radii, masthead proportions, composer treatment, timeline card density, link previews, media framing, comments, and small-screen behavior without changing application behavior.
+- Re-composes the declarative Profile into a cover/identity story followed by a desktop main-content and supporting-information grid that collapses to a single mobile flow.
+- Visually connects the Profile identity panel to the cover with a controlled overlap, reduces repetitive full-width section stacking on desktop, and preserves every core Profile component and owner action.
+- Keeps Midnight Ledger Header and Home on their existing legacy composition paths in this pass while improving their presentation through theme CSS; no new declarative surface or application component is added.
+- Keeps the existing Midnight Ledger Stream Card component order and all core-owned likes, comments, Quick edit, Post Options, media, link-preview, CSRF, accessibility, and routing behavior unchanged.
+- Bumps Midnight Ledger to theme version 1.6.0 so the visual-foundation CSS receives a new theme-owned cache revision.
+- Adds no database migration and makes no changes to publishing, permissions, APIs, metadata, navigation logic, media processing, or application routes.
+
+## 0.5.111 - Midnight Ledger Declarative Baseline Pass
+
+- Moves the bundled/default Midnight Ledger theme onto Layout Schema 1 for the `profile` and `stream-card` surfaces.
+- Adds private `layouts/profile.json` and `layouts/stream-card.json` files that preserve Midnight Ledger's established Profile and Stream Card component order while using the validated Theme Architecture 2.0 renderer.
+- Keeps Midnight Ledger's Site Header and Home on the legacy core renderer so the existing theme-specific status chip and Home workflow are not changed accidentally during structural conversion.
+- Adds declarative-wrapper CSS bridges so the new Profile and Stream Card composition retains the established Midnight Ledger presentation and responsive behavior.
+- Bumps Midnight Ledger to theme version 1.5.0 so browsers receive the declarative-baseline CSS revision independently from the Bonumark Stream application version.
+- Preserves the four-surface Theme Architecture 2.0 API, third-party CSS-only compatibility, internal dual-composition regression fixtures, and all core application behavior.
+- Adds no database migration and makes no changes to routing, publishing, permissions, comments, likes, media, APIs, metadata, Header composition, or Home composition.
+
+## 0.5.110 - Theme Consolidation Pass
+
+- Consolidates Bonumark Stream to a single bundled/default public theme: Midnight Ledger.
+- Removes Editorial Profile and Split Profile from the installable Theme Manager collection and removes their public asset mirrors.
+- Preserves both materially different four-surface Schema 1 compositions as internal regression fixtures under `scripts/fixtures/declarative-themes/`, so Theme Architecture 2.0 continues to prove independent `profile`, `stream-card`, `site-header`, and `home` composition without creating a theme-maintenance burden.
+- Changes the protected bundled-theme registry to `default` only, allowing third-party themes to use former proof-theme slugs normally.
+- Extends upgrade cleanup to retire only old Editorial/Split copies whose installed manifests explicitly identify them as Bonumark bundled proof themes; unrelated or user-replaced themes with the same slugs remain preserved.
+- Keeps Midnight Ledger on the existing Legacy Core Renderer and makes no visual redesign in this pass.
+- Preserves all four declarative surfaces, Layout Schema 1, Theme Health, installer validation, component registries, legacy CSS-only compatibility, and third-party declarative theme support.
+- Adds no database migration and makes no changes to publishing, routing, permissions, comments, likes, media, APIs, metadata, or accessibility behavior.
+
+## 0.5.109 - Site Composition Proof & Hardening Pass
+
+- Completed the first combined Theme Architecture 2.0 site-composition acceptance pass across `profile`, `stream-card`, `site-header`, and `home` without adding a fifth declarative surface.
+- Added integrated regression coverage that renders Site Header and Home together with nested declarative Stream Cards through each bundled proof theme, preserving composer CSRF, Quick edit, likes, Post Options, pagination, navigation identity, and the single Home `<h1>` contract.
+- Added an explicit regression proving Midnight Ledger remains on the legacy fallback path for every currently supported declarative surface.
+- Hardened Editorial Profile and Split Profile Header/Home CSS containment for narrow widths, long site/navigation text, composer controls, notices, and composed feed/pagination regions.
+- Bumped both bundled declarative proof themes to version 1.3.1 so the hardening CSS receives a fresh theme-owned cache revision.
+- Added `docs/DECLARATIVE-LAYOUTS.md` as the stable third-party Layout Schema 1 reference covering manifest fields, supported surfaces, component identifiers, nesting, fallback, Theme Health, responsive expectations, and compatibility rules.
+- Preserved the existing Profile, Stream Card, Site Header, and Home component contracts, layout JSON, application behavior, permissions, forms, routing, metadata, accessibility, and static/dynamic shared rendering boundaries.
+- Added no database migration and made no unrelated product or admin changes.
+
+## 0.5.108 - Declarative Home Composition Pass
+
+- Enabled `home` as the fourth Layout Schema 1 declarative surface.
+- Kept the document shell, `<main>`, notices semantics, atomic Stream composer, pinned-post selection, feed/empty-state logic, pagination behavior, permissions, validation, and accessibility in Bonumark Stream core.
+- Wired the existing `home.php` template to use validated declarative Home composition when the active theme declares `layouts.home`, while preserving the complete fixed legacy Home arrangement for themes that do not opt in.
+- Preserved `home.feed` as the semantic Stream region and empty-state boundary, so Home layouts need no condition or expression language.
+- Kept pinned and normal posts on the existing `stream-card` renderer instead of creating a second post-composition API inside Home.
+- Extended Editorial Profile with a reading-first Home composition and Split Profile with a workspace Home composition using a desktop publish rail beside the timeline; both collapse safely on smaller screens.
+- Bumped both bundled declarative proof themes to version 1.3.0 so Home layout/CSS changes receive fresh theme-owned cache revisions.
+- Added regression coverage for Home surface validation, core component parity, unsupported-component rejection, private layout-file handling, materially different proof-theme composition, atomic composer preservation, Stream Card reuse, and legacy Home fallback.
+- Added no database migration and made no changes to Profile, Stream Card, Site Header, publishing, comments, likes, media, routes, or application behavior.
+
+## 0.5.107 - Home Composition Foundation Pass
+
+- Added five core-owned Home components for public notices, the atomic Stream composer, pinned posts, the normal feed/empty state, and pagination.
+- Registered the Home component family in the existing Theme Architecture 2.0 component registry without enabling `home` as a declarative surface yet.
+- Separated `bms_render_stream_index()` into prepared `notices_html`, `composer_html`, `pinned_posts_html`, `feed_html`, and `pagination_html` boundaries while preserving the complete legacy `items_html` concatenation used by the current Home template.
+- Kept the existing `home.php` composition unchanged so Midnight Ledger, bundled declarative themes, and third-party themes continue through the fixed Home arrangement in this release.
+- Kept the composer atomic and core-owned, kept pinned/normal posts on the existing `stream-card` renderer, and kept empty state as a core state of `home.feed` rather than exposing a conditional theme component.
+- Added regression coverage for Home component contracts, prepared-data-only rendering, feed semantics, legacy Home fallback, and the still-disabled `home` surface.
+- Added no database migration and made no changes to Site Header, Profile, Stream Card, publishing, comments, likes, media, routing, or theme layout JSON.
+
+## 0.5.106 - Declarative Site Header Composition Pass
+
+- Enabled `site-header` as the third Layout Schema 1 declarative surface.
+- Kept the outer semantic public `<header>` shell in Bonumark Stream core while allowing validated themes to compose the Header interior from registered core-owned components.
+- Preserved the Site Header component contract: required `site-header.site-identity`, required `site-header.primary-navigation`, optional `site-header.menu-toggle`, and optional `site-header.stream-count`.
+- Kept navigation records, URLs, active-state logic, authenticated account decisions, menu JavaScript behavior, title heading selection, accessibility semantics, and Static Site Export session-neutral navigation in core.
+- Preserved the complete fixed legacy Header composition for Midnight Ledger and any theme that does not declare `layouts.site-header`.
+- Extended Editorial Profile with an integrated always-visible navigation masthead that intentionally omits the menu toggle.
+- Extended Split Profile with a utility-first masthead that uses the core-owned menu toggle and a separately composed primary navigation region.
+- Bumped both bundled declarative proof themes to version 1.2.0 so their Header layout/CSS changes receive new theme-owned cache revisions.
+- Added regression coverage proving valid/invalid Site Header layout contracts, optional menu-toggle behavior, stable identity/navigation/count output, materially different proof-theme composition, private layout-file handling, and legacy Header equivalence.
+- Added no database migration and made no changes to Home, Profile, Stream Card, publishing, comments, likes, media, or routing behavior.
+
+## 0.5.105 - Site Header Component Foundation Pass
+
+- Added four core-owned Site Header components for site identity, primary navigation, menu toggle, and published Stream count.
+- Registered the Site Header component family in the existing Theme Architecture 2.0 component registry without enabling `site-header` as a declarative surface yet.
+- Kept the existing public Header template and legacy theme output unchanged so CSS-only themes continue through the fixed Header composition.
+- Extended the prepared Header view data with a normalized menu label and an explicit account-navigation state for the upcoming declarative composition milestone.
+- Kept navigation URLs, active-state logic, authentication decisions, menu behavior, headings, accessibility semantics, and all application behavior in core.
+- Hardened Static Site Export so exported Header navigation omits session-specific account destinations from the authenticated admin session that launched the export.
+- Added regression coverage for the four Site Header component contracts, prepared-data-only rendering, behavior hooks, legacy Header fallback, and the still-disabled `site-header` surface.
+- Added no database migration and made no changes to Profile or Stream Card declarative composition.
+
+## 0.5.104 - Runtime Diagnostic Cleanup Pass
+
+- Removed the manual `admin/runtime-cache.php` diagnostic page.
+- Removed the PHP Runtime Cache card from Admin > Tools.
+- Removed the link-preview runtime revision marker that existed only to support the manual runtime diagnostic.
+- Removed diagnostic-only smoke-test requirements and active upgrade guidance tied to the deleted runtime UI.
+- Preserved automatic per-file OPcache invalidation when the admin upgrader replaces PHP files.
+- Preserved the automatic full OPcache reset request after package-managed software replacement completes.
+- Preserved the v0.5.102 Fragment SEO Boundary Fix that prevents document SEO from rewriting fragment data such as external link-preview titles.
+- Preserved external link-preview metadata protections and fragment-title regression tests.
+- Added cleanup regression coverage that fails if the removed runtime diagnostic page, Tools link, or runtime revision marker is reintroduced.
+- Kept PHP runtime cache handling as an internal upgrade responsibility instead of exposing it as a user-facing maintenance tool.
+
+## 0.5.103 - Cleanup & Regression Lock Pass
+
+- Removed the temporary `admin/link-preview-pipeline.php` investigation page added in v0.5.101.
+- Removed link-preview AJAX session capture from the normal preview-fetch endpoint.
+- Removed raw request, sanitized payload, front-matter, stored database, hydrated post, and render-payload session tracing from the normal quick-post publishing path.
+- Removed temporary link-preview pipeline trace helper functions from the core link-preview module.
+- Removed the Link Preview Pipeline card from Admin > Tools.
+- Preserved the v0.5.102 **Fragment SEO Boundary Fix** that prevents document SEO from rewriting fragment data such as external link-preview titles.
+- Preserved regression tests proving link-preview and card fragment titles remain untouched while complete public documents still receive normal SEO metadata.
+- Added cleanup regression checks that fail the package smoke test if temporary pipeline tracing or its admin page is accidentally reintroduced.
+- Preserved external preview title fidelity/isolation protections from v0.5.98-v0.5.99.
+- Preserved v0.5.100 upgrade-time PHP OPcache invalidation/reset behavior and the general Admin > Tools > PHP Runtime Cache diagnostic.
+- Bumped the runtime marker to `0.5.103-link-preview` so the PHP Runtime Cache screen can verify the cleanup build is actually loaded.
+
+## 0.5.102 - Fragment SEO Boundary Fix
+
+- Fixed the root cause of external link previews incorrectly ending with the local Bonumark site name.
+- `bms_public_seo_view_data()` now applies document-title SEO only to complete public document templates: `layout`, `home`, `archive`, `single`, `page`, `profile`, `account`, and `search`.
+- Fragment templates such as `link-preview`, `card`, `media`, `location`, `composer`, `comments`, `pagination`, and empty states now retain their domain data exactly as supplied by their owning renderer.
+- This prevents a correct external title such as `Builder Receipt: Reworking Bonumark Stream | Jim Lunsford` from being rewritten as a Bonumark document title ending in `| Bonumark Stream`.
+- The v0.5.101 pipeline diagnostic remains available and now provides proof that fetch, submission, storage, hydration, and render payloads all remain unchanged through the fixed fragment-render boundary.
+- Added regression coverage proving link-preview and card fragment titles are not rewritten while actual page templates continue receiving document SEO metadata.
+- Bumped the link-preview runtime marker to `0.5.102-link-preview` for verification.
+
+## 0.5.101 - Link Preview Pipeline Diagnostic Pass
+
+- Added **Admin > Tools > Link Preview Pipeline**, an admin-only diagnostic that exposes the exact link-preview title at every stage without changing preview behavior.
+- Added a live URL probe showing the raw remote HTML `<title>`, `og:title`, `twitter:title`, `og:site_name`, `application-name`, the selected pre-sanitizer title/site name, the local site name, suffix-strip probe result, and final fetch payload.
+- Captures the exact JSON preview returned by the real AJAX composer endpoint in the current admin session.
+- Captures the next front-composer link-preview submission from raw hidden fields through request sanitization, generated front matter, parsed page values, stored database front matter, hydrated page values, and final render payload.
+- Added a recent stored-preview inspector comparing raw stored front matter with hydrated and rendered preview metadata for published posts.
+- Added explicit local-site-name JSON output so invisible whitespace or punctuation differences cannot hide during diagnosis.
+- Added a clear-session-traces action that does not modify posts.
+- Kept v0.5.100 runtime-cache diagnostics and v0.5.99 link-preview title behavior unchanged. This release is diagnostic only.
+- Updated smoke-test coverage to require the pipeline diagnostic, trace helpers, AJAX capture, quick-post capture, and v0.5.101 runtime revision marker.
+
+## 0.5.100 - PHP Runtime Cache Reliability Pass
+
+- Added per-file OPcache invalidation whenever the admin upgrader replaces a PHP file.
+- Added a full OPcache reset request after package-managed software replacement and obsolete-file cleanup complete.
+- Added `admin/runtime-cache.php`, a new admin-only diagnostic page that reports the installed Bonumark version, the link-preview runtime revision PHP actually loaded, the link-preview file SHA-256 on disk, OPcache availability, timestamp-validation state, revalidation frequency, and cached-script status when the host exposes it.
+- Added a manual **Refresh PHP Runtime Cache** action that invalidates the link-preview PHP file and resets OPcache when the hosting environment permits it.
+- Added an explicit `0.5.100-link-preview` runtime revision marker so an installation can distinguish the VERSION file on disk from the link-preview code PHP is actually executing.
+- Added a Runtime Cache diagnostic card under Admin > Tools.
+- Kept the v0.5.99 external-preview title isolation logic unchanged; this release targets stale PHP runtime execution rather than changing metadata rules again.
+- Updated smoke-test coverage to require the runtime diagnostic, runtime revision marker, and upgrade-time cache invalidation paths.
+
+## 0.5.99 - External Preview Title Isolation Pass
+
+- Enforced a shared link-preview invariant: an external title cannot retain a trailing local Bonumark installation site name when the remote page identifies itself as a different site.
+- The fix does not reconstruct or substitute remote titles. It only removes the local contamination suffix.
+- Applied through the shared preview sanitizer, covering newly fetched previews, submitted composer metadata, stored front matter, and rendered existing previews.
+- Existing stored previews such as `Remote Article | Remote Site | Bonumark Stream` now render as `Remote Article | Remote Site` without requiring the post to be recreated.
+- Preserves titles unchanged when a linked remote site legitimately uses the same site name as the local installation.
+- Retains v0.5.98 remote HTML `<title>` precedence with Open Graph / Twitter title fallback.
+- Added regression coverage for both contaminated external titles and legitimate same-name remote sites.
+
+## 0.5.98 - Remote Link Title Fidelity Pass
+
+- Changed external link previews to prefer the linked page's own HTML `<title>` as the preview title.
+- Keeps `og:title` and `twitter:title` as fallbacks only when the remote document does not provide a usable `<title>`.
+- Keeps remote `og:site_name` / application-name metadata as a separate site label instead of merging it into the preview title.
+- Removed the v0.5.97 local-site title normalization and reconstruction path; the local Bonumark Stream site name no longer participates in external preview titles.
+- Added a pure HTML-to-preview extraction path so title selection can be regression-tested without making network requests.
+- Existing stored preview metadata is left untouched rather than guessed or rewritten; new or refreshed previews use the corrected remote-title behavior.
+- Updated package smoke-test coverage to enforce document-title precedence and prevent reintroduction of local-site title reconstruction.
+
+## 0.5.97 - Link Preview Metadata Integrity Pass
+
+- Added remote-title normalization for link previews when fetched metadata incorrectly contains the local Bonumark Stream site name as its suffix while the remote page identifies a different site name.
+- Uses the remote `og:site_name` / application name as the correction target instead of hiding the bad suffix in a theme.
+- Applies normalization through the shared link-preview payload sanitizer, so future composer previews are corrected before storage and already-saved previews are corrected when rendered.
+- Leaves legitimate matching site names alone and does not rewrite unrelated external titles.
+- Added package smoke-test coverage for the normalization path.
+
+## 0.5.96 - Dual Stream Card Layout Proof Pass
+
+- Extends the bundled Editorial Profile and Split Profile proof themes to the Schema 1 `stream-card` surface with real private `layouts/stream-card.json` files.
+- Gives Editorial Profile a content-first Stream Card composition that renders body, media, and link preview as the story, then places avatar, author/date, location, and core actions in a restrained byline footer.
+- Gives Split Profile a materially different desktop Stream Card composition with avatar, author/date, location, likes/comments, and Post Options in a narrow metadata rail beside the main body/media/link-preview column.
+- Adds responsive rules so both declarative card compositions collapse to safe single-column mobile flows without changing core component markup or behavior.
+- Bumps both bundled declarative proof themes to version 1.1.0 so their new Stream Card layouts and CSS receive fresh theme-owned cache revisions.
+- Keeps all seven Stream Card components core-owned and verifies the two bundled themes render identical component HTML from identical prepared card data while producing opposite body/header ordering.
+- Keeps Quick edit, likes, comments, Post Options, full editor, pin/unpin, trash, CSRF fields, accessibility hooks, and the outer `data-stream-card` article shell in Bonumark Stream core.
+- Keeps both Stream Card layout JSON files private and mirrors only declared CSS/screenshots to public theme assets.
+- Keeps Midnight Ledger on the fixed Legacy Core Renderer Stream Card composition.
+- Adds no database migration and changes no Stream Card data preparation, component PHP, Profile layouts/components, routes, publishing, media processing, permissions, or static export pipeline.
+
+## 0.5.95 - Declarative Stream Card Composition Pass
+
+- Enables `stream-card` as the second supported Schema 1 Declarative Layout surface.
+- Allows a layout-aware theme to declare private `layouts/stream-card.json` and arrange the seven registered core-owned Stream Card components with validated `group` and `component` nodes.
+- Keeps the outer Stream Card `<article>`, `data-stream-card`, public URL, preview state, card classes, and click/interaction boundary in Bonumark Stream core.
+- Uses declarative composition only for the card interior; legacy themes and layout-aware themes that do not declare `stream-card` continue through the exact existing `stream-card-inner` / `stream-card-main` fixed composition.
+- Keeps Quick edit atomic inside `stream-card.body` and keeps likes, comments, single-post back navigation, full editor access, pin/unpin, trash, CSRF fields, and the Post Options menu atomic inside `stream-card.actions`.
+- Revalidates the private Stream Card layout at render time and supplies the same stable `data-bms-layout`, `data-bms-layout-group`, and `data-bms-component` hooks used by the Profile surface.
+- Adds regression coverage proving two materially different Stream Card layouts render identical prepared data through identical core components while preserving Quick edit, like, and Post Options behavior hooks.
+- Confirms the declarative branch replaces only presentation-only inner/main wrappers; JavaScript continues to bind to core-owned `data-stream-card` and component behavior hooks.
+- Keeps the bundled Midnight Ledger, Editorial Profile, and Split Profile themes on their existing Stream Card composition because none declares `layouts/stream-card.json` in this pass.
+- Adds no database migration and changes no Stream Card data preparation, Profile composition, routes, publishing, comments, likes, media processing, permissions, or static export pipeline.
+
+## 0.5.94 - Stream Card Component Extraction Pass
+
+- Extracts the existing public Stream card interior into seven core-owned presentation components without enabling declarative Stream Card composition yet.
+- Registers `stream-card.avatar`, `stream-card.header`, `stream-card.body`, `stream-card.location`, `stream-card.link-preview`, `stream-card.media`, and `stream-card.actions` to private Bonumark-owned PHP component files.
+- Keeps the existing `<article>`, `stream-card-inner`, and `stream-card-main` shell in the core card template so the current DOM structure and CSS contract remain intact.
+- Keeps Quick edit markup and hooks atomic inside `stream-card.body`, while likes, comments, single-post back navigation, full-editor access, pin/unpin, trash, CSRF fields, and the post-options menu remain atomic inside `stream-card.actions`.
+- Preserves the existing prepared renderer data and the existing location, link-preview, and media HTML render paths; the extracted components do not query the database, read request input, or take over application behavior.
+- Intentionally leaves `stream-card` out of the supported declarative layout surfaces, so themes cannot declare `layouts/stream-card.json` in this pass and all Stream cards continue through the fixed legacy composition.
+- Adds regression coverage for all seven component files, registry mappings, prepared-data-only boundaries, preserved behavior hooks, and the continued absence of declarative Stream Card rendering.
+- Adds no database migration and changes no Profile layout/schema/components, bundled theme composition, Stream card data preparation, routes, publishing, comments, likes, media processing, static export, or application permissions.
+
+## 0.5.93 - Declarative Profile Responsive Hardening Pass
+
+- Hardens the two bundled Theme Architecture 2.0 Profile proof themes after real desktop/mobile testing exposed horizontal clipping in Editorial Profile on narrow screens.
+- Adds explicit declarative Profile containment so layout roots, groups, component wrappers, Profile cards, and nested grid/flex content may shrink with `min-width: 0` and stay within the available width.
+- Makes long Profile headings, paragraphs, links, Featured text, interests, and metadata wrap safely instead of establishing a wider min-content size.
+- Replaces Editorial Profile's margin-dependent identity/content sizing with explicit viewport-safe calculated widths and centered margins, plus an additional small-phone breakpoint for the identity panel and narrative text.
+- Applies the common declarative containment contract to both Editorial Profile and Split Profile while preserving their materially different compositions.
+- Bumps both bundled proof themes from 1.0.0 to 1.0.1 so the corrected CSS receives a new theme-owned cache revision.
+- Adds regression coverage for proof-theme cache revisions and declarative Profile containment CSS.
+- Adds no database migration and changes no Profile data, Schema 1 layout document, core Profile components, Profile routes/editing, Midnight Ledger, legacy rendering, Stream cards, publishing, comments, likes, APIs, or media processing.
+
+## 0.5.92 - Dual Profile Layout Proof Pass
+
+- Adds two bundled, code-free Theme Architecture 2.0 proof themes: Editorial Profile and Split Profile.
+- Gives Editorial Profile a wide magazine-style composition with a pulled-up identity band, centered narrative flow, and separate secondary/meta grids using the same ten core-owned Profile components.
+- Gives Split Profile a materially different desktop sidebar/main-content composition that places identity, Details, and Links in the sidebar while About and other narrative components remain in the main column.
+- Adds explicit responsive rules so both proof compositions collapse to safe single-column mobile flows without changing core component markup, accessibility semantics, Profile data, or behavior.
+- Keeps both layout documents private under `layouts/profile.json`; only CSS and screenshots are mirrored to public theme assets.
+- Protects all three bundled themes, Midnight Ledger, Editorial Profile, and Split Profile, from deletion or replacement through the theme uploader.
+- Adds regression coverage proving both proof themes pass Theme Health, render all ten registered components from identical prepared data, retain exactly one Profile heading and media-viewer behavior, preserve identical core component HTML, and produce different component ordering/composition.
+- Keeps Midnight Ledger on the Legacy Core Renderer, adds no database migration, and changes no Profile storage/editing, Stream cards, publishing, comments, likes, APIs, media processing, routes, or static export behavior.
+
+## 0.5.91 - Declarative Profile Composition Pass
+
+- Enables Theme Architecture 2.0 composition for the public Profile interior when the active theme explicitly declares a valid Schema 1 `profile` layout.
+- Loads private `layouts/profile.json` server-side, revalidates it at render time, and renders only the existing ten core-owned Profile components through safe `group` and `component` nodes.
+- Adds core-owned stable composition hooks: `data-bms-layout`, `data-bms-layout-schema`, `data-bms-layout-group`, and `data-bms-component`, plus predictable Bonumark-owned CSS classes for layout groups and components.
+- Keeps the document shell, Profile not-found state, Profile data preparation, component markup, headings, accessibility behavior, media viewer hooks, owner controls, permissions, routes, and application actions in Bonumark Stream core.
+- Preserves the complete v0.5.90 fixed Profile composition as the fallback for Midnight Ledger and every existing CSS-only theme that does not opt into declarative layouts.
+- Treats a declared but missing, malformed, or invalid runtime layout as an integrity failure instead of accepting unvalidated theme input.
+- Adds regression coverage for active Profile composition, stable layout/component hooks, ten-component rendering, and explicit legacy-theme fallback behavior.
+- Adds no database migration and changes no Stream cards, Profile storage/editing, publishing, comments, likes, APIs, media processing, or static export behavior.
+
+## 0.5.90 - Profile Component Extraction Pass
+
+- Extracts the existing public Profile interior into ten core-owned presentation components without enabling declarative Profile composition yet.
+- Maps the existing Theme Architecture 2.0 Profile registry to private core component files for cover, avatar, identity, About, Featured, Photos, Now, Interests, Links, and Details.
+- Adds a core-owned component renderer that accepts already-prepared public view data and resolves component PHP files exclusively from Bonumark Stream core. Themes still cannot supply PHP, callbacks, templates, or renderer code.
+- Keeps the existing Profile not-found state and legacy Profile composition wrapper in the core Profile template, including the current Profile hero section around the separately extracted avatar and identity components.
+- Preserves current Profile markup behavior and section order while separating component implementation from component arrangement in preparation for the next declarative composition milestone.
+- Adds regression coverage for all ten component files, registry-to-template mappings, prepared-data-only component boundaries, and continued absence of `data-bms-layout` declarative rendering hooks.
+- Adds no database migration and changes no Profile storage, routes, editing, metadata, media behavior, permissions, theme settings, Stream rendering, or static export behavior.
+
+## 0.5.89 - Declarative Theme Integration Pass
+
+- Integrates the v0.5.88 Declarative Layout Themes foundation with the real theme package lifecycle while leaving public Profile composition, Stream cards, routes, database schema, permissions, forms, and application behavior unchanged.
+- Extends the theme installer so layout-aware themes may ship only explicitly declared private `layouts/*.json` files. Declared layout documents are validated before installation, copied only into the private theme directory, and never published under `assets/themes/`.
+- Extends Theme Health and activation checks so missing, malformed, unsupported, or structurally invalid declarative layout files prevent activation while legacy CSS-only themes continue to require no layout files.
+- Extends Theme Manager and Theme Details reporting with renderer mode, layout schema, declared layout count, and layout surface/file information so legacy and layout-aware themes are clearly distinguishable.
+- Corrects public theme asset cache revisions so CSS, images, fonts, and screenshots use the active theme manifest version instead of the Bonumark Stream application version.
+- Updates theme installation guidance and theming/architecture documentation for the integrated declarative package contract.
+- Adds regression coverage for valid and missing layout-file health checks, private installer copying, Theme Manager reporting, and theme-version asset cache keys.
+- Keeps Midnight Ledger on the Legacy Core Renderer, adds no database migration, and does not yet route Profile rendering through declarative composition.
+
+## 0.5.88 - Declarative Layout Foundation Pass
+
+- Begins Theme Architecture 2.0 without changing public rendering, Profile markup, Stream cards, database schema, routes, permissions, forms, or application behavior.
+- Adds optional versioned `layout_schema` and `layouts` theme manifest fields while keeping themes with neither field fully backward compatible.
+- Adds a core-owned declarative layout registry with the Profile as the first supported surface and ten approved Profile components: cover, avatar, identity, About, Featured, Photos, Now, Interests, Links, and Details.
+- Adds strict code-free layout validation for `group` and `component` nodes only, including private `layouts/*.json` path confinement, supported-surface checks, maximum depth/node limits, required component cardinality, and rejection of unknown properties or unregistered components.
+- Adds no expression language, arbitrary HTML, PHP, JavaScript, SQL, callbacks, routes, database access, or behavior hooks to themes.
+- Adds regression coverage proving legacy CSS-only themes require no declarative fields, valid Profile layouts pass the new validator, unsafe/unknown properties and components fail, and the existing Profile renderer remains untouched in this foundation pass.
+- Defers theme-installer layout copying, Theme Health/Manager layout reporting, Profile component extraction, declarative Profile rendering, and Stream-card composition to later controlled milestones.
+
+## 0.5.87 - Profile Gallery Pass
+
+- Adds an optional Profile Photos section with up to four owner-selected images. Profile photos are identity media only and never create Stream posts or Media Library records.
+- Stores ordered semantic photo data in `user_profiles.profile_photos_json`: Profile-owned media path, alt text, and optional caption.
+- Adds a compact Profile editor with current-image previews, Add Photo, Remove, Move up, and Move down controls while keeping a one-photo no-JavaScript fallback.
+- Reuses Bonumark image validation, configured media upload limits, privacy cleaning, responsive derivative generation, and the existing full-image viewer.
+- Adds a theme-neutral public Photos section after Featured Work. Core supplies stable `.profile-photo-*` markup and fallback layout while themes remain responsible for presentation.
+- Extends Profile portability so original Profile photos export under `profile-media/photo-1.*` through `photo-4.*`, with order, alt text, captions, and portable media references preserved in `profile.json` and `profile.md`.
+- Deletes Profile photo originals and generated variants when photos are replaced, removed, or the owning account is deleted.
+- Adds migration `0017_profile_photos.php` and regression coverage for the four-photo limit, Profile-only storage boundary, public gallery contract, viewer integration, and portability.
+- Changes no Stream routes, publishing workflow, post media, account roles, Profile metadata, Featured Work behavior, or theme presentation settings.
+
+## 0.5.86 - Profile Portability Pass
+
+- Adds owner-controlled Profile export from the Profile editor for every signed-in account, without granting Commenters access to Admin system/database exports.
+- Generates a structured `profile.json` identity export and a human-readable `profile.md` companion file.
+- Includes original local Profile picture and cover-image files under `profile-media/` when available, while omitting generated responsive variants.
+- Exports the accepted Profile identity model: handle, display name, headline, location, short bio, About Markdown, Now text, website, visibility, flexible links, interests, Featured Work references, and optional-public-detail preferences.
+- Preserves internal Featured Stream posts and Pages as semantic type + slug references rather than copying post/page content into the Profile package.
+- Explicitly excludes email, password hashes, roles, activity counts, login/security records, API credentials, post/comment contents, and theme presentation settings from the Profile export contract.
+- Adds a CSRF-protected, no-store Profile export endpoint and package-integrity regression coverage.
+- Adds no database migration and changes no public Profile rendering, Profile metadata, Stream routes, publishing workflow, account roles, or theme presentation contract.
+
+## 0.5.85 - Profile Identity Metadata Pass
+
+- Keeps the accepted public Profile and editor presentation unchanged while making the Profile a stronger identity endpoint for search engines, link previews, and other web consumers.
+- Generates Profile-specific document titles and descriptions from the existing display name, headline, short bio, and About content without adding new Profile fields.
+- Normalizes canonical Profile metadata around the clean `/profile/{username}` route, including base-path-safe absolute canonical URLs.
+- Adds theme-independent Open Graph and Twitter Profile metadata, including Profile type, site name, username, description, sharing card type, and cover-image sharing with profile-picture fallback.
+- Adds JSON-LD `ProfilePage` metadata with a nested `Person` entity using the existing public name, handle, avatar, website/Profile links (`sameAs`), and interests (`knowsAbout`).
+- Keeps private Profiles out of structured identity metadata and emits `noindex,nofollow` when a private Profile is viewed by its owner or an administrator. Missing Profiles also receive noindex metadata.
+- Improves sitemap Profile handling by removing account email from the sitemap query, using `user_profiles.updated_at` when available for Profile last-modified dates, and recognizing clean `/profile/` URLs in the human-readable sitemap view.
+- Adds `article:author` metadata to published Stream post pages when the post already has a public author Profile.
+- Adds regression coverage for Profile metadata, structured identity data, social-sharing tags, sitemap privacy/data minimization, and public author Profile references.
+- Adds no database migration and changes no visible Profile sections, Featured Work behavior, Stream routes, publishing workflow, account roles, permissions, or theme presentation contract.
+
+## 0.5.84 - Profile Featured Polish and Empty Stream Layout Fix
+
+- Keeps the accepted Profile foundation and v0.5.83 Featured Work behavior unchanged while polishing the bundled Midnight Ledger presentation found during desktop and phone testing.
+- Fixes the large vertical gap on an empty or otherwise short public Stream by correcting the public shell itself: the viewport-height flex wrapper now aligns the inner site grid to the top instead of stretching it across the available height.
+- Improves one-to-four Featured item layouts in the bundled theme. A lone item, or the final item in an odd three-item set, spans the full desktop row instead of leaving an unintended empty half-column.
+- Adds defensive long-text wrapping for Featured titles and descriptions so unusually long words or URLs cannot force card overflow.
+- Bumps the bundled Midnight Ledger reference theme to 1.3.1 for the presentation fixes.
+- Adds regression coverage for the corrected short-page shell behavior and Featured card layout rules.
+- Adds no database migration and changes no Stream routes, publishing workflow, Profile storage, account roles, permissions, or theme contract.
+
+## 0.5.83 - Profile Featured Work Pass
+
+- Adds deliberate Profile curation without creating a second Stream, recent-activity block, or automatic content feed.
+- Lets a Profile owner feature up to four published Stream posts, published Pages, or external links in an explicit saved order.
+- Stores semantic featured-item data in `user_profiles.featured_items_json`: type, target, optional custom title, and optional short description.
+- Resolves internal items only while their referenced content is published. Unpublished or missing internal content is skipped publicly instead of becoming a broken Profile link.
+- Adds a compact Featured work editor with Add/Remove controls, published-content slug suggestions, and a no-JavaScript starter row.
+- Adds a public Featured section after About. The bundled Midnight Ledger theme styles the semantic featured-item markup while core remains presentation-neutral.
+- Adds migration `0016_profile_featured_work.php`, theme-contract documentation, editor JavaScript, responsive default-theme styling, and regression coverage for the new curation boundary.
+- Changes no Stream routes, publishing workflow, Profile routing, account roles, post/page storage, or automatic activity behavior.
+
+## 0.5.82 - Profile Foundation Cleanup Pass
+
+- Keeps the accepted v0.5.80-v0.5.81 Profile Identity Foundation architecture unchanged and limits this pass to editor cleanup found during populated desktop and phone testing.
+- Stops rendering an automatic blank Profile link row when one or more saved links already exist. Profiles with no links still receive one starter row so the first link can be added without JavaScript.
+- Updates Add Link behavior so an untouched empty starter row is focused instead of creating a second blank row.
+- Shortens and visually contains the cover-image and profile-picture removal controls so they read as deliberate secondary actions instead of raw form plumbing.
+- Tightens the About editor's default height while keeping the full Markdown field and normal vertical resizing available.
+- Updates regression coverage for saved-link-only rendering, empty-starter behavior, compact image-removal controls, and Profile editor JavaScript.
+- Adds no database migration and changes no Stream routes, publishing behavior, public Profile rendering, Profile data model, account permissions, theme contract, or stored identity data.
+
+## 0.5.81 - Profile Foundation Editor Polish Pass
+
+- Keeps the v0.5.80 Profile Identity Foundation architecture unchanged while tightening the editor based on desktop and phone testing.
+- Replaces the eight always-visible Profile link rows with a compact editor that shows existing links plus one blank fallback row, with Add Link and Remove controls up to the existing eight-link limit.
+- Moves Profile visibility and optional public activity details out of Identity into a dedicated Profile settings section.
+- Polishes cover-image and profile-picture controls with current-image presentation, clearer Change/Remove actions, and theme-consistent file inputs.
+- Fixes optional-detail checkbox alignment so each control stays attached to its label on desktop and mobile.
+- Adds regression coverage for the compact link editor, Profile settings grouping, and the Profile editor JavaScript behavior.
+- Adds no database migration and changes no Stream routes, publishing behavior, public Profile architecture, account permissions, themes contract, or stored identity data.
+
+## 0.5.80 - Profile Identity Foundation Pass
+
+- Rebuilds the public Profile as a first-class identity surface without creating a second Stream, personal feed, or per-profile publishing route.
+- Adds a dedicated `user_profiles` data layer for headline, About Markdown, location, Now text, cover image, flexible ordered links, interests, and optional public activity details.
+- Preserves existing profile identity by carrying current social-link JSON into the new profile identity record while leaving usernames, display names, short bios, websites, visibility, avatars, account credentials, posts, and comments in their established owners.
+- Adds a focused Profile editor at `account.php?section=profile` and keeps login username, email, password, and account activity on the Account surface.
+- Adds profile cover images with JPG, PNG, and WebP validation, a 6 MB upload ceiling, responsive derivatives when supported, and explicit 1600 × 600 guidance in the editor.
+- Changes the canonical public Profile URL to `/profile/{username}` while retaining numeric-id lookup as a compatibility fallback and removing display-name routing from the public route.
+- Removes recent Stream activity from the public Profile. Published post count, approved comment count, and member-since date are now optional secondary details.
+- Adds the publishing owner's public Profile as a normal primary-navigation destination when public navigation is enabled, without altering the existing Stream.
+- Removes the unused `profile_layouts` declaration from the bundled theme. Core does not define Profile layout or accent selectors; themes remain responsible for presentation.
+- Removes email from purpose-built public profile and author queries.
+- Adds migration, smoke-test, theme, account, profile, routing, and release metadata coverage for the new identity foundation.
+
+## 0.5.79 - Upgrade Protected Data Layout Hotfix
+
+- Corrects the desktop Upgrade page's What is protected card, where a narrow two-column label and value layout forced values to wrap almost one word per line.
+- Stacks each fact label above its value only while the Upgrade workflow uses the narrow desktop operations rail.
+- Keeps the accepted tablet and phone layout unchanged and leaves the shared fact-list component available for wider operational panels.
+- Adds regression coverage for the Upgrade-specific desktop layout rule.
+- Adds no database migration and changes no upgrade behavior, routes, permissions, runtime data, media, uploads, themes, settings, or stored owner data.
+
+## 0.5.78 - Admin UI Contract
+
+- Adds `docs/ADMIN-UI-GUIDELINES.md` as the repository-level contract for future Admin screens, controls, states, and workflow changes.
+- Requires new Admin work to start from the newest package, inspect the closest existing workflow, reuse established components, and identify any genuinely new UI component before implementation.
+- Documents shared shell use, information hierarchy, responsive records, forms, actions, notices, destructive behavior, accessibility, JavaScript boundaries, CSS ownership, naming, and the desktop, tablet, phone, state, regression, and package acceptance checklist.
+- Protects `assets/admin.css` as a legacy and compatibility layer instead of a default destination for new authenticated Admin workflow styling.
+- Links the Admin UI contract from `README.md` and `CONTRIBUTING.md` and adds contributor requirements for workflow reference, component ownership, responsive states, and accessibility verification.
+- Adds smoke-test coverage requiring the Admin UI contract and its repository references.
+- Adds no database migration and changes no application behavior, routes, publishing, permissions, content, media, uploads, themes, settings, or user data.
+
 ## 0.5.77 - GitHub README Cleanup
 
 - Restores `README.md` as a product-first GitHub landing page instead of using it as a release archive.
@@ -346,6 +840,8 @@
 - Existing API clients continue to insert media into Markdown unless they explicitly request gallery mode.
 - Existing config, database data, posts, pages, drafts, revisions, users, comments, likes, media, uploads, themes, settings, analytics, API tokens, cron history, scheduled posts, Local Places, coordinates, consent records, and post location snapshots are preserved.
 
+# Changelog
+
 ## 0.5.43 - Token-Scoped Stream Read API
 
 Bonumark Stream now exposes a general-purpose, read-only Stream catalog through the existing `/api/v1/stream/posts` resource. Authorized clients with the new `stream:read` scope can page through published Stream posts, retrieve a stable published post by ID, filter by modification time, and request rendered HTML alongside Markdown. The API remains product-neutral and contains no client-specific integration logic.
@@ -361,784 +857,228 @@ Bonumark Stream now exposes a general-purpose, read-only Stream catalog through 
 
 ## 0.5.42 - GitHub Release Hardening Pass
 
-Bonumark Stream v0.5.42 hardens fresh-install timestamp consistency and completes release documentation for the work since v0.5.30.
+### Fixed
 
-- Sets the installer PDO session to UTC before running migrations and seed statements.
-- Uses an explicit UTC timestamp for the initial Admin email-verification value.
-- Restores v0.5.35 and v0.5.37 in the upgrade guide, corrects the Local Places admin label, and fixes the mislabeled v0.5.24 timestamp section.
-- Extends package smoke coverage so installer UTC handling and the required post-v0.5.30 upgrade notes cannot silently regress.
-- Adds no database migration and preserves all existing site data and user-owned files.
+- Forces the fresh installer database session to UTC before migrations and initial seed writes, matching normal runtime database behavior.
+- Stores the initial Admin email-verification timestamp explicitly in UTC.
+- Restores missing v0.5.35 and v0.5.37 upgrade notes and corrects the mislabeled v0.5.24 timestamp section.
+- Adds package smoke-test coverage for installer UTC handling and post-v0.5.30 upgrade-guide completeness.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing config, database data, posts, pages, drafts, revisions, users, comments, likes, media, uploads, themes, settings, analytics, API tokens, cron history, scheduled posts, Local Places, coordinates, consent records, and post location snapshots are preserved.
 
 ## 0.5.41 - Local Places Metadata Alignment Hotfix
 
-Bonumark Stream v0.5.41 tightens the saved-place card metadata layout without changing Local Places data or behavior.
+### Fixed
 
-- Removes the floating category badge.
-- Places Category beside Default public display as labeled supporting metadata.
-- Keeps the place title and location visually primary and the right side focused on actions.
-- Adds no database migration and preserves all existing places and post snapshots.
+- Removes the floating category badge from each Local Places directory card.
+- Places Category beside Default public display in the labeled metadata section.
+- Keeps the place name and location primary while reserving the right side for edit and delete actions.
+- Changes presentation only. Local Places storage, geolocation, composer behavior, post snapshots, and public output remain unchanged.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing places, coordinates, posts, settings, media, themes, uploads, and other site data are preserved.
 
 ## 0.5.40 - Local Places Admin Polish Pass
 
-Bonumark Stream v0.5.40 polishes the Local Places admin directory without changing its data or behavior.
+### Changed
 
-- Replaces the wide table with compact responsive saved-place cards.
-- Adds a saved-place count, stronger name and location hierarchy, category badges, and readable display-mode details.
-- Moves the coordinate privacy explanation into a subdued information notice.
-- Separates Edit place and Delete into clear standard and destructive actions.
-- Adds no database migration and preserves all existing places and post snapshots.
+- Replaces the wide Local Places admin table with compact responsive saved-place cards.
+- Adds a saved-place count, clearer place-name and location hierarchy, category badges, and easier-to-scan default display details.
+- Separates the private-coordinate explanation into a subdued information notice.
+- Gives Edit place and Delete distinct, better-spaced actions and improves the one-place and mobile layouts.
+- Changes presentation only. Local Places storage, geolocation, composer behavior, post snapshots, and public output remain unchanged.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing places, coordinates, posts, settings, media, themes, uploads, and other site data are preserved.
 
 ## 0.5.39 - Local Places Visual Consistency Hotfix
 
-Bonumark Stream v0.5.39 makes the Local Places composer interface visually consistent with the existing Schedule panel.
+### Fixed
 
-- Uses the same default-theme panel background, border, radius, field colors, and muted text system as scheduling.
-- Aligns the selected-place row and add-place dialog with the Midnight Ledger theme tokens.
-- Keeps orange limited to active controls and actions instead of tinting the entire Places panel.
-- Adds no database migration and changes no Local Places behavior or stored data.
+- Matches the Local Places composer panel background, border, radius, fields, selected-place row, and add-place dialog to the existing Schedule panel color system in the default theme.
+- Removes the unrelated brown-tinted panel treatment while keeping orange limited to active controls and actions.
+- Changes presentation only. Local Places behavior, geolocation, saved places, post snapshots, and database data remain unchanged.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing places, coordinates, posts, settings, media, themes, uploads, and other site data are preserved.
 
 ## 0.5.38 - Local Places Geolocation Hotfix
 
-Bonumark Stream v0.5.38 restores the browser location controls introduced with Local Places.
+### Fixed
 
-- Allows geolocation for the Bonumark Stream origin instead of blocking it through Permissions Policy.
-- Moves the Admin **Use current location** handler into the external admin script so the Content Security Policy permits it to run.
-- Reports clear HTTPS, permission-denied, unavailable-location, and timeout messages.
-- Adds no database migration and preserves all existing Local Places and post snapshots.
+- Allows same-origin browser geolocation instead of disabling geolocation through the global Permissions Policy.
+- Moves the Admin Local Places current-location handler from blocked inline JavaScript into the CSP-approved external admin script.
+- Adds clear feedback for HTTPS requirements, denied permission, unavailable location, and request timeout failures.
+- Restores **Use current location** in Admin and the geolocation foundation used by **Find nearby** in both composers.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing places, coordinates, posts, post location snapshots, settings, media, themes, uploads, and other site data are preserved.
 
 ## 0.5.37 - Local Places Composer Simplification Pass
 
-Bonumark Stream v0.5.37 simplifies the Local Places posting workflow without changing the underlying place directory or stored post location data.
+### Changed
 
-- Reduces both Stream Post composers to saved-place selection, nearby lookup, and a compact add-place dialog.
-- Removes category, area, locality, region, country, coordinates, and per-post display-mode controls from the composer interface.
-- Keeps full place-detail editing under Admin → Local Places.
-- Adds only place name and an optional public location label when creating a place from a composer.
-- Automatically uses the saved place's default public display mode.
-- Collapses selected places into a compact Change/Remove row.
-- Adds no database migration and preserves all existing Local Places and post snapshots.
+- Reduced Local Places in both Stream Post composers to a compact saved-place picker, nearby search, and one **Add a new place** action.
+- Moved category, approximate-area, city, region, country, coordinates, and default-display management out of the posting flow and kept those controls under **Admin → Local Places**.
+- Replaced the expanded composer form with a small two-field dialog for place name and an optional public location label.
+- Collapsed a selected place into a single compact row with Change and Remove actions.
+- Uses each saved place's default public display automatically instead of asking for a display mode on every post.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- Existing places, coordinates, categories, display settings, post location snapshots, posts, pages, media, comments, analytics, themes, API tokens, cron history, uploads, and settings are preserved.
 
 ## 0.5.36 - Local Places Check-In Pass
 
-Bonumark Stream v0.5.36 adds a private local check-in system that works without paid APIs or outside places services.
-
 ### Added
 
-- `_bonumark_stream/app/places.php` for Local Places validation, CRUD, nearby distance matching, post snapshots, picker rendering, and public display data.
-- Migration `0014_local_places.php` for the local places table.
-- Protected admin Local Places list, add/edit, delete, nearby lookup, and composer-save endpoints.
-- Local Places controls in both Stream Post composers.
-- Public location rendering with exact-place, approximate-area, and city-only labels.
-- Database and Markdown front-matter persistence for location snapshots.
+- Private, self-hosted Local Places directory with no paid or external places API.
+- Browser-permission nearby matching against places saved on the current Bonumark Stream instance.
+- Location controls in both the front-end composer and back-end Stream Post editor.
+- Public display choices for place name and city, approximate area, or city only.
+- Protected Local Places admin screens for adding, editing, and deleting saved places.
+- Markdown export and database front-matter support for portable location snapshots.
 
-### Privacy and resilience
+### Privacy boundaries
 
-- Device location is requested only after an explicit button press.
-- Latitude and longitude are never emitted in public post HTML.
-- Saved places remain selectable if location permission is denied.
-- Existing posts keep their saved display text if a place is later deleted.
-- No external places service or shared directory is required.
+- Location access begins only after the signed-in owner presses a location button.
+- Raw device coordinates are used for nearby matching and are stored only when the owner intentionally saves a place.
+- Public post markup never includes latitude or longitude.
+- No background tracking, external places lookup, or shared-directory dependency is included.
+
+### Upgrade notes
+
+- Adds migration `0014_local_places.php` to create the local places table.
+- Existing posts, pages, media, comments, analytics, themes, API tokens, cron history, uploads, and settings are preserved.
+
+Public GitHub release summaries are kept in the root [`CHANGELOG.md`](../CHANGELOG.md). This file retains the detailed package-by-package development history.
 
 ## 0.5.35 - Root RSS Discovery Hotfix
 
-Bonumark Stream v0.5.35 restores root-level RSS discovery after noticing public pages advertised the `/stream/feed.xml` feed instead of the root feed.
+### Fixed
 
-- Changes public page RSS discovery metadata to advertise `/feed.xml` as the canonical feed URL.
-- Keeps `/stream/feed.xml` available as a compatibility alias.
-- Makes the root RSS feed channel link point to the site root while the stream alias feed can still point to `/stream/`.
-- Does not add a database migration and does not rewrite posts, pages, users, comments, analytics, themes, API tokens, cron history, uploads, media files, or existing settings.
+- Restored `/feed.xml` as the canonical RSS feed advertised in public page `<link rel="alternate">` metadata.
+- Adjusted the root RSS channel link so the root feed identifies the site root instead of `/stream/`.
+- Preserved `/stream/feed.xml` as a working compatibility alias for existing subscriptions and the stream archive route.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- No posts, pages, users, comments, analytics, themes, API tokens, cron history, uploads, media files, or existing settings are rewritten.
 
 ## 0.5.34 - Privacy-Safe Media Uploads Pass
 
-Bonumark Stream v0.5.34 adds privacy-safe media upload handling for normal shared hosting.
+### Added
 
-- Randomizes the public filename for uploaded media instead of using the original filename in public URLs.
-- Attempts metadata stripping for supported image uploads by re-encoding images through PHP image handling, with Imagick used only when available.
-- Keeps best-effort mode as the default so uploads remain usable when metadata removal cannot be confirmed.
-- Adds optional strict privacy mode under **Admin → Settings → Writing** for sites that prefer rejecting image uploads over storing unconfirmed image metadata.
-- Shows media privacy status and warnings in the admin media library and media edit screen.
-- Adds migration `0013_privacy_safe_media_uploads.php` for media privacy status fields and the `media_privacy_mode` setting.
+- Randomized public filenames for uploaded media so original device or local filenames are not used in public media URLs.
+- Best-effort image metadata removal for supported JPG, PNG, and WebP uploads using shared-hosting PHP image handling, with optional Imagick support when available.
+- Optional strict media privacy mode that rejects image uploads when metadata removal cannot be confirmed.
+- Media privacy status indicators in the admin media library and media edit screen.
+- Clear warnings when Bonumark Stream can randomize the filename but cannot confirm metadata removal.
+
+### Changed
+
+- Empty upload alt text now defaults to a generic safe label instead of deriving public alt text from the original filename.
+
+### Upgrade notes
+
+- Adds migration `0013_privacy_safe_media_uploads.php` to add media privacy status fields and the `media_privacy_mode` setting.
+- Existing media records are preserved and marked as legacy unchecked until replaced or reuploaded.
+- No posts, pages, users, comments, analytics, themes, API tokens, cron history, uploads, or existing media files are rewritten.
 
 ## 0.5.33 - Analytics Report Card Polish Pass
 
-Bonumark Stream v0.5.33 polishes the Privacy-First Analytics report-card presentation without changing analytics collection or storage.
+### Improved
 
-- Replaces compact report tables with label/count summary rows on **Admin → Tools → Analytics**.
-- Removes table headers from small aggregate cards and replaces empty tables with cleaner empty-state copy.
-- Humanizes device, browser, and direct-referrer labels while preserving CSV export output.
-- Does not change analytics schema, migrations, privacy boundaries, collector behavior, settings, public output, themes, posts, pages, users, media, API tokens, cron history, or existing data.
+- Replaced the sparse table-style presentation in the compact Privacy-First Analytics report cards with cleaner label/count summary rows.
+- Humanized small aggregate labels such as device categories and browser families, so values like `desktop` and `chrome` display as `Desktop` and `Chrome`.
+- Improved empty states for Stream posts, pages, referrers, devices, browsers, entry pages, and daily views so empty cards no longer show table headers.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- No analytics aggregate rows, settings, posts, pages, timestamps, users, comments, media, themes, API tokens, cron history, uploads, or existing configuration are rewritten.
+- Analytics collection, storage fields, privacy boundaries, CSV export, and theme behavior are unchanged.
 
 ## 0.5.32 - Analytics Report Warning Hotfix
 
-Bonumark Stream v0.5.32 fixes a confirmed PHP 8.1+ warning in the Privacy-First Analytics report renderer.
+### Fixed
 
-- Makes the analytics admin-table helper read its optional formatter key safely before determining whether the column uses a callback or a direct row key.
-- Removes `Undefined array key "value"` warnings from key-only report columns, including daily views, entry pages, referrer domains, device categories, and browser families.
-- Does not change analytics storage, database schema, migrations, collection behavior, privacy boundaries, settings, public output, themes, posts, pages, users, media, API tokens, cron history, or existing data.
+- Corrected the Privacy-First Analytics report-table helper so key-only column definitions no longer trigger PHP 8.1+ `Undefined array key "value"` warnings on **Admin → Tools → Analytics**.
+- Restored clean reporting for Views by Day, Top Entry Pages, Referrer Domains, Device Categories, Browser Families, and any future analytics table that uses a direct row key instead of a formatter callback.
+
+### Upgrade notes
+
+- No database migration runs in this release.
+- No analytics aggregate rows, settings, posts, pages, timestamps, users, comments, media, themes, API tokens, cron history, uploads, or existing configuration are rewritten.
 
 ## 0.5.31 - Privacy-First Analytics Pass
 
-Bonumark Stream v0.5.31 adds an optional, self-hosted, cookieless aggregate analytics layer without adding a visitor identity or consent system.
+### Added
 
-- Adds `analytics_daily`, an aggregate-only daily counter table with no raw page-view event log.
-- Keeps analytics disabled by default on fresh installs and upgrades.
-- Adds same-origin core collector behavior for eligible public reading routes only, with bot filtering and no analytics cookies, browser storage, IDs, sessions, IP values, IP hashes, raw user agents, or user-agent hashes.
-- Stores clean public paths, referrer hostnames only, broad device and browser groups, and sanitized UTM source, medium, and campaign values.
-- Adds Admin → Tools → Analytics settings, reporting, CSV export, retention cleanup, confirmed aggregate-data deletion, and a restrained dashboard Traffic card.
-- Keeps themes presentation-only. No theme JavaScript, templates, settings, hooks, or tracking code are required.
-- Adds migration `0012_privacy_first_analytics.php`.
+- Optional self-hosted, cookieless Privacy-First Analytics, disabled by default on fresh installs and upgrades.
+- Aggregate public page-view reporting by day, Stream post, page, entry path, referrer domain, broad device category, broad browser family, and sanitized UTM campaign fields.
+- Protected **Admin → Tools → Analytics** controls for enablement, retention, aggregate CSV export, and confirmed data clearing.
+- A restrained dashboard Traffic card for administrators.
+
+### Privacy boundaries
+
+- No analytics cookies, browser storage, visitor IDs, sessions, fingerprints, unique-visitor estimates, raw or hashed IP addresses, raw user agents, full referrers, query strings, or visitor-level event logs.
+- Admin, account, login, API, feed, sitemap, search, cron, install, upgrade, private, and authenticated activity is excluded.
+
+### Upgrade notes
+
+- Adds one idempotent migration for aggregate analytics storage and disabled-by-default analytics settings.
+- Existing sites do not collect analytics until an administrator explicitly enables the feature.
+- No posts, pages, timestamps, users, comments, media, themes, API tokens, cron history, uploads, or existing configuration are rewritten.
 
 ## 0.5.30 - GitHub Release Hardening Pass
 
-Bonumark Stream v0.5.30 prepares the current v0.5.x line for public GitHub distribution without adding product features or changing runtime behavior.
+### Improved
 
-- Aligns release version markers, package metadata, public documentation, OpenAPI metadata, API examples, and installer copy.
-- Makes the installer render its version dynamically from the packaged version marker so future releases cannot leave the welcome screen stale.
-- Adds a public root changelog, expanded contribution guidance, and explicit GitHub private vulnerability-reporting guidance.
-- Uses a clean single-root release ZIP for predictable GitHub downloads and cPanel extraction.
-- Does not modify the database schema, migrations, posts, pages, dates, times, users, comments, media, themes, settings, uploads, backups, cron history, API tokens, or existing installations.
+- Prepared the release package for public GitHub distribution with aligned version markers, a single package root, and refreshed repository documentation.
+- Added a public release summary and expanded contributor and security-reporting guidance.
+- Made the installer display the packaged version dynamically so its welcome screen cannot drift behind the release version again.
 
-## 0.5.29 - PWA Direct Favicon Fallback Fix
+### Fixed
 
-Bonumark Stream v0.5.29 fixes the v0.5.28 PWA icon fallback on shared-hosting PHP builds without GD or Imagick.
+- Corrected stale version references in public documentation, OpenAPI metadata, API response examples, and installer copy.
 
-- Keeps generated square PNG PWA icons when GD or Imagick is available.
-- Uses the selected Site Identity favicon directly, with its native MIME type and dimensions, when the host cannot generate a resized PNG.
-- Ensures the PWA manifest and Apple app-icon metadata use the selected favicon instead of falling back to the bundled Bonumark B solely because an image extension is unavailable.
-- Keeps the bundled Bonumark B only when no valid Site Identity favicon is selected or its public file cannot be read.
-- Rotates the service-worker cache name so installed apps can refresh their PWA metadata after upgrading.
-- Does not change posts, users, media records, themes, settings, database schema, or content.
+### Upgrade notes
 
-## 0.5.28 - PWA Site Identity Icon Pass
+- No database migration runs in this release.
+- No posts, pages, users, comments, media, themes, settings, API tokens, scheduled-task history, uploads, or existing configuration are rewritten.
+- The built-in upgrader continues to support Bonumark Stream v0.4.0 and newer only.
 
-Bonumark Stream v0.5.28 makes installed PWA icons follow the favicon selected in Site Identity.
+## 0.5.x since v0.5.0
 
-- Uses the existing Site Identity favicon as the source for versioned 192 × 192 and 512 × 512 PNG PWA icon responses.
-- Adds the managed `pwa-icon.php` endpoint, which center-crops the selected image into a square icon and falls back to the bundled Bonumark B when no usable favicon or image processor is available.
-- Updates the dynamic web app manifest and Apple mobile app metadata to use the selected favicon-derived icon instead of hardcoded bundled icons.
-- Removes hardcoded app icons from the service-worker precache so a changed favicon gets a new versioned icon URL instead of a stale cached install icon.
-- Keeps existing Site Identity settings, uploads, media records, themes, posts, users, and PWA settings unchanged. No database migration is required.
+### Added
 
-## 0.5.27 - MariaDB Upgrade Compatibility Hotfix
+- Installable PWA support and a secure text-and-URL mobile share target that hands content to the front-end composer for review.
+- Scheduled posts, a shared Scheduled Tasks runner, server cron guidance, protected web cron, task health, and run history.
+- Pinned Stream posts with core-owned post actions in both front-end and admin workflows.
+- Optional Remote Posting API features for scoped tokens, idempotent post creation, scheduled publishing, media upload, and safe remote image import.
 
-Bonumark Stream v0.5.27 fixes a confirmed MariaDB upgrade failure without adding product features.
+### Improved
 
-- Replaces the parameterized `SHOW TABLES LIKE :table_name` migration safety check with MariaDB-compatible quoted SQL. MariaDB rejects placeholders in this `SHOW` statement, which caused the v0.5.25 upgrader to fail after safely copying files and before recording upgrade completion.
-- Makes the optional database smoke test use the same MariaDB-compatible quoted `SHOW TABLES`, `SHOW COLUMNS`, and `SHOW INDEX` checks.
-- Adds package smoke-test coverage so a parameterized `SHOW` statement cannot quietly return in a future release.
-- Does not change posts, dates, times, settings, users, themes, media, uploads, API tokens, cron history, or public behavior.
+- Site-timezone rendering with canonical UTC database timestamps for current content and scheduled work.
+- Upgrade recovery and MariaDB compatibility safeguards.
+- PWA install icons that follow the Site Identity favicon, including safe fallback behavior on shared hosts without GD or Imagick.
 
-## 0.5.26 - Upgrade Recovery and UTC Consistency Pass
+### Fixed
 
-Bonumark Stream v0.5.26 resolves confirmed release-audit findings without adding product features.
-
-- Makes future admin ZIP upgrades forward-only once the database migration phase begins. Failures before that phase restore the previous software files. Failures after it retain the newer compatible files, write a private recovery marker, record recovery-required history, and allow the exact package to resume safely.
-- Stores remember-device expiry and rotation timestamps in canonical UTC. Admin-entered invite expirations are interpreted in the configured site timezone, converted to UTC for storage, validated as UTC, and rendered back in the site timezone.
-- Aligns nearby database-bound account verification, comment approval, initial admin verification, and mail-test timestamps with UTC storage.
-- Makes package smoke and migration-recovery scripts CLI-only in addition to the existing Apache/LiteSpeed directory denial.
-- Adds a server-side, locked, salted-IP-hash throttle for PWA Web Share Target submissions. The payload remains session-bound and never publishes automatically.
-- Removes legacy GET logout behavior. Sign-out now remains a CSRF-protected POST action only.
-- Keeps public Stream post dates and times displayed in the configured site timezone. Visitor-local conversion is intentionally not added.
-
-## 0.5.25 - Release Audit Remediation Pass
-
-Bonumark Stream v0.5.25 resolves confirmed release-audit findings without adding product features.
-
-- Repairs the legacy `1970-01-01 00:00:00` published-timestamp cutover fallback through a safe upgrade preflight plus corrective migration. Valid cutovers remain untouched, direct legacy upgrades receive the actual upgrade boundary, and fresh UTC-era installs use their install boundary.
-- Changes the PWA Web Share Target from GET to POST so shared text and URLs do not enter browser-visible URLs, access logs, or redirect query strings. Shared content remains session-bound and lands only in the front-end composer after login and publish-capability checks.
-- Treats MySQL/MariaDB DDL migrations as resumable rather than transactional. Failed DDL migrations are not marked complete and retry through existing idempotent safeguards.
-- Scopes a Bonumark session cookie name and path to each installation, including subdirectory installs.
-- Adds same-origin protection for anonymous browser like requests while retaining public likes and rate limiting.
-- Classifies root `manifest.php` and `sw.js` as managed upgrade files so future removed PWA root files are cleaned safely.
-- Replaces raw admin exception messages with sanitized server-side logging and generic UI notices.
-- Updates stale release wording and release validation coverage.
-
-## 0.5.24 - Legacy Published Timestamp Compatibility Hotfix
-
-Bonumark Stream v0.5.24 corrects the v0.5.23 regression that shifted pre-existing published Stream posts by the site timezone offset.
-
-- Records the exact v0.5.23 upgrade time from existing upgrade history, without modifying posts.
-- Treats published timestamps before that boundary as legacy site-local values, preserving the display they had before today’s timezone work.
-- Keeps published timestamps created after the v0.5.23 boundary as canonical UTC values, so new posts remain correct.
-- Corrects public Stream cards, single posts, admin content date labels, and chronological Stream sorting through one shared compatibility rule.
-- Does not rewrite post records, titles, bodies, media, date fields, scheduled posts, drafts, pages, or imports.
-
-## 0.5.23 - Timezone Runtime and UTC Canonicalization Hotfix
-
-Bonumark Stream v0.5.23 fixes Stream post timestamps displaying four hours ahead when the saved **General Settings** timezone differed from the original `config.php` timezone.
-
-- Makes the persisted site timezone the active PHP runtime timezone after installation, instead of leaving `config.php` as the long-term display authority.
-- Locks every PDO MySQL/MariaDB connection to UTC so `NOW()` writes remain canonical regardless of the database server timezone.
-- Renders public Stream post dates, account activity dates, dashboard timestamps, and ISO timestamps explicitly in the saved site timezone, without depending on PHP's incidental default timezone.
-- Uses UTC when creating direct published-at database values, keeping new posts aligned with scheduled-post and cron behavior.
-- Existing post data corrects on display immediately. No migration, content rewrite, or manual timestamp repair is required.
-
-## 0.5.22 - Post Update PDO Binding Compatibility Hotfix
-
-Bonumark Stream v0.5.22 fixes the remaining **Save failed. SQLSTATE[HY093]: Invalid parameter number** error when updating an existing Stream post on MySQL/MariaDB hosting environments that still reject the long named-parameter update statement.
-
-- Replaces the complete existing-post database update bind set with ordered positional PDO placeholders.
-- Covers existing draft, published, scheduled, renamed, and pinned Stream posts through the shared database-first save path.
-- Leaves the post fields, pin state rules, schedule handling, author preservation, revisions, themes, API behavior, PWA behavior, cron, and public output unchanged.
-- Requires no database migration, content rewrite, or configuration change.
-
-## 0.5.21 - Post Update Save Hotfix
-
-Bonumark Stream v0.5.21 fixes the **Save failed. SQLSTATE[HY093]: Invalid parameter number** error when updating an existing post on MySQL/MariaDB installations using native PDO prepared statements.
-
-- Replaces repeated named placeholders in the existing-post update query with distinct bound parameter names.
-- Restores normal saves for existing draft, published, scheduled, and pinned stream posts.
-- Fixes the same native-prepared-statement compatibility issue in comment-status updates.
-- Requires no database migration, content rewrite, or configuration change.
-- Leaves cron behavior, scheduled-task history, post timestamps, theme structure, API behavior, PWA behavior, and public output unchanged.
-
-## 0.5.20 - Scheduled Tasks UTC Timestamp Hotfix
-
-Bonumark Stream v0.5.20 fixes the **Admin → Settings → Scheduled Tasks → Run history** time display for server-cron, web-cron, and manual runs.
-
-- Parses stored scheduled-task history timestamps explicitly as UTC before converting them to the configured site timezone.
-- Corrects incorrect local times caused by PHP interpreting UTC database values in the server or application default timezone.
-- Applies to existing history rows immediately, with no database migration or data rewrite required.
-- Leaves cron execution, CLI behavior, web cron keys, task history storage, fallback checks, scheduled-post timing, API behavior, and theme structure unchanged.
-
-## 0.5.19 - Scheduled Tasks Run History Alignment Hotfix
-
-Bonumark Stream v0.5.19 fixes the **Admin → Settings → Scheduled Tasks → Run history** table so each header lines up with the correct value.
-
-- Replaces the reused six-column Stream Posts table pattern with a dedicated five-column task-history table.
-- Defines stable column widths for When, Source, Result, Published, and Details.
-- Keeps manual, server-cron, and web-cron history data unchanged.
-- Improves mobile task-history readability by labeling each stacked value.
-- Leaves the reusable task runner, cron paths, keys, fallbacks, scheduled-post timing, permissions, API behavior, and theme structure unchanged.
-
-## 0.5.18 - Scheduled Tasks and Cron Foundation Pass
-
-Bonumark Stream v0.5.18 turns the existing scheduled-post checks into a reusable Scheduled Tasks foundation without changing theme structure or scheduled-post permissions.
-
-- Adds one shared due-task runner for public traffic, browser heartbeat, admin, manual, server cron, and protected web cron execution.
-- Preserves the existing scheduled-post publisher, lock, public hiding rules, front-end composer heartbeat, admin heartbeat, and manual behavior.
-- Adds a CLI-only server cron script at `scripts/run-scheduled-tasks.php`.
-- Adds an optional protected web cron endpoint at `/api/v1/cron`, authenticated with a generated key stored only as a hash.
-- Adds Admin → Settings → Scheduled Tasks with fallback controls, server and web cron setup details, runner health, manual execution, and retained manual/cron run history.
-- Adds a migration for task-run history and scheduled-task settings.
-- Keeps public traffic and active-browser checks as configurable fallbacks instead of treating them as real cron.
-- Establishes the reusable task foundation for future features that need dependable scheduled execution.
-
-## 0.5.17 - Post Options Menu Alignment Hotfix
-
-Bonumark Stream v0.5.17 fixes the visual alignment inside the front-end three-dot **Post options** menu.
-
-- Makes button-based actions such as **Pin to Stream** or **Unpin from Stream** use the same left-aligned layout as the **Edit** link.
-- Overrides the bundled theme's broad public button centering only inside the post-options menu.
-- Keeps the compact menu, its current below-trigger placement, pinning behavior, permissions, feeds, search, exports, API, PWA, and mobile behavior unchanged.
-- Updates the bundled Midnight Ledger reference theme CSS to 1.2.6, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
-
-## 0.5.16 - Post Options Menu Visibility Hotfix
-
-Bonumark Stream v0.5.16 fixes the front-end Post options menu so it remains visible and usable when it opens below its three-dot trigger.
-
-- Stops the bundled Midnight Ledger stream card from clipping the open menu.
-- Keeps the menu layered above the following stream card while it is open.
-- Keeps the compact three-dot control, Edit action, Pin to Stream or Unpin from Stream action, permissions, and mobile behavior unchanged.
-- Updates the bundled Midnight Ledger reference theme CSS to 1.2.5, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
-
-## 0.5.15 - Post Options Menu Position Hotfix
-
-Bonumark Stream v0.5.15 fixes the front-end Post options menu placement without changing its actions, authorization, or pinning behavior.
-
-- Positions the three-dot post menu below its trigger instead of opening upward across the current post card.
-- Keeps the compact menu, front-end Edit action, secure Pin to Stream or Unpin from Stream action, reader controls, and mobile behavior unchanged.
-- Updates the bundled Midnight Ledger reference theme CSS to 1.2.4, fallback styling, PWA cache version, package metadata, release manifest, and current-version documentation.
-
-## 0.5.14 - Post Actions Menu Pass
-
-Bonumark Stream v0.5.14 makes the front-end post action row quieter without changing post permissions or pin behavior.
-
-- Replaces the visible front-end **Edit** and **Pin to Stream** or **Unpin from Stream** pills with one compact three-dot **Post options** menu.
-- Keeps reader-facing likes and comments visible in the normal action row.
-- Uses semantic `<details>` markup so the menu works without JavaScript, while preventing card click-through navigation when the menu is used.
-- Keeps authorization, CSRF-protected pinning, post state rules, RSS, sitemap, search, static export, Remote Posting API, PWA, and share-to-post behavior unchanged.
-- Adds core fallback styling and Midnight Ledger styling for the post options menu, including mobile use.
-- Updates README, install, architecture, theming, upgrade, API, package metadata, service-worker cache version, and release manifest for v0.5.14.
-
-## 0.5.13 - Pinned Posts Pass
-
-Bonumark Stream v0.5.13 adds core-owned pinned stream posts without changing normal publishing behavior.
-
-- Adds `is_pinned` and `pinned_at` post metadata through a safe database migration.
-- Adds secure Pin to Stream and Unpin from Stream actions in the front-end post controls, back-end editor, and Admin → Stream Posts list.
-- Supports multiple pinned posts, ordered by most recently pinned first.
-- Adds a quiet Pinned area above the homepage timeline and removes those same records from the page-one timeline so posts are not duplicated.
-- Prevents drafts, scheduled posts, pages, unpublished content, and trash from being pinned publicly. Moving a pinned post out of published stream status clears pin state.
-- Keeps RSS/feed order, sitemap behavior, search, normal archive behavior, static export output, Remote Posting API behavior, PWA install behavior, and share-to-post flow unchanged.
-- Adds core fallback styling and Midnight Ledger presentation styling without moving pin logic into themes.
-- Updates README, architecture, theming, install, upgrade, package metadata, service-worker cache version, and release manifest for v0.5.13.
-
-## 0.5.12 - Scheduled Admin Sort Source Fix Pass
-
-Bonumark Stream v0.5.12 fixes the admin stream-post list sort source for scheduled posts.
-
-- Uses UTC-aware scheduled and published timestamps when sorting stream posts in admin and public helpers.
-- Makes scheduled posts sort by the same effective time shown in the admin Date column.
-- Prevents newly scheduled posts from drifting lower in All Stream Posts behind older published posts.
-- Keeps the clean scheduled date display added in v0.5.11.
-- Leaves scheduling logic, public runner behavior, timestamp publishing behavior, PWA/share flow, front-end composer behavior, and back-end composer behavior unchanged.
-- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.12.
-
-## 0.5.11 - Scheduled Admin List Date Polish Pass
-
-Bonumark Stream v0.5.11 fixes scheduled-post ordering and date display in the admin stream-post list.
-
-- Sorts scheduled posts by their scheduled publish time in the All Stream Posts list.
-- Keeps scheduled posts in the same date order as published posts instead of drifting lower based on their original creation time.
-- Shows the scheduled post date column as a clean site-local date and time without appending the timezone name.
-- Keeps the scheduled/published timestamp behavior introduced in v0.5.8.
-- Leaves scheduling logic, public runner behavior, PWA/share flow, front-end composer behavior, and back-end composer behavior unchanged.
-- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.11.
-
-## 0.5.10 - Backend Composer Publish Box Polish Pass
-
-Bonumark Stream v0.5.10 polishes the back-end composer Publish box without changing scheduled-post logic.
-
-- Hides the scheduled publish time field by default on new draft posts.
-- Keeps Save Draft and Post Now as the primary visible back-end editor actions.
-- Adds quiet Schedule for later and Reschedule disclosures that reveal the schedule field only when needed.
-- Shows already scheduled posts with clear scheduled status, scheduled time, Reschedule, Post Now, and Cancel Schedule actions.
-- Leaves scheduling logic, due runner behavior, timestamp handling, PWA/share flow, and the front-end composer unchanged.
-- Updates package metadata, service worker cache version, docs, and release manifest for v0.5.10.
-
-## 0.5.9 - Public Traffic Scheduled Runner Pass
-
-Bonumark Stream v0.5.9 makes public traffic the primary shared-hosting trigger for scheduled posts.
-
-- Added a public-request scheduled-post runner helper that only runs on safe GET/HEAD requests.
-- Runs due scheduled-post checks before public stream, feed, sitemap, search, profile, account, page, comments, and robots handlers load public output.
-- Keeps the existing throttle and lock so normal traffic does not run heavy scheduled-post work on every request.
-- Keeps the authenticated admin and front-end composer heartbeats as backup helpers instead of the primary trigger.
-- Keeps scheduled posts hidden from public queries until they are published.
-- Keeps the v0.5.8 scheduled/published timestamp behavior intact.
-- Documents that exact-to-the-minute scheduled publishing requires server cron or an external ping hitting a public URL.
-
-## 0.5.8 - Scheduled Publish Time Fix Pass
-
-Bonumark Stream v0.5.8 tightens scheduled publishing behavior after the front-end scheduling fixes.
-
-- Reduced the conservative scheduled-post traffic runner throttle from five minutes to thirty seconds.
-- Added an authenticated scheduled-post runner endpoint for active admin/front-end composer sessions.
-- Added lightweight admin and front-end composer heartbeats so due posts are checked while the site owner is actively using Bonumark Stream.
-- When a scheduled post becomes public, Bonumark now uses the scheduled/published timestamp for public display, feeds, single-post metadata, and exported Markdown front matter instead of the original creation time.
-- Converted scheduled publish dates through the site timezone for date storage.
-- Kept scheduled-post storage, permissions, public hiding, PWA/share-to-post, and existing API behavior intact.
-
-## 0.5.7 - Front-End Scheduler Submit Fix Pass
-
-Bonumark Stream v0.5.7 fixes the front-end composer scheduling submit path introduced during the v0.5.6 UI polish.
-
-- Added hidden front-end composer fields for submit intent and active schedule state.
-- Updated the composer JavaScript so activating scheduling updates those hidden fields immediately and again at submit time.
-- Removed reliance on mutating the visible submit button value for scheduling intent.
-- Hardened the quick-post endpoint so it treats either explicit schedule action or active schedule state as a scheduled post request.
-- Kept the compact v0.5.6 composer UI, backend scheduling controls, scheduled-post storage, PWA/share-to-post flow, and public hiding behavior intact.
-- Updated package metadata, service worker cache version, docs, and release manifest for v0.5.7.
-
-## 0.5.6 - Front-End Composer Scheduling UI Polish Pass
-
-Bonumark Stream v0.5.6 polishes the front-end composer scheduling UI without changing scheduled-post core behavior.
-
-- Reworked the front-end composer into a cleaner posting-box toolbar flow.
-- Replaced the large Attach media pill and full-width Schedule instead block with compact composer action buttons.
-- Added an inline schedule panel that only appears when scheduling is active.
-- Changed the main composer submit button from Post to Schedule when the scheduler is active.
-- Kept the back-end composer/editor scheduling controls unchanged.
-- Preserved scheduled-post storage, public hiding, due-post publishing, Remote Posting API behavior, and PWA/share-to-post routing.
-- Updated package metadata, service worker cache version, docs, and release manifest for v0.5.6.
-
-## 0.5.5 - Scheduled Posts Pass
-
-Bonumark Stream v0.5.5 adds scheduled stream posts while keeping the front-end composer as the primary posting flow.
-
-- Added a scheduled stream-post status and `scheduled_at` database field with migration support for fresh and upgraded installs.
-- Added scheduling controls to the front-end composer and back-end editor.
-- Added scheduled-post editing, rescheduling, cancel-to-draft, trash/restore, quick edit, admin list filtering, and publish-now support.
-- Added a conservative traffic-triggered due-post runner with throttling and a lock, plus a manual Tools action to run due scheduled posts.
-- Kept scheduled posts out of public timeline, single routes, feeds, sitemap, search, and static export until published.
-- Added site-timezone display for schedule fields while storing canonical scheduled times in UTC.
-- Added optional `scheduled_at` support for trusted Remote Posting API clients without changing existing draft/publish behavior.
-- Updated README, docs, package metadata, service worker cache version, and release manifest for v0.5.5.
-
-## 0.5.4 - Stream Settings Label Cleanup Hotfix
-
-Bonumark Stream v0.5.4 cleans up stale Reading Settings wording on the admin Stream settings screen.
-
-- Changed the admin settings page title from Reading Settings to Stream Settings.
-- Changed the visible page heading from Reading to Stream.
-- Changed save/error flash copy and the submit button to use Stream settings wording.
-- Updated the intro copy so the screen reflects what it now controls: stream display, composer behavior, sitemap, PWA/mobile share, and app login persistence.
-- Added a smoke check to prevent the stale Reading Settings labels from returning.
-- Updated package metadata, version references, service worker cache version, and release manifest for v0.5.4.
-
-## 0.5.3 - Remember Me App Login Pass
-
-Bonumark Stream v0.5.3 adds secure app-friendly login persistence so installed/mobile use does not constantly force the owner back through login.
-
-- Added a Remember this device checkbox to the admin login form and public account login form.
-- Added persistent login tokens stored in a new remember_tokens database table.
-- Uses selector plus validator cookies with hashed validators in the database, HttpOnly cookies, SameSite=Lax, secure cookies on HTTPS, and token rotation when a remembered login is restored.
-- Added Stream settings to enable or disable remember-me login and set the remembered-device window from 1 to 90 days, defaulting to 30 days.
-- Revokes remembered device tokens on logout, current-user password change, password reset, and admin password reset.
-- Kept normal sessions unchanged for users who do not check Remember this device.
-- Updated README, install docs, package metadata, migrations, smoke checks, and release manifest for v0.5.3.
-
-## 0.5.2 - Frontend Share Composer Routing Hotfix
-
-Bonumark Stream v0.5.2 corrects the mobile share-to-post flow so shared text and URLs land in the primary front-end composer instead of the backend draft editor.
-
-- Changed the secure share-target route into an intake handoff that stores the shared payload briefly, requires login, requires publishing permission, and redirects back to the public stream.
-- Prefills the front-end composer with shared title, text, and URL content so the user can review, edit, and press Post.
-- Removed the backend shared draft review form from the share-target path.
-- Preserved admin-only publishing controls, because shared content still never auto-publishes and the composer only renders for authenticated users who can publish.
-- Kept image/file share-target intake deferred.
-- Updated README, install docs, package metadata, smoke checks, service worker versioning, and release manifest for v0.5.2.
-
-## 0.5.1 - PWA and Mobile Share-to-Post Flow Pass
-
-Bonumark Stream v0.5.1 adds the first clean installable-app and mobile share-to-draft layer while preserving admin-only publishing and the existing theme/API structure.
-
-- Added a dynamic web app manifest with app name, short name, description, start URL, scope, display mode, colors, icons, and Web Share Target metadata.
-- Added bundled PNG app icons generated from Bonumark Stream identity, with no external or copyrighted assets.
-- Added a conservative versioned service worker that caches only safe static assets and avoids admin pages, account pages, draft pages, API responses, private files, and user-specific content.
-- Added PWA registration and recovery behavior through a shared core PWA script.
-- Added an authenticated admin share-target route for shared text, titles, and URLs.
-- Preserved shared text/URL payloads through login when practical, then routed them to a draft review screen.
-- Kept shared content draft-only until the Admin reviews and saves it, with normal publishing still handled by the existing admin editor.
-- Added Stream settings for enabling installable app metadata/service worker support and the mobile share target.
-- Deferred Web Share Target image/file intake to avoid browser-specific upload handoff risk in the first PWA pass.
-- Updated README, package metadata, config defaults, installer seed settings, migrations, smoke checks, and release manifest for v0.5.1.
-
-## 0.5.0 - GitHub Release Preparation Pass
-
-Bonumark Stream v0.5.0 prepares the next public GitHub release after v0.4.5 by promoting the local/test work through v0.4.26 into a public release package.
-
-- Bumped package, application, documentation, OpenAPI, and release manifest version references to v0.5.0.
-- Polished the public README so it clearly explains what Bonumark Stream is, who it is for, the Admin/Commenter account model, the code-free theme system, install requirements, upgrade expectations, security expectations, and the Remote Posting API.
-- Updated public repository-facing files, including `SECURITY.md` and `CONTRIBUTING.md`, so they no longer describe old v0.4.8 development state.
-- Added a consolidated release summary for the major work completed since v0.4.5, including Remote Posting API expansion, scoped tokens, API audit/rate limiting, remote media upload/import, ChatGPT Actions support, client documentation, draft preview cleanup, admin polish, and footer cleanup.
-- Confirmed public examples stay placeholder-safe with `example.com`, placeholder tokens, and no private site assumptions.
-- Kept old changelog history intact.
-- Kept features, API behavior, public behavior, theme structure, and database schema unchanged.
-
-## 0.4.26 - General Audit Cleanup Pass
-
-Bonumark Stream v0.4.26 performs a small post-audit cleanup without adding features or changing public/API behavior.
-
-- Removed duplicate wording from the Remote API media upload documentation.
-- Added smoke-test coverage to catch duplicate uploaded-media second-request wording in `docs/API.md`.
-- Clarified in `scripts/smoke-test.php` that database smoke tests require real `BMS_DB_*` environment variables and `BMS_DB_DANGER_RESET=1` so the package smoke test never touches a live database accidentally.
-- Added an explicit smoke-test comment around wrapped media helper fallbacks to avoid app helper redeclaration during isolated Markdown rendering checks.
-
-## 0.4.25 - Remote API Final Validation Pass
-
-Bonumark Stream v0.4.25 locks down Remote Posting API validation coverage before moving on to the next feature area.
-
-- Strengthened package smoke coverage for Remote API route files, shared API handlers, `.htaccess` clean URL routing, Authorization passthrough, and `index.php` API dispatch.
-- Strengthened OpenAPI, API docs, Remote Posting docs, client docs, scope, idempotency, and media upload/import documentation checks.
-- Added optional `scripts/api-database-smoke-test.php` coverage for disabled API behavior, missing tokens, invalid tokens, draft creation, publish scope enforcement, publish confirmation enforcement, media upload scope enforcement, idempotency replay, and idempotency conflict behavior against a temporary real database install.
-- Kept API endpoints, API behavior, admin behavior, public rendering, theme structure, and database schema unchanged.
-
-## 0.4.24 - Remote Posting Client Docs Expansion Pass
-
-Bonumark Stream v0.4.24 expands Remote Posting API documentation for common external clients without changing API behavior.
-
-- Added `docs/REMOTE-POSTING-CLIENTS.md` with setup examples for PowerShell, curl, Python, GitHub Actions, Apple Shortcuts, Zapier Webhooks, Make HTTP module, IFTTT Webhooks, and generic no-code automation tools.
-- Added client examples for status checks, draft creation, direct publishing, existing media embedding, media URL import, and local image upload where supported by the client.
-- Updated README documentation references so users can find Remote Posting setup, endpoint details, ChatGPT Actions setup, and client examples from the package overview.
-- Updated `docs/API.md`, `docs/REMOTE-POSTING.md`, and `docs/CHATGPT-ACTIONS.md` to cross-link the new client examples.
-- Kept API endpoints, authentication behavior, token scopes, media behavior, admin settings, public rendering, theme structure, and database behavior unchanged.
-- Added smoke coverage requiring the Remote Posting client examples document and its major client sections.
-
-## 0.4.23 - Footer Slash Separator Removal Hotfix
-
-Bonumark Stream v0.4.23 removes the automatic public footer slash separator that still appeared when custom footer text and the Bonumark credit were both shown.
-
-- Removed the default `/` footer separator from shared core footer render data.
-- Updated the default footer template so separators are rendered only when an explicit non-empty separator is supplied.
-- Preserved custom footer text and the Bonumark credit output without inserting an unwanted slash between them.
-- Kept theme structure, admin settings behavior, public rendering outside the footer, API behavior, media behavior, and database behavior unchanged.
-- Added smoke coverage proving the shared public footer does not auto-render a slash separator.
-
-## 0.4.22 - Footer Custom Text Separator Hotfix
-
-Bonumark Stream v0.4.22 fixes shared public footer rendering so custom footer text does not create stray separator characters.
-
-- Added core footer item render data so footer output is built from actual non-empty footer items.
-- Updated the default footer template to render separators only between real footer items.
-- Preserved custom footer text output, optional Bonumark credit output, and the intentional separator when both are shown.
-- Kept the fix in shared core footer rendering so Midnight Ledger and code-free custom themes inherit it.
-- Added smoke coverage for footer item rendering and separator placement.
-
-## 0.4.21 - Admin Content List Width Utilization Pass
-
-Bonumark Stream v0.4.21 improves admin list layout so content tables use the available panel width instead of collapsing tightly around their cells.
-
-- Made stream post, page, comment, user, token, and compact admin list tables use full available width.
-- Added a dedicated stream post table layout so the Post column expands while checkbox, Status, Media, Storage, and Date columns stay stable.
-- Improved metadata column spacing and kept row actions stable from v0.4.20.
-- Added responsive horizontal scrolling for admin table wrappers without changing mobile stacked table behavior.
-- Added CSS smoke coverage for full-width admin list tables and stable stream post metadata columns.
-
-## 0.4.20 - Admin Row Action Hover Stability Hotfix
-
-Bonumark Stream v0.4.20 normalizes admin list row-action styling so links and form buttons behave consistently without hover layout shifts.
-
-- Normalized row actions for stream post lists across draft, published, and trash rows.
-- Stabilized Edit, Quick Edit, Preview, Revisions, View, Publish, Move to Drafts, Trash, Restore, and Delete Permanently actions.
-- Prevented hover states from changing row height, width, padding, borders, line height, or font weight.
-- Kept state-changing actions visually distinct and destructive actions visibly destructive without affecting layout.
-- Added similar stability rules for page table row actions that share the same pattern.
-- Added smoke coverage for admin row-action styling and content-list action classes.
-
-## 0.4.19 - Draft Preview Public Menu Removal Hotfix
-
-Bonumark Stream v0.4.19 removes public navigation controls from draft preview headers so previews no longer feel like live public pages.
-
-- Removed the public Menu button from draft preview headers.
-- Kept one clear Preview indicator only.
-- Prevented public navigation HTML from being passed into draft preview header render data.
-- Kept the top admin preview bar unchanged.
-- Kept the bottom Back to editor button unchanged.
-- Kept published public post headers unchanged.
-- Applied the fix through core render data so Midnight Ledger and code-free custom themes inherit it.
-- Kept comments, likes, API behavior, media behavior, and theme structure unchanged.
-- Added smoke coverage proving draft preview does not render the public menu control.
-
-## 0.4.18 - Draft Preview Header Controls Hotfix
-
-Bonumark Stream v0.4.18 fixes draft preview header controls so preview state is clear and not duplicated.
-
-- Hid the public post-count pill in draft preview mode.
-- Kept one clear Preview indicator in the public header during draft previews.
-- Added explicit preview header state and count-chip render data for core templates and code-free themes.
-- Kept the public menu available while preventing draft preview routes from being treated as live/current navigation.
-- Left the top admin preview bar and bottom Back to editor action unchanged.
-- Kept public published header behavior, comments, likes, API behavior, media behavior, and theme structure unchanged.
-- Added smoke coverage for draft preview header controls.
-
-## 0.4.17 - Draft Preview Interaction State Hotfix
-
-Bonumark Stream v0.4.17 makes admin draft previews behave like previews instead of live public posts while preserving the public published post experience.
-
-- Added a core public preview-mode flag available to renderers and theme views.
-- Added preview body/header state so themes can detect preview rendering.
-- Made likes inactive on draft previews.
-- Made comment links and comment loading preview-safe on draft previews.
-- Replaced draft-preview single-post back behavior with a preview-safe Back to editor target.
-- Prevented draft-preview card clicks from navigating to a live public route.
-- Made the header count/status pills show preview state instead of a misleading live post count.
-- Kept the menu usable in preview mode without marking the previewed draft as the active public route.
-- Added smoke coverage for preview-mode controls.
-
-## 0.4.16 - Remote Imported Media Rendering Hotfix
-
-Bonumark Stream v0.4.16 fixes a rendering issue found during remote URL media import testing.
-
-- Fixed Markdown image rendering so generated responsive image `srcset` and `sizes` metadata stays inside the image tag instead of appearing as visible post text.
-- Protected generated image HTML during inline Markdown formatting so underscores in `_generated` paths are not treated as emphasis markers.
-- Kept captions visible as normal post content after embedded images.
-- Preserved responsive image variant output for performance.
-- Added smoke coverage for Markdown image rendering with generated responsive variants.
-- Kept remote upload/import API behavior, media validation, token logic, and GPT Action schema structure unchanged.
-
-## 0.4.15 - GPT Media Guardrails and URL Import Pass
-
-Bonumark Stream v0.4.15 improves GPT Actions media behavior by rejecting fake placeholder uploads and adding a safer URL-based image import workflow.
-
-- Added `POST /api/v1/media/import` for importing public HTTP/HTTPS image URLs into the Media library.
-- Added clean URL routing and a direct PHP endpoint for remote media imports.
-- Reused existing safe remote media download checks, public IP validation, redirect limits, cURL enforcement, image validation, and media upload rules.
-- Added API guardrails that reject the known 1x1 placeholder PNG commonly generated by GPT Action tests instead of real image data.
-- Added inline stream post support for `media_import`, `media_imports`, `image_url`, `media_import_url`, and `remote_image_url` so clients can import and embed media in one remote post request.
-- Added media import audit log entries.
-- Fixed the existing remote media import temporary-directory helper typo so URL imports can create temporary files correctly.
-- Updated OpenAPI, API docs, ChatGPT Actions docs, Remote Posting docs, README, package metadata, smoke tests, and release manifest.
-
-## 0.4.14 - Remote Media Embed Persistence Hotfix
-
-Bonumark Stream v0.4.14 fixes a remote media embedding bug found during live GPT Actions testing.
-
-- Fixed `POST /api/v1/stream/posts` so `media_id`, `media_ids`, `media_url`, `media_urls`, `public_path`, `public_paths`, `media_items`, `media_upload`, and `media_uploads` are resolved before the post body is saved.
-- Fixed remote post responses so `embedded_media` reflects the media actually inserted into the saved post.
-- Fixed media-only remote posts so embedded image Markdown can create the post body when no text content is supplied.
-- Kept `POST /api/v1/media`, token auth, publish controls, idempotency, and upload validation behavior unchanged.
-- Added smoke-test coverage to catch server code that documents media embedding but fails to call the embed/persist helpers.
-
-## 0.4.13 - OpenAPI GPT Actions Schema Hotfix
-
-Bonumark Stream v0.4.13 tightens the OpenAPI schema after live GPT Actions setup showed importer compatibility warnings.
-
-- Shortened the `createStreamPost` operation description to stay under GPT Actions importer limits.
-- Removed the `HEAD` operation from `/api/v1/status` in the OpenAPI schema because the GPT Actions importer only needs the documented `GET` status check.
-- Kept runtime API behavior unchanged. The status endpoint can still handle normal status checks, and all remote posting/media behavior from v0.4.12 remains intact.
-- Added smoke-test checks so operation descriptions stay short and unsupported `HEAD` operations do not reappear in the Action schema.
-
-## 0.4.12 - Remote Media Embed Workflow Pass
-
-Bonumark Stream v0.4.12 extends remote stream post creation so trusted clients can create posts with embedded image media in a cleaner workflow.
-
-- Added embedded media support to `POST /api/v1/stream/posts`.
-- Added support for referencing existing library images by `media_id`, `media_ids`, `media_url`, `media_urls`, `public_path`, or `media_items`.
-- Added support for one-step post creation with `media_upload` or `media_uploads` JSON payloads when the token also has `media:upload` and remote media uploads are enabled.
-- Added `embedded_media` and `media_position` fields to the remote post response.
-- Allowed media-only remote posts when embedded media is supplied.
-- Updated OpenAPI, API docs, Remote Posting docs, ChatGPT Actions docs, README, package metadata, and smoke tests.
-
-# Changelog
-
-## 0.4.11 - Remote Media Upload API Pass
-
-- Added optional remote image uploads through `POST /api/v1/media`.
-- Added the `media:upload` token scope and admin setting for remote media uploads.
-- Reused the existing media upload validation, size limits, storage, metadata, and image derivative behavior.
-- Added API audit log entries for remote media upload successes and validation failures.
-- Returned media ID, URL, filename, alt text, caption, dimensions, and Markdown embed text.
-- Updated OpenAPI, API docs, ChatGPT Actions docs, remote posting docs, smoke tests, and package metadata.
-
-## 0.4.10 - Remote Posting Admin Scope Polish Hotfix
-
-Bonumark Stream v0.4.10 polishes the Remote Posting admin screen after live API testing confirmed the endpoint chain works.
-
-- Restyled the API token scope cards so they use the dark admin surface and border variables instead of light fallback colors.
-- Changed the scope selector to a balanced two-column layout on desktop and a single-column layout on mobile.
-- Improved spacing, checkbox alignment, hover states, disabled/reserved scope styling, and text contrast.
-- Kept API behavior, token scopes, publishing controls, idempotency behavior, routing, migrations, and database logic unchanged.
-- Updated package metadata, docs, version markers, smoke tests, and release manifest.
-
-## 0.4.9 - API Upgrade Route Hotfix
-
-Bonumark Stream v0.4.9 fixes Remote Posting API routing for sites upgraded from older v0.4 packages whose installed upgrader did not yet know to copy newly introduced top-level directories.
-
-- Routes `/api/v1/status` and `/api/v1/stream/posts` through `index.php` so clean API URLs work even when the physical `/api/` folder was not copied by an older upgrader.
-- Keeps the physical `/api/` endpoint files for fresh installs and direct-file compatibility.
-- Moves shared API endpoint execution into `_bonumark_stream/app/api.php` to avoid duplicated endpoint logic.
-- Future-proofs the admin upgrader by deriving software copy roots from the release manifest instead of relying only on a hardcoded top-level directory list.
-- Updates package metadata, docs, smoke tests, and release manifest.
-
-## 0.4.8 - Remote Publish Controls Pass
-
-Bonumark Stream v0.4.8 adds optional direct publishing controls to the Remote Posting API while keeping draft-first behavior as the default.
-
-- Enabled the `stream:publish` API token scope.
-- Added direct remote publishing as an Admin-controlled setting, disabled by default.
-- Added a default remote post status setting.
-- Added publish confirmation behavior with `confirm_publish: true` or `confirmation: "publish"`.
-- Added idempotency key support using the `Idempotency-Key` header or request payload keys.
-- Added an API idempotency database table and migration.
-- Updated `POST /api/v1/stream/posts` to create drafts or published posts based on settings, scopes, and confirmation.
-- Returned public URLs for remotely published posts.
-- Added a full OpenAPI schema at `docs/openapi/bonumark-stream-api.json`.
-- Added ChatGPT Actions setup documentation at `docs/CHATGPT-ACTIONS.md`.
-- Updated Remote Posting admin controls, API docs, package metadata, smoke tests, and release manifest.
-
-## 0.4.7 - Remote Draft API Pass
-
-Bonumark Stream v0.4.7 adds the first real remote posting endpoint while keeping remote creation draft-only.
-
-- Added `POST /api/v1/stream/posts` for draft-only remote stream post creation.
-- Enabled the `stream:draft` API token scope.
-- Added JSON request parsing and remote draft creation helpers.
-- Added authenticated draft creation with bearer token scope checks and rate limiting.
-- Added API audit logging for remote draft creation and validation failures.
-- Returned the new draft ID, slug, title, filename, and admin edit URL after successful creation.
-- Added shared-hosting rewrite support for `/api/v1/stream/posts`.
-- Added `docs/API.md` with status and remote draft endpoint documentation.
-- Updated Remote Posting docs, package metadata, smoke tests, and release manifest.
-
-
-## 0.4.6 - Remote Posting Foundation Pass
-
-Bonumark Stream v0.4.6 adds the disabled-by-default foundation for remote posting integrations without enabling remote post creation yet.
-
-- Added Remote Posting settings in the admin area.
-- Added scoped API token creation and revocation with hashed token storage.
-- Added API token, API audit log, and API rate-limit database tables.
-- Added reusable API authentication, JSON response, audit logging, and rate-limiting helpers.
-- Added `GET /api/v1/status` for API health and authenticated token checks.
-- Added shared-hosting routing support for `/api/v1/status`.
-- Updated exports, docs, package metadata, smoke tests, and release manifest.
-
-## 0.4.5 - Public Release Legacy Cleanup Pass
-
-Bonumark Stream v0.4.5 cleans the public release package after the Admin and Commenter account reset.
-
-- Aligned upgrade support around v0.4.0 and newer only.
-- Removed legacy theme-layout compatibility keys from the code-free theme manifest system.
-- Removed old file-runtime content-folder preservation from the upgrader.
-- Cleaned active docs so older development history stays in `docs/HISTORY.md`.
-- Removed old media-limit wording from admin upload/help text.
-- Tightened routing comments and package permissions for public release readiness.
-- Updated package metadata, version markers, smoke tests, and release manifest.
-
-## 0.4.4 - Admin and Commenter Account Reset Pass
-
-Bonumark Stream v0.4.4 removes obsolete multi-publisher behavior and resets the account model around one Admin plus Commenter accounts.
-
-- Collapsed public/account roles to Admin and Commenter.
-- Made Admin the sole publisher and admin-area user.
-- Kept Commenter accounts for comments, profiles, password recovery, verification, approval, and account participation.
-- Removed obsolete multi-publisher workflow surfaces, publishing-user settings, and old media-limit rules.
-- Reworked registration so public registration creates Commenter accounts only when enabled.
-- Updated admin account screens, writing settings, registration settings, route handling, baseline schema, package metadata, and release manifest.
-
-## 0.4.3 - Theme System Clarity Pass
-
-Bonumark Stream v0.4.3 clarifies the code-free presentation theme model without adding features or redesigning the theme system.
-
-- Removed leftover theme-layout wording from the admin theme screens.
-- Updated theme manager, theme details, theme settings, and theme install copy to describe themes as presentation packages.
-- Removed obsolete layout-control fields from Midnight Ledger's example `theme.json`.
-- Kept the current code-free theme model: core renders the public site, themes supply metadata, settings, CSS, images, fonts, screenshots, and docs.
-- Updated package metadata, focused theme wording, and release manifest.
-
-## 0.4.2 - Midnight Ledger Reference Theme Pass
-
-Bonumark Stream v0.4.2 makes Midnight Ledger the working example for code-free Bonumark Stream themes.
-
-- Made the bundled theme folder self-contained with `theme.json`, README files, screenshot, and `assets/css/theme.css`.
-- Mirrored Midnight Ledger assets to the public theme asset directory used by core rendering.
-- Updated `theme.json` so asset paths match the copyable theme folder structure.
-- Added clear `--bms-*` design tokens at the top of the CSS while keeping Midnight Ledger aliases contained.
-- Cleaned development-era comments from the reference theme CSS.
-- Kept themes code-free, with no PHP, JavaScript, HTML files, or executable code in the theme package.
-- Updated package metadata, theme docs, and release manifest.
-
-## 0.4.1 - Code-Free Theme Installer Pass
-
-Bonumark Stream v0.4.1 restores installable themes without allowing theme packages to run code.
-
-- Re-enabled theme ZIP installation for code-free presentation packages.
-- Theme packages may include `theme.json`, documentation, CSS, images, fonts, screenshots, supports, and editable settings.
-- Theme packages may not include PHP, JavaScript, HTML files, route handlers, server config files, symlinks, or executable code.
-- Core-owned public views remain responsible for rendering and behavior.
-- Active theme metadata, settings, and assets now apply while core renders the view layer.
-- Theme validation now rejects executable files in private theme metadata and public theme assets.
-- Updated admin theme screens, theme install flow, theme docs, package metadata, and release manifest.
-
-## 0.4.0 - Foundation Reset Pass
-
-Bonumark Stream v0.4.0 is the clean public foundation reset.
-
-- Fresh-install only baseline.
-- Standardized the internal function prefix on `bms_`.
-- Collapsed old development migrations into one clean v0.4.0 baseline schema.
-- Confirmed the database as the source of truth.
-- Kept Markdown for import, export, backup, and portability only.
-- Reset the upgrader to support v0.4.0 and newer only.
-- Kept Midnight Ledger as the only bundled public release theme.
-- Moved Midnight Ledger rendering code into core-owned views so theme packages remain code-free.
-- Disabled third-party theme ZIP installation until the declarative code-free theme format is finalized.
-- Kept normal operation dynamic and database-first.
-- Kept Static Site Export as optional portability tooling.
-- Kept accounts, profiles, comments, public likes, and all importers.
-- Kept `/stream/` as an alias while `/` remains the real stream home.
-- Removed development-only route cleanup rules.
-- Removed sample public content from the install baseline.
-- Updated public documentation for the v0.4.0 foundation.
+- Existing-post save compatibility on MySQL and MariaDB native prepared statements.
+- Legacy post-time display after the timezone runtime update.
+- Scheduled-post display and task-history timestamp alignment.

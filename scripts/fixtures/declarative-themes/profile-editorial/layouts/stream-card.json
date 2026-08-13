@@ -1,0 +1,49 @@
+{
+  "surface": "stream-card",
+  "root": {
+    "type": "group",
+    "name": "editorial-stream-card",
+    "children": [
+      {
+        "type": "group",
+        "name": "editorial-card-story",
+        "children": [
+          {
+            "type": "component",
+            "name": "stream-card.body"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.media"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.link-preview"
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "name": "editorial-card-byline",
+        "children": [
+          {
+            "type": "component",
+            "name": "stream-card.avatar"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.header"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.location"
+          },
+          {
+            "type": "component",
+            "name": "stream-card.actions"
+          }
+        ]
+      }
+    ]
+  }
+}

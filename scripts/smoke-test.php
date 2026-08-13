@@ -53,6 +53,31 @@ function bm_smoke_files(string $root): array
     return $files;
 }
 
+function bm_smoke_render_layout_fixture(string $fixtureRoot, string $surface, array $data, array $theme): ?string
+{
+    $surface = strtolower(trim($surface));
+    $schema = (int)($theme['layout_schema'] ?? 0);
+    $layouts = is_array($theme['layouts'] ?? null) ? $theme['layouts'] : [];
+    $reference = bms_theme_layout_reference((string)($layouts[$surface] ?? ''));
+    if ($surface === '' || $schema < 1 || $reference === '') {
+        return null;
+    }
+
+    $path = rtrim($fixtureRoot, '/\\') . '/' . $reference;
+    if (!is_file($path)) {
+        return null;
+    }
+    $document = json_decode((string)file_get_contents($path), true);
+    if (!is_array($document) || bms_theme_layout_document_errors($document, $surface, $schema) !== []) {
+        return null;
+    }
+    $root = $document['root'] ?? null;
+    if (!is_array($root)) {
+        return null;
+    }
+    return bms_render_public_theme_layout_node($root, $surface, $schema, $data, true);
+}
+
 $rootVersion = trim((string)@file_get_contents($root . '/VERSION'));
 $privateVersion = trim((string)@file_get_contents($root . '/_bonumark_stream/VERSION'));
 $packagePath = $root . '/_bonumark_stream/PACKAGE.json';
@@ -109,12 +134,22 @@ if (!str_contains($installerSource, "'email_verified_at' => gmdate('Y-m-d H:i:s'
 
 $quickEditEndpoint = @file_get_contents($root . '/admin/stream-quick-edit.php') ?: '';
 $cardTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/card.php') ?: '';
+$streamCardComponentDir = $root . '/_bonumark_stream/app/views/default/components/stream-card';
+$streamCardComponentFiles = glob($streamCardComponentDir . '/*.php') ?: [];
+sort($streamCardComponentFiles);
+$streamCardComponentsSource = '';
+foreach ($streamCardComponentFiles as $streamCardComponentFile) {
+    $streamCardComponentsSource .= "
+" . (@file_get_contents($streamCardComponentFile) ?: '');
+}
+$streamCardPublicSource = $cardTemplate . "
+" . $streamCardComponentsSource;
 $streamScript = @file_get_contents($root . '/assets/stream.js') ?: '';
 $streamTrashEndpoint = @file_get_contents($root . '/admin/stream-trash.php') ?: '';
 if (!str_contains($quickEditEndpoint, "bms_record_revision_from_page(\$page, 'published'") || !str_contains($quickEditEndpoint, 'bms_update_stream_post_body($page, $body)')) {
     bm_smoke_fail($failures, 'Front-end Quick edit endpoint must archive the published revision and use the body-only database updater.');
 }
-if (!str_contains($cardTemplate, 'data-stream-quick-edit-open') || !str_contains($cardTemplate, 'Open full editor')) {
+if (!str_contains($streamCardPublicSource, 'data-stream-quick-edit-open') || !str_contains($streamCardPublicSource, 'Open full editor')) {
     bm_smoke_fail($failures, 'Public card template is missing Quick edit or full-editor actions.');
 }
 if (!str_contains($streamScript, 'function setupQuickEdits(root)') || !str_contains($streamScript, 'setupQuickEdits(feed)')) {
@@ -125,12 +160,246 @@ if (!str_contains($streamTrashEndpoint, 'bms_delete_content_file(\'published\', 
     || !str_contains($streamTrashEndpoint, 'hash_equals((string)($_SESSION[\'csrf_token\'] ?? \'\'), $token)')) {
     bm_smoke_fail($failures, 'Front-end Move to trash endpoint is missing recoverable deletion, post-specific permission, or CSRF enforcement.');
 }
-if (!str_contains($cardTemplate, 'data-stream-trash-form') || !str_contains($cardTemplate, 'Move to trash')) {
+if (!str_contains($streamCardPublicSource, 'data-stream-trash-form') || !str_contains($streamCardPublicSource, 'Move to trash')) {
     bm_smoke_fail($failures, 'Public card template is missing the front-end Move to trash action.');
 }
 if (!str_contains($streamScript, 'function setupStreamTrash(root)') || !str_contains($streamScript, 'setupStreamTrash(feed)')) {
     bm_smoke_fail($failures, 'Stream JavaScript is missing front-end Trash confirmation or Load More initialization.');
 }
+$profilesSource = @file_get_contents($root . '/_bonumark_stream/app/profiles.php') ?: '';
+$routesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
+$profileTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/profile.php') ?: '';
+$profileTemplateHelpers = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/_helpers.php') ?: '';
+$profileComponentDir = $root . '/_bonumark_stream/app/views/default/components/profile';
+$profileComponentFiles = glob($profileComponentDir . '/*.php') ?: [];
+sort($profileComponentFiles);
+$profileComponentsSource = '';
+foreach ($profileComponentFiles as $profileComponentFile) {
+    $profileComponentsSource .= "
+" . (@file_get_contents($profileComponentFile) ?: '');
+}
+$profilePublicSource = $profileTemplate . "
+" . $profileComponentsSource;
+$accountTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/account.php') ?: '';
+$profileMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0015_profile_identity_foundation.php') ?: '';
+$profileFeaturedMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0016_profile_featured_work.php') ?: '';
+$profilePhotosMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0017_profile_photos.php') ?: '';
+$defaultThemeManifest = @file_get_contents($root . '/_bonumark_stream/themes/default/theme.json') ?: '';
+$defaultThemeCss = @file_get_contents($root . '/_bonumark_stream/themes/default/assets/css/theme.css') ?: '';
+$publicDefaultThemeCss = @file_get_contents($root . '/assets/themes/default/assets/css/theme.css') ?: '';
+$rootHtaccess = @file_get_contents($root . '/.htaccess') ?: '';
+$profileThemesSource = @file_get_contents($root . '/_bonumark_stream/app/themes.php') ?: '';
+$profileSitemapSource = @file_get_contents($root . '/_bonumark_stream/app/sitemap.php') ?: '';
+$profileRendererSource = @file_get_contents($root . '/_bonumark_stream/app/renderer.php') ?: '';
+$profilePortabilitySource = @file_get_contents($root . '/_bonumark_stream/app/profile-portability.php') ?: '';
+$profileExportEndpoint = @file_get_contents($root . '/profile-export.php') ?: '';
+
+if (!str_contains($profileMigration, '`{{prefix}}user_profiles`')
+    || !str_contains($profileMigration, '`headline` VARCHAR(180)')
+    || !str_contains($profileMigration, '`about_markdown` MEDIUMTEXT')
+    || !str_contains($profileMigration, '`links_json` MEDIUMTEXT')) {
+    bm_smoke_fail($failures, 'Profile Identity migration is missing required identity storage.');
+}
+if (!str_contains($profilesSource, "bms_url_path('profile/' . rawurlencode(\$username))")) {
+    bm_smoke_fail($failures, 'Public Profile URL helper must use the clean username route.');
+}
+if (!str_contains($profileFeaturedMigration, '`featured_items_json` LONGTEXT')
+    || !str_contains($profilesSource, 'featured_items_json')
+    || !str_contains($profilesSource, 'bms_profile_normalize_featured_input')
+    || !str_contains($profilesSource, 'bms_profile_resolved_featured_items')) {
+    bm_smoke_fail($failures, 'Profile Featured Work migration or semantic curation helpers are missing.');
+}
+if (!str_contains($profilesSource, "bms_find_database_content_by_slug_status(\$slug, 'published', \$type)")) {
+    bm_smoke_fail($failures, 'Featured internal Profile items must resolve only published Stream posts or Pages.');
+}
+if (!str_contains($profilePhotosMigration, '`profile_photos_json` LONGTEXT')
+    || !str_contains($profilesSource, 'profile_photos_json')
+    || !str_contains($profilesSource, 'function bms_apply_current_user_profile_photos_from_request')
+    || !str_contains($profilesSource, "'media/profile-photos/' . \$userId . '/'")
+    || !str_contains($profilesSource, 'bms_media_privacy_store_upload')
+    || !str_contains($profilesSource, 'bms_profile_photo_generate_variants')) {
+    bm_smoke_fail($failures, 'Profile Gallery migration or Profile-owned image validation/privacy/derivative helpers are missing.');
+}
+if (!str_contains($profilesSource, 'return [240, 360, 480, 800, 1200];')
+    || !str_contains($profilesSource, 'return [480, 640, 960, 1280, 1600];')
+    || !str_contains($profilesSource, 'function bms_profile_image_variant_srcset(')
+    || !str_contains($profilesSource, 'function bms_profile_modern_variant_srcset(')
+    || !str_contains($profilesSource, 'function bms_profile_generate_modern_variant(')
+    || !str_contains($profilesSource, 'function bms_profile_cover_picture_markup(')
+    || !str_contains($profilesSource, 'function bms_profile_photo_picture_markup(')
+    || !str_contains($profilesSource, 'function bms_profile_cover_preload_markup(')
+    || !str_contains($profilesSource, "'loading' => 'eager'")
+    || !str_contains($profilesSource, "'fetchpriority' => 'high'")
+    || !str_contains($profilesSource, "'fetchpriority' => 'low'")
+    || !str_contains($profilesSource, "'sizes'] = '(max-width: 760px) calc(100vw - 1rem), (max-width: 1120px) calc(100vw - 2rem), 1040px'")
+    || !str_contains($profilesSource, "'loading' => 'lazy'")
+    || !str_contains($profilesSource, "'sizes'] = 'auto, (max-width: 640px) calc(50vw - 1.25rem), (max-width: 1100px) calc(50vw - 2rem), 520px'")
+    || !str_contains($profilesSource, '<source type="image/webp"')
+    || !str_contains($profilesSource, 'imagesrcset=')
+    || !str_contains($profilesSource, "'head_preload_html' => \$coverPreloadMarkup")
+    || !str_contains($profileTemplateHelpers, "head_preload_html")
+    || !str_contains($profileComponentsSource, "image_markup")
+    || !str_contains((string)@file_get_contents($root . '/assets/style.css'), '.profile-photo-picture,')
+    || !str_contains((string)@file_get_contents($root . '/assets/style.css'), '.profile-cover-picture')
+    || !str_contains($profilesSource, "cover_image_path")) {
+    bm_smoke_fail($failures, 'Profile image delivery optimization must expose responsive fallback candidates, Profile-only WebP picture sources, explicit cover preload/LCP priority, and lazy low-priority gallery delivery.');
+}
+if (str_contains($routesSource, 'bms_find_public_user_by_handle($username)')) {
+    bm_smoke_fail($failures, 'Public Profile routing must not resolve display names as canonical handles.');
+}
+if (str_contains($profilePublicSource, "recent_posts") || str_contains($profilePublicSource, '>Stream posts<')) {
+    bm_smoke_fail($failures, 'Public Profile must not duplicate the Stream with a recent-post activity section.');
+}
+foreach (['>About<', '>Featured<', '>Photos<', '>Now<', '>Interests<', '>Links<'] as $requiredProfileSection) {
+    if (!str_contains($profilePublicSource, $requiredProfileSection)) {
+        bm_smoke_fail($failures, 'Public Profile is missing identity section: ' . strip_tags($requiredProfileSection));
+    }
+}
+if (!str_contains($accountTemplate, "account.php?section=profile")
+    || !str_contains($accountTemplate, 'profile_links[label][]')
+    || !str_contains($accountTemplate, '1600 × 600')) {
+    bm_smoke_fail($failures, 'Focused Profile editor is missing its route, flexible links, or cover guidance.');
+}
+if (!str_contains($accountTemplate, 'data-profile-links-editor')
+    || !str_contains($accountTemplate, 'data-profile-link-add')
+    || !str_contains($accountTemplate, '>Profile settings<')
+    || !str_contains($accountTemplate, 'class="profile-toggle-line"')) {
+    bm_smoke_fail($failures, 'Profile editor polish is missing compact link controls, Profile settings, or aligned optional-detail controls.');
+}
+if (!str_contains($accountTemplate, '>Featured work<')
+    || !str_contains($accountTemplate, 'data-profile-featured-editor')
+    || !str_contains($accountTemplate, 'featured_items[type][]')
+    || !str_contains($accountTemplate, 'featured_items[target][]')
+    || !str_contains($accountTemplate, 'data-max-featured="4"')) {
+    bm_smoke_fail($failures, 'Profile Featured Work editor is missing its deliberate four-item curation controls.');
+}
+if (!str_contains($accountTemplate, '>Photos<')
+    || !str_contains($accountTemplate, 'data-profile-photos-editor')
+    || !str_contains($accountTemplate, 'data-max-photos="4"')
+    || !str_contains($accountTemplate, 'profile_photo_files[')
+    || !str_contains($accountTemplate, 'data-profile-photo-up')
+    || !str_contains($accountTemplate, 'data-profile-photo-down')
+    || !str_contains($routesSource, 'bms_apply_current_user_profile_photos_from_request($_POST, $_FILES)')) {
+    bm_smoke_fail($failures, 'Profile Gallery editor is missing upload, four-photo limit, ordering, removal, or save-route integration.');
+}
+if (!str_contains($profilePublicSource, 'profile-photo-gallery')
+    || !str_contains($profilePublicSource, 'data-stream-media-viewer')
+    || !str_contains($streamScript, "'.stream-media-gallery, .profile-photo-gallery'")
+    || !str_contains($streamScript, 'function setupProfilePhotosEditor(root)')) {
+    bm_smoke_fail($failures, 'Public Profile photos are missing semantic gallery markup, full-image viewer integration, or editor JavaScript.');
+}
+if (!str_contains($accountTemplate, '>Profile portability<')
+    || !str_contains($accountTemplate, 'Download Profile ZIP')
+    || !str_contains($accountTemplate, "profile.json")
+    || !str_contains($routesSource, "'profile_export_url' =>")
+    || !str_contains($profileExportEndpoint, 'bms_create_current_user_profile_export_zip()')) {
+    bm_smoke_fail($failures, 'Profile portability is missing its owner-controlled editor surface or export endpoint.');
+}
+if (!str_contains($profilePortabilitySource, "'format' => 'bonumark-profile'")
+    || !str_contains($profilePortabilitySource, "'format_version' => 1")
+    || !str_contains($profilePortabilitySource, "'profile.json'")
+    || !str_contains($profilePortabilitySource, "'profile.md'")
+    || !str_contains($profilePortabilitySource, "'profile-media/'")
+    || !str_contains($profilePortabilitySource, "'featured_items'")
+    || !str_contains($profilePortabilitySource, "'photos'")
+    || !str_contains($profilePortabilitySource, "'profile-media/photo-'")
+    || !str_contains($profilePortabilitySource, "'optional_details'")) {
+    bm_smoke_fail($failures, 'Profile portability package is missing the structured identity, Markdown, media, Featured Work, or preference export contract.');
+}
+foreach (['email', 'password_hash', 'role', 'login_attempts', 'api_tokens'] as $privateProfileExportField) {
+    if (preg_match('/[\"\']' . preg_quote($privateProfileExportField, '/') . '[\"\']\s*=>/', $profilePortabilitySource) === 1) {
+        bm_smoke_fail($failures, 'Profile portability must not export private account/security field: ' . $privateProfileExportField);
+    }
+}
+if (!str_contains($profileExportEndpoint, "bms_verify_csrf();")
+    || !str_contains($profileExportEndpoint, "if (!bms_is_logged_in())")
+    || !str_contains($profileExportEndpoint, "Cache-Control: no-store, private")) {
+    bm_smoke_fail($failures, 'Profile export endpoint must require login, verify CSRF, and prevent caching.');
+}
+if (!str_contains($routesSource, "is_array(\$_POST['featured_items'] ?? null) ? \$_POST['featured_items'] : []")) {
+    bm_smoke_fail($failures, 'Profile save route is not carrying Featured Work input into identity normalization.');
+}
+if (!str_contains($profilesSource, 'if ($rows === [])')
+    || str_contains($profilesSource, 'if (count($rows) < $rowCount)')
+    || str_contains($profilesSource, 'while (count($rows) < $rowCount)')) {
+    bm_smoke_fail($failures, 'Profile link form rows must show saved links only, with one starter row only when the Profile has no links.');
+}
+if (!str_contains($accountTemplate, '>Remove cover image<')
+    || !str_contains($accountTemplate, '>Remove profile picture<')
+    || !str_contains($accountTemplate, 'class="profile-about-textarea"')) {
+    bm_smoke_fail($failures, 'Profile foundation cleanup is missing compact image-removal labels or the tightened About editor.');
+}
+if (!str_contains($streamScript, 'function setupProfileEditor(root)')
+    || !str_contains($streamScript, "'[data-profile-link-add]'")
+    || !str_contains($streamScript, "'[data-profile-link-remove]'")
+    || !str_contains($streamScript, 'starterIsBlank')) {
+    bm_smoke_fail($failures, 'Profile link editor JavaScript is missing Add Link, Remove, or empty-starter handling.');
+}
+if (!str_contains($streamScript, 'function setupProfilePhotosEditor(root)')
+    || !str_contains($streamScript, "'[data-profile-photo-add]'")
+    || !str_contains($streamScript, "'[data-profile-photo-remove]'")
+    || !str_contains($streamScript, "'[data-profile-photo-up]'")
+    || !str_contains($streamScript, "'[data-profile-photo-down]'")) {
+    bm_smoke_fail($failures, 'Profile photo editor JavaScript is missing Add, Remove, or reorder controls.');
+}
+if (!str_contains($streamScript, 'function setupProfileFeaturedEditor(root)')
+    || !str_contains($streamScript, "'[data-profile-featured-add]'")
+    || !str_contains($streamScript, "'[data-profile-featured-remove]'")
+    || !str_contains($streamScript, 'maxFeatured = 4')) {
+    bm_smoke_fail($failures, 'Profile Featured Work JavaScript is missing Add, Remove, type sync, or four-item limit handling.');
+}
+if (!str_contains($defaultThemeCss, 'align-items: flex-start;')
+    || !str_contains($publicDefaultThemeCss, 'align-items: flex-start;')) {
+    bm_smoke_fail($failures, 'Bundled public shell must top-align the site grid so short pages do not stretch across the viewport.');
+}
+if (!str_contains($defaultThemeCss, '.profile-photo-gallery')
+    || !str_contains($publicDefaultThemeCss, '.profile-photo-gallery')
+    || !str_contains($defaultThemeCss, '.profile-photo-edit-row')
+    || !str_contains($publicDefaultThemeCss, '.profile-photo-edit-row')) {
+    bm_smoke_fail($failures, 'Bundled theme is missing Profile photo gallery or editor presentation rules.');
+}
+if (!str_contains($defaultThemeCss, '.profile-featured-item:last-child:nth-child(odd)')
+    || !str_contains($defaultThemeCss, 'overflow-wrap: anywhere;')
+    || !str_contains($publicDefaultThemeCss, '.profile-featured-item:last-child:nth-child(odd)')
+    || !str_contains($publicDefaultThemeCss, 'overflow-wrap: anywhere;')) {
+    bm_smoke_fail($failures, 'Bundled Featured cards are missing odd-item row balancing or long-text wrapping.');
+}
+if (str_contains($defaultThemeManifest, '"profile_layouts"')) {
+    bm_smoke_fail($failures, 'Bundled theme must not advertise a universal Profile layout selector.');
+}
+if (str_contains($profilesSource, 'SELECT id, username, display_name, email')) {
+    bm_smoke_fail($failures, 'Purpose-built public Profile queries must not select account email.');
+}
+if (!str_contains($profilesSource, 'function bms_profile_metadata_payload')
+    || !str_contains($profilesSource, "'@type' => 'ProfilePage'")
+    || !str_contains($profilesSource, "'@type' => 'Person'")
+    || !str_contains($profilesSource, "\$person['sameAs'] = \$sameAs")
+    || !str_contains($profilesSource, "\$person['knowsAbout'] = array_values(\$interests)")
+    || !str_contains($profilesSource, "'seo_social_title' => \$socialTitle")
+    || !str_contains($profilesSource, "'profile_metadata' => \$profileMetadata")) {
+    bm_smoke_fail($failures, 'Profile Identity metadata payload is missing semantic ProfilePage/Person data, identity links, interests, or social-title handoff.');
+}
+if (!str_contains($profileThemesSource, 'function bms_inject_profile_identity_metadata_head')
+    || !str_contains($profileThemesSource, 'twitter:card')
+    || !str_contains($profileThemesSource, 'twitter:description')
+    || !str_contains($profileThemesSource, 'og:image:alt')
+    || !str_contains($profileThemesSource, 'profile:username')
+    || !str_contains($profileThemesSource, 'data-bonumark-profile-metadata')) {
+    bm_smoke_fail($failures, 'Theme-independent Profile head injection is missing Open Graph, Twitter, username, image-alt, or JSON-LD metadata.');
+}
+if (!str_contains($profileSitemapSource, 'function bms_sitemap_profile_lastmod')
+    || !str_contains($profileSitemapSource, "contains(sitemap:loc, '/profile/')")
+    || str_contains($profileSitemapSource, 'SELECT id, username, display_name, email')) {
+    bm_smoke_fail($failures, 'Profile sitemap handling must use Profile identity modification time, recognize clean Profile routes, and avoid account email.');
+}
+if (!str_contains($profileRendererSource, 'property="article:author"')
+    || !str_contains($profileRendererSource, 'bms_public_profile_url_for_user($authorUser)')) {
+    bm_smoke_fail($failures, 'Published Stream metadata must reference the existing public author Profile when one is available.');
+}
+if (preg_match('#profile/[^\\s]+/stream#i', $rootHtaccess . "\n" . $routesSource) === 1) {
+    bm_smoke_fail($failures, 'Profile Identity foundation must not add a per-profile Stream route.');
+}
+
 $readme = @file_get_contents($root . '/README.md') ?: '';
 $upgradeDocs = @file_get_contents($root . '/docs/UPGRADING.md') ?: '';
 foreach (['## v0.5.35 - Root RSS Discovery Hotfix', '## v0.5.37 - Local Places Composer Simplification Pass', '## Legacy timestamp display compatibility'] as $requiredUpgradeText) {
@@ -150,6 +419,38 @@ if (preg_match('/^## v0\./m', $readme)) {
 }
 if (!str_contains($readme, '[CHANGELOG.md](CHANGELOG.md)')) {
     bm_smoke_fail($failures, 'README.md does not link to the complete release history.');
+}
+
+$adminUiGuidelines = @file_get_contents($root . '/docs/ADMIN-UI-GUIDELINES.md') ?: '';
+$adminOperationsCss = @file_get_contents($root . '/assets/admin-operations.css') ?: '';
+if (!str_contains($adminOperationsCss, '@media (min-width: 1081px)')
+    || !str_contains($adminOperationsCss, 'body.admin-screen-upgrade .operations-workflow-rail .operations-fact-list > div')
+    || !str_contains($adminOperationsCss, 'body.admin-screen-upgrade .operations-workflow-rail .operations-fact-list dd')
+    || !str_contains($adminOperationsCss, 'grid-template-columns: minmax(0, 1fr);')
+    || !str_contains($adminOperationsCss, 'text-align: left;')) {
+    bm_smoke_fail($failures, 'Upgrade protected-data facts must stack and align left in the narrow desktop operations rail.');
+}
+$contributing = @file_get_contents($root . '/CONTRIBUTING.md') ?: '';
+foreach ([
+    '# Bonumark Stream Admin UI Guidelines',
+    '## Use the closest established workflow',
+    '## CSS ownership',
+    '## Responsive behavior',
+    '## Accessibility',
+    '## Acceptance checklist',
+] as $requiredAdminUiGuideline) {
+    if (!str_contains($adminUiGuidelines, $requiredAdminUiGuideline)) {
+        bm_smoke_fail($failures, 'Admin UI contract is missing required guidance: ' . $requiredAdminUiGuideline);
+    }
+}
+if (!str_contains($adminUiGuidelines, 'Do not add new authenticated Admin workflow styling to `admin.css` by default.')) {
+    bm_smoke_fail($failures, 'Admin UI contract does not protect the legacy admin.css compatibility boundary.');
+}
+if (!str_contains($readme, 'docs/ADMIN-UI-GUIDELINES.md')) {
+    bm_smoke_fail($failures, 'README.md does not link to the Admin UI contract.');
+}
+if (!str_contains($contributing, 'docs/ADMIN-UI-GUIDELINES.md') || !str_contains($contributing, 'closest existing workflow')) {
+    bm_smoke_fail($failures, 'CONTRIBUTING.md does not enforce the Admin UI contract or workflow-reference requirement.');
 }
 
 $installDocs = @file_get_contents($root . '/docs/INSTALL.md') ?: '';
@@ -427,6 +728,22 @@ $appearanceApp = @file_get_contents($root . '/_bonumark_stream/app/appearance.ph
 $commentsApp = @file_get_contents($root . '/_bonumark_stream/app/comments.php') ?: '';
 $cardTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/card.php') ?: '';
 $headerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/header.php') ?: '';
+$homeTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/home.php') ?: '';
+$homeComponentDir = $root . '/_bonumark_stream/app/views/default/components/home';
+$homeComponentFiles = glob($homeComponentDir . '/*.php') ?: [];
+sort($homeComponentFiles);
+$homeComponentsSource = '';
+foreach ($homeComponentFiles as $homeComponentFile) {
+    $homeComponentsSource .= "\n" . (@file_get_contents($homeComponentFile) ?: '');
+}
+$siteHeaderComponentDir = $root . '/_bonumark_stream/app/views/default/components/site-header';
+$siteHeaderComponentFiles = glob($siteHeaderComponentDir . '/*.php') ?: [];
+sort($siteHeaderComponentFiles);
+$siteHeaderComponentsSource = '';
+foreach ($siteHeaderComponentFiles as $siteHeaderComponentFile) {
+    $siteHeaderComponentsSource .= "
+" . (@file_get_contents($siteHeaderComponentFile) ?: '');
+}
 $footerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/footer.php') ?: '';
 $streamJs = @file_get_contents($root . '/assets/stream.js') ?: '';
 $adminCss = @file_get_contents($root . '/assets/admin.css') ?: '';
@@ -941,7 +1258,7 @@ if (!str_contains($rendererApp, "'preview_mode' =>") || !str_contains($rendererA
 if (!str_contains($commentsApp, 'bms_render_comments_preview_panel')) {
     bm_smoke_fail($failures, 'Preview comments panel helper is missing.');
 }
-if (!str_contains($cardTemplate, "!empty(\$like['enabled'])") || !str_contains($cardTemplate, '$backLabel')) {
+if (!str_contains($streamCardPublicSource, "!empty(\$like['enabled'])") || !str_contains($streamCardPublicSource, '$backLabel')) {
     bm_smoke_fail($failures, 'Card template does not honor preview-safe action state.');
 }
 if (!str_contains($headerTemplate, "'Preview'")) {
@@ -961,6 +1278,29 @@ if (str_contains($footerTemplate, '$separator = trim((string)($data[\'footer_sep
 }
 if (!str_contains($headerTemplate, '$showPostCount = !$previewMode && $showCountChip') || !str_contains($headerTemplate, '!$previewMode && $showPublicMenu && $navigationHtml !==') || str_contains($headerTemplate, 'data-preview-menu')) {
     bm_smoke_fail($failures, 'Header template does not hide preview count/menu controls safely.');
+}
+if (!str_contains($headerTemplate, "bms_render_public_theme_layout_surface('site-header', \$data, \$headerTheme)")
+    || !str_contains($headerTemplate, "is-declarative-site-header")
+    || !str_contains($appearanceApp, "'navigation_account_items_enabled' => \$includeAccountNavigation")
+    || !str_contains($appearanceApp, "'menu_label' => \$menuLabel")) {
+    bm_smoke_fail($failures, 'Site Header template is not wired to validated declarative composition while retaining prepared core data.');
+}
+if (count($siteHeaderComponentFiles) !== 4) {
+    bm_smoke_fail($failures, 'Site Header foundation must contain exactly four core-owned component files.');
+}
+foreach (['bms_db(', 'bms_table(', 'bms_setting_or_config(', '$_POST', '$_GET', '$_FILES'] as $forbiddenSiteHeaderFetch) {
+    if (str_contains($siteHeaderComponentsSource, $forbiddenSiteHeaderFetch)) {
+        bm_smoke_fail($failures, 'Site Header components must render prepared data instead of reading application/request state: ' . $forbiddenSiteHeaderFetch);
+    }
+}
+if (!str_contains($appearanceApp, 'function bms_public_navigation_items(bool $includeAccountItems = true)')
+    || !str_contains($appearanceApp, '$includeAccountItems && bms_public_navigation_account_links_enabled()')
+    || !str_contains($appearanceApp, '$includeAccountNavigation = !$staticExport')
+    || !str_contains($rendererApp, 'function bms_static_site_export_rendering(): bool')
+    || !str_contains($rendererApp, 'bms_set_static_site_export_rendering(true)')
+    || !str_contains($rendererApp, 'finally {')
+    || !str_contains($rendererApp, 'bms_set_static_site_export_rendering($previousStaticRenderState)')) {
+    bm_smoke_fail($failures, 'Static Site Export must render public navigation without session-specific account destinations and restore render state afterward.');
 }
 if (!str_contains($streamJs, 'function isPreviewMode') || !str_contains($streamJs, 'if (!isPreviewMode())')) {
     bm_smoke_fail($failures, 'Public JavaScript does not skip live interactions in preview mode.');
@@ -1193,6 +1533,9 @@ foreach (['SHOW COLUMNS FROM `{$prefix}posts` LIKE :column_name', 'SHOW INDEX FR
     }
 }
 $upgradeSource = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+if (!str_contains($upgradeSource, "'profile-export.php' => true") || !str_contains($upgradeSource, "'profile-export.php',")) {
+    bm_smoke_fail($failures, 'Upgrade management must treat the Profile export endpoint as package-managed software.');
+}
 if (!str_contains($upgradeSource, '$skipPublic = [\'media\' => true, \'uploads\' => true]')
     || !str_contains($upgradeSource, '!isset($skipPublic[$topLevel])')
     || !str_contains($upgradeSource, '$preservedRuntimeItems = [\'media\' => true, \'uploads\' => true]')
@@ -1202,6 +1545,12 @@ if (!str_contains($upgradeSource, '$skipPublic = [\'media\' => true, \'uploads\'
 if (!str_contains($upgradeSource, "'CHANGELOG.md' => true")
     || !str_contains($upgradeSource, "'analytics.php' => true")) {
     bm_smoke_fail($failures, 'Upgrade cleanup coverage is missing package-managed top-level files.');
+}
+if (!str_contains($upgradeSource, "'profile-editorial' => true")
+    || !str_contains($upgradeSource, "'profile-split' => true")
+    || !str_contains($upgradeSource, "'bundled-declarative-proof-theme'")
+    || !str_contains($upgradeSource, 'Warm retired bundled-theme detection before obsolete-file removal starts.')) {
+    bm_smoke_fail($failures, 'Upgrade cleanup must safely recognize and retire only former Bonumark declarative proof-theme leftovers.');
 }
 foreach ([
     "'manifest.php' => true",
@@ -1322,6 +1671,1125 @@ if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['f
     }
 }
 
+
+$seoFunctionsSource = @file_get_contents($root . '/_bonumark_stream/app/functions.php') ?: '';
+if (!str_contains($seoFunctionsSource, "\$documentTemplates = ['layout', 'home', 'archive', 'single', 'page', 'profile', 'account', 'search']")
+    || !str_contains($seoFunctionsSource, "if (!in_array(\$template, \$documentTemplates, true))")) {
+    bm_smoke_fail($failures, 'Document SEO must be explicitly limited to full-page public templates.');
+}
+
+$linkPreviewSource = @file_get_contents($root . '/_bonumark_stream/app/link-preview.php') ?: '';
+$documentTitlePos = strpos($linkPreviewSource, '$title = bms_link_preview_document_title($html);');
+$openGraphFallbackPos = strpos($linkPreviewSource, '$title = bms_link_preview_meta_value($html, [\'og:title\', \'twitter:title\']);');
+if (!str_contains($linkPreviewSource, 'function bms_link_preview_document_title')
+    || !str_contains($linkPreviewSource, 'function bms_link_preview_from_html')
+    || $documentTitlePos === false
+    || $openGraphFallbackPos === false
+    || $documentTitlePos >= $openGraphFallbackPos
+    || !str_contains($linkPreviewSource, 'function bms_link_preview_strip_local_site_suffix')
+    || str_contains($linkPreviewSource, 'function bms_link_preview_normalize_remote_title')
+    || str_contains($linkPreviewSource, 'bms_seo_strip_site_title($title, $localSiteName)')) {
+    bm_smoke_fail($failures, 'Link previews must preserve the remote document title and must not reconstruct it from the local site name.');
+}
+
+require_once $root . '/_bonumark_stream/app/link-preview.php';
+$linkPreviewFixtureHtml = '<html><head>'
+    . '<title>Remote Article | Remote Site</title>'
+    . '<meta property="og:title" content="Remote Article | Wrong Local Name">'
+    . '<meta property="og:site_name" content="Remote Site">'
+    . '<meta name="description" content="Remote description">'
+    . '</head><body></body></html>';
+$linkPreviewFixture = bms_link_preview_from_html('https://remote.example/article', $linkPreviewFixtureHtml);
+if (($linkPreviewFixture['title'] ?? '') !== 'Remote Article | Remote Site') {
+    bm_smoke_fail($failures, 'Link preview must prefer the remote HTML document title over conflicting social metadata.');
+}
+if (($linkPreviewFixture['site_name'] ?? '') !== 'Remote Site') {
+    bm_smoke_fail($failures, 'Link preview must preserve the remote site-name metadata separately from the title.');
+}
+
+$linkPreviewContaminated = bms_link_preview_sanitize_payload([
+    'url' => 'https://remote.example/article',
+    'title' => 'Remote Article | Remote Site | Bonumark Stream',
+    'description' => 'Remote description',
+    'image' => '',
+    'site_name' => 'Remote Site',
+]);
+if (($linkPreviewContaminated['title'] ?? '') !== 'Remote Article | Remote Site') {
+    bm_smoke_fail($failures, 'External link preview titles must remove a trailing local Bonumark site-name contamination.');
+}
+
+$linkPreviewLegitimateLocalName = bms_link_preview_sanitize_payload([
+    'url' => 'https://bonumark.example/article',
+    'title' => 'Remote Article | Bonumark Stream',
+    'description' => '',
+    'image' => '',
+    'site_name' => 'Bonumark Stream',
+]);
+if (($linkPreviewLegitimateLocalName['title'] ?? '') !== 'Remote Article | Bonumark Stream') {
+    bm_smoke_fail($failures, 'A remote site legitimately using the same site name must not have its title altered.');
+}
+
+
+$upgradeSource = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+
+$linkPreviewEndpointSource = @file_get_contents($root . '/admin/link-preview.php') ?: '';
+$quickPostSource = @file_get_contents($root . '/admin/quick-post.php') ?: '';
+$toolsSource = @file_get_contents($root . '/admin/tools.php') ?: '';
+if (is_file($root . '/admin/link-preview-pipeline.php')) {
+    bm_smoke_fail($failures, 'Temporary link-preview pipeline diagnostic must not ship after the cleanup pass.');
+}
+if (str_contains($linkPreviewSource, 'bms_link_preview_pipeline_trace_')
+    || str_contains($linkPreviewSource, 'bms_link_preview_raw_metadata_from_html')
+    || str_contains($linkPreviewEndpointSource, 'bms_link_preview_pipeline_last_fetch')
+    || str_contains($quickPostSource, 'bms_link_preview_pipeline_last_submit')
+    || str_contains($toolsSource, 'link-preview-pipeline.php')) {
+    bm_smoke_fail($failures, 'Temporary link-preview pipeline trace instrumentation remains in a production path.');
+}
+
+if (is_file($root . '/admin/runtime-cache.php')) {
+    bm_smoke_fail($failures, 'Manual PHP Runtime Cache admin diagnostic must not ship after the v0.5.104 cleanup pass.');
+}
+if (str_contains($toolsSource, 'runtime-cache.php')
+    || str_contains($linkPreviewSource, 'bms_link_preview_runtime_revision')) {
+    bm_smoke_fail($failures, 'Manual PHP runtime diagnostic hooks were reintroduced.');
+}
+
+$fragmentTitle = 'Builder Receipt: Reworking Bonumark Stream | Jim Lunsford';
+$fragmentSeoData = bms_public_seo_view_data('link-preview', [
+    'title' => $fragmentTitle,
+    'site_name' => 'Bonumark Stream',
+]);
+if (($fragmentSeoData['title'] ?? '') !== $fragmentTitle) {
+    bm_smoke_fail($failures, 'Fragment-template SEO processing must not rewrite a link-preview title.');
+}
+if (array_key_exists('seo_document_title', $fragmentSeoData)) {
+    bm_smoke_fail($failures, 'Fragment-template SEO processing must not inject document SEO fields.');
+}
+
+$cardFragmentData = bms_public_seo_view_data('card', [
+    'title' => 'Remote card title',
+    'site_name' => 'Bonumark Stream',
+]);
+if (($cardFragmentData['title'] ?? '') !== 'Remote card title') {
+    bm_smoke_fail($failures, 'Fragment-template SEO processing must not rewrite card domain data.');
+}
+
+$documentSeoData = bms_public_seo_view_data('page', [
+    'title' => 'Documentation',
+    'site_name' => 'Bonumark Stream',
+]);
+if (!isset($documentSeoData['seo_document_title']) || trim((string)$documentSeoData['seo_document_title']) === '') {
+    bm_smoke_fail($failures, 'Document templates must continue receiving document SEO data.');
+}
+if (!str_contains($upgradeSource, 'bms_upgrade_invalidate_php_runtime_file')
+    || !str_contains($upgradeSource, 'bms_upgrade_reset_php_runtime_cache')
+    || !str_contains($upgradeSource, 'opcache_invalidate($path, true)')
+    || !str_contains($upgradeSource, 'opcache_reset()')) {
+    bm_smoke_fail($failures, 'Upgrade-time PHP runtime-cache invalidation is missing.');
+}
+
+$themeLayoutsPath = $root . '/_bonumark_stream/app/theme-layouts.php';
+if (!is_file($themeLayoutsPath)) {
+    bm_smoke_fail($failures, 'Declarative layout foundation file is missing.');
+} else {
+    require_once $themeLayoutsPath;
+
+    $legacyThemeProbe = [
+        'name' => 'Legacy Probe',
+        'slug' => 'legacy-probe',
+        'version' => '1.0.0',
+    ];
+    if (bms_theme_layout_manifest_errors($legacyThemeProbe) !== []) {
+        bm_smoke_fail($failures, 'Legacy CSS-only themes must not require declarative layout fields.');
+    }
+
+    $layoutThemeProbe = [
+        'name' => 'Layout Probe',
+        'slug' => 'layout-probe',
+        'version' => '1.0.0',
+        'layout_schema' => 1,
+        'layouts' => ['profile' => 'layouts/profile.json'],
+    ];
+    if (bms_theme_layout_manifest_errors($layoutThemeProbe) !== []) {
+        bm_smoke_fail($failures, 'Valid declarative Profile manifest contract was rejected.');
+    }
+
+    $normalizedLayoutTheme = bms_normalize_theme_layout_manifest($layoutThemeProbe);
+    if (empty($normalizedLayoutTheme['layout_aware'])
+        || ($normalizedLayoutTheme['layout_schema'] ?? null) !== 1
+        || (($normalizedLayoutTheme['layouts']['profile'] ?? '') !== 'layouts/profile.json')) {
+        bm_smoke_fail($failures, 'Declarative layout manifest normalization is incorrect.');
+    }
+
+    $validProfileLayout = [
+        'surface' => 'profile',
+        'root' => [
+            'type' => 'group',
+            'name' => 'profile-root',
+            'children' => [
+                ['type' => 'component', 'name' => 'profile.cover'],
+                [
+                    'type' => 'group',
+                    'name' => 'identity-row',
+                    'children' => [
+                        ['type' => 'component', 'name' => 'profile.avatar'],
+                        ['type' => 'component', 'name' => 'profile.identity'],
+                    ],
+                ],
+                ['type' => 'component', 'name' => 'profile.about'],
+                ['type' => 'component', 'name' => 'profile.featured'],
+                ['type' => 'component', 'name' => 'profile.photos'],
+                ['type' => 'component', 'name' => 'profile.now'],
+                ['type' => 'component', 'name' => 'profile.interests'],
+                ['type' => 'component', 'name' => 'profile.links'],
+                ['type' => 'component', 'name' => 'profile.details'],
+            ],
+        ],
+    ];
+    if (bms_theme_layout_document_errors($validProfileLayout, 'profile', 1) !== []) {
+        bm_smoke_fail($failures, 'Valid declarative Profile layout was rejected.');
+    }
+
+    $streamLayoutThemeProbe = [
+        'name' => 'Stream Layout Probe',
+        'slug' => 'stream-layout-probe',
+        'version' => '1.0.0',
+        'layout_schema' => 1,
+        'layouts' => ['stream-card' => 'layouts/stream-card.json'],
+    ];
+    if (bms_theme_layout_manifest_errors($streamLayoutThemeProbe) !== []) {
+        bm_smoke_fail($failures, 'Valid declarative Stream Card manifest contract was rejected.');
+    }
+    $normalizedStreamLayoutTheme = bms_normalize_theme_layout_manifest($streamLayoutThemeProbe);
+    if (empty($normalizedStreamLayoutTheme['layout_aware'])
+        || ($normalizedStreamLayoutTheme['layout_schema'] ?? null) !== 1
+        || (($normalizedStreamLayoutTheme['layouts']['stream-card'] ?? '') !== 'layouts/stream-card.json')) {
+        bm_smoke_fail($failures, 'Declarative Stream Card manifest normalization is incorrect.');
+    }
+
+    $validStreamCardLayout = [
+        'surface' => 'stream-card',
+        'root' => [
+            'type' => 'group',
+            'name' => 'stream-card-root',
+            'children' => [
+                [
+                    'type' => 'group',
+                    'name' => 'stream-card-identity',
+                    'children' => [
+                        ['type' => 'component', 'name' => 'stream-card.avatar'],
+                        ['type' => 'component', 'name' => 'stream-card.header'],
+                    ],
+                ],
+                ['type' => 'component', 'name' => 'stream-card.body'],
+                ['type' => 'component', 'name' => 'stream-card.location'],
+                ['type' => 'component', 'name' => 'stream-card.link-preview'],
+                ['type' => 'component', 'name' => 'stream-card.media'],
+                ['type' => 'component', 'name' => 'stream-card.actions'],
+            ],
+        ],
+    ];
+    if (bms_theme_layout_document_errors($validStreamCardLayout, 'stream-card', 1) !== []) {
+        bm_smoke_fail($failures, 'Valid declarative Stream Card layout was rejected.');
+    }
+
+    if (!in_array('site-header', bms_theme_layout_supported_surfaces(), true)
+        || bms_theme_layout_surface_label('site-header') !== 'Site Header') {
+        bm_smoke_fail($failures, 'Site Header must remain a supported Schema 1 declarative surface.');
+    }
+
+    $siteHeaderLayoutThemeProbe = [
+        'name' => 'Site Header Composition Probe',
+        'slug' => 'site-header-composition-probe',
+        'version' => '1.0.0',
+        'layout_schema' => 1,
+        'layouts' => ['site-header' => 'layouts/site-header.json'],
+    ];
+    if (bms_theme_layout_manifest_errors($siteHeaderLayoutThemeProbe) !== []) {
+        bm_smoke_fail($failures, 'Valid Site Header declarative manifest contract was rejected.');
+    }
+
+    $validSiteHeaderLayout = [
+        'surface' => 'site-header',
+        'root' => [
+            'type' => 'group',
+            'name' => 'site-header-root',
+            'children' => [
+                ['type' => 'component', 'name' => 'site-header.site-identity'],
+                ['type' => 'component', 'name' => 'site-header.primary-navigation'],
+                ['type' => 'component', 'name' => 'site-header.stream-count'],
+            ],
+        ],
+    ];
+    if (bms_theme_layout_document_errors($validSiteHeaderLayout, 'site-header', 1) !== []) {
+        bm_smoke_fail($failures, 'Valid declarative Site Header layout was rejected.');
+    }
+
+    $invalidSiteHeaderLayout = $validSiteHeaderLayout;
+    $invalidSiteHeaderLayout['root']['children'][] = ['type' => 'component', 'name' => 'site-header.search'];
+    if (bms_theme_layout_document_errors($invalidSiteHeaderLayout, 'site-header', 1) === []) {
+        bm_smoke_fail($failures, 'Site Header validation must reject unsupported or invented application components.');
+    }
+
+    $siteHeaderExpectedComponents = [
+        'site-header.site-identity' => ['required' => true, 'template' => 'site-header/site-identity.php'],
+        'site-header.primary-navigation' => ['required' => true, 'template' => 'site-header/primary-navigation.php'],
+        'site-header.menu-toggle' => ['required' => false, 'template' => 'site-header/menu-toggle.php'],
+        'site-header.stream-count' => ['required' => false, 'template' => 'site-header/stream-count.php'],
+    ];
+    foreach ($siteHeaderExpectedComponents as $componentName => $expectation) {
+        $definition = bms_theme_layout_component_definition($componentName);
+        if (!is_array($definition)
+            || ($definition['surface'] ?? '') !== 'site-header'
+            || ($definition['required'] ?? null) !== $expectation['required']
+            || ($definition['max'] ?? null) !== 1
+            || ($definition['template'] ?? '') !== $expectation['template']) {
+            bm_smoke_fail($failures, 'Site Header component registry definition is incorrect: ' . $componentName);
+        }
+    }
+
+    $siteHeaderComponentData = [
+        'site_name' => 'Foundation Site',
+        'tagline' => 'Core-owned identity',
+        'tagline_html' => 'Core-owned identity',
+        'home_url' => '/home/',
+        'title_tag' => 'h1',
+        'preview_mode' => false,
+        'show_public_menu' => true,
+        'navigation_html' => '<nav id="site-primary-nav" aria-label="Primary menu"><a href="/">Home</a></nav>',
+        'menu_label' => 'Menu',
+        'show_count_chip' => true,
+        'count_label' => '12 posts',
+    ];
+    $siteIdentityProbe = bms_render_core_public_component('site-header.site-identity', $siteHeaderComponentData);
+    $siteNavigationProbe = bms_render_core_public_component('site-header.primary-navigation', $siteHeaderComponentData);
+    $siteMenuProbe = bms_render_core_public_component('site-header.menu-toggle', $siteHeaderComponentData);
+    $siteCountProbe = bms_render_core_public_component('site-header.stream-count', $siteHeaderComponentData);
+    if (!str_contains($siteIdentityProbe, '<h1 class="site-title">')
+        || !str_contains($siteIdentityProbe, 'Foundation Site')
+        || !str_contains($siteIdentityProbe, 'Core-owned identity')) {
+        bm_smoke_fail($failures, 'Site Header identity component does not render prepared identity data.');
+    }
+    if ($siteNavigationProbe !== $siteHeaderComponentData['navigation_html']) {
+        bm_smoke_fail($failures, 'Site Header primary-navigation component must render core-prepared navigation unchanged.');
+    }
+    if (!str_contains($siteMenuProbe, 'data-stream-menu-toggle')
+        || !str_contains($siteMenuProbe, 'aria-controls="site-primary-nav"')) {
+        bm_smoke_fail($failures, 'Site Header menu-toggle component does not preserve core navigation behavior hooks.');
+    }
+    if (!str_contains($siteCountProbe, '12 posts')) {
+        bm_smoke_fail($failures, 'Site Header stream-count component does not render the prepared count label.');
+    }
+
+    $alternateStreamCardLayout = $validStreamCardLayout;
+    $alternateStreamCardLayout['root']['name'] = 'stream-card-body-first';
+    $alternateStreamCardLayout['root']['children'] = [
+        ['type' => 'component', 'name' => 'stream-card.body'],
+        ['type' => 'component', 'name' => 'stream-card.media'],
+        [
+            'type' => 'group',
+            'name' => 'stream-card-identity',
+            'children' => [
+                ['type' => 'component', 'name' => 'stream-card.avatar'],
+                ['type' => 'component', 'name' => 'stream-card.header'],
+            ],
+        ],
+        ['type' => 'component', 'name' => 'stream-card.location'],
+        ['type' => 'component', 'name' => 'stream-card.link-preview'],
+        ['type' => 'component', 'name' => 'stream-card.actions'],
+    ];
+    if (bms_theme_layout_document_errors($alternateStreamCardLayout, 'stream-card', 1) !== []) {
+        bm_smoke_fail($failures, 'Alternate declarative Stream Card layout was rejected.');
+    }
+
+
+    require_once $root . '/_bonumark_stream/app/themes.php';
+
+    $layoutRenderData = [
+        'cover_markup' => '<img src="cover.jpg" alt="">',
+        'avatar_markup' => '<img src="avatar.jpg" alt="">',
+        'display_name' => 'Layout Probe',
+        'username' => 'layout-probe',
+        'headline' => 'Declarative profile proof',
+        'location' => 'Indiana',
+        'bio' => 'Prepared profile data.',
+        'about_html' => '<p>About component</p>',
+        'featured_items' => [['type' => 'external', 'url' => 'https://example.com/work', 'title' => 'Work', 'description' => 'Featured', 'external' => true]],
+        'profile_photos' => [['url' => '/photo.jpg', 'image_attributes' => 'src="/photo.jpg" alt="Photo"', 'caption' => 'Photo caption']],
+        'now_text' => 'Building Theme Architecture 2.0',
+        'interests' => ['Publishing'],
+        'website' => 'https://example.com',
+        'profile_links' => [['url' => 'https://example.org', 'label' => 'Example']],
+        'show_post_count' => true,
+        'post_count' => 3,
+        'show_comment_count' => true,
+        'comment_count' => 2,
+        'show_member_since' => true,
+        'member_since' => '2026',
+        'is_profile_owner' => false,
+    ];
+    $layoutRenderTheme = array_merge($layoutThemeProbe, $normalizedLayoutTheme);
+    $layoutThemePath = $root . '/_bonumark_stream/themes/layout-probe';
+    @mkdir($layoutThemePath . '/layouts', 0755, true);
+    file_put_contents($layoutThemePath . '/layouts/profile.json', json_encode($validProfileLayout, JSON_UNESCAPED_SLASHES));
+    $renderedProfileLayout = bms_render_public_theme_layout_surface('profile', $layoutRenderData, $layoutRenderTheme);
+    if (!is_string($renderedProfileLayout)
+        || !str_contains($renderedProfileLayout, 'data-bms-layout="profile"')
+        || !str_contains($renderedProfileLayout, 'data-bms-layout-schema="1"')
+        || !str_contains($renderedProfileLayout, 'data-bms-layout-group="identity-row"')
+        || substr_count($renderedProfileLayout, 'data-bms-component=') !== 10
+        || !str_contains($renderedProfileLayout, 'data-bms-component="profile.identity"')) {
+        bm_smoke_fail($failures, 'Declarative Profile renderer did not produce the validated root/group/component hook contract.');
+    }
+    $legacyLayoutResult = bms_render_public_theme_layout_surface('profile', $layoutRenderData, $legacyThemeProbe);
+    if ($legacyLayoutResult !== null) {
+        bm_smoke_fail($failures, 'Legacy CSS-only themes must remain on the fixed Profile composition path.');
+    }
+    @unlink($layoutThemePath . '/layouts/profile.json');
+    @rmdir($layoutThemePath . '/layouts');
+    @rmdir($layoutThemePath);
+
+    $streamLayoutRenderData = [
+        'single' => false,
+        'page_url' => '/post/layout-probe',
+        'preview_mode' => false,
+        'avatar_html' => '<img src="avatar.jpg" alt="Layout Probe">',
+        'author_profile_url' => '/profile/layout-probe',
+        'author_name' => 'Layout Probe',
+        'show_dates' => true,
+        'date_label' => 'Aug 10, 2026 10:00 PM',
+        'date_iso' => '2026-08-10T22:00:00-04:00',
+        'body_html' => '<p>Prepared Stream Card body.</p>',
+        'location_html' => '<div class="stream-card-location">Indiana</div>',
+        'link_preview_html' => '<a class="stream-link-preview" href="https://example.com">Preview</a>',
+        'media_html' => '<div class="stream-card-media"><img src="photo.jpg" alt="Photo"></div>',
+        'like' => [
+            'enabled' => true,
+            'slug' => 'layout-probe',
+            'count' => 1,
+            'label' => '1 like',
+            'liked' => false,
+            'endpoint' => '/stream-like.php',
+            'endpoint_alt' => '/admin/stream-like.php',
+            'action_label' => 'Like this post.',
+        ],
+        'comments' => [
+            'enabled' => true,
+            'count' => 2,
+            'label' => '2 Comments',
+            'url' => '/post/layout-probe#comments',
+        ],
+        'quick_edit' => [
+            'enabled' => true,
+            'endpoint' => '/admin/stream-quick-edit.php',
+            'csrf_token' => 'probe-token',
+            'filename' => 'layout-probe.md',
+            'body' => 'Prepared Stream Card body.',
+            'content_hash' => 'probe-hash',
+        ],
+        'edit_url' => '/admin/edit.php?file=layout-probe.md',
+        'trash_action' => [
+            'enabled' => true,
+            'endpoint' => '/admin/stream-trash.php',
+            'csrf_token' => 'probe-token',
+            'filename' => 'layout-probe.md',
+            'content_hash' => 'probe-hash',
+            'return_to' => '/',
+            'single' => false,
+        ],
+        'pin_action' => 'pin',
+        'pin_action_url' => '/admin/pin.php',
+        'pin_csrf' => 'probe-token',
+        'pin_return_to' => '/',
+        'pin_filename' => 'layout-probe.md',
+    ];
+    $streamLayoutRenderTheme = array_merge($streamLayoutThemeProbe, $normalizedStreamLayoutTheme);
+    $streamLayoutThemePath = $root . '/_bonumark_stream/themes/stream-layout-probe';
+    @mkdir($streamLayoutThemePath . '/layouts', 0755, true);
+    file_put_contents($streamLayoutThemePath . '/layouts/stream-card.json', json_encode($validStreamCardLayout, JSON_UNESCAPED_SLASHES));
+    $renderedStreamLayout = bms_render_public_theme_layout_surface('stream-card', $streamLayoutRenderData, $streamLayoutRenderTheme);
+    if (!is_string($renderedStreamLayout)
+        || !str_contains($renderedStreamLayout, 'data-bms-layout="stream-card"')
+        || !str_contains($renderedStreamLayout, 'data-bms-layout-schema="1"')
+        || !str_contains($renderedStreamLayout, 'data-bms-layout-group="stream-card-identity"')
+        || substr_count($renderedStreamLayout, 'data-bms-component=') !== 7
+        || !str_contains($renderedStreamLayout, 'data-bms-component="stream-card.body"')
+        || !str_contains($renderedStreamLayout, 'data-stream-quick-edit-form')
+        || !str_contains($renderedStreamLayout, 'data-stream-like')
+        || !str_contains($renderedStreamLayout, 'data-stream-actions-menu')) {
+        bm_smoke_fail($failures, 'Declarative Stream Card renderer did not preserve the validated component and core behavior-hook contract.');
+    }
+    foreach (array_keys(bms_theme_layout_component_registry()['stream-card'] ?? []) as $streamComponentName) {
+        $componentHtml = bms_render_core_public_component($streamComponentName, $streamLayoutRenderData);
+        if (trim($componentHtml) !== '' && !str_contains((string)$renderedStreamLayout, $componentHtml)) {
+            bm_smoke_fail($failures, 'Declarative Stream Card composition changed core component output: ' . $streamComponentName);
+        }
+    }
+    $renderCoreTemplate = static function (string $templatePath, array $viewData): string {
+        $bms_theme_data = $viewData;
+        ob_start();
+        include $templatePath;
+        return (string)ob_get_clean();
+    };
+    $streamCardTemplateData = $streamLayoutRenderData;
+    $streamCardTemplateData['theme'] = $streamLayoutRenderTheme;
+    $streamCardTemplateData['classes'] = 'stream-card stream-card-clickable';
+    $renderedDeclarativeCardTemplate = $renderCoreTemplate($root . '/_bonumark_stream/app/views/default/templates/card.php', $streamCardTemplateData);
+    if (!str_contains($renderedDeclarativeCardTemplate, '<article class="stream-card stream-card-clickable ledger-stream-card" data-stream-card')
+        || !str_contains($renderedDeclarativeCardTemplate, 'data-bms-layout="stream-card"')
+        || str_contains($renderedDeclarativeCardTemplate, '<div class="stream-card-inner">')
+        || str_contains($renderedDeclarativeCardTemplate, '<div class="stream-card-main">')) {
+        bm_smoke_fail($failures, 'Declarative Stream Card template must keep the core article shell while replacing only the legacy inner/main composition.');
+    }
+    $legacyStreamLayoutResult = bms_render_public_theme_layout_surface('stream-card', $streamLayoutRenderData, $legacyThemeProbe);
+    if ($legacyStreamLayoutResult !== null) {
+        bm_smoke_fail($failures, 'Legacy CSS-only themes must remain on the fixed Stream Card composition path.');
+    }
+
+    file_put_contents($streamLayoutThemePath . '/layouts/stream-card.json', json_encode($alternateStreamCardLayout, JSON_UNESCAPED_SLASHES));
+    $renderedAlternateStreamLayout = bms_render_public_theme_layout_surface('stream-card', $streamLayoutRenderData, $streamLayoutRenderTheme);
+    $standardHeaderPos = strpos((string)$renderedStreamLayout, 'data-bms-component="stream-card.header"');
+    $standardBodyPos = strpos((string)$renderedStreamLayout, 'data-bms-component="stream-card.body"');
+    $alternateHeaderPos = strpos((string)$renderedAlternateStreamLayout, 'data-bms-component="stream-card.header"');
+    $alternateBodyPos = strpos((string)$renderedAlternateStreamLayout, 'data-bms-component="stream-card.body"');
+    if (!is_string($renderedAlternateStreamLayout)
+        || $renderedAlternateStreamLayout === $renderedStreamLayout
+        || $standardHeaderPos === false || $standardBodyPos === false || $standardHeaderPos > $standardBodyPos
+        || $alternateHeaderPos === false || $alternateBodyPos === false || $alternateBodyPos > $alternateHeaderPos) {
+        bm_smoke_fail($failures, 'Declarative Stream Card layouts must be able to produce materially different component composition from identical prepared data.');
+    }
+    @unlink($streamLayoutThemePath . '/layouts/stream-card.json');
+    @rmdir($streamLayoutThemePath . '/layouts');
+    @rmdir($streamLayoutThemePath);
+
+    $unsafeProfileLayout = $validProfileLayout;
+    $unsafeProfileLayout['root']['children'][0]['when'] = 'profile.has_cover';
+    $unsafeErrors = bms_theme_layout_document_errors($unsafeProfileLayout, 'profile', 1);
+    if (!$unsafeErrors || !str_contains(implode(' ', $unsafeErrors), 'unsupported property')) {
+        bm_smoke_fail($failures, 'Declarative layout validation must reject expression-like or unknown node properties.');
+    }
+
+    $unknownComponentLayout = $validProfileLayout;
+    $unknownComponentLayout['root']['children'][0]['name'] = 'profile.unknown';
+    $unknownComponentErrors = bms_theme_layout_document_errors($unknownComponentLayout, 'profile', 1);
+    if (!$unknownComponentErrors || !str_contains(implode(' ', $unknownComponentErrors), 'unknown component')) {
+        bm_smoke_fail($failures, 'Declarative layout validation must reject unregistered components.');
+    }
+
+    if (bms_theme_layout_reference('../profile.json') !== ''
+        || bms_theme_layout_reference('profile.json') !== ''
+        || bms_theme_layout_reference('layouts/profile.php') !== ''
+        || bms_theme_layout_reference('layouts/profile.json') !== 'layouts/profile.json') {
+        bm_smoke_fail($failures, 'Declarative layout path validation does not enforce private layouts/*.json references.');
+    }
+
+    $layoutPrivateProbe = sys_get_temp_dir() . '/bms-layout-private-' . bin2hex(random_bytes(4));
+    $layoutPublicProbe = sys_get_temp_dir() . '/bms-layout-public-' . bin2hex(random_bytes(4));
+    @mkdir($layoutPrivateProbe . '/layouts', 0755, true);
+    @mkdir($layoutPublicProbe, 0755, true);
+    file_put_contents($layoutPrivateProbe . '/layouts/profile.json', json_encode($validProfileLayout, JSON_UNESCAPED_SLASHES));
+    $layoutHealthTheme = array_merge($layoutThemeProbe, $normalizedLayoutTheme, [
+        'author' => 'Bonumark',
+        'description' => 'Declarative layout health probe.',
+        'manifest_errors' => [],
+        'assets' => ['css' => [], 'images' => [], 'fonts' => []],
+        'screenshot' => '',
+        'settings' => [],
+    ]);
+
+    require_once $root . '/_bonumark_stream/app/themes.php';
+    $validLayoutHealth = bms_public_theme_package_health_at_paths($layoutHealthTheme, $layoutPrivateProbe, $layoutPublicProbe);
+    if (empty($validLayoutHealth['valid'])
+        || ($validLayoutHealth['renderer'] ?? '') !== 'Declarative Layouts'
+        || (($validLayoutHealth['layout_schema'] ?? null) !== 1)
+        || (($validLayoutHealth['layout_surfaces'] ?? []) !== ['profile'])) {
+        bm_smoke_fail($failures, 'Theme Health does not accept and report a valid declarative Profile layout.');
+    }
+
+    @unlink($layoutPrivateProbe . '/layouts/profile.json');
+    $missingLayoutHealth = bms_public_theme_package_health_at_paths($layoutHealthTheme, $layoutPrivateProbe, $layoutPublicProbe);
+    if (!empty($missingLayoutHealth['valid']) || !str_contains(implode(' ', (array)($missingLayoutHealth['errors'] ?? [])), 'Missing declared layout file')) {
+        bm_smoke_fail($failures, 'Theme Health must reject a missing declared layout file before activation.');
+    }
+    @rmdir($layoutPrivateProbe . '/layouts');
+    @rmdir($layoutPrivateProbe);
+    @rmdir($layoutPublicProbe);
+
+    $streamHealthPrivateProbe = sys_get_temp_dir() . '/bms-stream-layout-private-' . bin2hex(random_bytes(4));
+    $streamHealthPublicProbe = sys_get_temp_dir() . '/bms-stream-layout-public-' . bin2hex(random_bytes(4));
+    @mkdir($streamHealthPrivateProbe . '/layouts', 0755, true);
+    @mkdir($streamHealthPublicProbe, 0755, true);
+    file_put_contents($streamHealthPrivateProbe . '/layouts/stream-card.json', json_encode($validStreamCardLayout, JSON_UNESCAPED_SLASHES));
+    $streamHealthTheme = array_merge($streamLayoutThemeProbe, $normalizedStreamLayoutTheme, [
+        'author' => 'Bonumark',
+        'description' => 'Declarative Stream Card health probe.',
+        'manifest_errors' => [],
+        'assets' => ['css' => [], 'images' => [], 'fonts' => []],
+        'screenshot' => '',
+        'settings' => [],
+    ]);
+    $validStreamLayoutHealth = bms_public_theme_package_health_at_paths($streamHealthTheme, $streamHealthPrivateProbe, $streamHealthPublicProbe);
+    if (empty($validStreamLayoutHealth['valid'])
+        || ($validStreamLayoutHealth['renderer'] ?? '') !== 'Declarative Layouts'
+        || (($validStreamLayoutHealth['layout_schema'] ?? null) !== 1)
+        || (($validStreamLayoutHealth['layout_surfaces'] ?? []) !== ['stream-card'])) {
+        bm_smoke_fail($failures, 'Theme Health does not accept and report a valid declarative Stream Card layout.');
+    }
+    @unlink($streamHealthPrivateProbe . '/layouts/stream-card.json');
+    @rmdir($streamHealthPrivateProbe . '/layouts');
+    @rmdir($streamHealthPrivateProbe);
+    @rmdir($streamHealthPublicProbe);
+
+    $defaultThemeProbe = bms_read_theme_manifest('default');
+    $defaultThemeAssetUrl = bms_public_theme_asset_url('assets/css/theme.css', 'default');
+    if (!is_array($defaultThemeProbe)
+        || ($defaultThemeProbe['version'] ?? '') !== '1.9.1'
+        || !str_contains($defaultThemeAssetUrl, 'v=1.9.1')
+        || str_contains($defaultThemeAssetUrl, 'v=' . rawurlencode($rootVersion))) {
+        bm_smoke_fail($failures, 'Public theme assets must use the theme manifest version as their cache revision.');
+    }
+
+
+    // v0.5.119 keeps the two materially different declarative proof designs
+    // as internal regression fixtures instead of bundled/user-selectable themes.
+    // The fixtures continue to validate all four Schema 1 surfaces without
+    // appearing in Theme Manager or public theme assets.
+    $proofFixtureBase = $root . '/scripts/fixtures/declarative-themes';
+    $proofThemes = [
+        'profile-editorial' => [
+            'root_group' => 'editorial-profile',
+            'stream_root_group' => 'editorial-stream-card',
+            'responsive_css' => '@media (max-width: 780px)',
+            'stream_responsive_css' => '@media (max-width: 640px)',
+            'theme_version' => '1.3.1',
+            'hardening_css' => '@media (max-width: 420px)',
+            'stream_css' => '/* Theme Architecture 2.0 proof: Editorial Stream Cards */',
+            'header_root_group' => 'editorial-site-header',
+            'header_css' => '/* Declarative Site Header proof: editorial masthead with always-visible navigation. */',
+            'header_toggle' => false,
+            'home_root_group' => 'editorial-home',
+            'home_css' => '/* Declarative Home proof: reading-first editorial composition. */',
+            'site_hardening_css' => '/* Site Composition hardening: shared Header + Home containment. */',
+        ],
+        'profile-split' => [
+            'root_group' => 'split-profile',
+            'stream_root_group' => 'split-stream-card',
+            'responsive_css' => '@media (max-width: 860px)',
+            'stream_responsive_css' => '@media (max-width: 760px)',
+            'theme_version' => '1.3.1',
+            'hardening_css' => '/* Declarative Profile width containment */',
+            'stream_css' => '/* Theme Architecture 2.0 proof: Split Stream Cards */',
+            'header_root_group' => 'split-site-header',
+            'header_css' => '/* Declarative Site Header proof: utility-first masthead with core-owned menu toggle. */',
+            'header_toggle' => true,
+            'home_root_group' => 'split-home',
+            'home_css' => '/* Declarative Home proof: workspace composition with a publish rail. */',
+            'site_hardening_css' => '/* Site Composition hardening: shared Header + Home containment. */',
+        ],
+    ];
+
+    if (bms_public_theme_bundled_slugs() !== ['default']) {
+        bm_smoke_fail($failures, 'Midnight Ledger must be the only bundled/protected theme after consolidation.');
+    }
+    if (!bms_public_theme_is_retired_bundled_manifest(['slug' => 'profile-editorial', 'package' => 'bundled-declarative-proof-theme'])
+        || bms_public_theme_is_retired_bundled_manifest(['slug' => 'profile-editorial', 'package' => 'third-party-theme'])
+        || bms_public_theme_is_retired_bundled_manifest(['slug' => 'custom-editorial', 'package' => 'bundled-declarative-proof-theme'])) {
+        bm_smoke_fail($failures, 'Retired proof-theme detection must require both a former proof slug and the exact Bonumark bundled marker.');
+    }
+    $discoveredThemePackages = bms_public_theme_packages();
+    if (array_diff(['profile-editorial', 'profile-split'], array_keys($discoveredThemePackages)) !== ['profile-editorial', 'profile-split']) {
+        bm_smoke_fail($failures, 'Internal declarative regression fixtures must not be discovered as installed themes.');
+    }
+    foreach (['profile-editorial', 'profile-split'] as $retiredProofSlug) {
+        if (is_dir($root . '/_bonumark_stream/themes/' . $retiredProofSlug)
+            || is_dir($root . '/assets/themes/' . $retiredProofSlug)
+            || bms_public_theme_is_bundled($retiredProofSlug)) {
+            bm_smoke_fail($failures, 'Retired proof themes must not remain bundled or publicly mirrored: ' . $retiredProofSlug);
+        }
+    }
+
+    $proofRenderedProfiles = [];
+    $proofRenderedStreamCards = [];
+    $proofRenderedSiteHeaders = [];
+    $proofRenderedHomes = [];
+    $proofFixtureThemes = [];
+    foreach ($proofThemes as $proofSlug => $proofExpectation) {
+        $fixtureRoot = $proofFixtureBase . '/' . $proofSlug;
+        $proofTheme = bms_read_theme_manifest_file($fixtureRoot . '/theme.json', $proofSlug);
+        if (!is_array($proofTheme)) {
+            bm_smoke_fail($failures, 'Internal declarative regression fixture manifest is missing: ' . $proofSlug);
+            continue;
+        }
+        $proofFixtureThemes[$proofSlug] = $proofTheme;
+        $proofHealth = bms_public_theme_package_health_at_paths($proofTheme, $fixtureRoot, $fixtureRoot);
+        if (($proofTheme['version'] ?? '') !== $proofExpectation['theme_version']) {
+            bm_smoke_fail($failures, 'Internal declarative regression fixture revision is stale: ' . $proofSlug);
+        }
+        if (empty($proofHealth['valid'])
+            || ($proofHealth['renderer'] ?? '') !== 'Declarative Layouts'
+            || ($proofHealth['layout_schema'] ?? null) !== 1
+            || ($proofHealth['layout_surfaces'] ?? []) !== ['home', 'profile', 'site-header', 'stream-card']) {
+            bm_smoke_fail($failures, 'Internal declarative regression fixture does not pass Theme Health: ' . $proofSlug);
+        }
+
+        foreach (['profile', 'stream-card', 'site-header', 'home'] as $surface) {
+            $layoutPath = $fixtureRoot . '/' . (string)(($proofTheme['layouts'] ?? [])[$surface] ?? '');
+            $layout = json_decode((string)@file_get_contents($layoutPath), true);
+            if (!is_array($layout) || bms_theme_layout_document_errors($layout, $surface, 1) !== []) {
+                bm_smoke_fail($failures, 'Internal declarative regression fixture layout is invalid: ' . $proofSlug . ' / ' . $surface);
+            }
+        }
+
+        $renderedProof = bm_smoke_render_layout_fixture($fixtureRoot, 'profile', $layoutRenderData, $proofTheme);
+        $proofRenderedProfiles[$proofSlug] = is_string($renderedProof) ? $renderedProof : '';
+        if (!is_string($renderedProof)
+            || substr_count($renderedProof, 'data-bms-component=') !== 10
+            || substr_count($renderedProof, '<h1 id="profile-name">') !== 1
+            || substr_count($renderedProof, 'data-stream-media-viewer') !== 1
+            || !str_contains($renderedProof, 'data-bms-layout-group="' . $proofExpectation['root_group'] . '"')) {
+            bm_smoke_fail($failures, 'Internal declarative fixture did not render the complete Profile component/accessibility contract: ' . $proofSlug);
+        }
+        foreach (array_keys(bms_theme_layout_component_registry()['profile'] ?? []) as $componentName) {
+            $componentHtml = bms_render_core_public_component($componentName, $layoutRenderData);
+            if (trim($componentHtml) !== '' && !str_contains((string)$renderedProof, $componentHtml)) {
+                bm_smoke_fail($failures, 'Internal Profile fixture changed core component output instead of composition: ' . $proofSlug . ' / ' . $componentName);
+            }
+        }
+
+        $renderedStreamProof = bm_smoke_render_layout_fixture($fixtureRoot, 'stream-card', $streamLayoutRenderData, $proofTheme);
+        $proofRenderedStreamCards[$proofSlug] = is_string($renderedStreamProof) ? $renderedStreamProof : '';
+        if (!is_string($renderedStreamProof)
+            || substr_count($renderedStreamProof, 'data-bms-component=') !== 7
+            || !str_contains($renderedStreamProof, 'data-bms-layout="stream-card"')
+            || !str_contains($renderedStreamProof, 'data-bms-layout-group="' . $proofExpectation['stream_root_group'] . '"')
+            || !str_contains($renderedStreamProof, 'data-stream-quick-edit-form')
+            || !str_contains($renderedStreamProof, 'data-stream-like')
+            || !str_contains($renderedStreamProof, 'data-stream-actions-menu')) {
+            bm_smoke_fail($failures, 'Internal declarative fixture did not render the complete Stream Card component/behavior contract: ' . $proofSlug);
+        }
+        foreach (array_keys(bms_theme_layout_component_registry()['stream-card'] ?? []) as $componentName) {
+            $componentHtml = bms_render_core_public_component($componentName, $streamLayoutRenderData);
+            if (trim($componentHtml) !== '' && !str_contains((string)$renderedStreamProof, $componentHtml)) {
+                bm_smoke_fail($failures, 'Internal Stream Card fixture changed core component output instead of composition: ' . $proofSlug . ' / ' . $componentName);
+            }
+        }
+
+        $siteHeaderProofData = [
+            'site_name' => 'Header Proof',
+            'tagline' => 'Same core identity and navigation',
+            'tagline_html' => 'Same core identity and navigation',
+            'home_url' => '/',
+            'title_tag' => 'h1',
+            'preview_mode' => false,
+            'show_public_menu' => true,
+            'navigation_html' => '<nav class="site-nav stream-site-nav" id="site-primary-nav" aria-label="Primary navigation"><ul class="site-nav-list"><li><a href="/" aria-current="page">Home</a></li><li><a href="/profile/jim">Profile</a></li></ul></nav>',
+            'menu_label' => 'Menu',
+            'show_count_chip' => true,
+            'count_label' => '12 posts',
+        ];
+        $renderedHeaderProof = bm_smoke_render_layout_fixture($fixtureRoot, 'site-header', $siteHeaderProofData, $proofTheme);
+        $proofRenderedSiteHeaders[$proofSlug] = is_string($renderedHeaderProof) ? $renderedHeaderProof : '';
+        if (!is_string($renderedHeaderProof)
+            || !str_contains($renderedHeaderProof, 'data-bms-layout="site-header"')
+            || !str_contains($renderedHeaderProof, 'data-bms-layout-group="' . $proofExpectation['header_root_group'] . '"')
+            || substr_count($renderedHeaderProof, '<h1 class="site-title">') !== 1
+            || !str_contains($renderedHeaderProof, 'id="site-primary-nav"')
+            || !str_contains($renderedHeaderProof, 'aria-current="page"')
+            || !str_contains($renderedHeaderProof, '12 posts')) {
+            bm_smoke_fail($failures, 'Internal declarative fixture did not preserve the Site Header contract: ' . $proofSlug);
+        }
+        $hasHeaderToggle = str_contains((string)$renderedHeaderProof, 'data-stream-menu-toggle');
+        if ($hasHeaderToggle !== $proofExpectation['header_toggle']) {
+            bm_smoke_fail($failures, 'Internal Site Header fixture does not match its intended optional menu-toggle composition: ' . $proofSlug);
+        }
+
+        $homeProofData = [
+            'notices_html' => '<div class="stream-public-notices" role="status">Saved.</div>',
+            'composer_html' => '<section class="stream-compose" data-stream-composer><form><input type="hidden" name="_token" value="csrf-proof"><textarea name="body"></textarea></form></section>',
+            'pinned_posts_html' => '<section class="stream-pinned-posts"><article data-stream-card data-proof-post="pinned">Pinned card</article></section>',
+            'feed_html' => '<article data-stream-card data-proof-post="feed">Feed card</article>',
+            'pagination_html' => '<nav class="stream-pagination" data-stream-pagination><a href="/stream/page/2/">Load more</a></nav>',
+        ];
+        $renderedHomeProof = bm_smoke_render_layout_fixture($fixtureRoot, 'home', $homeProofData, $proofTheme);
+        $proofRenderedHomes[$proofSlug] = is_string($renderedHomeProof) ? $renderedHomeProof : '';
+        if (!is_string($renderedHomeProof)
+            || substr_count($renderedHomeProof, 'data-bms-component=') !== 5
+            || !str_contains($renderedHomeProof, 'data-bms-layout="home"')
+            || !str_contains($renderedHomeProof, 'data-bms-layout-group="' . $proofExpectation['home_root_group'] . '"')
+            || !str_contains($renderedHomeProof, 'data-stream-composer')
+            || !str_contains($renderedHomeProof, 'csrf-proof')
+            || !str_contains($renderedHomeProof, 'data-proof-post="pinned"')
+            || !str_contains($renderedHomeProof, 'data-proof-post="feed"')
+            || !str_contains($renderedHomeProof, 'data-stream-pagination')) {
+            bm_smoke_fail($failures, 'Internal declarative fixture did not preserve the complete Home contract: ' . $proofSlug);
+        }
+        foreach (array_keys(bms_theme_layout_component_registry()['home'] ?? []) as $componentName) {
+            $componentHtml = bms_render_core_public_component($componentName, $homeProofData);
+            if (trim($componentHtml) !== '' && !str_contains((string)$renderedHomeProof, $componentHtml)) {
+                bm_smoke_fail($failures, 'Internal Home fixture changed core component output instead of composition: ' . $proofSlug . ' / ' . $componentName);
+            }
+        }
+
+        $cssSource = (string)@file_get_contents($fixtureRoot . '/assets/css/theme.css');
+        $fixtureScreenshot = $fixtureRoot . '/assets/images/screenshot.svg';
+        if ($cssSource === '' || !is_file($fixtureScreenshot)
+            || !str_contains($cssSource, '.bms-layout-profile')
+            || !str_contains($cssSource, 'min-width: 0;')
+            || !str_contains($cssSource, 'overflow-wrap: anywhere;')
+            || !str_contains($cssSource, $proofExpectation['responsive_css'])
+            || !str_contains($cssSource, $proofExpectation['hardening_css'])
+            || !str_contains($cssSource, '.bms-layout-stream-card')
+            || !str_contains($cssSource, $proofExpectation['stream_css'])
+            || !str_contains($cssSource, $proofExpectation['stream_responsive_css'])
+            || !str_contains($cssSource, '.bms-layout-site-header')
+            || !str_contains($cssSource, $proofExpectation['header_css'])
+            || !str_contains($cssSource, '.bms-layout-home')
+            || !str_contains($cssSource, $proofExpectation['home_css'])
+            || !str_contains($cssSource, $proofExpectation['site_hardening_css'])) {
+            bm_smoke_fail($failures, 'Internal declarative regression fixture assets or responsive layout CSS are incomplete: ' . $proofSlug);
+        }
+    }
+
+    if (isset($proofRenderedProfiles['profile-editorial'], $proofRenderedProfiles['profile-split'])) {
+        $editorial = $proofRenderedProfiles['profile-editorial'];
+        $split = $proofRenderedProfiles['profile-split'];
+        $editorialAbout = strpos($editorial, 'data-bms-component="profile.about"');
+        $editorialDetails = strpos($editorial, 'data-bms-component="profile.details"');
+        $splitAbout = strpos($split, 'data-bms-component="profile.about"');
+        $splitDetails = strpos($split, 'data-bms-component="profile.details"');
+        if ($editorial === $split
+            || $editorialAbout === false || $editorialDetails === false || $editorialAbout > $editorialDetails
+            || $splitAbout === false || $splitDetails === false || $splitDetails > $splitAbout) {
+            bm_smoke_fail($failures, 'Internal dual Profile fixtures must preserve materially different validated composition.');
+        }
+    }
+
+    if (isset($proofRenderedStreamCards['profile-editorial'], $proofRenderedStreamCards['profile-split'])) {
+        $editorialStream = $proofRenderedStreamCards['profile-editorial'];
+        $splitStream = $proofRenderedStreamCards['profile-split'];
+        $editorialBody = strpos($editorialStream, 'data-bms-component="stream-card.body"');
+        $editorialHeader = strpos($editorialStream, 'data-bms-component="stream-card.header"');
+        $splitBody = strpos($splitStream, 'data-bms-component="stream-card.body"');
+        $splitHeader = strpos($splitStream, 'data-bms-component="stream-card.header"');
+        if ($editorialStream === $splitStream
+            || $editorialBody === false || $editorialHeader === false || $editorialBody > $editorialHeader
+            || $splitBody === false || $splitHeader === false || $splitHeader > $splitBody) {
+            bm_smoke_fail($failures, 'Internal dual Stream Card fixtures must preserve materially different validated composition.');
+        }
+    }
+
+    if (isset($proofRenderedSiteHeaders['profile-editorial'], $proofRenderedSiteHeaders['profile-split'])) {
+        $editorialHeaderProof = $proofRenderedSiteHeaders['profile-editorial'];
+        $splitHeaderProof = $proofRenderedSiteHeaders['profile-split'];
+        $editorialNavigation = strpos($editorialHeaderProof, 'data-bms-component="site-header.primary-navigation"');
+        $editorialCount = strpos($editorialHeaderProof, 'data-bms-component="site-header.stream-count"');
+        $splitNavigation = strpos($splitHeaderProof, 'data-bms-component="site-header.primary-navigation"');
+        $splitCount = strpos($splitHeaderProof, 'data-bms-component="site-header.stream-count"');
+        if ($editorialHeaderProof === $splitHeaderProof
+            || $editorialNavigation === false || $editorialCount === false || $editorialNavigation > $editorialCount
+            || $splitNavigation === false || $splitCount === false || $splitCount > $splitNavigation
+            || str_contains($editorialHeaderProof, 'data-stream-menu-toggle')
+            || !str_contains($splitHeaderProof, 'data-stream-menu-toggle')) {
+            bm_smoke_fail($failures, 'Internal dual Site Header fixtures must preserve materially different validated composition.');
+        }
+    }
+
+    if (isset($proofRenderedHomes['profile-editorial'], $proofRenderedHomes['profile-split'])) {
+        $editorialHomeProof = $proofRenderedHomes['profile-editorial'];
+        $splitHomeProof = $proofRenderedHomes['profile-split'];
+        $editorialFeed = strpos($editorialHomeProof, 'data-bms-component="home.feed"');
+        $editorialComposer = strpos($editorialHomeProof, 'data-bms-component="home.composer"');
+        $splitFeed = strpos($splitHomeProof, 'data-bms-component="home.feed"');
+        $splitComposer = strpos($splitHomeProof, 'data-bms-component="home.composer"');
+        if ($editorialHomeProof === $splitHomeProof
+            || $editorialFeed === false || $editorialComposer === false || $editorialFeed > $editorialComposer
+            || $splitFeed === false || $splitComposer === false || $splitComposer > $splitFeed) {
+            bm_smoke_fail($failures, 'Internal dual Home fixtures must preserve materially different validated composition.');
+        }
+    }
+
+    // Integrated Site Composition proof using internal fixtures. The nested
+    // Stream Card HTML is still the exact output of the core components.
+    foreach (['profile-editorial', 'profile-split'] as $proofSlug) {
+        $proofTheme = $proofFixtureThemes[$proofSlug] ?? null;
+        $fixtureRoot = $proofFixtureBase . '/' . $proofSlug;
+        $headerHtml = $proofRenderedSiteHeaders[$proofSlug] ?? '';
+        $cardHtml = $proofRenderedStreamCards[$proofSlug] ?? '';
+        if (!is_array($proofTheme) || $headerHtml === '' || $cardHtml === '') {
+            bm_smoke_fail($failures, 'Integrated Site Composition fixture is missing a required surface: ' . $proofSlug);
+            continue;
+        }
+
+        $nestedHomeData = [
+            'notices_html' => '<div class="stream-public-notices" role="status">Integrated proof notice.</div>',
+            'composer_html' => '<section class="stream-compose" data-stream-composer><form><input type="hidden" name="csrf_token" value="integrated-csrf"><textarea name="body"></textarea></form></section>',
+            'pinned_posts_html' => '<section class="stream-pinned-posts"><h2>Pinned</h2>' . $cardHtml . '</section>',
+            'feed_html' => $cardHtml . $cardHtml,
+            'pagination_html' => '<nav class="stream-pagination" data-stream-pagination><a href="/stream/page/2/">Load more</a></nav>',
+        ];
+        $nestedHomeHtml = bm_smoke_render_layout_fixture($fixtureRoot, 'home', $nestedHomeData, $proofTheme);
+        $combinedHtml = $headerHtml . (string)$nestedHomeHtml;
+        if (!is_string($nestedHomeHtml)
+            || substr_count($nestedHomeHtml, 'data-bms-layout="stream-card"') !== 3
+            || !str_contains($nestedHomeHtml, 'integrated-csrf')
+            || !str_contains($nestedHomeHtml, 'data-stream-quick-edit-form')
+            || !str_contains($nestedHomeHtml, 'data-stream-like')
+            || !str_contains($nestedHomeHtml, 'data-stream-actions-menu')
+            || !str_contains($nestedHomeHtml, 'data-stream-pagination')
+            || substr_count($combinedHtml, '<h1') !== 1
+            || substr_count($combinedHtml, 'id="site-primary-nav"') !== 1) {
+            bm_smoke_fail($failures, 'Integrated Site Composition fixture failed to preserve nested application contracts: ' . $proofSlug);
+        }
+    }
+
+    $legacyDefaultTheme = bms_read_theme_manifest('default');
+    $midnightProfileHtml = is_array($legacyDefaultTheme)
+        ? bms_render_public_theme_layout_surface('profile', $layoutRenderData, $legacyDefaultTheme)
+        : null;
+    $midnightStreamHtml = is_array($legacyDefaultTheme)
+        ? bms_render_public_theme_layout_surface('stream-card', $streamLayoutRenderData, $legacyDefaultTheme)
+        : null;
+    $midnightHeaderHtml = is_array($legacyDefaultTheme)
+        ? bms_render_public_theme_layout_surface('site-header', $siteHeaderProofData, $legacyDefaultTheme)
+        : null;
+    $midnightHomeHtml = is_array($legacyDefaultTheme)
+        ? bms_render_public_theme_layout_surface('home', $homeProofData, $legacyDefaultTheme)
+        : null;
+    if (!is_array($legacyDefaultTheme)
+        || ($legacyDefaultTheme['layout_schema'] ?? null) !== 1
+        || ($legacyDefaultTheme['layouts']['profile'] ?? '') !== 'layouts/profile.json'
+        || ($legacyDefaultTheme['layouts']['stream-card'] ?? '') !== 'layouts/stream-card.json'
+        || ($legacyDefaultTheme['layouts']['site-header'] ?? '') !== 'layouts/site-header.json'
+        || ($legacyDefaultTheme['layouts']['home'] ?? '') !== 'layouts/home.json'
+        || isset(($legacyDefaultTheme['settings'] ?? [])['show_status_chip'])
+        || isset(($legacyDefaultTheme['settings'] ?? [])['status_label'])
+        || isset(($legacyDefaultTheme['settings'] ?? [])['show_post_count'])
+        || !is_string($midnightHomeHtml)
+        || !str_contains($midnightHomeHtml, 'data-bms-layout-group="midnight-home"')
+        || !str_contains($midnightHomeHtml, 'data-bms-layout-group="midnight-home-publish"')
+        || !str_contains($midnightHomeHtml, 'data-bms-layout-group="midnight-home-timeline"')
+        || substr_count($midnightHomeHtml, 'data-bms-component=') !== 5
+        || strpos($midnightHomeHtml, 'data-bms-component="home.composer"') > strpos($midnightHomeHtml, 'data-bms-component="home.feed"')
+        || !is_string($midnightProfileHtml)
+        || !str_contains($midnightProfileHtml, 'data-bms-layout-group="midnight-profile"')
+        || !str_contains($midnightProfileHtml, 'data-bms-layout-group="midnight-profile-content"')
+        || !str_contains($midnightProfileHtml, 'data-bms-layout-group="midnight-profile-rail"')
+        || str_contains($midnightProfileHtml, 'data-bms-layout-group="midnight-profile-primary"')
+        || substr_count($midnightProfileHtml, 'data-bms-component=') !== 10
+        || strpos($midnightProfileHtml, 'data-bms-component="profile.about"') > strpos($midnightProfileHtml, 'data-bms-component="profile.featured"')
+        || strpos($midnightProfileHtml, 'data-bms-component="profile.featured"') > strpos($midnightProfileHtml, 'data-bms-component="profile.photos"')
+        || strpos($midnightProfileHtml, 'data-bms-component="profile.photos"') > strpos($midnightProfileHtml, 'data-bms-layout-group="midnight-profile-rail"')
+        || !is_string($midnightStreamHtml)
+        || !str_contains($midnightStreamHtml, 'data-bms-layout-group="midnight-stream-card-inner"')
+        || substr_count($midnightStreamHtml, 'data-bms-component=') !== 7
+        || !is_string($midnightHeaderHtml)
+        || !str_contains($midnightHeaderHtml, 'data-bms-layout-group="midnight-site-header"')
+        || !str_contains($midnightHeaderHtml, 'data-bms-component="site-header.site-identity"')
+        || !str_contains($midnightHeaderHtml, 'data-bms-component="site-header.menu-toggle"')
+        || !str_contains($midnightHeaderHtml, 'data-bms-component="site-header.primary-navigation"')
+        || str_contains($midnightHeaderHtml, 'data-bms-component="site-header.stream-count"')
+        || !str_contains($midnightHeaderHtml, 'data-stream-menu-toggle')
+        || substr_count($midnightHeaderHtml, 'id="site-primary-nav"') !== 1) {
+        bm_smoke_fail($failures, 'Midnight Ledger must use declarative Profile/Stream Card/Site Header/Home composition while omitting status/count Header chrome and preserving publish-first Home order.');
+    }
+    foreach (array_keys(bms_theme_layout_component_registry()['profile'] ?? []) as $componentName) {
+        $componentHtml = bms_render_core_public_component($componentName, $layoutRenderData);
+        if (trim($componentHtml) !== '' && !str_contains((string)$midnightProfileHtml, $componentHtml)) {
+            bm_smoke_fail($failures, 'Midnight Ledger Profile baseline changed core component output: ' . $componentName);
+        }
+    }
+    foreach (array_keys(bms_theme_layout_component_registry()['stream-card'] ?? []) as $componentName) {
+        $componentHtml = bms_render_core_public_component($componentName, $streamLayoutRenderData);
+        if (trim($componentHtml) !== '' && !str_contains((string)$midnightStreamHtml, $componentHtml)) {
+            bm_smoke_fail($failures, 'Midnight Ledger Stream Card baseline changed core component output: ' . $componentName);
+        }
+    }
+    foreach (array_keys(bms_theme_layout_component_registry()['home'] ?? []) as $componentName) {
+        $componentHtml = bms_render_core_public_component($componentName, $homeProofData);
+        if (trim($componentHtml) !== '' && !str_contains((string)$midnightHomeHtml, $componentHtml)) {
+            bm_smoke_fail($failures, 'Midnight Ledger Home composition changed core component output: ' . $componentName);
+        }
+    }
+    $midnightCss = (string)@file_get_contents($root . '/_bonumark_stream/themes/default/assets/css/theme.css');
+    if (!str_contains($midnightCss, '/* Midnight Ledger declarative baseline: Profile + Stream Card.')
+        || !str_contains($midnightCss, '.bms-layout-group-midnight-profile-hero')
+        || !str_contains($midnightCss, '.bms-layout-group-midnight-stream-card-main')
+        || !str_contains($midnightCss, 'Midnight Ledger Stream & Mobile Refinement 1.7.0')
+        || !str_contains($midnightCss, 'Midnight Ledger Home Composition 1.8.0')
+        || !str_contains($midnightCss, '.bms-layout-group-midnight-home-publish')
+        || !str_contains($midnightCss, '.bms-layout-group-midnight-home-timeline')
+        || !str_contains($midnightCss, '.bms-layout-group-midnight-site-header-bar')
+        || !str_contains($midnightCss, '.stream-link-preview:not(.no-image)')
+        || !str_contains($midnightCss, 'Midnight Ledger Responsive Polish 1.8.1')
+        || !str_contains($midnightCss, '@media (min-width: 360px) and (max-width: 760px)')
+        || !str_contains($midnightCss, '.ledger-single-shell .stream-single-card .stream-card-content')
+        || !str_contains($midnightCss, 'height: 120px;')
+        || !str_contains($midnightCss, 'Midnight Ledger Canvas Alignment 1.8.2')
+        || !str_contains($midnightCss, 'context-home-stream-home .ledger-header')
+        || !str_contains($midnightCss, 'context-stream-single .ledger-header')
+        || !str_contains($midnightCss, 'context-stream-archive .ledger-header')
+        || !str_contains($midnightCss, 'context-search-page .ledger-header')
+        || !str_contains($midnightCss, 'context-profile-page .ledger-header')
+        || !str_contains($midnightCss, 'width: min(100%, 860px);')
+        || !str_contains($midnightCss, 'width: min(100%, 1040px);')
+        || !str_contains($midnightCss, 'Midnight Ledger Profile Banner Alignment 1.8.3')
+        || !str_contains($midnightCss, '[data-bms-component="profile.cover"]')
+        || !str_contains($midnightCss, 'object-position: 50% 50%;')
+        || !str_contains($midnightCss, 'Midnight Ledger Profile Content Resilience 1.9.0')
+        || !str_contains($midnightCss, 'Midnight Ledger Empty Profile State 1.9.1')
+        || !str_contains($midnightCss, 'margin: 0 auto;')
+        || !str_contains($midnightCss, '[data-bms-component="profile.cover"] + .bms-layout-group-midnight-profile-hero')
+        || !str_contains($midnightCss, 'margin-top: -3.5rem;')
+        || !str_contains($midnightCss, 'margin-top: -2rem;')
+        || !str_contains($midnightCss, 'grid-template-areas:')
+        || !str_contains($midnightCss, '"about rail"')
+        || !str_contains($midnightCss, '"featured featured"')
+        || !str_contains($midnightCss, '"photos photos"')
+        || !str_contains($midnightCss, '.profile-photo-gallery-count-4')
+        || !str_contains($midnightCss, 'grid-template-columns: repeat(4, minmax(0, 1fr));')) {
+        bm_smoke_fail($failures, 'Midnight Ledger declarative/refinement/canvas CSS bridge is incomplete.');
+    }
+
+
+    $declarativeLayoutDocs = (string)@file_get_contents($root . '/docs/DECLARATIVE-LAYOUTS.md');
+    $documentedLayoutApis = array_merge(
+        bms_theme_layout_supported_surfaces(),
+        array_keys(bms_theme_layout_component_registry()['profile'] ?? []),
+        array_keys(bms_theme_layout_component_registry()['stream-card'] ?? []),
+        array_keys(bms_theme_layout_component_registry()['site-header'] ?? []),
+        array_keys(bms_theme_layout_component_registry()['home'] ?? [])
+    );
+    if ($declarativeLayoutDocs === '') {
+        bm_smoke_fail($failures, 'Stable Declarative Layouts theme-author documentation is missing.');
+    } else {
+        foreach ($documentedLayoutApis as $layoutApi) {
+            if (!str_contains($declarativeLayoutDocs, '`' . $layoutApi . '`')) {
+                bm_smoke_fail($failures, 'Stable Declarative Layouts documentation is missing public API identifier: ' . $layoutApi);
+            }
+        }
+        foreach (['no expression language', 'Legacy fallback', 'Theme Health', 'Theme versioning'] as $requiredDocBoundary) {
+            if (stripos($declarativeLayoutDocs, $requiredDocBoundary) === false) {
+                bm_smoke_fail($failures, 'Stable Declarative Layouts documentation is missing compatibility/safety boundary: ' . $requiredDocBoundary);
+            }
+        }
+    }
+
+    if (!str_contains($profileRendererSource, 'function bms_generate_static_site_index')
+        || !str_contains($profileRendererSource, 'bms_render_stream_index($pages)')
+        || !str_contains($profileRendererSource, "bms_render_stream_index(\$pages, false, 1, 'archive')")) {
+        bm_smoke_fail($failures, 'Static Site Export must continue sharing the normal Home/Stream renderer rather than introducing a parallel declarative rendering path.');
+    }
+}
+
+if (!str_contains($profileThemesSource, "require_once __DIR__ . '/theme-layouts.php';")
+    || !str_contains($profileThemesSource, 'bms_theme_layout_manifest_errors($decoded)')
+    || !str_contains($profileThemesSource, "\$decoded['layout_aware'] = \$layoutManifest['layout_aware'];")) {
+    bm_smoke_fail($failures, 'Theme manifest reader is not wired to the inert declarative layout foundation.');
+}
+if (!str_contains($profileTemplate, "bms_render_public_theme_layout_surface('profile', \$data, \$profileTheme)")
+    || !str_contains((string)@file_get_contents($themeLayoutsPath), 'data-bms-layout=')
+    || !str_contains((string)@file_get_contents($themeLayoutsPath), 'data-bms-component=')) {
+    bm_smoke_fail($failures, 'Profile template is not wired to the validated declarative composition renderer and stable layout/component hooks.');
+}
+
+$expectedProfileComponents = [
+    'profile.cover' => 'profile/cover.php',
+    'profile.avatar' => 'profile/avatar.php',
+    'profile.identity' => 'profile/identity.php',
+    'profile.about' => 'profile/about.php',
+    'profile.featured' => 'profile/featured.php',
+    'profile.photos' => 'profile/photos.php',
+    'profile.now' => 'profile/now.php',
+    'profile.interests' => 'profile/interests.php',
+    'profile.links' => 'profile/links.php',
+    'profile.details' => 'profile/details.php',
+];
+foreach ($expectedProfileComponents as $componentName => $componentReference) {
+    $definition = function_exists('bms_theme_layout_component_definition') ? bms_theme_layout_component_definition($componentName) : null;
+    $componentPath = $root . '/_bonumark_stream/app/views/default/components/' . $componentReference;
+    if (!is_array($definition)
+        || ($definition['template'] ?? '') !== $componentReference
+        || !is_file($componentPath)
+        || !str_contains($profileTemplate, "bms_render_core_public_component('" . $componentName . "', \$data)")) {
+        bm_smoke_fail($failures, 'Profile core component extraction is incomplete for: ' . $componentName);
+    }
+}
+if (count($profileComponentFiles) !== 10) {
+    bm_smoke_fail($failures, 'Profile component extraction must contain exactly ten registered core component files.');
+}
+if (!str_contains($profileTemplate, '<section class="profile-hero ledger-profile-hero" aria-labelledby="profile-name">')
+    || !str_contains($profileTemplate, "bms_render_core_public_component('profile.avatar', \$data)")
+    || !str_contains($profileTemplate, "bms_render_core_public_component('profile.identity', \$data)")) {
+    bm_smoke_fail($failures, 'Legacy Profile fallback must keep the existing hero wrapper around avatar and identity components.');
+}
+foreach (['bms_db(', 'bms_table(', 'bms_setting_or_config(', '$_POST', '$_GET', '$_FILES'] as $forbiddenComponentFetch) {
+    if (str_contains($profileComponentsSource, $forbiddenComponentFetch)) {
+        bm_smoke_fail($failures, 'Profile core components must render prepared data only and must not fetch application state: ' . $forbiddenComponentFetch);
+    }
+}
+if (!str_contains((string)@file_get_contents($themeLayoutsPath), 'function bms_render_core_public_component(')
+    || !str_contains((string)@file_get_contents($themeLayoutsPath), "'template' => 'profile/cover.php'")
+    || !str_contains((string)@file_get_contents($themeLayoutsPath), "'template' => 'profile/details.php'")) {
+    bm_smoke_fail($failures, 'Core component registry is missing Profile template mappings or the core component renderer.');
+}
+
+$expectedStreamCardComponents = [
+    'stream-card.avatar' => 'stream-card/avatar.php',
+    'stream-card.header' => 'stream-card/header.php',
+    'stream-card.body' => 'stream-card/body.php',
+    'stream-card.location' => 'stream-card/location.php',
+    'stream-card.link-preview' => 'stream-card/link-preview.php',
+    'stream-card.media' => 'stream-card/media.php',
+    'stream-card.actions' => 'stream-card/actions.php',
+];
+foreach ($expectedStreamCardComponents as $componentName => $componentReference) {
+    $definition = function_exists('bms_theme_layout_component_definition') ? bms_theme_layout_component_definition($componentName) : null;
+    $componentPath = $root . '/_bonumark_stream/app/views/default/components/' . $componentReference;
+    if (!is_array($definition)
+        || ($definition['template'] ?? '') !== $componentReference
+        || ($definition['surface'] ?? '') !== 'stream-card'
+        || !is_file($componentPath)
+        || !str_contains($cardTemplate, "bms_render_core_public_component('" . $componentName . "', \$data)")) {
+        bm_smoke_fail($failures, 'Stream Card core component extraction is incomplete for: ' . $componentName);
+    }
+}
+if (count($streamCardComponentFiles) !== 7) {
+    bm_smoke_fail($failures, 'Stream Card component extraction must contain exactly seven registered core component files.');
+}
+if (!in_array('stream-card', bms_theme_layout_supported_surfaces(), true)
+    || !str_contains($cardTemplate, "bms_render_public_theme_layout_surface('stream-card', \$data, \$cardTheme)")) {
+    bm_smoke_fail($failures, 'Stream Card template is not wired to the validated Schema 1 declarative composition surface.');
+}
+if (!str_contains($cardTemplate, '<div class="stream-card-inner">')
+    || !str_contains($cardTemplate, '<div class="stream-card-main">')
+    || !str_contains($cardTemplate, "bms_render_core_public_component('stream-card.avatar', \$data)")
+    || !str_contains($cardTemplate, "bms_render_core_public_component('stream-card.header', \$data)")
+    || !str_contains($cardTemplate, "bms_render_core_public_component('stream-card.body', \$data)")
+    || !str_contains($cardTemplate, "bms_render_core_public_component('stream-card.actions', \$data)")) {
+    bm_smoke_fail($failures, 'Legacy Stream Card template must keep the existing article/inner/main shell around extracted components.');
+}
+foreach (['bms_db(', 'bms_table(', 'bms_setting_or_config(', '$_POST', '$_GET', '$_FILES'] as $forbiddenStreamComponentFetch) {
+    if (str_contains($streamCardComponentsSource, $forbiddenStreamComponentFetch)) {
+        bm_smoke_fail($failures, 'Stream Card core components must render prepared data only and must not fetch application state: ' . $forbiddenStreamComponentFetch);
+    }
+}
+foreach (['data-stream-quick-edit-content', 'data-stream-quick-edit-form', 'data-stream-like', 'data-stream-actions-menu', 'data-stream-trash-form', 'stream-pin-form'] as $requiredStreamBehaviorHook) {
+    if (!str_contains($streamCardComponentsSource, $requiredStreamBehaviorHook)) {
+        bm_smoke_fail($failures, 'Stream Card extraction lost core behavior hook: ' . $requiredStreamBehaviorHook);
+    }
+}
+if (!str_contains($themeInstaller, 'function bms_theme_installer_manifest_layout_refs')
+    || !str_contains($themeInstaller, "bms_theme_installer_copy_file(\$privateRoot . '/' . \$layout, \$privateStage . '/' . \$layout)")
+    || !str_contains($themeInstaller, 'bms_theme_layout_file_errors($manifest, $privateRoot)')) {
+    bm_smoke_fail($failures, 'Theme installer is not copying and validating only declared private layout JSON files.');
+}
+if (!str_contains($themesAdmin, '<dt>Renderer</dt>')
+    || !str_contains($themeDetailsAdmin, 'Declarative layouts')
+    || !str_contains($themeDetailsAdmin, '<dt>Layout schema</dt>')
+    || !str_contains($themeInstallAdmin, 'layouts/*.json')) {
+    bm_smoke_fail($failures, 'Theme Manager, details, or install guidance is missing Declarative Layout reporting.');
+}
+
 foreach (glob($root . '/_bonumark_stream/themes/*/theme.json') ?: [] as $themeManifest) {
     $theme = json_decode((string)file_get_contents($themeManifest), true);
     $themeName = basename(dirname($themeManifest));
@@ -1387,6 +2855,105 @@ foreach ($forbiddenPaths as $relative) {
 
 // Pinned-post release checks. These protect the core-owned pin boundary
 // without requiring a live database during package smoke testing.
+
+// v0.5.108 Declarative Home Composition: expose the prepared Home component
+// family through Schema 1 while preserving the complete legacy fallback.
+if (!in_array('home', bms_theme_layout_supported_surfaces(), true)) {
+    bm_smoke_fail($failures, 'v0.5.108 must enable Home as a Schema 1 declarative surface.');
+}
+$homeExpectedComponents = [
+    'home.notices' => 'home/notices.php',
+    'home.composer' => 'home/composer.php',
+    'home.pinned-posts' => 'home/pinned-posts.php',
+    'home.feed' => 'home/feed.php',
+    'home.pagination' => 'home/pagination.php',
+];
+foreach ($homeExpectedComponents as $componentName => $templatePath) {
+    $definition = bms_theme_layout_component_definition($componentName);
+    if (!is_array($definition)
+        || ($definition['surface'] ?? '') !== 'home'
+        || empty($definition['required'])
+        || (int)($definition['max'] ?? 0) !== 1
+        || ($definition['template'] ?? '') !== $templatePath) {
+        bm_smoke_fail($failures, 'Home component registry contract is incorrect for ' . $componentName . '.');
+    }
+}
+if (count($homeComponentFiles) !== 5) {
+    bm_smoke_fail($failures, 'Declarative Home composition must keep exactly five core-owned Home component files.');
+}
+foreach (['bms_db(', 'bms_table(', 'bms_setting_or_config(', '$_POST', '$_GET', '$_FILES', '$_SERVER'] as $forbiddenHomeComponentText) {
+    if (str_contains($homeComponentsSource, $forbiddenHomeComponentText)) {
+        bm_smoke_fail($failures, 'Home components must render prepared data only and may not fetch application/request state: ' . $forbiddenHomeComponentText);
+    }
+}
+$homeComponentProbeData = [
+    'notices_html' => '<div class="stream-public-notices" role="status">Saved.</div>',
+    'composer_html' => '<section data-stream-composer>Composer</section>',
+    'pinned_posts_html' => '<section class="stream-pinned-posts">Pinned</section>',
+    'feed_html' => '<article data-stream-card>Post</article>',
+    'pagination_html' => '<nav class="stream-pagination">More</nav>',
+];
+$homeNoticesProbe = bms_render_core_public_component('home.notices', $homeComponentProbeData);
+$homeComposerProbe = bms_render_core_public_component('home.composer', $homeComponentProbeData);
+$homePinnedProbe = bms_render_core_public_component('home.pinned-posts', $homeComponentProbeData);
+$homeFeedProbe = bms_render_core_public_component('home.feed', $homeComponentProbeData);
+$homePaginationProbe = bms_render_core_public_component('home.pagination', $homeComponentProbeData);
+if ($homeNoticesProbe !== $homeComponentProbeData['notices_html']
+    || $homeComposerProbe !== $homeComponentProbeData['composer_html']
+    || $homePinnedProbe !== $homeComponentProbeData['pinned_posts_html']
+    || $homePaginationProbe !== $homeComponentProbeData['pagination_html']) {
+    bm_smoke_fail($failures, 'Home atomic components do not preserve prepared core HTML.');
+}
+if (!str_contains($homeFeedProbe, '<section class="stream-feed ledger-stream-feed" aria-label="Stream posts">')
+    || !str_contains($homeFeedProbe, $homeComponentProbeData['feed_html'])) {
+    bm_smoke_fail($failures, 'home.feed must own the core semantic Stream region around prepared feed/empty-state HTML.');
+}
+$homeManifestProbe = [
+    'name' => 'Home Composition Probe',
+    'slug' => 'home-composition-probe',
+    'version' => '1.0.0',
+    'layout_schema' => 1,
+    'layouts' => ['home' => 'layouts/home.json'],
+];
+if (bms_theme_layout_manifest_errors($homeManifestProbe) !== []) {
+    bm_smoke_fail($failures, 'v0.5.108 must accept themes that opt into the supported Home surface.');
+}
+$validHomeLayoutProbe = [
+    'surface' => 'home',
+    'root' => [
+        'type' => 'group',
+        'name' => 'home-probe',
+        'children' => [
+            ['type' => 'component', 'name' => 'home.notices'],
+            ['type' => 'component', 'name' => 'home.composer'],
+            ['type' => 'component', 'name' => 'home.pinned-posts'],
+            ['type' => 'component', 'name' => 'home.feed'],
+            ['type' => 'component', 'name' => 'home.pagination'],
+        ],
+    ],
+];
+if (bms_theme_layout_document_errors($validHomeLayoutProbe, 'home', 1) !== []) {
+    bm_smoke_fail($failures, 'Schema 1 Home layout validation rejected the complete required component contract.');
+}
+$invalidHomeLayoutProbe = $validHomeLayoutProbe;
+$invalidHomeLayoutProbe['root']['children'][3]['name'] = 'home.search';
+if (!str_contains(implode(' ', bms_theme_layout_document_errors($invalidHomeLayoutProbe, 'home', 1)), 'unknown component')) {
+    bm_smoke_fail($failures, 'Schema 1 Home validation must reject unsupported/invented Home components.');
+}
+if (!str_contains($homeTemplate, "bms_render_public_theme_layout_surface('home', \$data, \$homeTheme)")
+    || !str_contains($homeTemplate, "if (\$declarativeHomeHtml !== null)")
+    || !str_contains($homeTemplate, "(\$data['items_html'] ?? '')")) {
+    bm_smoke_fail($failures, 'Home template must use declarative composition when supplied and preserve the existing legacy Home fallback.');
+}
+foreach (["'notices_html' => \$notices", "'pinned_posts_html' => \$pinnedItems", "'feed_html' => \$feedItems", "'items_html' => \$items"] as $requiredHomePreparedBoundary) {
+    if (!str_contains($rendererApp, $requiredHomePreparedBoundary)) {
+        bm_smoke_fail($failures, 'Home renderer is missing prepared composition boundary: ' . $requiredHomePreparedBoundary);
+    }
+}
+if (!str_contains($rendererApp, '$items = $notices . $pinnedItems . $feedItems;')) {
+    bm_smoke_fail($failures, 'Home renderer must preserve the exact legacy items_html concatenation for non-declarative themes.');
+}
+
 $pinnedMigrationPath = $root . '/_bonumark_stream/migrations/0008_pinned_posts.php';
 if (!is_file($pinnedMigrationPath)) {
     bm_smoke_fail($failures, 'Pinned-post migration is missing.');
@@ -1459,12 +3026,12 @@ foreach (['status=pinned', 'Pin to Stream', 'Unpin from Stream', 'Pinned <span><
     }
 }
 foreach (['pin_action', 'pin_csrf', 'stream-pin-form'] as $requiredPinnedCardText) {
-    if (!str_contains($cardTemplate, $requiredPinnedCardText)) {
+    if (!str_contains($streamCardPublicSource, $requiredPinnedCardText)) {
         bm_smoke_fail($failures, 'Pinned-post front-end controls are missing: ' . $requiredPinnedCardText);
     }
 }
 foreach (['stream-post-actions-menu', 'stream-post-actions-toggle', 'stream-post-actions-popover', 'stream-post-action-item', 'Post options'] as $requiredPostMenuText) {
-    if (!str_contains($cardTemplate, $requiredPostMenuText)) {
+    if (!str_contains($streamCardPublicSource, $requiredPostMenuText)) {
         bm_smoke_fail($failures, 'Front-end post actions menu is missing: ' . $requiredPostMenuText);
     }
 }

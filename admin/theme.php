@@ -92,7 +92,7 @@ bms_admin_header('Themes', [
       $slug = function_exists('bms_theme_slug') ? bms_theme_slug($key) : $key;
       $screenshotUrl = function_exists('bms_public_theme_screenshot_url') ? bms_public_theme_screenshot_url($theme) : '';
       $health = is_array($theme['health'] ?? null) ? $theme['health'] : (function_exists('bms_public_theme_package_health') ? bms_public_theme_package_health($theme) : ['valid' => true, 'label' => 'Ready', 'errors' => [], 'warnings' => []]);
-      $summary = function_exists('bms_public_theme_manager_summary') ? bms_public_theme_manager_summary($theme) : ['valid' => !empty($health['valid']), 'asset_total' => 0, 'asset_missing' => 0, 'setting_total' => count((array)($theme['settings'] ?? [])), 'support_total' => 0];
+      $summary = function_exists('bms_public_theme_manager_summary') ? bms_public_theme_manager_summary($theme) : ['valid' => !empty($health['valid']), 'asset_total' => 0, 'asset_missing' => 0, 'setting_total' => count((array)($theme['settings'] ?? [])), 'support_total' => 0, 'renderer' => 'Legacy Core Renderer', 'layout_total' => 0];
       $isActive = $slug === $activePackage;
       $isValidTheme = !empty($summary['valid']);
       $deleteStatus = function_exists('bms_public_theme_delete_status') ? bms_public_theme_delete_status($slug) : ['can_delete' => false];
@@ -126,8 +126,10 @@ bms_admin_header('Themes', [
         <dl class="appearance-theme-facts">
           <div><dt>Version</dt><dd><?= htmlspecialchars((string)($theme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></dd></div>
           <div><dt>Author</dt><dd><?= htmlspecialchars((string)($theme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+          <div><dt>Renderer</dt><dd><?= htmlspecialchars((string)($summary['renderer'] ?? 'Legacy Core Renderer'), ENT_QUOTES, 'UTF-8') ?></dd></div>
           <div><dt>Assets</dt><dd><?= (int)($summary['asset_total'] ?? 0) ?></dd></div>
           <div><dt>Settings</dt><dd><?= (int)($summary['setting_total'] ?? 0) ?></dd></div>
+          <div><dt>Layouts</dt><dd><?= (int)($summary['layout_total'] ?? 0) ?></dd></div>
         </dl>
         <?php if ($healthErrors): ?>
           <ul class="appearance-issue-list compact">

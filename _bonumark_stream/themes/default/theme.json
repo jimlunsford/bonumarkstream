@@ -1,9 +1,9 @@
 {
   "name": "Midnight Ledger",
   "slug": "default",
-  "version": "1.2.7",
+  "version": "1.9.1",
   "author": "Bonumark",
-  "description": "The bundled Bonumark Stream reference theme. Midnight Ledger is a code-free presentation theme built from metadata, settings, CSS, images, and a screenshot while Bonumark Stream core owns all application behavior.",
+  "description": "The bundled Bonumark Stream default theme. Midnight Ledger uses validated Declarative Layout Schema 1 composition across Profile, Stream Card, Site Header, and Home with a refined dark editorial presentation, responsive polish, surface-aligned canvases, and a content-resilient Profile that keeps About/supporting information balanced above full-width Featured and Photos sections while Bonumark Stream core owns all application behavior.",
   "screenshot": "assets/images/screenshot.svg",
   "assets": {
     "css": [
@@ -27,7 +27,6 @@
     "composer": true,
     "pagination": true,
     "pages": true,
-    "profile_layouts": true,
     "reference_theme": true,
     "link_previews": true,
     "pinned_posts": true,
@@ -66,24 +65,6 @@
         "wide": "Wide"
       }
     },
-    "show_status_chip": {
-      "type": "checkbox",
-      "label": "Show header status",
-      "description": "Display Midnight Ledger's optional header status indicator.",
-      "default": "1"
-    },
-    "status_label": {
-      "type": "text",
-      "label": "Header status label",
-      "description": "Short text shown inside Midnight Ledger's optional header status indicator.",
-      "default": "Live microblog"
-    },
-    "show_post_count": {
-      "type": "checkbox",
-      "label": "Show post count",
-      "description": "Display Midnight Ledger's optional published-post counter.",
-      "default": "1"
-    },
     "show_page_updated_date": {
       "type": "checkbox",
       "label": "Show page updated date",
@@ -97,5 +78,12 @@
       "default": "Menu"
     }
   },
-  "package": "bundled-code-free-reference-theme"
+  "package": "bundled-code-free-reference-theme",
+  "layout_schema": 1,
+  "layouts": {
+    "profile": "layouts/profile.json",
+    "stream-card": "layouts/stream-card.json",
+    "site-header": "layouts/site-header.json",
+    "home": "layouts/home.json"
+  }
 }

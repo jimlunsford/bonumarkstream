@@ -40,6 +40,7 @@ $isActive = $slug === $activeSlug;
 $health = is_array($theme['health'] ?? null) ? $theme['health'] : bms_public_theme_package_health($theme);
 $summary = function_exists('bms_public_theme_manager_summary') ? bms_public_theme_manager_summary($theme) : ['valid' => !empty($health['valid'])];
 $assetRows = function_exists('bms_public_theme_asset_inventory') ? bms_public_theme_asset_inventory($theme) : [];
+$layoutRows = function_exists('bms_public_theme_layout_inventory') ? bms_public_theme_layout_inventory($theme) : [];
 $supports = function_exists('bms_public_theme_supports_list') ? bms_public_theme_supports_list($theme) : [];
 $settings = is_array($theme['settings'] ?? null) ? $theme['settings'] : [];
 $screenshotUrl = function_exists('bms_public_theme_screenshot_url') ? bms_public_theme_screenshot_url($theme) : '';
@@ -100,6 +101,9 @@ bms_admin_header('Theme Details', [
       <div><dt>Slug</dt><dd><code><?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?></code></dd></div>
       <div><dt>Version</dt><dd><?= htmlspecialchars((string)($theme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></dd></div>
       <div><dt>Author</dt><dd><?= htmlspecialchars((string)($theme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+      <div><dt>Renderer</dt><dd><?= htmlspecialchars((string)($summary['renderer'] ?? 'Legacy Core Renderer'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+      <div><dt>Layout schema</dt><dd><?= !empty($summary['layout_aware']) ? htmlspecialchars((string)($summary['layout_schema'] ?? ''), ENT_QUOTES, 'UTF-8') : 'Not declared' ?></dd></div>
+      <div><dt>Layouts</dt><dd><?= (int)($summary['layout_total'] ?? count($layoutRows)) ?></dd></div>
       <div><dt>Assets</dt><dd><?= (int)($summary['asset_total'] ?? count($assetRows)) ?></dd></div>
       <div><dt>Settings</dt><dd><?= (int)($summary['setting_total'] ?? count($settings)) ?></dd></div>
       <div><dt>Capabilities</dt><dd><?= count($supports) ?></dd></div>
@@ -111,6 +115,25 @@ bms_admin_header('Theme Details', [
     <?php endif; ?>
   </aside>
 </div>
+
+<?php if (!empty($summary['layout_aware'])): ?>
+  <section class="panel appearance-detail-record-panel">
+    <div class="appearance-section-heading">
+      <div><p class="eyebrow">Declarative layouts</p><h2>Core-validated composition files</h2></div>
+      <span class="appearance-record-count"><?= count($layoutRows) ?></span>
+    </div>
+    <p class="meta">Layout files are private JSON composition documents. Core still owns data, component markup, behavior, permissions, forms, accessibility, and application logic.</p>
+    <div class="appearance-record-list">
+      <?php foreach ($layoutRows as $row): ?>
+        <div class="appearance-record <?= !empty($row['exists']) ? 'is-good' : 'is-bad' ?>">
+          <code><?= htmlspecialchars((string)($row['file'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code>
+          <span><?= htmlspecialchars((string)($row['label'] ?? $row['surface'] ?? 'Layout'), ENT_QUOTES, 'UTF-8') ?></span>
+          <strong><?= !empty($row['exists']) ? 'Validated' : 'Missing' ?></strong>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+<?php endif; ?>
 
 <?php if ($errors || $warnings): ?>
   <section class="panel appearance-attention-panel appearance-theme-health-panel">

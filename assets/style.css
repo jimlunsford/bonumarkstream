@@ -873,3 +873,52 @@ body.stream-media-viewer-open {
   .stream-compose-advanced-wide { grid-column: auto; }
   .stream-compose-more-menu { min-width: min(14rem, calc(100vw - 2rem)); }
 }
+
+/* Core Profile photo contract. Themes may restyle presentation without owning Profile photo behavior. */
+.profile-photo-gallery {
+  --bms-profile-photo-gap: 0.6rem;
+  --bms-profile-photo-radius: 10px;
+  --bms-profile-photo-object-fit: cover;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bms-profile-photo-gap);
+}
+.profile-photo-item {
+  min-width: 0;
+  margin: 0;
+}
+.profile-photo-link {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--bms-profile-photo-radius);
+  background: rgba(127, 127, 127, .12);
+}
+.profile-photo-gallery-count-1 .profile-photo-item,
+.profile-photo-gallery-count-3 .profile-photo-item-1 {
+  grid-column: 1 / -1;
+}
+.profile-photo-gallery-count-1 .profile-photo-link,
+.profile-photo-gallery-count-3 .profile-photo-item-1 .profile-photo-link {
+  aspect-ratio: 2 / 1;
+}
+.profile-photo-picture,
+.profile-cover-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.profile-photo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: var(--bms-profile-photo-object-fit);
+}
+.profile-photo-caption {
+  margin: 0.45rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}

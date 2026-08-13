@@ -231,6 +231,8 @@ function bms_upgrade_retired_bundled_theme_slugs(): array
 {
     return [
         'microblog-stream' => true,
+        'profile-editorial' => true,
+        'profile-split' => true,
     ];
 }
 
@@ -267,7 +269,7 @@ function bms_upgrade_installed_theme_manifest(string $publicRoot, string $slug):
 function bms_upgrade_theme_marked_as_bundled(array $manifest): bool
 {
     $package = strtolower(trim((string)($manifest['package'] ?? '')));
-    if (in_array($package, ['bundled-theme', 'bundled', 'core'], true)) {
+    if (in_array($package, ['bundled-theme', 'bundled-declarative-proof-theme', 'bundled', 'core'], true)) {
         return true;
     }
 
@@ -375,6 +377,7 @@ function bms_upgrade_cleanup_managed_path(string $relative): bool
         'page.php' => true,
         'pwa-icon.php' => true,
         'profile.php' => true,
+        'profile-export.php' => true,
         'search.php' => true,
         'stream-like.php' => true,
         'sw.js' => true,
@@ -425,6 +428,15 @@ function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestF
     $privateThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, '_bonumark_stream/themes');
     $publicThemeSlugs = bms_upgrade_package_theme_slugs($manifestFiles, 'assets/themes');
     $removed = [];
+
+    // Warm retired bundled-theme detection before obsolete-file removal starts.
+    // Once a bundled manifest is removed, public asset cleanup still needs to
+    // know that the matching retired theme was package-owned. Custom themes
+    // using the same slug remain preserved because they do not carry a bundled
+    // package marker.
+    foreach (array_keys(bms_upgrade_retired_bundled_theme_slugs()) as $retiredThemeSlug) {
+        bms_upgrade_retired_bundled_theme_leftover($publicRoot, (string)$retiredThemeSlug);
+    }
 
     if (!is_dir($publicRoot)) {
         return $removed;
@@ -582,6 +594,7 @@ function bms_upgrade_software_items(string $packageRoot): array
             'page.php',
             'account.php',
             'profile.php',
+            'profile-export.php',
             'comments.php',
             'search.php',
             'stream-like.php',
@@ -602,6 +615,50 @@ function bms_upgrade_software_items(string $packageRoot): array
     return $items;
 }
 
+function bms_upgrade_runtime_cache_available(): bool
+{
+    if (!function_exists('opcache_invalidate')) {
+        return false;
+    }
+
+    $enabled = ini_get('opcache.enable');
+    return $enabled !== false && !in_array(strtolower(trim((string)$enabled)), ['', '0', 'off', 'false', 'no'], true);
+}
+
+function bms_upgrade_invalidate_php_runtime_file(string $path): bool
+{
+    if (!bms_upgrade_runtime_cache_available() || strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== 'php') {
+        return false;
+    }
+
+    clearstatcache(true, $path);
+    try {
+        return @opcache_invalidate($path, true);
+    } catch (Throwable $e) {
+        bms_log_admin_exception('upgrade-opcache-invalidate', $e);
+        return false;
+    }
+}
+
+function bms_upgrade_reset_php_runtime_cache(): bool
+{
+    if (!function_exists('opcache_reset')) {
+        return false;
+    }
+
+    $enabled = ini_get('opcache.enable');
+    if ($enabled === false || in_array(strtolower(trim((string)$enabled)), ['', '0', 'off', 'false', 'no'], true)) {
+        return false;
+    }
+
+    try {
+        return @opcache_reset();
+    } catch (Throwable $e) {
+        bms_log_admin_exception('upgrade-opcache-reset', $e);
+        return false;
+    }
+}
+
 function bms_upgrade_copy_recursive(string $source, string $destination): void
 {
     if (is_file($source)) {
@@ -612,6 +669,8 @@ function bms_upgrade_copy_recursive(string $source, string $destination): void
         if (!copy($source, $destination)) {
             throw new RuntimeException('Could not copy file: ' . $source);
         }
+        clearstatcache(true, $destination);
+        bms_upgrade_invalidate_php_runtime_file($destination);
         return;
     }
 
@@ -921,12 +980,20 @@ function bms_upgrade_install(string $zipPath): array
 
         $removed = bms_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles, $backupRoot);
 
+        // A host may keep old compiled PHP in OPcache after files on disk are
+        // replaced. Invalidate individual copied PHP files during copy, then
+        // reset the shared opcode cache once software replacement is complete.
+        // The current request continues safely; subsequent requests compile
+        // from the upgraded files now present on disk.
+        $runtimeCacheReset = bms_upgrade_reset_php_runtime_cache();
+
         $log = "Bonumark Stream upgrade\n" .
             "From: {$historyFromVersion}\n" .
             "To: {$packageVersion}\n" .
             "Date: " . gmdate('c') . "\n" .
             "Preserved: _bonumark_stream/config.php, _bonumark_stream/installed.lock, _bonumark_stream/data/, _bonumark_stream/backups/, _bonumark_stream/tmp/, media/, uploads/, and future code-free theme assets. Upgrade support starts at v0.4.0.\n" .
-            "Obsolete package-managed files removed: " . count($removed) . "\n";
+            "Obsolete package-managed files removed: " . count($removed) . "\n" .
+            "PHP runtime cache reset requested: " . ($runtimeCacheReset ? "yes" : "no or unavailable") . "\n";
         bms_write_file($backupRoot . '/UPGRADE.txt', $log);
 
         if (function_exists('bms_run_migrations')) {

@@ -20,8 +20,15 @@ $statusLabel = $previewMode ? 'Preview' : (trim((string)($settings['status_label
 $showPostCount = !$previewMode && $showCountChip && (string)($settings['show_post_count'] ?? '1') === '1';
 $menuLabel = trim((string)($settings['menu_label'] ?? 'Menu')) ?: 'Menu';
 $menuButton = (!$previewMode && $showPublicMenu && $navigationHtml !== '') ? '<button type="button" class="meta-chip site-nav-toggle ledger-menu-toggle" aria-expanded="false" aria-controls="site-primary-nav" aria-label="Open menu" data-stream-menu-toggle><span class="site-nav-toggle-label">' . htmlspecialchars($menuLabel, ENT_QUOTES, 'UTF-8') . '</span><span class="site-nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>' : '';
+$headerTheme = is_array($data['theme'] ?? null) ? $data['theme'] : null;
+$declarativeHeader = function_exists('bms_render_public_theme_layout_surface')
+    ? bms_render_public_theme_layout_surface('site-header', $data, $headerTheme)
+    : null;
 ?>
-<header class="site-header public-site-header stream-site-header ledger-header<?= $previewMode ? ' is-preview-mode' : '' ?>">
+<header class="site-header public-site-header stream-site-header ledger-header<?= $previewMode ? ' is-preview-mode' : '' ?><?= $declarativeHeader !== null ? ' is-declarative-site-header' : '' ?>">
+<?php if ($declarativeHeader !== null): ?>
+  <?= $declarativeHeader ?>
+<?php else: ?>
   <div class="site-header-inner ledger-header-inner">
     <div class="site-branding ledger-branding">
       <div class="site-title-group ledger-title-group">
@@ -36,4 +43,5 @@ $menuButton = (!$previewMode && $showPublicMenu && $navigationHtml !== '') ? '<b
     </div>
   </div>
   <?= $navigationHtml ?>
+<?php endif; ?>
 </header>

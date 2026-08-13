@@ -370,7 +370,7 @@ function bms_public_navigation_account_items(): array
 
     if (is_array($user) && (int)($user['id'] ?? 0) > 0 && function_exists('bms_public_profile_url_for_user')) {
         $items[] = [
-            'label' => 'Profile',
+            'label' => 'My Profile',
             'url' => bms_public_profile_url_for_user($user),
             'target' => '_self',
             'source' => 'system-account',
@@ -383,14 +383,35 @@ function bms_public_navigation_account_items(): array
     return $items;
 }
 
-function bms_public_navigation_items(): array
+function bms_public_navigation_items(bool $includeAccountItems = true): array
 {
     $items = bms_navigation_items();
     if (!$items) {
         $items = bms_default_navigation_items();
     }
 
-    if (bms_public_navigation_account_links_enabled()) {
+    // Bonumark Stream has one publishing owner and one existing Stream. The
+    // owner's public Profile is the identity counterpart to that Stream, not a
+    // second feed. Add it as a normal navigation destination when it is public.
+    if (function_exists('bms_public_site_owner_user') && function_exists('bms_public_profile_url_for_user')) {
+        $owner = bms_public_site_owner_user();
+        if (is_array($owner)) {
+            $ownerProfileUrl = bms_public_profile_url_for_user($owner);
+            if ($ownerProfileUrl !== '' && !bms_navigation_has_url($items, $ownerProfileUrl)) {
+                $normalized = bms_normalize_navigation_item([
+                    'label' => 'Profile',
+                    'url' => $ownerProfileUrl,
+                    'target' => '_self',
+                    'source' => 'system-profile',
+                ], count($items));
+                if ($normalized !== null) {
+                    $items[] = $normalized;
+                }
+            }
+        }
+    }
+
+    if ($includeAccountItems && bms_public_navigation_account_links_enabled()) {
         foreach (bms_public_navigation_account_items() as $accountItem) {
             $normalized = bms_normalize_navigation_item($accountItem, count($items));
             if ($normalized === null || bms_navigation_has_url($items, (string)$normalized['url'])) {
@@ -524,13 +545,13 @@ function bms_save_navigation_items(array $items): void
     bms_set_setting('primary_navigation', json_encode(bms_sort_navigation_items($normalizedItems), JSON_UNESCAPED_SLASHES));
 }
 
-function bms_render_public_navigation(string $class = 'public-nav', ?string $currentPath = null): string
+function bms_render_public_navigation(string $class = 'public-nav', ?string $currentPath = null, bool $includeAccountItems = true): string
 {
     if (!bms_public_navigation_enabled()) {
         return '';
     }
 
-    $items = bms_public_navigation_items();
+    $items = bms_public_navigation_items($includeAccountItems);
     if (!$items) {
         return '';
     }
@@ -548,13 +569,13 @@ function bms_render_public_navigation(string $class = 'public-nav', ?string $cur
     return $html;
 }
 
-function bms_render_public_navigation_list(string $class = 'site-nav', string $id = 'site-primary-nav', ?string $currentPath = null): string
+function bms_render_public_navigation_list(string $class = 'site-nav', string $id = 'site-primary-nav', ?string $currentPath = null, bool $includeAccountItems = true): string
 {
     if (!bms_public_navigation_enabled()) {
         return '';
     }
 
-    $items = bms_public_navigation_items();
+    $items = bms_public_navigation_items($includeAccountItems);
     if (!$items) {
         return '';
     }
@@ -627,8 +648,12 @@ function bms_render_public_header(string $context = 'page', ?int $streamPostCoun
     $previewMode = function_exists('bms_public_preview_mode') && bms_public_preview_mode();
     $count = $previewMode ? 0 : bms_stream_published_count($streamPostCount);
     $countLabelRaw = $previewMode ? '' : bms_stream_count_label($count);
-    $navHtml = $previewMode ? '' : bms_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath);
+    $staticExport = function_exists('bms_static_site_export_rendering') && bms_static_site_export_rendering();
+    $includeAccountNavigation = !$staticExport;
+    $navHtml = $previewMode ? '' : bms_render_public_navigation_list('site-nav stream-site-nav', 'site-primary-nav', $currentPath, $includeAccountNavigation);
     $titleTag = $context === 'home' ? 'h1' : 'p';
+    $themeSettings = bms_public_theme_settings();
+    $menuLabel = trim((string)($themeSettings['menu_label'] ?? 'Menu')) ?: 'Menu';
 
     return bms_render_public_theme_template('header', [
         'context' => $previewMode ? 'preview' : $context,
@@ -644,8 +669,10 @@ function bms_render_public_header(string $context = 'page', ?int $streamPostCoun
         'show_public_menu' => !$previewMode,
         'navigation_html' => $previewMode ? '' : $navHtml,
         'navigation_current_path' => $previewMode ? null : $currentPath,
+        'navigation_account_items_enabled' => $includeAccountNavigation,
         'title_tag' => $titleTag,
-        'theme_settings' => bms_public_theme_settings(),
+        'menu_label' => $menuLabel,
+        'theme_settings' => $themeSettings,
     ]);
 }
 

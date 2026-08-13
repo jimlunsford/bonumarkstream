@@ -117,7 +117,7 @@ function bms_sitemap_public_users(): array
         return [];
     }
     try {
-        $stmt = bms_db()->prepare('SELECT id, username, display_name, email, role, status, bio, website, social_links, profile_visibility, avatar_path, created_at, updated_at FROM ' . bms_table('users') . ' WHERE status = :status AND profile_visibility <> :visibility ORDER BY updated_at DESC, id ASC LIMIT 500');
+        $stmt = bms_db()->prepare('SELECT id, username, display_name, role, status, bio, website, social_links, profile_visibility, avatar_path, created_at, updated_at FROM ' . bms_table('users') . ' WHERE status = :status AND profile_visibility <> :visibility ORDER BY updated_at DESC, id ASC LIMIT 500');
         $stmt->execute(['status' => 'active', 'visibility' => 'private']);
         $users = [];
         foreach ($stmt->fetchAll() ?: [] as $user) {
@@ -129,6 +129,27 @@ function bms_sitemap_public_users(): array
     } catch (Throwable $e) {
         return [];
     }
+}
+
+
+function bms_sitemap_profile_lastmod(array $user): string
+{
+    $userId = (int)($user['id'] ?? 0);
+    if ($userId > 0 && bms_is_installed()) {
+        try {
+            $stmt = bms_db()->prepare('SELECT updated_at FROM ' . bms_table('user_profiles') . ' WHERE user_id = :user_id LIMIT 1');
+            $stmt->execute(['user_id' => $userId]);
+            $profileUpdated = trim((string)$stmt->fetchColumn());
+            if ($profileUpdated !== '') {
+                return bms_sitemap_datetime($profileUpdated);
+            }
+        } catch (Throwable $e) {
+            // Older upgraded installs that have not created user_profiles yet
+            // fall back to the user record timestamp below.
+        }
+    }
+
+    return bms_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? ''));
 }
 
 function bms_sitemap_url_entries(?array $streamPosts = null, ?array $pages = null): array
@@ -171,7 +192,7 @@ function bms_sitemap_url_entries(?array $streamPosts = null, ?array $pages = nul
     if (bms_sitemap_include_profiles()) {
         foreach (bms_sitemap_public_users() as $user) {
             $profileUrl = bms_public_profile_url_for_user($user);
-            bms_sitemap_add_url($urls, bms_sitemap_absolute_url($profileUrl), bms_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? '')), 'monthly', '0.4');
+            bms_sitemap_add_url($urls, bms_sitemap_absolute_url($profileUrl), bms_sitemap_profile_lastmod($user), 'monthly', '0.4');
         }
     }
 
@@ -225,7 +246,7 @@ function bms_render_sitemap_xsl(): string
                             <xsl:when test="substring(sitemap:loc, string-length(sitemap:loc) - 7) = '/stream/'">Stream</xsl:when>
                             <xsl:when test="contains(sitemap:loc, '/stream/')">Post</xsl:when>
                             <xsl:when test="contains(sitemap:loc, '/pages/')">Page</xsl:when>
-                            <xsl:when test="contains(sitemap:loc, '/profile.php')">Profile</xsl:when>
+                            <xsl:when test="contains(sitemap:loc, '/profile/') or contains(sitemap:loc, '/profile.php')">Profile</xsl:when>
                             <xsl:otherwise>Home</xsl:otherwise>
                           </xsl:choose>
                         </span>

@@ -97,7 +97,7 @@ function bms_admin_user_count_rows(int $userId): array
 }
 
 $counts = bms_admin_user_count_rows((int)($user['id'] ?? 0));
-$viewProfileUrl = function_exists('bms_public_profile_url_for_user') ? bms_public_profile_url_for_user($user) : bms_url_path('profile.php?user=' . rawurlencode((string)($user['username'] ?? '')));
+$viewProfileUrl = function_exists('bms_public_profile_url_for_user') ? bms_public_profile_url_for_user($user) : bms_url_path('profile/' . rawurlencode((string)($user['username'] ?? '')));
 
 bms_admin_header('Edit Account', [
     ['label' => 'Accounts', 'href' => bms_admin_url('users.php'), 'style' => 'secondary'],

@@ -1,0 +1,41 @@
+{
+  "name": "Editorial Layout Fixture",
+  "slug": "profile-editorial",
+  "version": "1.3.1",
+  "author": "Bonumark",
+  "description": "Internal Theme Architecture 2.0 regression fixture. Not bundled or user-selectable.",
+  "screenshot": "assets/images/screenshot.svg",
+  "assets": {
+    "css": [
+      "assets/css/theme.css"
+    ],
+    "images": [
+      "assets/images/screenshot.svg"
+    ],
+    "fonts": []
+  },
+  "supports": {
+    "profiles": true,
+    "comments": true,
+    "avatars": true,
+    "media": true,
+    "navigation": true,
+    "rss": true,
+    "archives": true,
+    "search": true,
+    "composer": true,
+    "pagination": true,
+    "pages": true,
+    "link_previews": true,
+    "pinned_posts": true,
+    "media_galleries": true
+  },
+  "layout_schema": 1,
+  "layouts": {
+    "profile": "layouts/profile.json",
+    "stream-card": "layouts/stream-card.json",
+    "site-header": "layouts/site-header.json",
+    "home": "layouts/home.json"
+  },
+  "package": "regression-fixture"
+}

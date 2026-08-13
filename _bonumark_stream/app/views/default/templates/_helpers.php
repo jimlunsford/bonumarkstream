@@ -81,6 +81,7 @@ if (!function_exists('ml_document_head')) {
   <title><?= ml_h($title) ?></title>
   <?php if ($description !== ''): ?><meta name="description" content="<?= ml_h($description) ?>"><?php endif; ?>
   <?php if ($canonical !== ''): ?><link rel="canonical" href="<?= ml_h($canonical) ?>"><?php endif; ?>
+  <?= (string)($data['head_preload_html'] ?? '') ?>
   <?php if (!empty($options['feed']) && (string)($data['feed_url'] ?? '') !== ''): ?><link rel="alternate" type="application/rss+xml" title="<?= ml_h((string)($data['feed_title'] ?? 'Stream Feed')) ?>" href="<?= ml_h((string)$data['feed_url']) ?>"><?php endif; ?>
   <meta property="og:title" content="<?= ml_h($ogTitle) ?>">
   <?php if ($description !== ''): ?><meta property="og:description" content="<?= ml_h($description) ?>"><?php endif; ?>

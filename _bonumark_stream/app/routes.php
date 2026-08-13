@@ -74,6 +74,8 @@ function bms_handle_account_route(): void
     $accountAction = (string)($_GET['action'] ?? '');
     $resetToken = (string)($_GET['token'] ?? $_POST['token'] ?? '');
     $resetTokenValid = false;
+    $accountSection = (string)($_GET['section'] ?? '');
+    $accountSection = $accountSection === 'profile' ? 'profile' : '';
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && $accountAction === 'reset') {
         $resetTokenValid = bms_password_recovery_token_is_valid($resetToken);
@@ -157,10 +159,31 @@ function bms_handle_account_route(): void
                 $resetToken = '';
                 $resetTokenValid = false;
             }
-            if ($action === 'profile' && bms_is_logged_in()) {
-                bms_update_current_user_profile((string)($_POST['username'] ?? ''), (string)($_POST['display_name'] ?? ''), (string)($_POST['email'] ?? ''), (string)($_POST['bio'] ?? ''), (string)($_POST['website'] ?? ''), (string)($_POST['profile_visibility'] ?? 'public'), is_array($_POST['social_links'] ?? null) ? $_POST['social_links'] : []);
-                bms_apply_current_user_avatar_from_request($_FILES, !empty($_POST['remove_avatar']));
+            if ($action === 'account_details' && bms_is_logged_in()) {
+                bms_update_current_user_account((string)($_POST['username'] ?? ''), (string)($_POST['email'] ?? ''));
                 bms_redirect(bms_url_path('account.php'));
+            }
+            if ($action === 'profile' && bms_is_logged_in()) {
+                bms_update_current_user_identity(
+                    (string)($_POST['display_name'] ?? ''),
+                    (string)($_POST['bio'] ?? ''),
+                    (string)($_POST['website'] ?? ''),
+                    (string)($_POST['profile_visibility'] ?? 'public'),
+                    (string)($_POST['headline'] ?? ''),
+                    (string)($_POST['location'] ?? ''),
+                    (string)($_POST['about_markdown'] ?? ''),
+                    (string)($_POST['now_text'] ?? ''),
+                    is_array($_POST['profile_links'] ?? null) ? $_POST['profile_links'] : [],
+                    (string)($_POST['interests'] ?? ''),
+                    is_array($_POST['featured_items'] ?? null) ? $_POST['featured_items'] : [],
+                    !empty($_POST['show_post_count']),
+                    !empty($_POST['show_comment_count']),
+                    !empty($_POST['show_member_since'])
+                );
+                bms_apply_current_user_avatar_from_request($_FILES, !empty($_POST['remove_avatar']));
+                bms_apply_current_user_profile_cover_from_request($_FILES, !empty($_POST['remove_cover_image']));
+                bms_apply_current_user_profile_photos_from_request($_POST, $_FILES);
+                bms_redirect(bms_url_path('account.php?section=profile'));
             }
             if ($action === 'password' && bms_is_logged_in()) {
                 bms_update_current_user_password((string)($_POST['current_password'] ?? ''), (string)($_POST['new_password'] ?? ''), (string)($_POST['confirm_password'] ?? ''));
@@ -189,6 +212,8 @@ function bms_handle_account_route(): void
     $user = bms_is_logged_in() ? bms_current_user() : null;
     $canViewAdmin = $user && bms_current_user_can('view_admin');
     $accountDashboard = $user ? bms_account_dashboard_data($user) : [];
+    $profileIdentity = $user ? bms_profile_identity_for_user((int)$user['id'], $user) : bms_profile_identity_defaults();
+    $profileFeaturedOptions = $user ? bms_profile_featured_content_options() : ['stream' => [], 'page' => []];
     $view = [
         'site_name' => (string)bms_setting_or_config('site_name', 'Bonumark Stream'),
         'style_url' => bms_asset_url('assets/style.css'),
@@ -204,6 +229,7 @@ function bms_handle_account_route(): void
         'csrf' => bms_csrf_token(),
         'return_to' => $returnTo,
         'account_action' => $accountAction,
+        'account_section' => $accountSection,
         'password_reset_token' => $resetToken,
         'password_reset_token_valid' => $resetTokenValid,
         'password_recovery_mail_ready' => bms_password_recovery_mail_ready(),
@@ -213,8 +239,19 @@ function bms_handle_account_route(): void
         'profile_url' => $user ? bms_public_profile_url_for_user($user) : '',
         'avatar_markup' => $user ? bms_user_avatar_markup($user, 'account-avatar-image', 192, 192) : '',
         'has_avatar' => $user ? bms_user_avatar_url($user) !== '' : false,
-        'profile_social_link_definitions' => function_exists('bms_profile_social_link_definitions') ? bms_profile_social_link_definitions() : [],
-        'profile_social_link_values' => $user && function_exists('bms_profile_social_link_form_values') ? bms_profile_social_link_form_values($user) : [],
+        'profile_identity' => $profileIdentity,
+        'profile_link_rows' => $user ? bms_profile_link_form_rows($profileIdentity, 8) : [],
+        'profile_interests_value' => $user ? bms_profile_interests_form_value($profileIdentity) : '',
+        'profile_featured_rows' => $user ? bms_profile_featured_form_rows($profileIdentity, 4) : [],
+        'profile_featured_stream_options' => $profileFeaturedOptions['stream'] ?? [],
+        'profile_featured_page_options' => $profileFeaturedOptions['page'] ?? [],
+        'profile_photo_rows' => $user ? bms_profile_photo_form_rows($profileIdentity, (int)$user['id']) : [],
+        'profile_cover_url' => $user ? bms_profile_cover_url($profileIdentity) : '',
+        'has_profile_cover' => $user ? bms_profile_cover_url($profileIdentity) !== '' : false,
+        'profile_edit_url' => $user ? bms_url_path('account.php?section=profile') : '',
+        'profile_export_url' => $user ? bms_url_path('profile-export.php') : '',
+        'profile_export_available' => $user ? class_exists('ZipArchive') : false,
+        'account_url' => bms_url_path('account.php'),
         'account_dashboard' => $accountDashboard,
         'account_post_counts' => $accountDashboard['post_counts'] ?? ['published' => 0, 'draft' => 0, 'total' => 0],
         'account_comment_counts' => $accountDashboard['comment_counts'] ?? ['approved' => 0, 'pending' => 0, 'trash' => 0, 'total' => 0],
@@ -256,29 +293,18 @@ function bms_handle_profile_route(): void
 
     $user = null;
     $id = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : 0;
-    $username = (string)($_GET['user'] ?? $_GET['username'] ?? '');
+    $username = trim((string)($_GET['user'] ?? $_GET['username'] ?? ''));
 
-    if ($id > 0 && function_exists('bms_find_public_user_by_id')) {
+    // Username is the canonical public profile identifier. The numeric id query
+    // remains as a compatibility fallback for old direct links, but display
+    // names are never treated as routable identifiers.
+    if ($username !== '') {
+        $user = bms_find_public_user_by_username($username);
+    } elseif ($id > 0) {
         $user = bms_find_public_user_by_id($id);
-    }
-
-    if (!$user && trim($username) !== '') {
-        $user = function_exists('bms_find_public_user_by_handle') ? bms_find_public_user_by_handle($username) : bms_find_public_user_by_username($username);
-    }
-
-    if (!$user && trim($username) !== '' && function_exists('bms_current_user')) {
+    } elseif (function_exists('bms_current_user')) {
         $current = bms_current_user();
-        $requested = bms_normalize_username($username);
-        $currentUsername = bms_normalize_username((string)($current['username'] ?? ''));
-        $currentDisplay = bms_normalize_username((string)($current['display_name'] ?? ''));
-        if ((int)($current['id'] ?? 0) > 0 && ($requested === $currentUsername || $requested === $currentDisplay)) {
-            $user = bms_find_public_user_by_id((int)$current['id']);
-        }
-    }
-
-    if (!$user && trim($username) === '' && $id < 1 && function_exists('bms_current_user')) {
-        $current = bms_current_user();
-        if ((int)($current['id'] ?? 0) > 0 && function_exists('bms_find_public_user_by_id')) {
+        if ((int)($current['id'] ?? 0) > 0) {
             $user = bms_find_public_user_by_id((int)$current['id']);
         }
     }
@@ -286,9 +312,9 @@ function bms_handle_profile_route(): void
     if (!$user) {
         http_response_code(404);
     }
+
     echo bms_profile_page_html($user);
 }
-
 
 
 
