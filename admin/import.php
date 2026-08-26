@@ -333,7 +333,7 @@ bms_admin_header('Import', [
         $body = (string)($item['body'] ?? '');
         $excerpt = trim(preg_replace('/\s+/', ' ', strip_tags($body)) ?? $body);
         if (function_exists('mb_substr')) {
-            $excerpt = mb_substr($excerpt, 0, 220);
+            $excerpt = bms_text_substr($excerpt, 0, 220);
         } else {
             $excerpt = substr($excerpt, 0, 220);
         }

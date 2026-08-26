@@ -19,8 +19,11 @@
 declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
-    fwrite(STDERR, "This script must be run from the command line.\n");
-    exit(1);
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('CLI only.');
 }
 
 $scenario = (string)(getenv('BMS_API_SMOKE_SCENARIO') ?: '');

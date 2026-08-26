@@ -25,7 +25,7 @@ function bms_pages_admin_preview_text(array $item, int $limit = 150): string
     $source = preg_replace('/[`*_>#\[\]()-]+/', ' ', $source) ?? $source;
     $source = trim(preg_replace('/\s+/', ' ', strip_tags($source)) ?? $source);
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        return mb_strlen($source) > $limit ? rtrim(mb_substr($source, 0, $limit - 1)) . '…' : $source;
+        return bms_text_length($source) > $limit ? rtrim(bms_text_substr($source, 0, $limit - 1)) . '…' : $source;
     }
     return strlen($source) > $limit ? rtrim(substr($source, 0, $limit - 1)) . '…' : $source;
 }

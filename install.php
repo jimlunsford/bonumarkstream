@@ -114,6 +114,7 @@ function bm_connect(array $db): PDO
     // Fresh-install schema and seed writes must use the same canonical UTC
     // database session as normal runtime connections.
     $pdo->exec("SET time_zone = '+00:00'");
+    bms_database_require_supported($pdo);
     return $pdo;
 }
 
@@ -287,8 +288,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!bms_db_supports_mysql()) {
                 throw new RuntimeException('The PDO MySQL extension is not enabled on this server. Ask your host to enable pdo_mysql.');
             }
-            bms_db_test_connection($db);
+            $dbInfo = bms_db_test_connection($db);
             $_SESSION['bm_install_db'] = $db;
+            $_SESSION['bm_install_db_info'] = $dbInfo;
             bms_redirect(bm_install_url('setup'));
         } catch (Throwable $e) {
             $error = $e->getMessage();
@@ -346,22 +348,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (($probe['status'] ?? '') === 'exposed') {
                 throw new RuntimeException($probe['message']);
             }
+            if (($probe['status'] ?? '') === 'unknown'
+                && (string)($_POST['private_storage_verified'] ?? '') !== '1') {
+                throw new RuntimeException('Bonumark could not verify that _bonumark_stream is blocked from direct HTTP access. Verify the server protection independently, then check the private-storage verification box before installing.');
+            }
+
+            $runtimeDirectories = bms_ensure_runtime_directories();
+            $runtimeFailures = array_values(array_filter(
+                $runtimeDirectories,
+                static fn(array $directory): bool => empty($directory['writable'])
+            ));
+            if ($runtimeFailures !== []) {
+                $failedPaths = array_map(
+                    static fn(array $directory): string => (string)($directory['relative_path'] ?? 'runtime storage'),
+                    $runtimeFailures
+                );
+                throw new RuntimeException('Bonumark Stream could not prepare required runtime storage: ' . implode(', ', $failedPaths) . '. The PHP process must be able to write these paths.');
+            }
 
             $pdo = bm_connect($db);
             bm_write_config($db, $site);
             $userId = bm_seed_database($pdo, (string)$db['prefix'], $site, $admin);
 
-            foreach (['content/import-markdown', 'content/versions', 'backups/upgrades', 'tmp/upgrades', 'tmp/exports', 'tmp/static-site-exports', 'data'] as $dir) {
-                $path = bms_root_path($dir);
-                if (!is_dir($path)) {
-                    mkdir($path, 0755, true);
-                }
-            }
-
             bms_write_file(bms_installed_lock_path(), "Installed: " . date('c') . "\nVersion: " . bms_version() . "\n");
             $_SESSION['bms_logged_in'] = true;
             $_SESSION['bms_user_id'] = $userId;
-            unset($_SESSION['bm_install_db']);
+            unset($_SESSION['bm_install_db'], $_SESSION['bm_install_db_info']);
             bms_redirect(bms_admin_url());
         } catch (Throwable $e) {
             $error = $e->getMessage();
@@ -373,7 +385,7 @@ if ($step === 'welcome') {
     bm_installer_header('Welcome to Bonumark Stream');
     ?>
     <section class="panel">
-      <p>Bonumark Stream needs a MySQL or MariaDB database before it can publish your stream. This v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?> installer creates a clean empty database-first site.</p>
+      <p>Bonumark Stream needs a supported MySQL or MariaDB database before it can publish your stream. This v<?= htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8') ?> installer creates a clean empty database-first site.</p>
       <ol>
         <li>Create a database and database user in your hosting control panel.</li>
         <li>Enter the database details.</li>
@@ -387,6 +399,11 @@ if ($step === 'welcome') {
       <ul class="check-list">
         <li>PHP version: <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?> <?= version_compare(PHP_VERSION, '8.1.0', '>=') ? (version_compare(PHP_VERSION, '8.2.0', '>=') ? 'OK' : 'OK, PHP 8.2+ recommended') : 'needs PHP 8.1+' ?></li>
         <li>PDO MySQL: <?= bms_db_supports_mysql() ? 'available' : 'not available' ?></li>
+        <li>Database compatibility: MySQL 8.0+ or MariaDB 10.6+ (use a vendor-supported release in production)</li>
+        <?php $webServer = bms_web_server_capability(); ?>
+        <li>Web server: <?= htmlspecialchars((string)($webServer['label'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?><?= !empty($webServer['software']) ? ' (' . htmlspecialchars((string)$webServer['software'], ENT_QUOTES, 'UTF-8') . ')' : '' ?></li>
+        <li>PHP cURL: <?= function_exists('curl_init') ? 'available for link previews and remote media' : 'optional feature unavailable' ?></li>
+        <li>ZipArchive: <?= class_exists('ZipArchive') ? 'available for ZIP management/export features' : 'optional feature unavailable' ?></li>
         <li>Config writable: <?= is_writable(bms_root_path()) ? 'yes' : 'no' ?></li>
         <?php $probe = bms_probe_private_folder_exposure(); ?>
         <li>Private folder exposure: <?= htmlspecialchars($probe['status'] . ' - ' . $probe['message'], ENT_QUOTES, 'UTF-8') ?></li>
@@ -436,6 +453,22 @@ if ($step === 'setup') {
       <?php bm_timezone_select('timezone', 'Timezone', (string)($posted['timezone'] ?? date_default_timezone_get()), 'Choose the timezone Bonumark Stream should use for dates and timestamps.'); ?>
       <?php bm_readonly_info('Detected Site URL', bm_detect_base_url_from_request(), 'Bonumark Stream detects this from the URL used to run the installer so most users do not have to type it manually.'); ?>
       <?php bm_readonly_info('Detected Base Path', bm_detect_base_path_from_request() !== '' ? bm_detect_base_path_from_request() : '/', 'Root installs use /. Subfolder installs are detected automatically.'); ?>
+      <?php $dbInfo = is_array($_SESSION['bm_install_db_info'] ?? null) ? $_SESSION['bm_install_db_info'] : []; ?>
+      <?php if ($dbInfo): ?>
+        <?php bm_readonly_info('Database Server', (string)($dbInfo['display'] ?? 'Supported database'), 'Bonumark compatibility floor: ' . (string)($dbInfo['label'] ?? 'Database') . ' ' . (string)($dbInfo['minimum'] ?? '') . '+.'); ?>
+      <?php endif; ?>
+
+      <?php $setupProbe = bms_probe_private_folder_exposure(bm_detect_base_url_from_request()); ?>
+      <h2>Private Storage Protection</h2>
+      <?php if (($setupProbe['status'] ?? '') === 'protected'): ?>
+        <p class="field-help"><strong>Verified:</strong> <?= htmlspecialchars((string)$setupProbe['message'], ENT_QUOTES, 'UTF-8') ?></p>
+      <?php elseif (($setupProbe['status'] ?? '') === 'exposed'): ?>
+        <div class="flash error"><strong>Installation blocked:</strong> <?= htmlspecialchars((string)$setupProbe['message'], ENT_QUOTES, 'UTF-8') ?> Configure the shipped Apache/LiteSpeed protection or the Nginx example under <code>docs/server/</code> before continuing.</div>
+      <?php else: ?>
+        <div class="flash warning"><strong>Manual verification required:</strong> <?= htmlspecialchars((string)$setupProbe['message'], ENT_QUOTES, 'UTF-8') ?> Bonumark will not silently treat an inconclusive probe as protected.</div>
+        <label class="checkbox-row"><input type="checkbox" name="private_storage_verified" value="1" <?= (string)($posted['private_storage_verified'] ?? '') === '1' ? 'checked' : '' ?> required> I independently verified that <code>/_bonumark_stream/</code> cannot be read over HTTP.</label>
+        <p class="field-help">Apache/LiteSpeed installs must process the shipped <code>.htaccess</code> rules. Nginx installs should use the tested example under <code>docs/server/</code>. Other servers need equivalent deny rules.</p>
+      <?php endif; ?>
 
       <h2>Admin Account</h2>
       <?php bm_field('username', 'Username', (string)($posted['username'] ?? '')); ?>

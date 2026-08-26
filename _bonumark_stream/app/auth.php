@@ -895,7 +895,7 @@ function bms_normalize_profile_social_label(string $label, string $fallback): st
         $label = $fallback;
     }
     if (function_exists('mb_substr')) {
-        $label = mb_substr($label, 0, 60);
+        $label = bms_text_substr($label, 0, 60);
     } else {
         $label = substr($label, 0, 60);
     }

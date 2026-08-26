@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bonumark Stream API",
-    "version": "0.6.0",
+    "version": "0.7.2",
     "description": "Optional token-scoped API for Bonumark Stream with read-only Stream retrieval, post creation, scheduled publishing, media upload, media import, inline media embedding, and structured one-to-four-photo galleries."
   },
   "servers": [

@@ -90,7 +90,7 @@ function bms_scheduled_tasks_limit_text(string $value, int $limit): string
         return '';
     }
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        return mb_strlen($value, 'UTF-8') > $limit ? mb_substr($value, 0, $limit, 'UTF-8') : $value;
+        return bms_text_length($value) > $limit ? bms_text_substr($value, 0, $limit) : $value;
     }
     return strlen($value) > $limit ? substr($value, 0, $limit) : $value;
 }

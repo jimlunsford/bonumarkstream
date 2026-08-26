@@ -516,7 +516,7 @@ class BMS_TwitterArchiveImporter implements BMS_ImporterInterface
     {
         $text = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
         if (function_exists('mb_substr')) {
-            return mb_substr($text, 0, 156);
+            return bms_text_substr($text, 0, 156);
         }
         return substr($text, 0, 156);
     }

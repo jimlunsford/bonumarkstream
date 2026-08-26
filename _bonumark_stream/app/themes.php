@@ -685,7 +685,7 @@ function bms_sanitize_public_theme_setting_value(array $definition, mixed $value
     $value = trim((string)$value);
     $limit = $type === 'textarea' ? 1000 : 255;
     if (function_exists('mb_substr')) {
-        return mb_substr($value, 0, $limit);
+        return bms_text_substr($value, 0, $limit);
     }
     return substr($value, 0, $limit);
 }

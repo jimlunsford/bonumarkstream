@@ -1,3 +1,130 @@
+## 0.7.2 - Database Smoke Test Correctness Pass
+
+- Supersedes the unreleased v0.7.1 candidate while keeping the public milestone name **Hosting Portability & Upgrade Workflow** and the same runtime feature set.
+- Corrects `scripts/database-smoke-test.php` so it no longer treats the current cumulative `0001_initial_schema.php` as if it were a historical install and then blindly replays every later migration on top of it.
+- Adds a verified historical v0.4.x initial-schema fixture matching Git blob `3e7e70385dcaa2fb621809430e1e660bdce9459b`, captured from the clean v0.4.5 public baseline that retained the supported v0.4.0+ upgrade line.
+- Separates real-database verification into two paths: the current fresh-install path through `bms_install_schema()` and a supported-upgrade path that starts from the historical v0.4.x baseline before applying migrations `0002` through `0017`.
+- Extends the package smoke contract so the historical fixture identity and the two-path database test model cannot regress silently.
+- Keeps the GitHub compatibility matrix on the clean tracked source snapshot introduced in v0.7.1.
+- Changes no Bonumark runtime feature behavior and adds no database migration.
+
+## 0.7.1 - Compatibility Workflow Correction Pass
+
+- Supersedes the unreleased v0.7.0 release candidate without changing the product milestone or runtime feature set.
+- Updates `.github/workflows/compatibility.yml` to use the Node 24 based `actions/checkout@v5`, create a clean tracked source snapshot with `git archive HEAD`, and run PHP lint, the package smoke test, migration/schema smoke test, and Remote Posting API database smoke test from that snapshot.
+- Prevents Git checkout metadata under `.git/` from being misclassified as unexpected package files by the release-manifest smoke checks.
+- Ensures `api/v1/stream/posts.php` is present in repository source, matching the v0.7.0 release package, release manifest, Remote Posting documentation, and smoke-test contract.
+- Updates current-version documentation and package metadata to v0.7.1.
+- Keeps the compatibility floors, application runtime behavior, upgrade behavior, owner-data preservation contract, and migration set unchanged.
+- Adds no database migration.
+
+## 0.7.0 - Hosting Portability & Upgrade Workflow
+
+- Creates the next intended public GitHub milestone after v0.6.0 by consolidating the completed v0.6.1 through v0.6.8 development work under one release identity.
+- Formalizes locked-down application trees as a supported operating model where the web/PHP process may write required runtime storage without owning or replacing package-managed application software.
+- Keeps Admin ZIP upgrades for writable application trees and adds the owner-run `scripts/deploy-update.php` workflow for locked-down shell-access deployments, with both paths using the shared `_bonumark_stream/app/upgrader.php` engine.
+- Preserves release-manifest validation, owner-data protection, private software backups, selective pre-migration rollback, obsolete package-file cleanup, migration locking/recovery, external database-backup confirmation when migrations are pending, and upgrade-history recording.
+- Adds read-only installed-site deployment verification, pending-migration and obsolete-file checks, real clean-route probing, read-only private-path verification, CLI-only script protection, and safer installer handling when private-path protection cannot be verified automatically.
+- Adds maintained Nginx deployment guidance, explicit MySQL 8.0+/MariaDB 10.6+ floors, capability-based reporting for optional extensions/features, mbstring fallbacks, and a GitHub Actions compatibility matrix covering PHP/database floor and newer reference targets.
+- Keeps the supported upgrade floor at v0.4.0 and does not change the database runtime source of truth, code-free theme boundary, or owner-data preservation contract.
+- Adds no new database migration compared with v0.6.0.
+
+## 0.6.8 - Owner-Run Upgrade Confirmation Polish Pass
+
+- Makes the owner-run CLI `UPGRADE` confirmation case-insensitive while still requiring the explicit confirmation word before package-managed software replacement begins.
+- Accepts `upgrade`, `Upgrade`, `UPGRADE`, and other letter-case variants after trimming surrounding whitespace; unrelated input still cancels the upgrade before files are changed.
+- Adds package smoke-test coverage so the case-insensitive confirmation behavior cannot regress silently.
+- Preserves the v0.6.7 shared upgrade engine, application-owner permission model, release validation, software backup/rollback, migration recovery, post-upgrade deployment verification, and no-privilege-escalation boundary unchanged.
+- Adds no database migration.
+
+## 0.6.7 - Owner-Run Upgrade Workflow Pass
+
+- Extracts the package-validation, software-copy, backup, rollback, obsolete-file cleanup, migration-recovery, and upgrade-history logic from `admin/upgrade.php` into the shared `_bonumark_stream/app/upgrader.php` engine.
+- Keeps Admin ZIP upgrades on the same shared engine for hosts where the web/PHP process can safely replace package-managed application files.
+- Adds `scripts/deploy-update.php` as a first-class owner-run CLI software upgrade workflow for locked-down application trees with shell access.
+- Supports bootstrapping the owner-run workflow from an extracted newer release with `--site-root=/path/to/live/site`, so an older locked-down installation does not need a one-time full manual overlay just to gain the helper.
+- Makes the CLI workflow validate the ZIP and release manifest, verify the current CLI identity can replace the target application files, show the version/migration/write-access plan, and refuse accidental root execution unless explicitly acknowledged.
+- Keeps privilege boundaries intact: the CLI helper never invokes `sudo`, installs a privileged daemon, uses setuid behavior, or grants the web/PHP process additional filesystem rights.
+- Reuses the existing private software backup, selective pre-migration rollback, obsolete package-file cleanup, forward-only migration recovery, and upgrade-history recording behavior.
+- Requires explicit external database-backup confirmation before a CLI upgrade applies a release with pending database migrations.
+- Protects the confirmation window against a swapped/replaced ZIP by hashing the validated release package and rechecking it immediately before installation.
+- Automatically runs the installed-site deployment verification after a successful owner-run upgrade so package integrity, obsolete files, runtime directories, database compatibility, and pending migrations are checked before the command returns success.
+- Updates System Check and Admin upgrade guidance so locked-down installations point to the owner-run CLI workflow first when shell access is available, while retaining the manual/hosting-layer process as the no-shell fallback.
+- Keeps manual `rsync`, SFTP, and hosting-control-panel deployment documentation as the fallback rather than the primary locked-down shell workflow.
+- Adds no database migration.
+
+## 0.6.6 - Portability Audit Remediation Pass
+
+- Adds `scripts/run-migrations.php`, an owner-run CLI migration workflow for locked-down/manual deployments with explicit database-backup confirmation, migration locking/ledger reuse, forward-only recovery state, and manual upgrade-history recording.
+- Adds pending migration and migration-recovery reporting to `scripts/deployment-check.php` and Admin → System Check so a manual file overlay cannot appear complete while database work remains.
+- Extends the installed-site deployment check to detect obsolete package-managed files left behind by non-destructive overlays while preserving runtime data and custom themes.
+- Replaces the hardcoded Public URL mode PASS with a read-only `/api/v1/status` clean-route probe that verifies a Bonumark-specific response marker.
+- Makes fresh installation require explicit independent verification when the private-folder HTTP probe is inconclusive instead of silently treating unknown protection as acceptable. Confirmed exposure still blocks installation.
+- Documents the fresh locked-down install bootstrap, generic manual migration workflow, obsolete-file verification, and repository-only `.github/` deployment boundary.
+- Makes Apache/LiteSpeed private and hidden-file deny rules safe across modern and legacy authorization directive generations.
+- Removes fatal mbstring assumptions from import, profile, place, analytics, scheduler, PWA, and theme paths by routing multibyte truncation/length handling through guarded core helpers.
+- Adds `docs/COMPATIBILITY.md` and a GitHub Actions compatibility matrix covering PHP 8.1/8.3 with MySQL 8.0/8.4 and MariaDB 10.6/11.4 plus package, migration/schema, and Remote API smoke tests.
+- Cleans the primary README upgrade guidance so it is version-neutral for the maintained v0.4.0+ upgrade line.
+- Adds no database migration.
+
+## 0.6.5 - Deployment Workflow & Compatibility Pass
+
+- Formalizes locked-down manual software deployment in `docs/server/MANUAL-DEPLOYMENT.md`, including backup, dry-run, preservation, SFTP/control-panel, HTTP-boundary, and post-deployment verification steps.
+- Adds `docs/server/MANUAL-THEME-DEPLOYMENT.md` with the private/public theme storage boundary and a canonical distributable layout for installations where PHP cannot write theme directories.
+- Adds `scripts/deployment-check.php`, a read-only CLI installed-site check for version markers, package-managed file integrity, runtime-directory presence, and database connection/compatibility, while leaving PHP/web capability checks to Admin → System Check.
+- Defines Bonumark database compatibility floors of MySQL 8.0+ and MariaDB 10.6+ and recommends a vendor-supported database release for production.
+- Adds reusable database-family/version parsing and compatibility helpers, including handling for MariaDB compatibility-prefixed version strings.
+- Makes fresh installation reject database servers below the documented compatibility floor and shows the detected supported database server before site creation.
+- Adds database server compatibility to Admin → System Check so existing installations can see the detected family/version and compatibility status without changing state.
+- Updates the disposable database smoke test and contribution guidance so database-sensitive changes record and verify the actual supported server version used.
+- Intentionally does not add a privileged deployment daemon, sudo bridge, or self-elevating updater; locked-down software replacement remains an explicit application-owner/hosting-layer action.
+- Adds no database migration.
+
+## 0.6.4 - Hosting Capability & Nginx Support Pass
+
+- Updates package identity from a shared-hosting-specific label to `self-hosted` while preserving shared-hosting compatibility as a supported deployment target.
+- Adds `bms_web_server_capability()` for Apache, LiteSpeed, Nginx, and unknown/other server reporting.
+- Adds `bms_php_ini_bytes()`, `bms_format_bytes_compact()`, and `bms_upload_limit_capability()` for PHP/Bonumark upload ceiling diagnostics.
+- Adds `bms_theme_zip_install_capability()` and integrates it with System Check and Admin theme installation so locked-down theme directories use an explicit manual-deployment path.
+- Adds cURL, ZipArchive, image-processing, theme-install, upload-ceiling, and web-server capability reporting without turning optional feature gaps into core failures.
+- Adds maintained Nginx server documentation/configuration under `docs/server/`, including private-path denial, clean-route rewrites, Authorization forwarding, media PHP execution denial, and upload request sizing.
+- Adds a documented manual locked-tree software deployment workflow and clarifies the runtime/owner paths that must be preserved.
+- Updates installer server information to show detected web server plus optional cURL and ZipArchive feature availability.
+- Adds no database migration.
+
+## 0.6.3 - Routing & Diagnostic Safety Pass
+
+- Replaces the write-based `_bonumark_stream/security-probe-*` exposure check with a read-only probe of `_bonumark_stream/VERSION`.
+- Adds `bms_readonly_http_probe()` with cURL-first and stream fallback behavior and no redirect following.
+- Adds `bms_private_folder_probe_response()` so protected, exposed, redirected, successful-but-ambiguous, and failed probe responses are classified consistently.
+- Preserves an empty Stream slug before `bms_slugify()` so `/stream` remains an archive request.
+- Adds the missing CLI-only guard to `scripts/admin-comments-runtime-test.php`.
+- Extends package smoke coverage to every top-level PHP script under `/scripts` instead of checking only selected test scripts.
+- Makes the package smoke test exit early on installed trees containing `config.php` or `installed.lock`, with an explicit Admin > System Check handoff.
+- Adds no database migration.
+
+## 0.6.2 - Upgrade Capability & Recovery Pass
+
+- Adds `bms_package_managed_software_path()`, `bms_installed_release_manifest_paths()`, and `bms_automatic_upgrade_capability()` so automatic-upgrade support is a detected capability instead of an assumed hosting property.
+- Requires writable managed files and containing directories for automatic software replacement, cleanup, and rollback while keeping runtime-only writability sufficient for normal Bonumark operation.
+- Adds automatic-upgrade capability reporting to System Check and to the Upgrade screen before a package is run.
+- Uses uploaded plus installed release-manifest paths during package precheck so the actual target release and possible obsolete managed files are considered.
+- Refuses an automatic upgrade before backup/copy when package-managed software cannot be replaced safely.
+- Tracks successfully copied package files and actually removed obsolete files during the install phase.
+- Replaces broad pre-migration rollback with exact restoration/removal of only changed software and reports when no rollback is necessary because no software changed.
+- Adds no database migration.
+
+## 0.6.1 - Filesystem Capability Foundation Pass
+
+- Adds `bms_runtime_directory_definitions()` as the single core definition for runtime storage required by installation and hosting diagnostics.
+- Adds `bms_ensure_runtime_directories()` to create missing runtime directories and return consistent existence/write-state results.
+- Moves the installer off its private hardcoded directory list and makes failed runtime preparation a clear install-time error with portable, relative path names.
+- Adds `bms_runtime_directory_status()` so System Check can report the shared runtime paths without mutating the filesystem.
+- Moves `bms_security_status()` off its separate hardcoded writable list and reports the shared runtime paths and their purposes instead.
+- Runs shared runtime-directory provisioning on the first post-upgrade request so upgraded installs gain newly required runtime paths when host permissions allow it.
+- Adds `_bonumark_stream/tmp`, `_bonumark_stream/content/versions`, `_bonumark_stream/import-staging`, `_bonumark_stream/import-staging/previews`, and `media` to the unified contract alongside the existing export, upgrade, data, and Markdown-import paths.
+- Adds no database migration.
+
 ## 0.6.0 - Profiles & Theme Architecture 2.0
 
 - Creates the next public GitHub milestone after v0.5.77 by consolidating the completed v0.5.78 through v0.5.120 development work into one release identity.

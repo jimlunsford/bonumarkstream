@@ -55,7 +55,7 @@ A theme may not provide PHP, JavaScript, HTML templates, SQL, routes, database w
 
 ## Theme Architecture 2.0
 
-Bonumark Stream v0.6.0 supports Layout Schema 1 declarative composition for four public surfaces:
+Layout Schema 1 supports declarative composition for four public surfaces:
 
 - `profile`
 - `stream-card`

@@ -49,7 +49,7 @@ function bms_place_clean_text(mixed $value, int $limit): string
     $value = trim(strip_tags((string)$value));
     $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
     if (function_exists('mb_substr')) {
-        return mb_substr($value, 0, $limit);
+        return bms_text_substr($value, 0, $limit);
     }
     return substr($value, 0, $limit);
 }

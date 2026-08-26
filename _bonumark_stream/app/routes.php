@@ -368,7 +368,8 @@ function bms_handle_stream_route(): void
     require_once __DIR__ . '/renderer.php';
 
     $pageNumber = bms_stream_route_page_number();
-    $slug = bms_slugify((string)($_GET['slug'] ?? ''));
+    $rawSlug = trim((string)($_GET['slug'] ?? ''));
+    $slug = $rawSlug !== '' ? bms_slugify($rawSlug) : '';
 
     // Archive pagination must win over slug handling so /stream/page/2/
     // and the Load More query route stay archive requests, not single-post requests.

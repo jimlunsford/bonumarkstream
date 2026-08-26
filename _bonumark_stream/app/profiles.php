@@ -889,7 +889,7 @@ function bms_profile_photo_text(string $value, int $limit): string
 {
     $value = trim($value);
     if (function_exists('mb_substr')) {
-        return mb_substr($value, 0, $limit);
+        return bms_text_substr($value, 0, $limit);
     }
     return substr($value, 0, $limit);
 }
@@ -2115,7 +2115,7 @@ function bms_account_activity_excerpt(string $body, int $limit = 160): string
         return '';
     }
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        return mb_strlen($text) > $limit ? rtrim(mb_substr($text, 0, max(0, $limit - 1))) . '…' : $text;
+        return bms_text_length($text) > $limit ? rtrim(bms_text_substr($text, 0, max(0, $limit - 1))) . '…' : $text;
     }
     return strlen($text) > $limit ? rtrim(substr($text, 0, max(0, $limit - 1))) . '…' : $text;
 }
@@ -2168,7 +2168,7 @@ function bms_profile_metadata_plain_text(string $text, int $limit = 160): string
         return bms_stream_limit_text($text, $limit, '…');
     }
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        return mb_strlen($text, 'UTF-8') > $limit ? rtrim(mb_substr($text, 0, max(0, $limit - 1), 'UTF-8')) . '…' : $text;
+        return bms_text_length($text) > $limit ? rtrim(bms_text_substr($text, 0, max(0, $limit - 1))) . '…' : $text;
     }
     return strlen($text) > $limit ? rtrim(substr($text, 0, max(0, $limit - 1))) . '…' : $text;
 }

@@ -1,6 +1,6 @@
 # Contributing
 
-Bonumark Stream is a database-first, shared-hosting-friendly microblog CMS. Contributions should protect the product boundaries that keep installs portable, upgrades safe, and themes presentation-only.
+Bonumark Stream is a database-first, self-hosted microblog CMS designed for portable PHP hosting. Contributions should protect the product boundaries that keep installs portable, upgrades safe, and themes presentation-only.
 
 ## Project rules
 
@@ -24,8 +24,11 @@ Bonumark Stream is a database-first, shared-hosting-friendly microblog CMS. Cont
 - Keep changes focused on one confirmed issue or feature.
 - Do not commit `_bonumark_stream/config.php`, `installed.lock`, uploads, exports, backups, logs, database dumps, API tokens, or local test data.
 - Update public documentation only when the source actually supports the documented behavior.
-- Run PHP lint across changed PHP files, JavaScript syntax checks across changed JavaScript files, JSON validation for changed JSON files, and `php scripts/smoke-test.php` from the project root.
-- For database, installer, or upgrade changes, test against a disposable MySQL or MariaDB database before proposing the change.
+- Run PHP lint across changed PHP files, JavaScript syntax checks across changed JavaScript files, JSON validation for changed JSON files, and `php scripts/smoke-test.php` from a clean source/release tree from the project root.
+- When changing Nginx support, run `nginx -t` against the shipped example in a disposable test configuration and keep its route/security contract aligned with the bundled Apache/LiteSpeed rules.
+- For database, installer, or upgrade changes, test against disposable supported targets (MySQL 8.0+ and/or MariaDB 10.6+) before proposing the change, and record the exact server version used.
+- Keep `.github/workflows/compatibility.yml` and `docs/COMPATIBILITY.md` aligned with the documented PHP/database floors and reference targets.
+- Keep database compatibility-floor parsing/reporting covered by the package smoke test. Production guidance should still prefer vendor-supported database releases.
 
 ## Pull request notes
 

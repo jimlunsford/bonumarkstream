@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('CLI only.');
+}
+
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never {

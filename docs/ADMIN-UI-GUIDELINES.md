@@ -377,7 +377,7 @@ A new or changed Admin workflow is not complete until the applicable items below
 - [ ] PHP syntax passes
 - [ ] JavaScript syntax passes when JavaScript changed
 - [ ] CSS and JSON validation pass when those files changed
-- [ ] `php scripts/smoke-test.php` passes
+- [ ] `php scripts/smoke-test.php` from a clean source/release tree passes
 - [ ] Database or migration changes are tested on disposable MySQL or MariaDB when applicable
 - [ ] Release manifest and ZIP integrity pass before packaging
 

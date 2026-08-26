@@ -1,16 +1,20 @@
 {
   "name": "bonumark-stream",
-  "version": "0.6.0",
-  "package_type": "shared-hosting",
+  "version": "0.7.2",
+  "package_type": "self-hosted",
   "database": "mysql-mariadb",
   "tagline": "A self-hosted microblog CMS for publishing short-form posts on a site you control.",
-  "release": "Profiles & Theme Architecture 2.0",
-  "release_name": "Profiles & Theme Architecture 2.0",
-  "description": "Adds first-class Profiles, Theme Architecture 2.0 declarative composition for Profile, Stream Card, Site Header, and Home, a rebuilt Midnight Ledger reference theme, link-preview/SEO hardening, and optimized Profile image delivery.",
+  "release": "Hosting Portability & Upgrade Workflow",
+  "release_name": "Hosting Portability & Upgrade Workflow",
+  "description": "The next public milestone after v0.6.0, consolidating locked-down hosting support, owner-run upgrades, shared upgrade/recovery logic, deployment verification, Nginx guidance, and explicit MySQL/MariaDB compatibility. The v0.7.2 candidate also corrects the database smoke-test model so current fresh installs and historical v0.4.x upgrades are validated separately. Adds no new database migration.",
   "license": "AGPL-3.0-or-later",
-  "title": "Profiles & Theme Architecture 2.0",
-  "label": "Profiles & Theme Architecture 2.0",
+  "title": "Hosting Portability & Upgrade Workflow",
+  "label": "Hosting Portability & Upgrade Workflow",
   "homepage": "https://bonumark.org",
   "repository": "https://github.com/jimlunsford/bonumarkstream",
-  "demo": "https://demo.bonumark.org"
+  "demo": "https://demo.bonumark.org",
+  "database_minimums": {
+    "mysql": "8.0.0",
+    "mariadb": "10.6.0"
+  }
 }
