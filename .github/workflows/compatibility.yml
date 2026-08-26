@@ -54,7 +54,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -63,16 +63,31 @@ jobs:
           extensions: pdo_mysql, curl, fileinfo, zip, gd, mbstring
           coverage: none
 
+      - name: Prepare clean tracked source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          clean_root="$RUNNER_TEMP/bonumark-stream-clean"
+          rm -rf "$clean_root"
+          mkdir -p "$clean_root"
+          git archive --format=tar HEAD | tar -xf - -C "$clean_root"
+          echo "BMS_CLEAN_ROOT=$clean_root" >> "$GITHUB_ENV"
+
       - name: Lint PHP
         shell: bash
         run: |
           set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
           while IFS= read -r -d '' file; do
             php -l "$file" >/dev/null
           done < <(find . -type f -name '*.php' -print0)
 
       - name: Run clean-package smoke test
-        run: php scripts/smoke-test.php
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/smoke-test.php
 
       - name: Run migration/schema smoke test
         env:
@@ -81,7 +96,11 @@ jobs:
           BMS_DB_USER: bonumark
           BMS_DB_PASS: bonumark_ci_password
           BMS_DB_DANGER_RESET: '1'
-        run: php scripts/database-smoke-test.php
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/database-smoke-test.php
 
       - name: Run Remote API database smoke test
         env:
@@ -90,4 +109,8 @@ jobs:
           BMS_DB_USER: bonumark
           BMS_DB_PASS: bonumark_ci_password
           BMS_DB_DANGER_RESET: '1'
-        run: php scripts/api-database-smoke-test.php
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/api-database-smoke-test.php

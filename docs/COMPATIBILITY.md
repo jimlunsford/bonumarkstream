@@ -24,7 +24,9 @@ The repository workflow under `.github/workflows/compatibility.yml` exercises th
 | 8.3 | MySQL 8.4 | Newer MySQL LTS reference |
 | 8.3 | MariaDB 11.4 | Newer MariaDB LTS reference |
 
-Each matrix job runs:
+Each matrix job first creates a clean tracked source snapshot with `git archive HEAD`. The test tree therefore contains repository-managed package files but not `.git/` checkout metadata, matching the release-manifest package boundary.
+
+Each matrix job then runs:
 
 - PHP syntax checks
 - the clean-package smoke test
