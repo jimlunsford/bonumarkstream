@@ -1884,6 +1884,21 @@ if (str_contains($databaseSource, 'SHOW TABLES LIKE :table_name') || !str_contai
     bm_smoke_fail($failures, 'Database table-existence checks must use MariaDB-compatible quoted SHOW TABLES syntax.');
 }
 $databaseSmokeSource = @file_get_contents($root . '/scripts/database-smoke-test.php') ?: '';
+$databaseSmokeFixturePath = $root . '/scripts/fixtures/v0.4.x-initial-schema.php';
+if (!is_file($databaseSmokeFixturePath)) {
+    bm_smoke_fail($failures, 'Historical v0.4.x database smoke fixture is missing.');
+} else {
+    $databaseSmokeFixtureSource = (string)file_get_contents($databaseSmokeFixturePath);
+    $databaseSmokeFixtureGitSha = sha1('blob ' . strlen($databaseSmokeFixtureSource) . "\0" . $databaseSmokeFixtureSource);
+    if ($databaseSmokeFixtureGitSha !== '3e7e70385dcaa2fb621809430e1e660bdce9459b') {
+        bm_smoke_fail($failures, 'Historical v0.4.x database smoke fixture no longer matches the verified public baseline.');
+    }
+}
+if (!str_contains($databaseSmokeSource, 'bms_install_schema($pdo, $freshPrefix)')
+    || !str_contains($databaseSmokeSource, "/scripts/fixtures/v0.4.x-initial-schema.php")
+    || !str_contains($databaseSmokeSource, 'Supported-upgrade schema smoke test passed')) {
+    bm_smoke_fail($failures, 'Database smoke test must verify fresh-install and historical supported-upgrade paths separately.');
+}
 foreach (['SHOW COLUMNS FROM `{$prefix}posts` LIKE :column_name', 'SHOW INDEX FROM `{$prefix}posts` WHERE Key_name = :index_name', 'SHOW TABLES LIKE :table_name'] as $unsupportedShowStatement) {
     if (str_contains($databaseSmokeSource, $unsupportedShowStatement)) {
         bm_smoke_fail($failures, 'Database smoke test contains a MariaDB-incompatible parameterized SHOW statement: ' . $unsupportedShowStatement);

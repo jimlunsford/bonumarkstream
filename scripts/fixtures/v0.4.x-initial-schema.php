@@ -1,0 +1,320 @@
+<?php
+return [
+"CREATE TABLE IF NOT EXISTS `{{prefix}}users` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(64) NOT NULL,
+  `display_name` VARCHAR(120) NOT NULL,
+  `email` VARCHAR(190) NOT NULL DEFAULT '',
+  `email_verified_at` DATETIME NULL,
+  `bio` TEXT NULL,
+  `website` VARCHAR(255) NOT NULL DEFAULT '',
+  `social_links` LONGTEXT NULL,
+  `profile_visibility` VARCHAR(30) NOT NULL DEFAULT 'public',
+  `avatar_path` VARCHAR(255) NOT NULL DEFAULT '',
+  `password_hash` VARCHAR(255) NOT NULL,
+  `verification_token_hash` CHAR(64) NULL,
+  `verification_token_expires_at` DATETIME NULL,
+  `role` VARCHAR(40) NOT NULL DEFAULT 'admin',
+  `status` VARCHAR(30) NOT NULL DEFAULT 'active',
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  KEY `email` (`email`),
+  KEY `status` (`status`),
+  KEY `profile_visibility` (`profile_visibility`),
+  KEY `verification_token_hash` (`verification_token_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}settings` (
+  `setting_key` VARCHAR(120) NOT NULL,
+  `setting_value` LONGTEXT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}posts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `author_id` BIGINT UNSIGNED NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `slug` VARCHAR(190) NOT NULL,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+  `post_type` VARCHAR(40) NOT NULL DEFAULT 'stream',
+  `description` TEXT NULL,
+  `content_body` LONGTEXT NULL,
+  `content_front_matter` LONGTEXT NULL,
+  `content_source` VARCHAR(30) NOT NULL DEFAULT 'database',
+  `storage_mode` VARCHAR(30) NOT NULL DEFAULT 'database',
+  `category` VARCHAR(190) NOT NULL DEFAULT 'Stream',
+  `category_slug` VARCHAR(190) NOT NULL DEFAULT 'stream',
+  `markdown_path` VARCHAR(255) NULL,
+  `html_path` VARCHAR(255) NULL,
+  `date_published` DATE NULL,
+  `content_hash` CHAR(64) NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  `published_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `post_type_slug_status` (`post_type`, `slug`, `status`),
+  KEY `status` (`status`),
+  KEY `author_status` (`author_id`, `status`),
+  KEY `category_slug` (`category_slug`),
+  KEY `date_published` (`date_published`),
+  KEY `post_type_status_slug` (`post_type`, `status`, `slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}terms` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `term_type` VARCHAR(30) NOT NULL,
+  `name` VARCHAR(190) NOT NULL,
+  `slug` VARCHAR(190) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `type_slug` (`term_type`, `slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}post_terms` (
+  `post_id` BIGINT UNSIGNED NOT NULL,
+  `term_id` BIGINT UNSIGNED NOT NULL,
+  `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`post_id`, `term_id`),
+  KEY `term_id` (`term_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}revisions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `post_id` BIGINT UNSIGNED NULL,
+  `slug` VARCHAR(190) NOT NULL,
+  `title` VARCHAR(255) NOT NULL DEFAULT '',
+  `status` VARCHAR(30) NOT NULL DEFAULT 'published',
+  `original_filename` VARCHAR(255) NOT NULL DEFAULT '',
+  `markdown_path` VARCHAR(255) NULL,
+  `content_body` LONGTEXT NULL,
+  `content_front_matter` LONGTEXT NULL,
+  `content_source` VARCHAR(30) NOT NULL DEFAULT 'database',
+  `content_hash` CHAR(64) NULL,
+  `author_id` BIGINT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `post_id` (`post_id`),
+  KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}trash` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(255) NOT NULL,
+  `slug` VARCHAR(190) NOT NULL,
+  `original_status` VARCHAR(30) NOT NULL DEFAULT 'draft',
+  `original_filename` VARCHAR(255) NOT NULL,
+  `trash_filename` VARCHAR(255) NOT NULL,
+  `markdown_path` VARCHAR(255) NULL,
+  `post_type` VARCHAR(40) NOT NULL DEFAULT 'stream',
+  `content_body` LONGTEXT NULL,
+  `content_front_matter` LONGTEXT NULL,
+  `content_source` VARCHAR(30) NOT NULL DEFAULT 'database',
+  `content_hash` CHAR(64) NULL,
+  `original_author_id` BIGINT UNSIGNED NULL,
+  `deleted_by` BIGINT UNSIGNED NULL,
+  `deleted_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `deleted_at` (`deleted_at`),
+  KEY `slug` (`slug`),
+  KEY `original_status` (`original_status`),
+  KEY `original_author_id` (`original_author_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}media` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `filename` VARCHAR(190) NOT NULL,
+  `original_filename` VARCHAR(255) NOT NULL DEFAULT '',
+  `public_path` VARCHAR(255) NOT NULL,
+  `mime_type` VARCHAR(100) NOT NULL DEFAULT '',
+  `file_size` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `width` INT UNSIGNED NULL,
+  `height` INT UNSIGNED NULL,
+  `alt_text` VARCHAR(255) NOT NULL DEFAULT '',
+  `caption` TEXT NULL,
+  `uploaded_by` BIGINT UNSIGNED NULL,
+  `file_hash` CHAR(64) NULL,
+  `image_variants_json` LONGTEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  `trashed_at` DATETIME NULL,
+  `trashed_by` BIGINT UNSIGNED NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `public_path` (`public_path`),
+  KEY `created_at` (`created_at`),
+  KEY `mime_type` (`mime_type`),
+  KEY `uploaded_by` (`uploaded_by`),
+  KEY `trashed_at` (`trashed_at`),
+  KEY `trashed_by` (`trashed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}comments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `post_slug` VARCHAR(190) NOT NULL,
+  `post_id` BIGINT UNSIGNED NULL,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `parent_id` BIGINT UNSIGNED NULL,
+  `body` TEXT NOT NULL,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'approved',
+  `ip_hash` CHAR(64) NOT NULL DEFAULT '',
+  `user_agent_hash` CHAR(64) NOT NULL DEFAULT '',
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  `approved_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  KEY `post_slug_status` (`post_slug`, `status`),
+  KEY `user_id` (`user_id`),
+  KEY `status_created` (`status`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}autosaves` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NULL,
+  `draft_key` VARCHAR(190) NOT NULL,
+  `title` VARCHAR(255) NOT NULL DEFAULT '',
+  `slug` VARCHAR(190) NOT NULL DEFAULT '',
+  `section` VARCHAR(30) NOT NULL DEFAULT 'drafts',
+  `filename` VARCHAR(255) NOT NULL DEFAULT '',
+  `markdown` LONGTEXT NOT NULL,
+  `fields_json` LONGTEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_key` (`user_id`, `draft_key`),
+  KEY `updated_at` (`updated_at`),
+  KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}stream_likes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `post_id` BIGINT UNSIGNED NOT NULL,
+  `post_slug` VARCHAR(190) NOT NULL,
+  `visitor_hash` CHAR(64) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `post_visitor` (`post_id`, `visitor_hash`),
+  KEY `post_id` (`post_id`),
+  KEY `post_slug` (`post_slug`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}stream_like_attempts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `post_slug` VARCHAR(190) NOT NULL,
+  `visitor_hash` CHAR(64) NOT NULL,
+  `ip_hash` CHAR(64) NOT NULL,
+  `attempted_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `post_slug` (`post_slug`),
+  KEY `visitor_hash` (`visitor_hash`),
+  KEY `ip_hash` (`ip_hash`),
+  KEY `attempted_at` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}registration_invites` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code_hash` CHAR(64) NOT NULL,
+  `code_hint` VARCHAR(40) NOT NULL DEFAULT '',
+  `label` VARCHAR(120) NOT NULL DEFAULT '',
+  `max_uses` INT UNSIGNED NOT NULL DEFAULT 1,
+  `used_count` INT UNSIGNED NOT NULL DEFAULT 0,
+  `expires_at` DATETIME NULL,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'active',
+  `created_by` BIGINT UNSIGNED NULL,
+  `last_used_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code_hash` (`code_hash`),
+  KEY `status` (`status`),
+  KEY `expires_at` (`expires_at`),
+  KEY `created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}password_reset_tokens` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `token_hash` CHAR(64) NOT NULL,
+  `requested_ip_hash` CHAR(64) NOT NULL DEFAULT '',
+  `expires_at` DATETIME NOT NULL,
+  `used_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_hash` (`token_hash`),
+  KEY `user_id` (`user_id`),
+  KEY `expires_at` (`expires_at`),
+  KEY `used_at` (`used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}password_reset_attempts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `identifier_hash` CHAR(64) NOT NULL DEFAULT '',
+  `ip_hash` CHAR(64) NOT NULL DEFAULT '',
+  `mail_sent` TINYINT(1) NOT NULL DEFAULT 0,
+  `attempted_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `identifier_hash` (`identifier_hash`),
+  KEY `ip_hash` (`ip_hash`),
+  KEY `attempted_at` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}email_verification_attempts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `identifier_hash` CHAR(64) NOT NULL DEFAULT '',
+  `ip_hash` CHAR(64) NOT NULL DEFAULT '',
+  `mail_sent` TINYINT(1) NOT NULL DEFAULT 0,
+  `attempted_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `identifier_hash` (`identifier_hash`),
+  KEY `ip_hash` (`ip_hash`),
+  KEY `attempted_at` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}mail_test_deliveries` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `transport` VARCHAR(40) NOT NULL DEFAULT 'disabled',
+  `body_format` VARCHAR(30) NOT NULL DEFAULT 'plain_text',
+  `recipient_to` TEXT NULL,
+  `subject` VARCHAR(255) NOT NULL DEFAULT '',
+  `status` VARCHAR(30) NOT NULL DEFAULT 'failed',
+  `error_message` TEXT NULL,
+  `sent_at` DATETIME NULL,
+  `triggered_by` BIGINT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `created_at` (`created_at`),
+  KEY `status` (`status`),
+  KEY `triggered_by` (`triggered_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}login_attempts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(64) NOT NULL DEFAULT '',
+  `ip_hash` CHAR(64) NOT NULL DEFAULT '',
+  `success` TINYINT(1) NOT NULL DEFAULT 0,
+  `attempted_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `attempted_at` (`attempted_at`),
+  KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}upgrade_history` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `from_version` VARCHAR(80) NOT NULL DEFAULT '',
+  `to_version` VARCHAR(80) NOT NULL DEFAULT '',
+  `status` VARCHAR(30) NOT NULL DEFAULT 'complete',
+  `notes` TEXT NULL,
+  `ran_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ran_at` (`ran_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+"CREATE TABLE IF NOT EXISTS `{{prefix}}migrations` (
+  `migration` VARCHAR(120) NOT NULL,
+  `ran_at` DATETIME NOT NULL,
+  PRIMARY KEY (`migration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+];

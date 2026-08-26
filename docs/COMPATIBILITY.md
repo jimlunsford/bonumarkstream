@@ -30,10 +30,10 @@ Each matrix job then runs:
 
 - PHP syntax checks
 - the clean-package smoke test
-- the disposable migration/schema database smoke test
+- the disposable database smoke test covering both current fresh-install schema creation and historical supported-upgrade migration replay
 - the disposable Remote Posting API database smoke test
 
-The database smoke tests create only randomly prefixed temporary tables inside the CI database and remove them afterward.
+The database smoke tests create only randomly prefixed temporary tables inside the CI database and remove them afterward. The schema test deliberately keeps two paths separate: it runs the current fresh-install path through `bms_install_schema()`, then independently starts from a verified historical v0.4.x baseline and applies only the migrations that follow that baseline. This prevents the cumulative current `0001_initial_schema.php` from being misused as an old installation state.
 
 ## Web servers
 

@@ -1,6 +1,6 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.7.1 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
+Bonumark Stream v0.7.2 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
 ## Upgrade paths
 
@@ -17,19 +17,19 @@ A locked-down application tree is not a broken Bonumark installation. Do not mak
 On a locked-down server with shell access, run the upgrade as the operating-system account that owns/deploys the Bonumark application tree:
 
 ```sh
-php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.7.1.zip
-php scripts/deploy-update.php /path/to/bonumark-stream-v0.7.1.zip
+php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.7.2.zip
+php scripts/deploy-update.php /path/to/bonumark-stream-v0.7.2.zip
 ```
 
 The owner-run helper uses the same core upgrade engine as Admin → Upgrade. It does not invoke `sudo`, install a privileged daemon, use setuid behavior, or give the web/PHP process additional filesystem rights.
 
 ### First transition from an older locked-down release
 
-Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.7.1 without performing a full manual overlay first, extract the v0.7.1 release outside the live site and run the helper from that extracted release while targeting the live installation:
+Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.7.2 without performing a full manual overlay first, extract the v0.7.2 release outside the live site and run the helper from that extracted release while targeting the live installation:
 
 ```sh
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.7.1.zip
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.7.1.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.7.2.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.7.2.zip
 ```
 
 After the upgrade succeeds, the helper exists inside the live installation for future owner-run upgrades.
@@ -38,53 +38,19 @@ After the upgrade succeeds, the helper exists inside the live installation for f
 
 When PHP cannot replace the application code and shell access is unavailable, use the documented manual/hosting-layer workflow in [`server/MANUAL-DEPLOYMENT.md`](server/MANUAL-DEPLOYMENT.md). Preserve Bonumark owner/runtime data and complete the documented deployment and migration checks before treating the upgrade as finished.
 
-## v0.7.1 - Compatibility Workflow Correction Pass
+## v0.7.2 - Hosting Portability & Upgrade Workflow
 
-v0.7.1 supersedes the unreleased v0.7.0 candidate as the intended public release after v0.6.0. The runtime product behavior is unchanged from that candidate. The correction is limited to repository/package verification: the compatibility matrix now tests a clean tracked source snapshot, and the Remote Stream Posts API route is present in the GitHub source tree as required by the release manifest and API contract.
+v0.7.2 is the intended public release after v0.6.0. It supersedes the unreleased v0.7.0 and v0.7.1 candidates while keeping the same runtime milestone: locked-down hosting support, owner-run upgrades, shared upgrade/recovery logic, deployment verification, and explicit database compatibility.
 
-### Database changes from v0.6.0
+The v0.7.2 candidate also corrects release verification. The compatibility matrix now tests from a clean tracked source tree, keeps the Remote Stream Posts API route aligned with the release manifest, and validates database behavior through two distinct real-database paths: the current fresh-install schema and a historical v0.4.x baseline followed by the migrations that actually come after that baseline.
 
-v0.7.1 adds **no new database migration compared with v0.6.0**. The migration directory still ends at `0017_profile_photos.php`. Installations older than v0.6.0 may still have earlier pending migrations when moving directly to v0.7.1.
+### Database impact
 
-### Upgrade guidance
+v0.7.2 adds **no new database migration compared with v0.6.0**. The migration directory still ends at `0017_profile_photos.php`. Installations older than v0.6.0 may still have earlier pending migrations when moving directly to v0.7.2.
 
-Use the same Admin ZIP or owner-run CLI upgrade path described above. Back up the database and site files before a production upgrade, confirm the ZIP is the expected v0.7.1 package, review Admin → System Check, and verify the public site plus owner data after the upgrade.
+### Upgrade path
 
-## v0.7.0 - Hosting Portability & Upgrade Workflow
-
-v0.7.0 was the unreleased release candidate that consolidated the hosting portability, upgrade, deployment verification, compatibility, and diagnostic work completed in the v0.6.1 through v0.6.8 development builds.
-
-### Before upgrading from v0.6.0
-
-1. Back up the database and site files before a production upgrade.
-2. Confirm the release ZIP is the expected v0.7.0 package.
-3. Use **Admin → System Check** to review runtime writability, private-path protection, public clean-route behavior, database compatibility, and available upgrade/theme-install capabilities.
-4. Choose Admin → Upgrade or the owner-run CLI path based on the actual filesystem capability of the installation.
-
-### Database changes from v0.6.0
-
-v0.7.0 adds **no new database migration compared with v0.6.0**. The migration directory still ends at `0017_profile_photos.php`.
-
-A supported installation older than v0.6.0 may still have earlier pending migrations when it moves directly to v0.7.0. The Admin and owner-run upgrade paths detect and handle pending migrations through the normal migration ledger/recovery model. The owner-run path requires explicit confirmation that an external database backup exists before it applies pending migrations.
-
-### What changes operationally
-
-- Locked-down application trees are a supported deployment model rather than a reason to broaden PHP write permissions.
-- Admin and owner-run upgrades use the same package validation, preservation, backup, rollback, migration, cleanup, and history code.
-- `scripts/deployment-check.php` can verify installed package integrity, obsolete package files, runtime-directory presence, database compatibility, pending migrations, and migration-recovery state without changing the installation.
-- Nginx has maintained routing/security guidance; Apache and LiteSpeed continue to use the shipped `.htaccess` rules.
-- cURL, ZipArchive, GD/Imagick, Fileinfo, mbstring, theme ZIP installation, and web-based software upgrades are treated according to their actual feature capability instead of being assumed universal hosting requirements.
-
-### After upgrading
-
-1. Run `php scripts/deployment-check.php` when shell access is available. The owner-run upgrader runs it automatically after a successful upgrade.
-2. Open **Admin → System Check** and confirm the web/PHP-specific checks.
-3. Verify the public Home/Stream, a single post, Profile, Page, comments/likes if enabled, media, and the Stream composer.
-4. Confirm custom themes and owner media/data remain present.
-5. If Remote Posting is enabled, verify Admin → Remote Posting and `/api/v1/status`.
-6. Confirm there are no pending migrations or obsolete package-managed files.
-
-Detailed package-by-package development history for v0.6.1 through v0.6.8 is retained in [`../_bonumark_stream/CHANGELOG.md`](../_bonumark_stream/CHANGELOG.md).
+Use the same Admin ZIP or owner-run CLI upgrade path described above. Back up the database and site files before a production upgrade, confirm the ZIP is the expected v0.7.2 package, review Admin → System Check, and verify the public site plus owner data after the upgrade.
 
 ## v0.6.0 - Profiles & Theme Architecture 2.0
 

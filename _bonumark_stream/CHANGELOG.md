@@ -1,3 +1,13 @@
+## 0.7.2 - Database Smoke Test Correctness Pass
+
+- Supersedes the unreleased v0.7.1 candidate while keeping the public milestone name **Hosting Portability & Upgrade Workflow** and the same runtime feature set.
+- Corrects `scripts/database-smoke-test.php` so it no longer treats the current cumulative `0001_initial_schema.php` as if it were a historical install and then blindly replays every later migration on top of it.
+- Adds a verified historical v0.4.x initial-schema fixture matching Git blob `3e7e70385dcaa2fb621809430e1e660bdce9459b`, captured from the clean v0.4.5 public baseline that retained the supported v0.4.0+ upgrade line.
+- Separates real-database verification into two paths: the current fresh-install path through `bms_install_schema()` and a supported-upgrade path that starts from the historical v0.4.x baseline before applying migrations `0002` through `0017`.
+- Extends the package smoke contract so the historical fixture identity and the two-path database test model cannot regress silently.
+- Keeps the GitHub compatibility matrix on the clean tracked source snapshot introduced in v0.7.1.
+- Changes no Bonumark runtime feature behavior and adds no database migration.
+
 ## 0.7.1 - Compatibility Workflow Correction Pass
 
 - Supersedes the unreleased v0.7.0 release candidate without changing the product milestone or runtime feature set.

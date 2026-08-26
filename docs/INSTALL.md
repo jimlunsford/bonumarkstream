@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.7.1 is the current release package.
+Bonumark Stream v0.7.2 is the current release package.
 
 ## Runtime storage contract
 

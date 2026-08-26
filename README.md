@@ -7,7 +7,7 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.7.1**
+- Current version: **0.7.2**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -34,11 +34,11 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.7.1
+## What's new in v0.7.2
 
-v0.7.1 is the next intended public release after v0.6.0. It supersedes the unreleased v0.7.0 candidate and brings together the hosting-portability, deployment, upgrade, and compatibility work completed across the v0.6.1 through v0.6.8 development builds. The v0.7.1 correction also makes the repository compatibility matrix test a clean tracked source tree and restores the Remote Stream Posts API route that was accidentally omitted from the v0.7.0 GitHub branch.
+v0.7.2 is the next intended public release after v0.6.0. It supersedes the unreleased v0.7.0 and v0.7.1 candidates and brings together the hosting-portability, deployment, upgrade, and compatibility work completed across the v0.6.1 through v0.6.8 development builds. Release-candidate testing also tightened the GitHub verification path before publication: CI now tests a clean tracked source tree, the Remote Stream Posts API route is present in repository source, and database verification distinguishes a current fresh install from historical v0.4.x migration replay.
 
-Compared with v0.6.0, v0.7.1 adds no new database migration. Installations older than v0.6.0 may still have earlier pending migrations when they move directly to the current release.
+Compared with v0.6.0, v0.7.2 adds no new database migration. Installations older than v0.6.0 may still have earlier pending migrations when they move directly to the current release.
 
 ### Locked-down hosting is a supported operating model
 
@@ -64,7 +64,7 @@ Public URL mode now performs a real read-only request to Bonumark's clean `/api/
 
 Bonumark Stream documents PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ as the current floors, with optional capabilities detected separately. Nginx now has maintained deployment guidance and a reference configuration while Apache and LiteSpeed continue to use the shipped `.htaccess` rules.
 
-The repository compatibility workflow exercises PHP 8.1 and 8.3 across MySQL 8.0/8.4 and MariaDB 10.6/11.4. Each job first creates a clean tracked source snapshot, excluding Git checkout metadata, and then runs PHP lint, the clean-package smoke test, migration/schema testing, and Remote Posting API database testing.
+The repository compatibility workflow exercises PHP 8.1 and 8.3 across MySQL 8.0/8.4 and MariaDB 10.6/11.4. Each job first creates a clean tracked source snapshot, excluding Git checkout metadata, and then runs PHP lint, the clean-package smoke test, database verification for both the current fresh-install path and the historical supported-upgrade path, and the Remote Posting API database smoke test.
 
 ### Safer upgrade and recovery boundaries
 

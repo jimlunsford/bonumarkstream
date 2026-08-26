@@ -2,16 +2,23 @@
 
 This file tracks public GitHub release milestones. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
-## 0.7.1 - Compatibility Workflow Correction Pass
+## 0.7.2 - Hosting Portability & Upgrade Workflow
 
-- Supersedes the unreleased v0.7.0 candidate as the intended public release after v0.6.0 while retaining the same hosting-portability, deployment, upgrade, and compatibility milestone.
-- Corrects the GitHub Actions compatibility matrix to use the Node 24 based `actions/checkout@v5` and run package, migration/schema, and Remote Posting API checks from a clean tracked source snapshot rather than a checkout containing `.git/` metadata.
-- Restores `api/v1/stream/posts.php` to the GitHub release branch so repository source, the release manifest, Remote Posting documentation, and the package smoke contract agree.
-- Keeps the documented PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ floors unchanged.
-- Changes no Bonumark runtime behavior and adds no database migration compared with the v0.7.0 candidate.
-- Retains the v0.4.0+ supported upgrade line and the existing owner-data preservation boundary.
+Bonumark Stream v0.7.2 is the next intended public GitHub release after v0.6.0. It consolidates the completed v0.6.1 through v0.6.8 development line and supersedes the unreleased v0.7.0 and v0.7.1 release candidates.
 
-The unreleased v0.7.0 candidate is retained in the detailed package history under [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+### Highlights
+
+- Formalizes locked-down application trees as a supported operating model where PHP can write required runtime storage without owning package-managed application code.
+- Adds the owner-run `scripts/deploy-update.php` workflow for shell-access deployments while keeping Admin ZIP upgrades for hosts where PHP can safely replace application files.
+- Routes both upgrade paths through the same core engine for package validation, owner-data preservation, private software backups, selective pre-migration rollback, obsolete-file cleanup, migration recovery, and upgrade-history recording.
+- Adds read-only deployment verification, pending-migration and obsolete-file checks, safer private-path probing, real clean-route testing, and CLI-only protection for shipped scripts.
+- Adds maintained Nginx guidance and explicit PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ compatibility targets.
+- Adds a GitHub Actions matrix covering PHP 8.1/8.3 with MySQL 8.0/8.4 and MariaDB 10.6/11.4.
+- Corrects release-candidate verification so CI tests a clean tracked source tree, includes the Remote Stream Posts API route in repository source, and validates current fresh installs separately from historical v0.4.x migration replay.
+- Keeps the supported upgrade floor at v0.4.0 and the existing owner-data preservation boundary.
+- Adds no new database migration compared with v0.6.0.
+
+Detailed v0.6.1 through v0.6.8 development history and the unreleased v0.7.0/v0.7.1 candidate notes remain in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
 ## 0.6.0 - Profiles & Theme Architecture 2.0
 
