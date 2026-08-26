@@ -109,9 +109,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          php scripts/smoke-test.php
-          test "$(cat VERSION)" = "0.7.1"
-          test -f api/v1/stream/posts.php
+          release_tree="$RUNNER_TEMP/bonumark-v071"
+          rm -rf "$release_tree"
+          mkdir -p "$release_tree"
+          rsync -a --exclude='.git/' --exclude='.github/workflows/finalize-v071.yml' ./ "$release_tree/"
+          (
+            cd "$release_tree"
+            php scripts/smoke-test.php
+            test "$(cat VERSION)" = "0.7.1"
+            test -f api/v1/stream/posts.php
+          )
 
       - name: Commit finalized v0.7.1 source
         shell: bash
