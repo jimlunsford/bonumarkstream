@@ -1,0 +1,93 @@
+name: Compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-database-matrix:
+    name: PHP ${{ matrix.php }} / ${{ matrix.database_label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.1'
+            database_image: 'mysql:8.0'
+            database_label: 'MySQL 8.0 floor'
+          - php: '8.1'
+            database_image: 'mariadb:10.6'
+            database_label: 'MariaDB 10.6 floor'
+          - php: '8.3'
+            database_image: 'mysql:8.4'
+            database_label: 'MySQL current LTS'
+          - php: '8.3'
+            database_image: 'mariadb:11.4'
+            database_label: 'MariaDB current LTS'
+
+    services:
+      database:
+        image: ${{ matrix.database_image }}
+        env:
+          MYSQL_DATABASE: bonumark_ci
+          MYSQL_USER: bonumark
+          MYSQL_PASSWORD: bonumark_ci_password
+          MYSQL_ROOT_PASSWORD: bonumark_root_password
+          MYSQL_ROOT_HOST: '%'
+          MARIADB_DATABASE: bonumark_ci
+          MARIADB_USER: bonumark
+          MARIADB_PASSWORD: bonumark_ci_password
+          MARIADB_ROOT_PASSWORD: bonumark_root_password
+          MARIADB_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pbonumark_root_password || mariadb-admin ping -h 127.0.0.1 -uroot -pbonumark_root_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, curl, fileinfo, zip, gd, mbstring
+          coverage: none
+
+      - name: Lint PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find . -type f -name '*.php' -print0)
+
+      - name: Run clean-package smoke test
+        run: php scripts/smoke-test.php
+
+      - name: Run migration/schema smoke test
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASS: bonumark_ci_password
+          BMS_DB_DANGER_RESET: '1'
+        run: php scripts/database-smoke-test.php
+
+      - name: Run Remote API database smoke test
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASS: bonumark_ci_password
+          BMS_DB_DANGER_RESET: '1'
+        run: php scripts/api-database-smoke-test.php
