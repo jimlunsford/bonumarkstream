@@ -1,4 +1,4 @@
-# Trigger the one-time release-branch finalizer.
+# Trigger the one-time release-branch finalizer now.
 name: Finalize v0.7.1 branch
 
 on:
