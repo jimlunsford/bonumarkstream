@@ -47,8 +47,10 @@ To create a theme:
 5. Edit the design tokens and presentation rules in `assets/css/theme.css`.
 6. Adjust or remove declarative layouts as needed.
 7. Zip the theme folder.
-8. Upload it through **Admin > Appearance**.
+8. Upload it through **Admin > Appearance** when System Check reports **Theme ZIP installation** as available.
 9. Run Theme Health before activation.
+
+On a locked-down installation, PHP may intentionally lack write access to `_bonumark_stream/themes/` and `assets/themes/`. Bonumark treats that as a feature-capability warning, not a broken site. Use the maintained [manual theme deployment workflow](server/MANUAL-THEME-DEPLOYMENT.md), then run Theme Health before activation. Do not make the whole application tree writable merely to use the Admin ZIP uploader.
 
 ## Rendering boundary
 
@@ -83,7 +85,7 @@ Only declared private layout files are installed. Layout JSON is never copied in
 
 Theme Architecture 2.0 lets a code-free theme arrange registered core components through Layout Schema 1.
 
-The four supported v0.6.0 surfaces are:
+The four currently supported surfaces are:
 
 - `profile`
 - `stream-card`

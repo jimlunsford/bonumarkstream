@@ -21,6 +21,12 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $root = dirname(__DIR__);
+
+if (is_file($root . '/_bonumark_stream/installed.lock') || is_file($root . '/_bonumark_stream/config.php')) {
+    fwrite(STDERR, "Bonumark package smoke test is for a clean source/release tree, not an installed site. Use Admin > System Check for live installation diagnostics.\n");
+    exit(2);
+}
+
 $failures = [];
 $functionsSource = @file_get_contents($root . '/_bonumark_stream/app/functions.php') ?: '';
 $databaseSource = @file_get_contents($root . '/_bonumark_stream/app/database.php') ?: '';
@@ -101,6 +107,16 @@ if (is_array($package) && (($package['license'] ?? '') !== 'AGPL-3.0-or-later'))
     bm_smoke_fail($failures, 'PACKAGE.json license must be AGPL-3.0-or-later.');
 }
 
+if (is_array($package) && (($package['package_type'] ?? '') !== 'self-hosted')) {
+    bm_smoke_fail($failures, 'PACKAGE.json package_type must describe Bonumark as self-hosted rather than a single hosting environment.');
+}
+if (is_array($package)) {
+    $databaseMinimums = is_array($package['database_minimums'] ?? null) ? $package['database_minimums'] : [];
+    if (($databaseMinimums['mysql'] ?? '') !== '8.0.0' || ($databaseMinimums['mariadb'] ?? '') !== '10.6.0') {
+        bm_smoke_fail($failures, 'PACKAGE.json database_minimums must match the documented MySQL/MariaDB compatibility floors.');
+    }
+}
+
 $license = @file_get_contents($root . '/LICENSE') ?: '';
 if (!str_contains($license, 'GNU AFFERO GENERAL PUBLIC LICENSE')) {
     bm_smoke_fail($failures, 'LICENSE does not contain the AGPLv3 license text.');
@@ -125,11 +141,337 @@ if ($rootVersion !== '' && !str_contains($changelog, '## ' . $rootVersion . ' - 
 }
 
 $installerSource = @file_get_contents($root . '/install.php') ?: '';
+$upgradeSourceEarly = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+$upgraderSource = @file_get_contents($root . '/_bonumark_stream/app/upgrader.php') ?: '';
+$ownerUpgradeSource = @file_get_contents($root . '/scripts/deploy-update.php') ?: '';
 if (!str_contains($installerSource, "\$pdo->exec(\"SET time_zone = '+00:00'\");")) {
     bm_smoke_fail($failures, 'Fresh installer database connection must force a UTC session before schema and seed writes.');
 }
 if (!str_contains($installerSource, "'email_verified_at' => gmdate('Y-m-d H:i:s')")) {
     bm_smoke_fail($failures, 'Fresh installer Admin verification timestamp must be explicit UTC.');
+}
+
+$runtimeDirectoryTokens = [
+    'function bms_runtime_directory_definitions(): array',
+    'function bms_runtime_directory_status(): array',
+    'function bms_ensure_runtime_directories(): array',
+    "'_bonumark_stream/tmp'",
+    "'_bonumark_stream/content/versions'",
+    "'_bonumark_stream/import-staging'",
+    "'_bonumark_stream/import-staging/previews'",
+    "'media'",
+];
+foreach ($runtimeDirectoryTokens as $runtimeDirectoryToken) {
+    if (!str_contains($functionsSource, $runtimeDirectoryToken)) {
+        bm_smoke_fail($failures, 'Runtime filesystem capability contract is missing: ' . $runtimeDirectoryToken);
+    }
+}
+if (!str_contains($installerSource, 'bms_ensure_runtime_directories()')
+    || str_contains($installerSource, "foreach (['content/import-markdown', 'content/versions', 'backups/upgrades'")) {
+    bm_smoke_fail($failures, 'Fresh installer is not using the centralized runtime-directory capability contract.');
+}
+if (!str_contains($functionsSource, 'foreach (bms_runtime_directory_status() as $directory)')) {
+    bm_smoke_fail($failures, 'System Check security status is not using the centralized read-only runtime-directory capability contract.');
+}
+
+if (!str_contains($upgradeSourceEarly, 'bms_ensure_runtime_directories()') || !str_contains($upgradeSourceEarly, 'Upgrade completed, but some runtime storage still needs hosting attention:')) {
+    bm_smoke_fail($failures, 'Completed upgrades do not provision or report the centralized runtime-directory capability contract.');
+}
+
+foreach ([
+    'function bms_package_managed_software_path(string $relative): bool',
+    'function bms_installed_release_manifest_paths(): array',
+    'function bms_automatic_upgrade_capability(?array $relativePaths = null): array',
+] as $requiredUpgradeCapabilityFunction) {
+    if (!str_contains($functionsSource, $requiredUpgradeCapabilityFunction)) {
+        bm_smoke_fail($failures, 'Upgrade capability foundation is missing: ' . $requiredUpgradeCapabilityFunction);
+    }
+}
+if (!str_contains($functionsSource, "'label' => 'Web-based software upgrades'")
+    || !str_contains($upgraderSource, "'automatic_upgrade' =>")
+    || !str_contains($upgraderSource, 'This PHP process cannot safely replace package-managed application files.')
+    || !str_contains($upgradeSourceEarly, 'Web-based software upgrades are unavailable on this installation.')
+    || !str_contains($upgradeSourceEarly, 'php scripts/deploy-update.php /path/to/release.zip')
+    || !str_contains($upgradeSourceEarly, "empty(\$precheck['backup_ready']) || !\$precheckAutomatic ? 'disabled' : ''")) {
+    bm_smoke_fail($failures, 'Admin/System Check web-upgrade capability reporting or owner-run CLI handoff is incomplete.');
+}
+if (!str_contains($upgraderSource, '$changedPackageFiles = [];')
+    || !str_contains($upgraderSource, '$removedDuringInstall = [];')
+    || !str_contains($upgraderSource, 'function bms_upgrade_restore_changed_software(')
+    || !str_contains($upgraderSource, 'No rollback was necessary.')
+    || str_contains($upgraderSource, 'bms_upgrade_restore_backup($softwareItems, $backupRoot, $publicRoot)')) {
+    bm_smoke_fail($failures, 'Shared pre-migration upgrade recovery is not limited to software actually changed by the attempt.');
+}
+if (!str_contains($upgradeSourceEarly, "require_once __DIR__ . '/../_bonumark_stream/app/upgrader.php';")
+    || str_contains($upgradeSourceEarly, 'function bms_upgrade_safe_extract(')
+    || !str_contains($upgraderSource, 'function bms_upgrade_safe_extract(')
+    || !str_contains($upgraderSource, 'function bms_upgrade_install(')) {
+    bm_smoke_fail($failures, 'Admin and CLI upgrade paths are not using one shared core upgrade engine.');
+}
+if (!str_contains($ownerUpgradeSource, "PHP_SAPI !== 'cli'")
+    || !str_contains($ownerUpgradeSource, 'bms_upgrade_inspect_package($zipPath)')
+    || !str_contains($ownerUpgradeSource, 'bms_upgrade_install($zipPath)')
+    || !str_contains($ownerUpgradeSource, '--confirm-db-backup')
+    || !str_contains($ownerUpgradeSource, '--site-root=')
+    || !str_contains($ownerUpgradeSource, 'Refusing to run as root by default')
+    || !str_contains($ownerUpgradeSource, 'Privilege escalation: NONE')
+    || !str_contains($ownerUpgradeSource, "hash_equals('UPGRADE', strtoupper(\$answer))")
+    || !str_contains($ownerUpgradeSource, 'capitalization does not matter')
+    || !str_contains($ownerUpgradeSource, "require \$root . '/scripts/deployment-check.php';")) {
+    bm_smoke_fail($failures, 'Owner-run CLI upgrade workflow is missing validation, privilege-boundary, migration-backup, or post-upgrade verification behavior.');
+}
+
+foreach ([
+    'function bms_web_server_capability(): array',
+    'function bms_php_ini_bytes(string $value): ?int',
+    'function bms_upload_limit_capability(): array',
+    'function bms_theme_zip_install_capability(): array',
+    "'label' => 'Web server'",
+    "'label' => 'cURL features'",
+    "'label' => 'Theme ZIP installation'",
+    "'label' => 'Media upload ceiling'",
+    "'label' => 'Image processing'",
+] as $hostingCapabilityToken) {
+    if (!str_contains($functionsSource, $hostingCapabilityToken)) {
+        bm_smoke_fail($failures, 'Hosting capability reporting is missing: ' . $hostingCapabilityToken);
+    }
+}
+
+foreach ([
+    'function bms_database_compatibility_requirements(): array',
+    'function bms_database_server_info_from_version(string $rawVersion): array',
+    'function bms_database_server_compatibility(PDO $pdo): array',
+    'function bms_database_require_supported(PDO $pdo): array',
+] as $databaseCompatibilityToken) {
+    if (!str_contains($databaseSource, $databaseCompatibilityToken)) {
+        bm_smoke_fail($failures, 'Database compatibility reporting is missing: ' . $databaseCompatibilityToken);
+    }
+}
+if (!str_contains($functionsSource, "'label' => 'Database server compatibility'")) {
+    bm_smoke_fail($failures, 'System Check does not report database server compatibility.');
+}
+if (!str_contains($installerSource, 'Database compatibility: MySQL 8.0+ or MariaDB 10.6+')
+    || !str_contains($installerSource, 'bms_db_test_connection($db)')) {
+    bm_smoke_fail($failures, 'Fresh installer does not advertise/enforce the documented database compatibility floor.');
+}
+
+$themeInstallAdmin = @file_get_contents($root . '/admin/theme-install.php') ?: '';
+if (!str_contains($themeInstallAdmin, 'bms_theme_zip_install_capability()')
+    || !str_contains($themeInstallAdmin, 'Theme ZIP installation requires manual deployment here.')
+    || !str_contains($themeInstallAdmin, '$themeInstallAvailable ? \'\' : \'disabled\'')) {
+    bm_smoke_fail($failures, 'Admin theme installer does not honor the hosting theme-install capability.');
+}
+
+$nginxDocsPath = $root . '/docs/server/NGINX.md';
+$nginxConfigPath = $root . '/docs/server/bonumark-stream-nginx.conf';
+$nginxDocs = @file_get_contents($nginxDocsPath) ?: '';
+$nginxConfig = @file_get_contents($nginxConfigPath) ?: '';
+if (!is_file($nginxDocsPath) || !is_file($nginxConfigPath)) {
+    bm_smoke_fail($failures, 'Nginx deployment documentation/configuration is missing.');
+} else {
+    foreach ([
+        'location ^~ /_bonumark_stream/',
+        'location ^~ /scripts/',
+        'fastcgi_param HTTP_AUTHORIZATION $http_authorization;',
+        'client_max_body_size',
+        '__bonumark_route=stream',
+        '__bonumark_route=api_stream_posts',
+        '__bonumark_route=profile',
+        '__bonumark_route=page',
+        '__bonumark_route=search',
+    ] as $nginxToken) {
+        if (!str_contains($nginxConfig, $nginxToken)) {
+            bm_smoke_fail($failures, 'Nginx configuration is missing required routing/security token: ' . $nginxToken);
+        }
+    }
+    if (!str_contains($nginxDocs, 'Admin → System Check') || !str_contains($nginxDocs, 'HTTP `403`')) {
+        bm_smoke_fail($failures, 'Nginx documentation is missing live validation guidance.');
+    }
+}
+
+$readmeSource = @file_get_contents($root . '/README.md') ?: '';
+$installDocsEarly = @file_get_contents($root . '/docs/INSTALL.md') ?: '';
+$upgradeDocsEarly = @file_get_contents($root . '/docs/UPGRADING.md') ?: '';
+foreach ([$readmeSource, $installDocsEarly] as $requirementsSource) {
+    if (!str_contains($requirementsSource, 'PHP cURL')
+        || !str_contains($requirementsSource, 'ZipArchive')
+        || !str_contains($requirementsSource, 'mbstring')
+        || !str_contains($requirementsSource, 'Core requirements')) {
+        bm_smoke_fail($failures, 'Hosting requirements do not distinguish core requirements from optional feature capabilities, including mbstring fallbacks.');
+        break;
+    }
+}
+$manualDeployDocs = @file_get_contents($root . '/docs/server/MANUAL-DEPLOYMENT.md') ?: '';
+$manualThemeDocs = @file_get_contents($root . '/docs/server/MANUAL-THEME-DEPLOYMENT.md') ?: '';
+if (!str_contains($upgradeDocsEarly, 'Owner-run CLI upgrade')
+    || !str_contains($upgradeDocsEarly, 'php scripts/deploy-update.php')
+    || !str_contains($upgradeDocsEarly, '--site-root=/path/to/live/bonumark')
+    || !str_contains($manualDeployDocs, 'rsync -avnc')
+    || !str_contains($manualDeployDocs, 'Do **not** add `--delete`')
+    || !str_contains($manualDeployDocs, 'php scripts/deployment-check.php')
+    || !str_contains($manualDeployDocs, 'no privileged deployment helper')) {
+    bm_smoke_fail($failures, 'Owner-run and manual locked-tree software deployment documentation is incomplete.');
+}
+if (!str_contains($manualThemeDocs, '_bonumark_stream/themes/<slug>/')
+    || !str_contains($manualThemeDocs, 'assets/themes/<slug>/')
+    || !str_contains($manualThemeDocs, 'Theme Health')) {
+    bm_smoke_fail($failures, 'Manual locked-tree theme deployment documentation is incomplete.');
+}
+$deploymentCheckSource = @file_get_contents($root . '/scripts/deployment-check.php') ?: '';
+if (!str_contains($deploymentCheckSource, 'Read-only installed-site deployment check')
+    || !str_contains($deploymentCheckSource, 'bms_database_server_compatibility')
+    || !str_contains($deploymentCheckSource, 'bms_runtime_directory_definitions()')
+    || !str_contains($deploymentCheckSource, 'Package-managed file integrity')
+    || !str_contains($deploymentCheckSource, 'Admin > System Check remains authoritative')) {
+    bm_smoke_fail($failures, 'Installed-site deployment-check helper is missing or incomplete.');
+}
+
+$manualMigrationSource = @file_get_contents($root . '/scripts/run-migrations.php') ?: '';
+if (!str_contains($databaseSource, 'function bms_pending_migration_names(')
+    || !str_contains($databaseSource, 'function bms_record_manual_upgrade_history(')
+    || !str_contains($manualMigrationSource, '--confirm-backup')
+    || !str_contains($manualMigrationSource, 'bms_write_upgrade_recovery_state')
+    || !str_contains($manualMigrationSource, 'bms_run_migrations($fromVersion)')
+    || !str_contains($manualMigrationSource, "PHP_SAPI !== 'cli'")) {
+    bm_smoke_fail($failures, 'Owner-run manual migration workflow is missing or incomplete.');
+}
+if (!str_contains($deploymentCheckSource, 'Pending database migrations:')
+    || !str_contains($deploymentCheckSource, 'Obsolete package files: PASS')
+    || !str_contains($deploymentCheckSource, 'bms_deployment_obsolete_package_files')
+    || !str_contains($deploymentCheckSource, 'if (!bms_package_managed_software_path($relative))')) {
+    bm_smoke_fail($failures, 'Installed-site deployment check does not cover pending migrations, obsolete package files, and the repository-only manifest boundary.');
+}
+if (!str_contains($manualDeployDocs, "--exclude='.github/'")
+    || !str_contains($manualDeployDocs, 'repository-only `.github/` directory')) {
+    bm_smoke_fail($failures, 'Manual deployment documentation does not preserve the repository-only .github boundary.');
+}
+if (!str_contains($functionsSource, "'label' => 'Database migration state'")
+    || !str_contains($functionsSource, 'bms_pending_migration_names(bms_db())')) {
+    bm_smoke_fail($failures, 'System Check does not report database migration state.');
+}
+if (!str_contains($installerSource, "private_storage_verified")
+    || !str_contains($installerSource, 'Bonumark will not silently treat an inconclusive probe as protected.')
+    || !str_contains($installerSource, 'I independently verified that')) {
+    bm_smoke_fail($failures, 'Installer does not require explicit private-storage verification after an inconclusive probe.');
+}
+if (!str_contains($functionsSource, 'function bms_public_url_probe_response(')
+    || !str_contains($functionsSource, 'function bms_probe_public_url_mode(')
+    || !str_contains($functionsSource, "bms_url_path('api/v1/status')")
+    || str_contains($functionsSource, "'message' => 'Stream permalink routing is active.'")) {
+    bm_smoke_fail($failures, 'Public URL mode is not backed by a real read-only Bonumark clean-route probe.');
+}
+
+$publicUrlProbeCode = 'require ' . var_export($root . '/_bonumark_stream/app/functions.php', true) . '; '
+    . '$values=['
+    . 'bms_public_url_probe_response(200,json_encode(["ok"=>true,"api"=>"bonumark-stream"])), '
+    . 'bms_public_url_probe_response(200,"not bonumark"), '
+    . 'bms_public_url_probe_response(404,"")]; '
+    . 'echo json_encode($values);';
+$publicUrlProbeCommand = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($publicUrlProbeCode) . ' 2>/dev/null';
+$publicUrlProbe = json_decode(trim((string)shell_exec($publicUrlProbeCommand)), true);
+if (!is_array($publicUrlProbe)
+    || ($publicUrlProbe[0]['status'] ?? '') !== 'pass'
+    || ($publicUrlProbe[1]['status'] ?? '') !== 'fail'
+    || ($publicUrlProbe[2]['status'] ?? '') !== 'fail') {
+    bm_smoke_fail($failures, 'Public URL probe response classifier failed expected pass/fail cases.');
+}
+
+$privateHtaccess = @file_get_contents($root . '/_bonumark_stream/.htaccess') ?: '';
+$scriptsHtaccess = @file_get_contents($root . '/scripts/.htaccess') ?: '';
+foreach ([$privateHtaccess, $scriptsHtaccess] as $denyHtaccess) {
+    if (!str_contains($denyHtaccess, '<IfModule mod_authz_core.c>')
+        || !str_contains($denyHtaccess, '<IfModule !mod_authz_core.c>')
+        || !str_contains($denyHtaccess, 'Require all denied')
+        || !str_contains($denyHtaccess, 'Deny from all')) {
+        bm_smoke_fail($failures, 'Private/script Apache deny rules are not compatible across authorization directive generations.');
+        break;
+    }
+}
+
+$compatibilityDocs = @file_get_contents($root . '/docs/COMPATIBILITY.md') ?: '';
+$compatibilityWorkflow = @file_get_contents($root . '/.github/workflows/compatibility.yml') ?: '';
+if (!str_contains($compatibilityDocs, 'PHP 8.1')
+    || !str_contains($compatibilityDocs, 'MySQL 8.0')
+    || !str_contains($compatibilityDocs, 'MariaDB 10.6')
+    || !str_contains($compatibilityWorkflow, "mysql:8.0")
+    || !str_contains($compatibilityWorkflow, "mariadb:10.6")
+    || !str_contains($compatibilityWorkflow, 'php scripts/database-smoke-test.php')
+    || !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')) {
+    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke tests.');
+}
+if (!str_contains($installDocsEarly, 'Fresh install on a locked-down application tree')
+    || !str_contains($manualDeployDocs, 'php scripts/run-migrations.php --check')
+    || !str_contains($manualDeployDocs, '--confirm-backup --from-version="$CURRENT_VERSION"')) {
+    bm_smoke_fail($failures, 'Locked-down fresh-install or generic manual migration documentation is incomplete.');
+}
+if (str_contains($readmeSource, 'For the v0.6.0 release, an upgrade from the last public GitHub release')) {
+    bm_smoke_fail($failures, 'README primary upgrade guidance still contains stale v0.6.0-specific instructions.');
+}
+
+$unguardedMbPatterns = [
+    '$excerpt = mb_substr(',
+    'return mb_strlen($source)',
+    '$titleText = mb_substr(',
+    'return mb_substr($text, 0, 156)',
+    '$label = mb_substr(',
+    '$safeError = mb_substr(',
+    'if (mb_strlen($value',
+];
+foreach (bm_smoke_files($root) as $phpPath) {
+    if (strtolower(pathinfo($phpPath, PATHINFO_EXTENSION)) !== 'php') {
+        continue;
+    }
+    if (bm_smoke_relative($root, $phpPath) === 'scripts/smoke-test.php') {
+        continue;
+    }
+    $phpSource = @file_get_contents($phpPath) ?: '';
+    foreach ($unguardedMbPatterns as $pattern) {
+        if (str_contains($phpSource, $pattern)) {
+            bm_smoke_fail($failures, 'Potential unguarded mbstring dependency remains: ' . bm_smoke_relative($root, $phpPath) . ' (' . $pattern . ')');
+        }
+    }
+}
+
+$noMbProbeCode = 'require ' . var_export($root . '/_bonumark_stream/app/functions.php', true) . '; '
+    . 'echo (function_exists("mb_strlen")?"mb-on":"mb-off") . "|" . bms_text_length("abc") . "|" . bms_text_substr("abcdef",0,3);';
+$noMbProbeCommand = escapeshellarg(PHP_BINARY) . ' -n -r ' . escapeshellarg($noMbProbeCode) . ' 2>/dev/null';
+$noMbProbe = trim((string)shell_exec($noMbProbeCommand));
+if ($noMbProbe !== 'mb-off|3|abc') {
+    bm_smoke_fail($failures, 'Core multibyte fallbacks did not work with php -n / mbstring unavailable. Got: ' . $noMbProbe);
+}
+
+$hostingProbeCode = 'require ' . var_export($root . '/_bonumark_stream/app/functions.php', true) . '; '
+    . '$_SERVER["SERVER_SOFTWARE"]="nginx/1.24.0"; '
+    . '$web=bms_web_server_capability(); '
+    . '$sizes=[bms_php_ini_bytes("2M"),bms_php_ini_bytes("1G")]; '
+    . 'echo json_encode(["family"=>$web["family"]??"","sizes"=>$sizes]);';
+$hostingProbeCommand = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($hostingProbeCode) . ' 2>/dev/null';
+$hostingProbe = json_decode(trim((string)shell_exec($hostingProbeCommand)), true);
+if (!is_array($hostingProbe)
+    || ($hostingProbe['family'] ?? '') !== 'nginx'
+    || ($hostingProbe['sizes'][0] ?? 0) !== 2097152
+    || ($hostingProbe['sizes'][1] ?? 0) !== 1073741824) {
+    bm_smoke_fail($failures, 'Hosting capability helper probe failed for Nginx detection or PHP ini byte parsing.');
+}
+
+$databaseCompatibilityProbeCode = 'require ' . var_export($root . '/_bonumark_stream/app/database.php', true) . '; '
+    . '$values=['
+    . 'bms_database_server_info_from_version("8.0.36-0ubuntu0.22.04.1"),'
+    . 'bms_database_server_info_from_version("5.5.5-10.11.8-MariaDB-0+deb12u1"),'
+    . 'bms_database_server_info_from_version("5.7.44-log"),'
+    . 'bms_database_server_info_from_version("10.5.27-MariaDB")];'
+    . 'echo json_encode($values);';
+$databaseCompatibilityProbeCommand = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($databaseCompatibilityProbeCode) . ' 2>/dev/null';
+$databaseCompatibilityProbe = json_decode(trim((string)shell_exec($databaseCompatibilityProbeCommand)), true);
+if (!is_array($databaseCompatibilityProbe)
+    || ($databaseCompatibilityProbe[0]['family'] ?? '') !== 'mysql'
+    || empty($databaseCompatibilityProbe[0]['supported'])
+    || ($databaseCompatibilityProbe[1]['family'] ?? '') !== 'mariadb'
+    || ($databaseCompatibilityProbe[1]['version'] ?? '') !== '10.11.8'
+    || empty($databaseCompatibilityProbe[1]['supported'])
+    || !empty($databaseCompatibilityProbe[2]['supported'])
+    || !empty($databaseCompatibilityProbe[3]['supported'])) {
+    bm_smoke_fail($failures, 'Database compatibility parser failed MySQL/MariaDB supported/unsupported version probes.');
 }
 
 $quickEditEndpoint = @file_get_contents($root . '/admin/stream-quick-edit.php') ?: '';
@@ -168,6 +510,21 @@ if (!str_contains($streamScript, 'function setupStreamTrash(root)') || !str_cont
 }
 $profilesSource = @file_get_contents($root . '/_bonumark_stream/app/profiles.php') ?: '';
 $routesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
+$systemFunctionsSource = @file_get_contents($root . '/_bonumark_stream/app/functions.php') ?: '';
+if (!str_contains($systemFunctionsSource, 'function bms_readonly_http_probe(')
+    || !str_contains($systemFunctionsSource, "\$probeUrl = \$baseUrl . '/_bonumark_stream/VERSION';")
+    || str_contains($systemFunctionsSource, 'security-probe-')) {
+    bm_smoke_fail($failures, 'Private-folder exposure diagnostics must use a read-only known-file HTTP probe.');
+}
+if (!str_contains($routesSource, "\$rawSlug = trim((string)(\$_GET['slug'] ?? ''));")
+    || !str_contains($routesSource, "\$slug = \$rawSlug !== '' ? bms_slugify(\$rawSlug) : '';")) {
+    bm_smoke_fail($failures, 'Stream route must preserve an empty slug so /stream renders the archive instead of an untitled single-post lookup.');
+}
+$packageSmokeSource = @file_get_contents($root . '/scripts/smoke-test.php') ?: '';
+if (!str_contains($packageSmokeSource, "is_file(\$root . '/_bonumark_stream/installed.lock')")
+    || !str_contains($packageSmokeSource, 'Use Admin > System Check for live installation diagnostics.')) {
+    bm_smoke_fail($failures, 'Package smoke test must refuse installed-site trees with a clear System Check handoff.');
+}
 $profileTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/profile.php') ?: '';
 $profileTemplateHelpers = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/_helpers.php') ?: '';
 $profileComponentDir = $root . '/_bonumark_stream/app/views/default/components/profile';
@@ -1532,8 +1889,8 @@ foreach (['SHOW COLUMNS FROM `{$prefix}posts` LIKE :column_name', 'SHOW INDEX FR
         bm_smoke_fail($failures, 'Database smoke test contains a MariaDB-incompatible parameterized SHOW statement: ' . $unsupportedShowStatement);
     }
 }
-$upgradeSource = @file_get_contents($root . '/admin/upgrade.php') ?: '';
-if (!str_contains($upgradeSource, "'profile-export.php' => true") || !str_contains($upgradeSource, "'profile-export.php',")) {
+$upgradeSource = $upgraderSource;
+if (!str_contains($functionsSource, "'profile-export.php' => true") || !str_contains($upgradeSource, "'profile-export.php',")) {
     bm_smoke_fail($failures, 'Upgrade management must treat the Profile export endpoint as package-managed software.');
 }
 if (!str_contains($upgradeSource, '$skipPublic = [\'media\' => true, \'uploads\' => true]')
@@ -1542,8 +1899,8 @@ if (!str_contains($upgradeSource, '$skipPublic = [\'media\' => true, \'uploads\'
     || !str_contains($upgradeSource, 'isset($preservedRuntimeItems[$item])')) {
     bm_smoke_fail($failures, 'Upgrade software selection and backups must skip public media and upload runtime directories.');
 }
-if (!str_contains($upgradeSource, "'CHANGELOG.md' => true")
-    || !str_contains($upgradeSource, "'analytics.php' => true")) {
+if (!str_contains($functionsSource, "'CHANGELOG.md' => true")
+    || !str_contains($functionsSource, "'analytics.php' => true")) {
     bm_smoke_fail($failures, 'Upgrade cleanup coverage is missing package-managed top-level files.');
 }
 if (!str_contains($upgradeSource, "'profile-editorial' => true")
@@ -1556,6 +1913,12 @@ foreach ([
     "'manifest.php' => true",
     "'pwa-icon.php' => true",
     "'sw.js' => true",
+] as $requiredManagedPathText) {
+    if (!str_contains($functionsSource, $requiredManagedPathText)) {
+        bm_smoke_fail($failures, 'Package-managed software contract is missing: ' . $requiredManagedPathText);
+    }
+}
+foreach ([
     'bms_run_migrations($historyFromVersion)',
     'bms_write_upgrade_recovery_state',
     'bms_upgrade_record_recovery_required',
@@ -1586,10 +1949,13 @@ if (!str_contains($pwaSource, 'function bms_pwa_icon_source')
     bm_smoke_fail($failures, 'PWA must derive installed app icon URLs from the Site Identity favicon when available.');
 }
 
-foreach (['scripts/smoke-test.php', 'scripts/migration-recovery-smoke-test.php'] as $script) {
-    $scriptSource = @file_get_contents($root . '/' . $script) ?: '';
+$topLevelScriptFiles = glob($root . '/scripts/*.php') ?: [];
+sort($topLevelScriptFiles);
+foreach ($topLevelScriptFiles as $scriptPath) {
+    $script = bm_smoke_relative($root, $scriptPath);
+    $scriptSource = @file_get_contents($scriptPath) ?: '';
     if (!str_contains($scriptSource, "PHP_SAPI !== 'cli'") || !str_contains($scriptSource, "exit('CLI only.')")) {
-        bm_smoke_fail($failures, 'Test scripts must refuse web execution: ' . $script);
+        bm_smoke_fail($failures, 'CLI script must refuse web execution: ' . $script);
     }
 }
 
@@ -1730,7 +2096,7 @@ if (($linkPreviewLegitimateLocalName['title'] ?? '') !== 'Remote Article | Bonum
 }
 
 
-$upgradeSource = @file_get_contents($root . '/admin/upgrade.php') ?: '';
+$upgradeSource = $upgraderSource;
 
 $linkPreviewEndpointSource = @file_get_contents($root . '/admin/link-preview.php') ?: '';
 $quickPostSource = @file_get_contents($root . '/admin/quick-post.php') ?: '';

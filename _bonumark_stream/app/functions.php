@@ -60,7 +60,7 @@ function bms_default_config(): array
         'analytics_enabled' => '0',
         'analytics_retention_days' => '90',
         'analytics_last_cleanup_date' => '',
-        'version' => '0.6.0',
+        'version' => '0.7.0',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -422,6 +422,504 @@ function bms_content_path(string $path = ''): string
     return bms_root_path('content' . ($path ? '/' . ltrim($path, '/') : ''));
 }
 
+/**
+ * Return the runtime directories Bonumark Stream expects the PHP process to
+ * be able to create and write during normal operation.
+ *
+ * Installer provisioning and System Check diagnostics intentionally share
+ * this definition so hosting requirements cannot silently drift apart.
+ *
+ * @return array<string,array{label:string,relative_path:string,path:string,purpose:string}>
+ */
+function bms_runtime_directory_definitions(): array
+{
+    return [
+        'private_data' => [
+            'label' => 'Private data writable',
+            'relative_path' => '_bonumark_stream/data',
+            'path' => bms_root_path('data'),
+            'purpose' => 'Private application runtime data.',
+        ],
+        'private_tmp' => [
+            'label' => 'Private temporary storage writable',
+            'relative_path' => '_bonumark_stream/tmp',
+            'path' => bms_root_path('tmp'),
+            'purpose' => 'Locks, rate limits, theme staging, profile exports, and other temporary runtime files.',
+        ],
+        'temporary_exports' => [
+            'label' => 'Temporary export storage writable',
+            'relative_path' => '_bonumark_stream/tmp/exports',
+            'path' => bms_root_path('tmp/exports'),
+            'purpose' => 'Temporary package export files.',
+        ],
+        'static_site_exports' => [
+            'label' => 'Static site export temp writable',
+            'relative_path' => '_bonumark_stream/tmp/static-site-exports',
+            'path' => bms_root_path('tmp/static-site-exports'),
+            'purpose' => 'Optional static-site export staging.',
+        ],
+        'upgrade_temp' => [
+            'label' => 'Upgrade temp writable',
+            'relative_path' => '_bonumark_stream/tmp/upgrades',
+            'path' => bms_root_path('tmp/upgrades'),
+            'purpose' => 'Admin ZIP upgrade extraction and validation.',
+        ],
+        'upgrade_backups' => [
+            'label' => 'Upgrade backups writable',
+            'relative_path' => '_bonumark_stream/backups/upgrades',
+            'path' => bms_root_path('backups/upgrades'),
+            'purpose' => 'Pre-upgrade software backups.',
+        ],
+        'markdown_imports' => [
+            'label' => 'Markdown import folder writable',
+            'relative_path' => '_bonumark_stream/content/import-markdown',
+            'path' => bms_content_path('import-markdown'),
+            'purpose' => 'Private Markdown import staging.',
+        ],
+        'content_versions' => [
+            'label' => 'Content versions writable',
+            'relative_path' => '_bonumark_stream/content/versions',
+            'path' => bms_content_path('versions'),
+            'purpose' => 'Private content version files used by portability and editing workflows.',
+        ],
+        'import_staging' => [
+            'label' => 'Import staging writable',
+            'relative_path' => '_bonumark_stream/import-staging',
+            'path' => bms_root_path('import-staging'),
+            'purpose' => 'Private media and archive staging during imports.',
+        ],
+        'import_previews' => [
+            'label' => 'Import preview staging writable',
+            'relative_path' => '_bonumark_stream/import-staging/previews',
+            'path' => bms_root_path('import-staging/previews'),
+            'purpose' => 'Private serialized import previews.',
+        ],
+        'public_media' => [
+            'label' => 'Public media writable',
+            'relative_path' => 'media',
+            'path' => bms_public_path('media'),
+            'purpose' => 'Validated public uploads and generated media variants.',
+        ],
+    ];
+}
+
+/**
+ * Report runtime-directory state without changing the filesystem.
+ *
+ * @return array<string,array{label:string,relative_path:string,path:string,purpose:string,exists:bool,writable:bool}>
+ */
+function bms_runtime_directory_status(): array
+{
+    $results = [];
+    foreach (bms_runtime_directory_definitions() as $key => $definition) {
+        $path = (string)$definition['path'];
+        $exists = is_dir($path);
+        $results[$key] = $definition + [
+            'exists' => $exists,
+            'writable' => $exists && is_writable($path),
+        ];
+    }
+    return $results;
+}
+
+/**
+ * Create missing runtime directories and report their current write state.
+ *
+ * @return array<string,array{label:string,relative_path:string,path:string,purpose:string,exists:bool,writable:bool,created:bool}>
+ */
+function bms_ensure_runtime_directories(): array
+{
+    $created = [];
+    foreach (bms_runtime_directory_definitions() as $key => $definition) {
+        $path = (string)$definition['path'];
+        $created[$key] = false;
+        if (!is_dir($path)) {
+            $created[$key] = @mkdir($path, 0755, true);
+        }
+    }
+
+    $results = [];
+    foreach (bms_runtime_directory_status() as $key => $status) {
+        $results[$key] = $status + ['created' => !empty($created[$key])];
+    }
+    return $results;
+}
+
+/**
+ * Return true when a relative path is package-managed application software.
+ * Runtime/owner data and public uploads are intentionally outside this set.
+ */
+function bms_package_managed_software_path(string $relative): bool
+{
+    $relative = str_replace('\\', '/', ltrim(trim($relative), '/'));
+    if ($relative === '') {
+        return false;
+    }
+
+    foreach (['admin/', 'api/', 'assets/', 'docs/', 'scripts/', '_bonumark_stream/app/', '_bonumark_stream/migrations/', '_bonumark_stream/themes/', '_bonumark_stream/tools/'] as $prefix) {
+        if (str_starts_with($relative, $prefix)) {
+            return true;
+        }
+    }
+
+    $managedExact = [
+        '.htaccess' => true,
+        '.gitignore' => true,
+        'CHANGELOG.md' => true,
+        'CONTRIBUTING.md' => true,
+        'LICENSE' => true,
+        'README.md' => true,
+        'SECURITY.md' => true,
+        'VERSION' => true,
+        'account.php' => true,
+        'analytics.php' => true,
+        'comments.php' => true,
+        'index.php' => true,
+        'install.php' => true,
+        'manifest.php' => true,
+        'page.php' => true,
+        'pwa-icon.php' => true,
+        'profile.php' => true,
+        'profile-export.php' => true,
+        'search.php' => true,
+        'stream-like.php' => true,
+        'sw.js' => true,
+        '_bonumark_stream/.htaccess' => true,
+        '_bonumark_stream/CHANGELOG.md' => true,
+        '_bonumark_stream/PACKAGE.json' => true,
+        '_bonumark_stream/RELEASE-MANIFEST.json' => true,
+        '_bonumark_stream/VERSION' => true,
+        '_bonumark_stream/config.sample.php' => true,
+        '_bonumark_stream/migrations/README.md' => true,
+        '_bonumark_stream/themes/README.md' => true,
+    ];
+
+    return isset($managedExact[$relative]);
+}
+
+/**
+ * Return package-managed file paths recorded by the installed release manifest.
+ *
+ * @return list<string>
+ */
+function bms_installed_release_manifest_paths(): array
+{
+    $manifestPath = bms_root_path('RELEASE-MANIFEST.json');
+    if (!is_file($manifestPath)) {
+        return [];
+    }
+
+    $manifest = json_decode((string)@file_get_contents($manifestPath), true);
+    if (!is_array($manifest) || !is_array($manifest['files'] ?? null)) {
+        return [];
+    }
+
+    $paths = [];
+    foreach ($manifest['files'] as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $relative = str_replace('\\', '/', ltrim(trim((string)($entry['path'] ?? '')), '/'));
+        if ($relative !== '' && bms_package_managed_software_path($relative)) {
+            $paths[$relative] = true;
+        }
+    }
+
+    // The manifest validates the package but is intentionally not self-listed.
+    $paths['_bonumark_stream/RELEASE-MANIFEST.json'] = true;
+    $paths = array_keys($paths);
+    sort($paths);
+    return $paths;
+}
+
+function bms_nearest_existing_parent_directory(string $path): string
+{
+    $candidate = dirname($path);
+    while ($candidate !== '' && $candidate !== '.' && !is_dir($candidate)) {
+        $parent = dirname($candidate);
+        if ($parent === $candidate) {
+            break;
+        }
+        $candidate = $parent;
+    }
+    return is_dir($candidate) ? $candidate : '';
+}
+
+/**
+ * Report whether the PHP process can safely perform automatic software replacement.
+ *
+ * Automatic upgrades need more than writable runtime storage: existing managed
+ * files must be writable and their containing directories must allow replacement,
+ * cleanup, and rollback. Locked-down software trees are valid installations; they
+ * simply require an owner-run or hosting-layer deployment workflow.
+ *
+ * @param list<string>|null $relativePaths Candidate current/target package paths.
+ * @return array{status:string,available:bool,checked:int,blocked:list<array{relative_path:string,reason:string}>}
+ */
+function bms_automatic_upgrade_capability(?array $relativePaths = null): array
+{
+    $relativePaths = $relativePaths ?? bms_installed_release_manifest_paths();
+    if ($relativePaths === []) {
+        return [
+            'status' => 'unknown',
+            'available' => false,
+            'checked' => 0,
+            'blocked' => [],
+        ];
+    }
+
+    $paths = [];
+    foreach ($relativePaths as $relative) {
+        $relative = str_replace('\\', '/', ltrim(trim((string)$relative), '/'));
+        if ($relative !== '' && bms_package_managed_software_path($relative)) {
+            $paths[$relative] = true;
+        }
+    }
+    $paths = array_keys($paths);
+    sort($paths);
+
+    $blocked = [];
+    $blockedIndex = [];
+    $addBlocked = static function (string $relative, string $reason) use (&$blocked, &$blockedIndex): void {
+        if (isset($blockedIndex[$relative])) {
+            $index = $blockedIndex[$relative];
+            if (!str_contains((string)$blocked[$index]['reason'], $reason)) {
+                $blocked[$index]['reason'] .= ' ' . $reason;
+            }
+            return;
+        }
+        $blockedIndex[$relative] = count($blocked);
+        $blocked[] = ['relative_path' => $relative, 'reason' => $reason];
+    };
+
+    $publicRoot = rtrim(bms_public_path(), '/\\');
+    foreach ($paths as $relative) {
+        $destination = $publicRoot . '/' . $relative;
+        $parent = dirname($destination);
+
+        clearstatcache(true, $destination);
+        clearstatcache(true, $parent);
+
+        if (is_link($destination)) {
+            $addBlocked($relative, 'Package-managed software path is a symbolic link.');
+            continue;
+        }
+
+        if (file_exists($destination)) {
+            if (!is_file($destination)) {
+                $addBlocked($relative, 'Package-managed file path is not a regular file.');
+                continue;
+            }
+            if (!is_writable($destination)) {
+                $addBlocked($relative, 'Existing package-managed file is not writable by PHP.');
+            }
+            if (!is_dir($parent) || !is_writable($parent)) {
+                $addBlocked($relative, 'Containing directory is not writable for software replacement, cleanup, and rollback.');
+            }
+            continue;
+        }
+
+        $existingParent = bms_nearest_existing_parent_directory($destination);
+        if ($existingParent === '' || !is_writable($existingParent)) {
+            $addBlocked($relative, 'Nearest existing parent directory is not writable for a new package-managed file.');
+        }
+    }
+
+    return [
+        'status' => $blocked === [] ? 'available' : 'unavailable',
+        'available' => $blocked === [],
+        'checked' => count($paths),
+        'blocked' => $blocked,
+    ];
+}
+
+/**
+ * Identify the web server family exposed to PHP.
+ *
+ * @return array{family:string,label:string,software:string,status:string,message:string}
+ */
+function bms_web_server_capability(): array
+{
+    $software = trim((string)($_SERVER['SERVER_SOFTWARE'] ?? ''));
+    $lower = strtolower($software);
+
+    if ($software === '') {
+        return [
+            'family' => 'unknown',
+            'label' => 'Unknown',
+            'software' => '',
+            'status' => 'warning',
+            'message' => 'Web server software could not be detected. Confirm that Bonumark routing and private-path protections are configured for this host.',
+        ];
+    }
+
+    if (str_contains($lower, 'litespeed')) {
+        return [
+            'family' => 'litespeed',
+            'label' => 'LiteSpeed',
+            'software' => $software,
+            'status' => 'pass',
+            'message' => 'LiteSpeed detected. Bonumark ships Apache-compatible .htaccess routing and private-path protections.',
+        ];
+    }
+
+    if (str_contains($lower, 'apache')) {
+        return [
+            'family' => 'apache',
+            'label' => 'Apache',
+            'software' => $software,
+            'status' => 'pass',
+            'message' => 'Apache detected. Bonumark ships .htaccess routing and private-path protections.',
+        ];
+    }
+
+    if (str_contains($lower, 'nginx')) {
+        return [
+            'family' => 'nginx',
+            'label' => 'Nginx',
+            'software' => $software,
+            'status' => 'pass',
+            'message' => 'Nginx detected. Bonumark includes a tested configuration example under docs/server/. Verify the separate Public URL mode and Private folder exposure checks on this installation.',
+        ];
+    }
+
+    return [
+        'family' => 'other',
+        'label' => $software,
+        'software' => $software,
+        'status' => 'warning',
+        'message' => 'Web server detected as ' . $software . '. Configure routing and private-path protections equivalent to the shipped Apache/LiteSpeed and Nginx examples.',
+    ];
+}
+
+/**
+ * Parse a PHP shorthand byte value such as 2M, 128M, or 1G.
+ * Returns null when the value cannot be interpreted.
+ */
+function bms_php_ini_bytes(string $value): ?int
+{
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+    if (!preg_match('/^(-?\d+(?:\.\d+)?)\s*([kmgtpe]?)(?:b)?$/i', $value, $matches)) {
+        return null;
+    }
+
+    $number = (float)$matches[1];
+    $unit = strtolower((string)($matches[2] ?? ''));
+    $powers = ['' => 0, 'k' => 1, 'm' => 2, 'g' => 3, 't' => 4, 'p' => 5, 'e' => 6];
+    if (!array_key_exists($unit, $powers)) {
+        return null;
+    }
+
+    $bytes = $number * (1024 ** $powers[$unit]);
+    if (!is_finite($bytes) || $bytes > PHP_INT_MAX || $bytes < PHP_INT_MIN) {
+        return null;
+    }
+    return (int)floor($bytes);
+}
+
+function bms_format_bytes_compact(int $bytes): string
+{
+    if ($bytes < 1024) {
+        return $bytes . ' B';
+    }
+    $units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+    $value = (float)$bytes;
+    foreach ($units as $unit) {
+        $value /= 1024;
+        if ($value < 1024 || $unit === 'PB') {
+            $rounded = $value >= 10 ? round($value, 0) : round($value, 1);
+            return rtrim(rtrim(number_format($rounded, 1, '.', ''), '0'), '.') . ' ' . $unit;
+        }
+    }
+    return $bytes . ' B';
+}
+
+/**
+ * Report the effective media upload ceiling imposed by Bonumark and PHP.
+ * post_max_size=0 is treated as unlimited per PHP behavior.
+ *
+ * @return array{status:string,effective_bytes:int,bonumark_bytes:int,upload_max_bytes:?int,post_max_bytes:?int,message:string}
+ */
+function bms_upload_limit_capability(): array
+{
+    $bonumarkMb = max(1, min(128, (int)bms_setting_or_config('media_upload_limit_mb', '32')));
+    $bonumarkBytes = $bonumarkMb * 1024 * 1024;
+
+    $uploadRaw = (string)ini_get('upload_max_filesize');
+    $postRaw = (string)ini_get('post_max_size');
+    $uploadBytes = bms_php_ini_bytes($uploadRaw);
+    $postBytesParsed = bms_php_ini_bytes($postRaw);
+    $postBytes = $postBytesParsed === 0 ? null : $postBytesParsed;
+
+    $limits = [$bonumarkBytes];
+    if ($uploadBytes !== null && $uploadBytes >= 0) {
+        $limits[] = $uploadBytes;
+    }
+    if ($postBytes !== null && $postBytes >= 0) {
+        $limits[] = $postBytes;
+    }
+    $effective = min($limits);
+
+    $status = $effective >= $bonumarkBytes ? 'pass' : 'warning';
+    $parts = [
+        'Bonumark limit ' . $bonumarkMb . ' MB',
+        'PHP upload_max_filesize ' . ($uploadRaw !== '' ? $uploadRaw : 'unknown'),
+        'PHP post_max_size ' . ($postRaw !== '' ? $postRaw : 'unknown'),
+    ];
+    $message = implode('; ', $parts) . '. Effective PHP/Bonumark file ceiling is no higher than ' . bms_format_bytes_compact($effective) . '. A web server or reverse proxy can impose a lower request limit.';
+    if ($status !== 'pass') {
+        $message .= ' The hosting PHP limits are lower than the configured Bonumark media limit.';
+    }
+
+    return [
+        'status' => $status,
+        'effective_bytes' => $effective,
+        'bonumark_bytes' => $bonumarkBytes,
+        'upload_max_bytes' => $uploadBytes,
+        'post_max_bytes' => $postBytes,
+        'message' => $message,
+    ];
+}
+
+/**
+ * Report whether Admin can install/update theme ZIPs directly.
+ * Core theme use does not require these directories to be writable.
+ *
+ * @return array{status:string,available:bool,blocked:list<string>,message:string}
+ */
+function bms_theme_zip_install_capability(): array
+{
+    $blocked = [];
+    if (!class_exists('ZipArchive')) {
+        $blocked[] = 'ZipArchive is unavailable.';
+    }
+
+    $targets = [
+        '_bonumark_stream/tmp' => bms_root_path('tmp'),
+        '_bonumark_stream/themes' => bms_root_path('themes'),
+        'assets/themes' => bms_public_path('assets/themes'),
+    ];
+    foreach ($targets as $relative => $path) {
+        $candidate = is_dir($path) ? $path : bms_nearest_existing_parent_directory($path);
+        if ($candidate === '' || !is_writable($candidate)) {
+            $blocked[] = $relative . ' is not writable by PHP.';
+        }
+    }
+
+    $available = $blocked === [];
+    return [
+        'status' => $available ? 'available' : 'unavailable',
+        'available' => $available,
+        'blocked' => $blocked,
+        'message' => $available
+            ? 'Admin theme ZIP installation is available.'
+            : 'Core theme operation is supported, but Admin theme ZIP installation is unavailable. ' . implode(' ', $blocked) . ' Install or update optional themes through an external/manual deployment workflow.',
+    ];
+}
+
 function bms_base_path(): string
 {
     $basePath = trim((string)bms_setting_or_config('base_path', ''));
@@ -604,6 +1102,26 @@ function bms_site_url(string $path = ''): string
     return $base !== '' ? $base . $urlPath : $urlPath;
 }
 
+
+function bms_text_length(string $value): int
+{
+    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+}
+
+function bms_text_substr(string $value, int $start, ?int $length = null): string
+{
+    if (function_exists('mb_substr')) {
+        return $length === null
+            ? (string)mb_substr($value, $start, null, 'UTF-8')
+            : (string)mb_substr($value, $start, $length, 'UTF-8');
+    }
+    return $length === null ? (string)substr($value, $start) : (string)substr($value, $start, $length);
+}
+
+function bms_text_lower(string $value): string
+{
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
 
 function bms_normalize_username(string $username): string
 {
@@ -2071,44 +2589,131 @@ function bms_install_base_url_from_request(): string
     return $origin . $dir;
 }
 
+function bms_private_folder_probe_response(int $httpStatus, string $body, string $expectedMarker): array
+{
+    if (in_array($httpStatus, [401, 403, 404, 410], true)) {
+        return [
+            'status' => 'protected',
+            'message' => 'The _bonumark_stream private folder rejected direct HTTP access (HTTP ' . $httpStatus . ').',
+        ];
+    }
+
+    if ($httpStatus >= 200 && $httpStatus < 300) {
+        if ($expectedMarker !== '' && trim($body) === trim($expectedMarker)) {
+            return [
+                'status' => 'exposed',
+                'message' => 'The _bonumark_stream private folder is publicly reachable. Installation should not continue until server rules block it.',
+            ];
+        }
+        return [
+            'status' => 'unknown',
+            'message' => 'The private-path request returned HTTP ' . $httpStatus . ' without the expected private-file contents. Verify that the web server explicitly blocks _bonumark_stream.',
+        ];
+    }
+
+    if ($httpStatus >= 300 && $httpStatus < 400) {
+        return [
+            'status' => 'unknown',
+            'message' => 'The private-path request was redirected (HTTP ' . $httpStatus . '). Verify that the web server explicitly blocks _bonumark_stream.',
+        ];
+    }
+
+    if ($httpStatus >= 400 && $httpStatus < 500) {
+        return [
+            'status' => 'unknown',
+            'message' => 'The private-path request returned HTTP ' . $httpStatus . '. Verify that the web server explicitly blocks _bonumark_stream.',
+        ];
+    }
+
+    return [
+        'status' => 'unknown',
+        'message' => $httpStatus > 0
+            ? 'The private-path request returned HTTP ' . $httpStatus . '. Verify that the web server explicitly blocks _bonumark_stream.'
+            : 'Bonumark Stream could not obtain an HTTP response while testing private-folder exposure.',
+    ];
+}
+
+function bms_readonly_http_probe(string $url): array
+{
+    if (function_exists('curl_init')) {
+        $handle = curl_init($url);
+        if ($handle !== false) {
+            curl_setopt_array($handle, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_TIMEOUT => 4,
+                CURLOPT_USERAGENT => 'BonumarkStreamSecurityProbe/2.0',
+                CURLOPT_HEADER => false,
+            ]);
+            $body = curl_exec($handle);
+            $error = curl_error($handle);
+            $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+            curl_close($handle);
+            if ($body !== false) {
+                return ['ok' => true, 'status' => $status, 'body' => (string)$body, 'transport' => 'curl', 'error' => ''];
+            }
+            return ['ok' => false, 'status' => $status, 'body' => '', 'transport' => 'curl', 'error' => $error !== '' ? $error : 'cURL request failed.'];
+        }
+    }
+
+    if (!filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN)) {
+        return ['ok' => false, 'status' => 0, 'body' => '', 'transport' => 'none', 'error' => 'Neither PHP cURL nor allow_url_fopen is available for the read-only HTTP probe.'];
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 4,
+            'ignore_errors' => true,
+            'follow_location' => 0,
+            'max_redirects' => 0,
+            'header' => "User-Agent: BonumarkStreamSecurityProbe/2.0\r\n",
+        ],
+    ]);
+    $body = @file_get_contents($url, false, $context);
+    $headers = is_array($http_response_header ?? null) ? $http_response_header : [];
+    $status = 0;
+    foreach ($headers as $header) {
+        if (preg_match('#^HTTP/\S+\s+(\d{3})#i', (string)$header, $matches) === 1) {
+            $status = (int)$matches[1];
+        }
+    }
+    if ($body === false && $status === 0) {
+        $last = error_get_last();
+        return ['ok' => false, 'status' => 0, 'body' => '', 'transport' => 'stream', 'error' => (string)($last['message'] ?? 'HTTP probe failed.')];
+    }
+    return ['ok' => true, 'status' => $status, 'body' => is_string($body) ? $body : '', 'transport' => 'stream', 'error' => ''];
+}
+
 function bms_probe_private_folder_exposure(?string $baseUrl = null): array
 {
     $baseUrl = $baseUrl !== null && trim($baseUrl) !== '' ? rtrim(trim($baseUrl), '/') : bms_install_base_url_from_request();
-    $secret = 'bonumark-private-probe-' . bin2hex(random_bytes(16));
-    $probeFile = bms_root_path('security-probe-' . bin2hex(random_bytes(6)) . '.txt');
-
-    try {
-        bms_write_file($probeFile, $secret);
-        if ($baseUrl === '') {
-            return ['status' => 'unknown', 'message' => 'Could not determine the site URL to test private folder exposure.'];
-        }
-
-        if (!filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN)) {
-            return ['status' => 'unknown', 'message' => 'PHP allow_url_fopen is disabled, so Bonumark Stream could not test private folder exposure automatically.'];
-        }
-
-        $probeUrl = $baseUrl . '/_bonumark_stream/' . basename($probeFile);
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => 4,
-                'ignore_errors' => true,
-                'header' => "User-Agent: BonumarkStreamSecurityProbe/1.0\r\n",
-            ],
-        ]);
-        $response = @file_get_contents($probeUrl, false, $context);
-        if (is_string($response) && str_contains($response, $secret)) {
-            return ['status' => 'exposed', 'message' => 'The _bonumark_stream private folder appears publicly reachable. Installation should not continue until server rules block it.'];
-        }
-
-        return ['status' => 'protected', 'message' => 'The _bonumark_stream private folder did not expose the probe file.'];
-    } catch (Throwable $e) {
-        return ['status' => 'unknown', 'message' => 'Could not complete the private folder exposure test: ' . $e->getMessage()];
-    } finally {
-        if (is_file($probeFile)) {
-            @unlink($probeFile);
-        }
+    if ($baseUrl === '') {
+        return ['status' => 'unknown', 'message' => 'Could not determine the site URL to test private folder exposure.'];
     }
+
+    $markerPath = bms_root_path('VERSION');
+    $expectedMarker = is_file($markerPath) ? trim((string)@file_get_contents($markerPath)) : '';
+    if ($expectedMarker === '') {
+        return ['status' => 'unknown', 'message' => 'Could not read the installed private VERSION marker for the read-only exposure test.'];
+    }
+
+    $probeUrl = $baseUrl . '/_bonumark_stream/VERSION';
+    $response = bms_readonly_http_probe($probeUrl);
+    if (empty($response['ok'])) {
+        $error = trim((string)($response['error'] ?? ''));
+        return [
+            'status' => 'unknown',
+            'message' => 'Could not complete the read-only private folder exposure test.' . ($error !== '' ? ' ' . $error : ''),
+        ];
+    }
+
+    return bms_private_folder_probe_response(
+        (int)($response['status'] ?? 0),
+        (string)($response['body'] ?? ''),
+        $expectedMarker
+    );
 }
 
 function bms_security_status(): array
@@ -2123,6 +2728,12 @@ function bms_security_status(): array
         'label' => 'HTTPS',
         'status' => bms_is_https() ? 'pass' : 'warn',
         'message' => bms_is_https() ? 'Admin requests appear to be using HTTPS.' : 'HTTPS was not detected. Use HTTPS for real sites.',
+    ];
+    $webServer = bms_web_server_capability();
+    $items[] = [
+        'label' => 'Web server',
+        'status' => (string)($webServer['status'] ?? 'warning'),
+        'message' => (string)($webServer['message'] ?? 'Web server capability could not be determined.'),
     ];
     $items[] = [
         'label' => 'PDO MySQL',
@@ -2146,6 +2757,56 @@ function bms_security_status(): array
     }
     $items[] = ['label' => 'Database connection', 'status' => $dbStatus, 'message' => $dbMessage];
 
+    $databaseCompatibilityStatus = 'warn';
+    $databaseCompatibilityMessage = 'Database server version has not been verified.';
+    if ($dbStatus === 'pass' && function_exists('bms_database_server_compatibility')) {
+        try {
+            $databaseCompatibility = bms_database_server_compatibility(bms_db());
+            $databaseCompatibilityStatus = !empty($databaseCompatibility['supported']) ? 'pass' : 'fail';
+            $databaseCompatibilityMessage = (string)($databaseCompatibility['message'] ?? 'Database compatibility could not be determined.');
+            if (!empty($databaseCompatibility['supported'])) {
+                $databaseCompatibilityMessage .= ' For production, use a database release that is still receiving vendor security updates.';
+            }
+        } catch (Throwable $e) {
+            $databaseCompatibilityStatus = 'warn';
+            $databaseCompatibilityMessage = 'Database server version could not be determined: ' . $e->getMessage();
+        }
+    }
+    $items[] = [
+        'label' => 'Database server compatibility',
+        'status' => $databaseCompatibilityStatus,
+        'message' => $databaseCompatibilityMessage,
+    ];
+
+    $migrationStatus = 'warn';
+    $migrationMessage = 'Database migration state could not be verified.';
+    if ($dbStatus === 'pass' && function_exists('bms_pending_migration_names')) {
+        try {
+            $recoveryState = function_exists('bms_upgrade_recovery_state') ? bms_upgrade_recovery_state() : [];
+            if ($recoveryState !== []) {
+                $migrationStatus = 'fail';
+                $migrationMessage = 'Database migration recovery is required for v' . (string)($recoveryState['to_version'] ?? 'unknown') . '. Complete the matching upgrade or owner-run migration workflow before normal operation.';
+            } else {
+                $pendingMigrations = bms_pending_migration_names(bms_db());
+                if ($pendingMigrations === []) {
+                    $migrationStatus = 'pass';
+                    $migrationMessage = 'No database migrations are pending.';
+                } else {
+                    $migrationStatus = 'fail';
+                    $migrationMessage = 'Pending database migrations: ' . implode(', ', $pendingMigrations) . '. Locked-down/manual deployments should use scripts/run-migrations.php after taking a database backup.';
+                }
+            }
+        } catch (Throwable $e) {
+            $migrationStatus = 'warn';
+            $migrationMessage = 'Database migration state could not be verified: ' . $e->getMessage();
+        }
+    }
+    $items[] = [
+        'label' => 'Database migration state',
+        'status' => $migrationStatus,
+        'message' => $migrationMessage,
+    ];
+
     $items[] = [
         'label' => 'Config file',
         'status' => is_file(bms_config_path()) ? 'pass' : 'warn',
@@ -2158,47 +2819,164 @@ function bms_security_status(): array
         'message' => $probe['message'],
     ];
 
-    $writableChecks = [
-        'Private data writable' => bms_root_path('data'),
-        'Temporary export storage writable' => bms_root_path('tmp/exports'),
-        'Static site export temp writable' => bms_static_site_export_root(),
-        'Public media writable' => bms_public_path('media'),
-        'Upgrade temp writable' => bms_root_path('tmp/upgrades'),
-        'Upgrade backups writable' => bms_root_path('backups/upgrades'),
-        'Markdown import folder writable' => bms_content_path('import-markdown'),
-    ];
-    foreach ($writableChecks as $label => $path) {
-        if (!is_dir($path)) {
-            @mkdir($path, 0755, true);
-        }
+    foreach (bms_runtime_directory_status() as $directory) {
+        $writable = !empty($directory['writable']);
+        $relativePath = (string)($directory['relative_path'] ?? 'runtime storage');
+        $purpose = trim((string)($directory['purpose'] ?? ''));
         $items[] = [
-            'label' => $label,
-            'status' => is_dir($path) && is_writable($path) ? 'pass' : 'fail',
-            'message' => (is_dir($path) && is_writable($path)) ? $path . ' is writable.' : $path . ' is not writable.',
+            'label' => (string)($directory['label'] ?? 'Runtime storage writable'),
+            'status' => $writable ? 'pass' : 'fail',
+            'message' => $writable
+                ? $relativePath . ' is writable.' . ($purpose !== '' ? ' ' . $purpose : '')
+                : $relativePath . ' is not writable by the PHP process.' . ($purpose !== '' ? ' ' . $purpose : ''),
         ];
     }
+
+    $automaticUpgrade = bms_automatic_upgrade_capability();
+    if (($automaticUpgrade['status'] ?? '') === 'available') {
+        $upgradeMessage = 'Package-managed application files are writable by the web/PHP process. Admin ZIP software upgrades are available.';
+        $upgradeStatus = 'pass';
+    } elseif (($automaticUpgrade['status'] ?? '') === 'unknown') {
+        $upgradeMessage = 'Web-based software upgrade capability could not be determined because the installed release manifest is unavailable or invalid.';
+        $upgradeStatus = 'warn';
+    } else {
+        $blocked = $automaticUpgrade['blocked'] ?? [];
+        $firstPath = (string)($blocked[0]['relative_path'] ?? 'package-managed application files');
+        $extra = max(0, count($blocked) - 1);
+        $upgradeMessage = 'Core operation is supported, but web-based software upgrades are unavailable because PHP cannot safely replace package-managed application files. First blocked path: ' . $firstPath . ($extra > 0 ? ' (+' . $extra . ' more).' : '.') . ' Keep the application tree locked and run php scripts/deploy-update.php as the application owner when shell access is available; otherwise use the documented manual/hosting-layer deployment workflow.';
+        $upgradeStatus = 'warn';
+    }
+    $items[] = [
+        'label' => 'Web-based software upgrades',
+        'status' => $upgradeStatus,
+        'message' => $upgradeMessage,
+    ];
 
     $items[] = [
         'label' => 'ZipArchive',
         'status' => class_exists('ZipArchive') ? 'pass' : 'warn',
-        'message' => class_exists('ZipArchive') ? 'ZipArchive is available for admin ZIP upgrades, theme ZIP uploads, and package exports.' : 'ZipArchive is missing. Admin ZIP upgrades, theme ZIP uploads, and package exports may not work.',
+        'message' => class_exists('ZipArchive')
+            ? 'ZipArchive is available for ZIP-based management and export features.'
+            : 'ZipArchive is unavailable. Core publishing still works, but Admin ZIP upgrades, theme ZIP installation, and ZIP export features are unavailable.',
+    ];
+    $items[] = [
+        'label' => 'cURL features',
+        'status' => function_exists('curl_init') ? 'pass' : 'warn',
+        'message' => function_exists('curl_init')
+            ? 'PHP cURL is available for safe link previews, remote media import, and the preferred read-only HTTP diagnostic transport.'
+            : 'PHP cURL is unavailable. Core publishing still works, but safe link previews and remote media import are unavailable; HTTP diagnostics fall back to allow_url_fopen when enabled.',
+    ];
+
+    $themeInstall = bms_theme_zip_install_capability();
+    $items[] = [
+        'label' => 'Theme ZIP installation',
+        'status' => !empty($themeInstall['available']) ? 'pass' : 'warn',
+        'message' => (string)($themeInstall['message'] ?? 'Theme ZIP installation capability could not be determined.'),
+    ];
+
+    $uploadCapability = bms_upload_limit_capability();
+    $items[] = [
+        'label' => 'Media upload ceiling',
+        'status' => (string)($uploadCapability['status'] ?? 'warning'),
+        'message' => (string)($uploadCapability['message'] ?? 'Media upload limits could not be determined.'),
     ];
     $items[] = [
         'label' => 'Image validation',
         'status' => function_exists('getimagesize') ? 'pass' : 'fail',
         'message' => function_exists('getimagesize') ? 'getimagesize is available for validating uploaded images.' : 'getimagesize is missing. Media uploads cannot be safely validated.',
     ];
+    $imageProcessingAvailable = class_exists('Imagick') || function_exists('imagecreatetruecolor');
+    $items[] = [
+        'label' => 'Image processing',
+        'status' => $imageProcessingAvailable ? 'pass' : 'warn',
+        'message' => $imageProcessingAvailable
+            ? (class_exists('Imagick') ? 'Imagick is available for image processing and generated variants.' : 'GD is available for image processing and generated variants.')
+            : 'GD and Imagick are unavailable. Core publishing still works, but image metadata cleaning, generated variants, and generated PWA icons are limited.',
+    ];
     $items[] = [
         'label' => 'File info',
         'status' => function_exists('finfo_open') ? 'pass' : 'warn',
         'message' => function_exists('finfo_open') ? 'Fileinfo is available for MIME checking uploads.' : 'Fileinfo is missing. Bonumark Stream will rely on image validation fallback checks.',
     ];
+    $publicUrlProbe = bms_probe_public_url_mode();
     $items[] = [
         'label' => 'Public URL mode',
-        'status' => 'pass',
-        'message' => 'Stream permalink routing is active.',
+        'status' => (string)($publicUrlProbe['status'] ?? 'warn'),
+        'message' => (string)($publicUrlProbe['message'] ?? 'Public URL routing could not be verified.'),
     ];
     return $items;
+}
+
+/**
+ * Classify a read-only clean-route probe response.
+ */
+function bms_public_url_probe_response(int $httpStatus, string $body): array
+{
+    if ($httpStatus === 200) {
+        $payload = json_decode($body, true);
+        if (is_array($payload)
+            && !empty($payload['ok'])
+            && (string)($payload['api'] ?? '') === 'bonumark-stream') {
+            return [
+                'status' => 'pass',
+                'message' => 'Bonumark clean URL routing reached the public API status endpoint successfully.',
+            ];
+        }
+        return [
+            'status' => 'fail',
+            'message' => 'The clean-route probe returned HTTP 200 but did not return the Bonumark API status marker. Verify web-server routing rules.',
+        ];
+    }
+
+    if ($httpStatus >= 300 && $httpStatus < 400) {
+        return [
+            'status' => 'warn',
+            'message' => 'The clean-route probe was redirected (HTTP ' . $httpStatus . '). Verify the configured base URL and web-server routing rules.',
+        ];
+    }
+
+    if ($httpStatus > 0) {
+        return [
+            'status' => 'fail',
+            'message' => 'The Bonumark clean-route probe returned HTTP ' . $httpStatus . '. Verify Apache/LiteSpeed rewrite processing or the shipped Nginx route configuration.',
+        ];
+    }
+
+    return [
+        'status' => 'warn',
+        'message' => 'Bonumark could not obtain an HTTP response while verifying clean URL routing.',
+    ];
+}
+
+/**
+ * Verify that a known Bonumark clean URL is reaching the application.
+ */
+function bms_probe_public_url_mode(?string $baseUrl = null): array
+{
+    $baseUrl = $baseUrl !== null && trim($baseUrl) !== ''
+        ? rtrim(trim($baseUrl), '/')
+        : rtrim((string)bms_setting_or_config('base_url', ''), '/');
+    if ($baseUrl === '') {
+        return [
+            'status' => 'warn',
+            'message' => 'Could not determine the configured site URL for the clean-route probe.',
+        ];
+    }
+
+    $url = $baseUrl . bms_url_path('api/v1/status');
+    $response = bms_readonly_http_probe($url);
+    if (empty($response['ok'])) {
+        $error = trim((string)($response['error'] ?? ''));
+        return [
+            'status' => 'warn',
+            'message' => 'Could not complete the read-only clean-route probe.' . ($error !== '' ? ' ' . $error : ''),
+        ];
+    }
+
+    return bms_public_url_probe_response(
+        (int)($response['status'] ?? 0),
+        (string)($response['body'] ?? '')
+    );
 }
 
 function bms_redirect(string $url): never

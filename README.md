@@ -7,7 +7,7 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.6.0**
+- Current version: **0.7.0**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -34,51 +34,43 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## Release highlights
+## What's new in v0.7.0
 
-v0.6.0 is the first public release after v0.5.77. It consolidates the development work completed since that release into a smaller set of user-facing milestones instead of exposing every internal build pass.
+v0.7.0 is the next intended public release after v0.6.0. It brings together the hosting-portability, deployment, upgrade, and compatibility work completed across the v0.6.1 through v0.6.8 development builds without turning the README into a version-by-version development log.
 
-### First-class Profiles
+Compared with v0.6.0, v0.7.0 adds no new database migration. Installations older than v0.6.0 may still have earlier pending migrations when they move directly to the current release.
 
-Profiles are now a full public identity surface rather than a basic account page. The Profile system supports:
+### Locked-down hosting is a supported operating model
 
-- Headline, About, Now, location, interests, and flexible links
-- Featured Work that can point to published Stream Posts, Pages, or validated external URLs
-- Profile cover images and a photo gallery
-- Optional public activity details
-- Canonical Profile URLs and social/structured identity metadata
-- Owner-controlled Profile export to JSON, Markdown, and original local Profile media
+Bonumark Stream now treats runtime writability and application-code replacement as separate capabilities. A site can publish, upload media, import content, run scheduled work, and use normal runtime storage even when the web/PHP process is intentionally unable to replace package-managed application files.
 
-### Theme Architecture 2.0
+System Check reports optional capabilities such as web-based upgrades, theme ZIP installation, cURL, ZipArchive, GD/Imagick, upload ceilings, and web-server detection without turning every unavailable convenience into a core application failure.
 
-Bonumark Stream themes remain code-free, but they can now control validated composition as well as CSS presentation.
+### Owner-run upgrades use the same core upgrade engine
 
-Layout Schema 1 supports declarative composition for four public surfaces:
+On hosts where PHP can safely replace application code, **Admin → Upgrade** remains the normal ZIP upgrade path. Locked-down servers with shell access can instead run `php scripts/deploy-update.php /path/to/release.zip` as the application owner.
 
-- Profile
-- Stream Card
-- Site Header
-- Home
+Both paths use the same core upgrade engine for release-manifest validation, owner-data preservation, private software backups, selective pre-migration rollback, obsolete package-file cleanup, migration recovery, and upgrade-history recording. The CLI helper does not invoke `sudo`, install a privileged daemon, use setuid behavior, or grant the web runtime additional filesystem rights.
 
-Themes arrange registered core components through private JSON layout files. Core still owns behavior, data, routing, permissions, forms, publishing, media, comments, likes, SEO, accessibility semantics, and rendering logic. There is no expression language and themes cannot ship executable application code.
+For an older locked-down installation that does not yet contain the helper, an extracted newer release can target the live installation with `--site-root=/path/to/live/site` for the first transition.
 
-CSS-only themes remain supported through legacy composition fallback.
+### Deployment verification is part of the workflow
 
-### Midnight Ledger rebuilt as the reference theme
+The release adds and hardens read-only deployment checks for package-managed file integrity, obsolete package files, runtime-directory presence, database compatibility, pending migrations, and migration-recovery state. Admin → System Check remains authoritative for checks that depend on the web/PHP identity and live HTTP behavior.
 
-Midnight Ledger is the single bundled/default theme and now exercises the complete Theme Architecture 2.0 stack. The v0.6.0 package includes the responsive Home, Stream Card, Site Header, and Profile composition used as the reference implementation for third-party themes.
+Public URL mode now performs a real read-only request to Bonumark's clean `/api/v1/status` route. Private-folder protection is checked with a known private marker instead of writing a temporary probe file. Shipped top-level PHP tools under `/scripts` are CLI-only.
 
-### Link-preview and SEO hardening
+### Broader hosting and database compatibility
 
-The release strengthens the boundary between local document SEO and reusable fragments such as external link previews. Remote titles remain remote titles, local site-name suffixes are not injected into external preview metadata, and fragment data is kept separate from full-document SEO processing.
+Bonumark Stream documents PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ as the current floors, with optional capabilities detected separately. Nginx now has maintained deployment guidance and a reference configuration while Apache and LiteSpeed continue to use the shipped `.htaccess` rules.
 
-### Upgrade and package hardening
+The repository compatibility workflow exercises PHP 8.1 and 8.3 across MySQL 8.0/8.4 and MariaDB 10.6/11.4, including PHP lint, the clean-package smoke test, migration/schema testing, and Remote Posting API database testing.
 
-The upgrader preserves configuration, the database, uploads, media, custom themes, backups, and owner data while replacing package-managed application files. v0.6.0 also retains the existing v0.4.0+ upgrade line and includes the Profile migrations needed by installations upgrading from v0.5.77.
+### Safer upgrade and recovery boundaries
 
-### Profile image delivery
+Owner data remains outside normal package replacement. Configuration, installed state, database content, runtime data, media, uploads, backups, imports, content versions, settings, and custom themes remain protected by the upgrade contract.
 
-Profile cover and gallery delivery now use bounded responsive candidates. When the host supports WebP encoding, Profile media can expose modern-format picture sources while retaining safe JPEG/PNG fallbacks. The Profile cover receives high-priority loading treatment while below-fold gallery images remain lazy.
+If a file replacement fails before migrations begin, rollback is limited to the software actually changed by that attempt. Once migration work may have begun, recovery continues toward the same target release instead of casually rolling application code backward against a newer schema state.
 
 ## Major features
 
@@ -105,13 +97,16 @@ Profile cover and gallery delivery now use bounded responsive candidates. When t
 
 ### Profiles and participation
 
-- Public owner Profile
+- Public owner Profile with headline, About, Now, location, interests, and flexible links
+- Featured Work for published Stream Posts, Pages, and validated external URLs
+- Profile cover media and photo gallery
+- Canonical Profile URLs plus Open Graph, Twitter, and structured identity metadata
 - Optional Commenter accounts
 - Public comments with moderation
 - Public likes with rate limiting
 - Password reset and verification flows
 - Remember-this-device login persistence
-- Profile portability export
+- Profile portability export to JSON, Markdown, and original local Profile media
 
 ### Site and discovery
 
@@ -139,6 +134,9 @@ Profile cover and gallery delivery now use bounded responsive candidates. When t
 - Optional static export
 - Owner-controlled Profile export
 - Upgrade backups and recovery boundaries
+- Managed and locked-down deployment models
+- Admin and owner-run CLI upgrades through one shared upgrade engine
+- Read-only System Check and installed-site deployment verification
 
 
 ## Pinned posts
@@ -191,23 +189,32 @@ See [docs/THEMING.md](docs/THEMING.md) and [docs/DECLARATIVE-LAYOUTS.md](docs/DE
 
 ## Requirements
 
-Minimum:
+Core requirements:
 
 - PHP 8.1 or newer
-- MySQL or MariaDB
+- MySQL 8.0+ or MariaDB 10.6+
 - PDO MySQL extension
-- ZIP extension for package/theme handling
-- A writable application environment
+- Writable runtime storage for normal operation
+- Web-server routing for Bonumark clean URLs
+- Web-server protection that blocks `_bonumark_stream/` and `scripts/` from public HTTP access
 
 Recommended:
 
 - PHP 8.2 or newer
 - HTTPS
-- Apache or LiteSpeed for the included `.htaccess` rules
 - Regular file and database backups
 - GD or Imagick for stronger image processing and generated variants
 
-Nginx and other non-Apache servers need equivalent routing and deny rules for private application directories and CLI test scripts.
+Feature capabilities:
+
+- PHP cURL enables safe link previews, remote media import, and the preferred read-only HTTP diagnostic transport.
+- ZipArchive enables Admin ZIP upgrades, Admin theme ZIP installation, and ZIP-based export features. Core publishing does not require ZipArchive.
+- Fileinfo improves MIME validation; Bonumark retains image-validation fallbacks when it is unavailable.
+- mbstring improves Unicode-aware text operations when available; Bonumark includes core fallbacks and does not require mbstring for normal operation.
+- Admin theme ZIP installation additionally requires PHP write access to `_bonumark_stream/themes/` and `assets/themes/`. A locked-down installation can manage optional themes externally instead.
+- Admin ZIP upgrades require the web/PHP process to replace package-managed application files. Locked-down code trees remain valid; with shell access, run `php scripts/deploy-update.php /path/to/release.zip` as the application owner. Use the documented manual/hosting-layer workflow when shell access is unavailable.
+
+Apache and LiteSpeed use the included `.htaccess` rules. Nginx deployments can use the maintained example under [`docs/server/`](docs/server/NGINX.md). Other web servers need equivalent routing and private-path protections. For production, use a database release that still receives vendor security updates even when it is above Bonumark's compatibility floor.
 
 ## Installation
 
@@ -224,13 +231,13 @@ Full instructions: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Upgrading
 
-The built-in upgrader supports Bonumark Stream v0.4.0 and newer.
+Bonumark Stream supports two first-class ZIP upgrade paths for v0.4.0 and newer. Use Admin → Upgrade when the web/PHP process can safely replace package-managed application files. On a locked-down server with shell access, keep the code tree locked to PHP and run `php scripts/deploy-update.php /path/to/release.zip` as the application owner. The CLI path validates the package, creates the same private software backup, applies the same preservation/rollback rules, handles migrations through the shared upgrade engine, removes obsolete package-managed files, and runs deployment verification automatically.
 
-For the v0.6.0 release, an upgrade from the last public GitHub release, v0.5.77, runs the included Profile migrations and preserves existing posts, pages, drafts, scheduled posts, revisions, comments, accounts, media, uploads, settings, analytics, API tokens, scheduled-task history, Local Places, custom themes, and other owner data.
+For the first transition from an older release that does not yet contain `scripts/deploy-update.php`, extract the newer release outside the live site and run its helper with `--site-root=/path/to/live/site`. After that upgrade, the helper is installed in the live site for normal future use.
 
-Back up the site files and database before upgrading a production installation.
+Back up the database before production upgrades that contain migrations. The owner-run CLI requires explicit database-backup confirmation before applying pending migrations. Hosts without shell access can use the documented manual/hosting-layer fallback workflow.
 
-Direct upgrades from v0.1.x, v0.2.x, and v0.3.x development packages are not supported. Use a fresh v0.6.0 install for those older builds.
+Direct upgrades from v0.1.x, v0.2.x, and v0.3.x development packages are not supported. Use a fresh current release install for those older development builds.
 
 Full instructions: [docs/UPGRADING.md](docs/UPGRADING.md).
 
@@ -244,7 +251,7 @@ Bonumark Stream includes:
 - Validated media uploads with SVG uploads blocked
 - Hashed Remote Posting API tokens
 - Code-free theme package validation
-- Private-directory protection for Apache/LiteSpeed
+- Private-directory protection for Apache/LiteSpeed plus a maintained Nginx configuration example
 - Conservative service-worker caching that excludes private and user-specific content
 
 See [SECURITY.md](SECURITY.md) for reporting and deployment boundaries.
@@ -254,7 +261,11 @@ See [SECURITY.md](SECURITY.md) for reporting and deployment boundaries.
 Project documentation is included under `docs/`:
 
 - [Installation](docs/INSTALL.md)
+- [Nginx deployment](docs/server/NGINX.md)
+- [Manual software deployment](docs/server/MANUAL-DEPLOYMENT.md)
+- [Manual theme deployment](docs/server/MANUAL-THEME-DEPLOYMENT.md)
 - [Upgrading](docs/UPGRADING.md)
+- [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Theming](docs/THEMING.md)
 - [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
@@ -277,14 +288,14 @@ Before proposing changes:
 - Run PHP lint on changed PHP files
 - Run JavaScript syntax checks on changed JavaScript files
 - Validate changed JSON files
-- Run `php scripts/smoke-test.php`
+- From a clean source/release tree, run the package-only `php scripts/smoke-test.php` (installed sites should use Admin > System Check)
 - Run the disposable MySQL/MariaDB database smoke test for installer, migration, or upgrade changes
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for project rules and the release verification contract.
 
 ## Project status
 
-Bonumark Stream is under active pre-1.0 development. v0.6.x is the current public development line, so APIs, internals, installer behavior, and other pre-1.0 details may still change before 1.0.
+Bonumark Stream is under active pre-1.0 development. v0.7.x is the current development line, so APIs, internals, installer behavior, and other pre-1.0 details may still change before 1.0.
 
 Use appropriate backups and testing before running pre-1.0 software on a mission-critical site.
 

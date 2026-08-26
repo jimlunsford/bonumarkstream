@@ -2,7 +2,7 @@
 
 Bonumark Stream Theme Architecture 2.0 lets code-free themes control validated public composition while Bonumark Stream core keeps control of the application.
 
-This document defines the stable Layout Schema 1 contract available in Bonumark Stream v0.6.0.
+This document defines the stable Layout Schema 1 contract currently available in Bonumark Stream.
 
 ## Core rule
 
@@ -178,5 +178,5 @@ Schema 1 remains intentionally small. New functionality should be added as a cor
 
 ## Partial surface adoption
 
-A layout-aware theme does not need to declare every supported surface. Midnight Ledger uses all four current surfaces declaratively in v0.6.0, but partial surface adoption remains a supported compatibility pattern for third-party themes: any undeclared supported surface continues through its legacy fallback.
+A layout-aware theme does not need to declare every supported surface. Midnight Ledger uses all four current surfaces declaratively, but partial surface adoption remains a supported compatibility pattern for third-party themes: any undeclared supported surface continues through its legacy fallback.
 

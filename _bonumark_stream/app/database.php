@@ -28,6 +28,72 @@ function bms_has_database_config(): bool
     return !empty($db['name']) && !empty($db['user']) && array_key_exists('password', $db) && !empty($db['host']);
 }
 
+
+function bms_database_compatibility_requirements(): array
+{
+    return [
+        'mysql' => ['label' => 'MySQL', 'minimum' => '8.0.0'],
+        'mariadb' => ['label' => 'MariaDB', 'minimum' => '10.6.0'],
+    ];
+}
+
+function bms_database_server_info_from_version(string $rawVersion): array
+{
+    $rawVersion = trim($rawVersion);
+    $family = str_contains(strtolower($rawVersion), 'mariadb') ? 'mariadb' : 'mysql';
+    $version = '';
+
+    if ($family === 'mariadb' && preg_match('/(\d+\.\d+\.\d+)(?=-MariaDB)/i', $rawVersion, $matches) === 1) {
+        $version = $matches[1];
+    } elseif (preg_match('/\d+\.\d+\.\d+/', $rawVersion, $matches) === 1) {
+        $version = $matches[0];
+    }
+
+    $requirements = bms_database_compatibility_requirements();
+    $requirement = $requirements[$family] ?? ['label' => ucfirst($family), 'minimum' => ''];
+    $minimum = (string)($requirement['minimum'] ?? '');
+    $label = (string)($requirement['label'] ?? ucfirst($family));
+    $supported = $version !== '' && $minimum !== '' && version_compare($version, $minimum, '>=');
+    $display = $label . ($version !== '' ? ' ' . $version : ($rawVersion !== '' ? ' ' . $rawVersion : ' unknown version'));
+
+    return [
+        'family' => $family,
+        'label' => $label,
+        'version' => $version,
+        'raw_version' => $rawVersion,
+        'minimum' => $minimum,
+        'supported' => $supported,
+        'display' => $display,
+        'message' => $supported
+            ? $display . ' meets the Bonumark compatibility floor of ' . $label . ' ' . $minimum . '+.'
+            : $display . ' is below or could not be matched to the Bonumark compatibility floor of ' . $label . ' ' . $minimum . '+.',
+    ];
+}
+
+function bms_database_server_compatibility(PDO $pdo): array
+{
+    $rawVersion = '';
+    try {
+        $rawVersion = trim((string)$pdo->getAttribute(PDO::ATTR_SERVER_VERSION));
+    } catch (Throwable $e) {
+        $rawVersion = '';
+    }
+    if ($rawVersion === '') {
+        $value = $pdo->query('SELECT VERSION()')->fetchColumn();
+        $rawVersion = trim((string)$value);
+    }
+    return bms_database_server_info_from_version($rawVersion);
+}
+
+function bms_database_require_supported(PDO $pdo): array
+{
+    $info = bms_database_server_compatibility($pdo);
+    if (empty($info['supported'])) {
+        throw new RuntimeException((string)$info['message'] . ' Use MySQL 8.0+ or MariaDB 10.6+; for production, prefer a database release still receiving vendor security updates.');
+    }
+    return $info;
+}
+
 function bms_db(): PDO
 {
     static $pdo = null;
@@ -60,7 +126,7 @@ function bms_db(): PDO
     return $pdo;
 }
 
-function bms_db_test_connection(array $db): void
+function bms_db_test_connection(array $db): array
 {
     $host = (string)($db['host'] ?? 'localhost');
     $name = (string)($db['name'] ?? '');
@@ -73,11 +139,12 @@ function bms_db_test_connection(array $db): void
     }
 
     $dsn = "mysql:host={$host};dbname={$name};charset={$charset}";
-    new PDO($dsn, $user, $pass, [
+    $pdo = new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+    return bms_database_require_supported($pdo);
 }
 
 function bms_db_supports_mysql(): bool
@@ -309,6 +376,68 @@ function bms_install_schema(PDO $pdo, string $prefix): void
 
     $stmt = $pdo->prepare('INSERT IGNORE INTO `' . $prefix . 'migrations` (migration, ran_at) VALUES (:migration, NOW())');
     $stmt->execute(['migration' => '0001_initial_schema']);
+}
+
+/**
+ * Return migration names present in the installed software but not recorded in
+ * the database migration ledger. This helper is read-only.
+ *
+ * @return list<string>
+ */
+function bms_pending_migration_names(?PDO $pdo = null): array
+{
+    if (!bms_has_database_config()) {
+        return [];
+    }
+
+    $pdo = $pdo ?? bms_db();
+    $prefix = bms_table_prefix();
+    $files = glob(bms_root_path('migrations/*.php')) ?: [];
+    sort($files);
+    $packageMigrations = array_values(array_map(
+        static fn(string $file): string => basename($file, '.php'),
+        $files
+    ));
+    if ($packageMigrations === []) {
+        return [];
+    }
+
+    $migrationTable = $prefix . 'migrations';
+    if (!bms_database_table_exists($pdo, $migrationTable)) {
+        return $packageMigrations;
+    }
+
+    $stmt = $pdo->query('SELECT migration FROM `' . $migrationTable . '`');
+    $done = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $name = trim((string)($row['migration'] ?? ''));
+        if ($name !== '') {
+            $done[$name] = true;
+        }
+    }
+
+    return array_values(array_filter(
+        $packageMigrations,
+        static fn(string $name): bool => !isset($done[$name])
+    ));
+}
+
+function bms_record_manual_upgrade_history(string $fromVersion, string $toVersion, array $ran): void
+{
+    $fromVersion = trim($fromVersion);
+    $toVersion = trim($toVersion);
+    if ($toVersion === '') {
+        return;
+    }
+
+    $notes = 'Manual owner-run migration workflow. Migrations: ' . ($ran ? implode(', ', $ran) : 'none');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('upgrade_history') . ' (from_version, to_version, status, notes, ran_at) VALUES (:from_version, :to_version, :status, :notes, NOW())');
+    $stmt->execute([
+        'from_version' => $fromVersion,
+        'to_version' => $toVersion,
+        'status' => 'complete',
+        'notes' => $notes,
+    ]);
 }
 
 function bms_run_migrations(string $fromVersion = ''): array

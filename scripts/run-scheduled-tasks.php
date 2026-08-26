@@ -1,9 +1,10 @@
 <?php
 if (PHP_SAPI !== 'cli') {
-    http_response_code(403);
-    header('Content-Type: text/plain; charset=utf-8');
-    echo "CLI only.\n";
-    exit(1);
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('CLI only.');
 }
 
 require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';

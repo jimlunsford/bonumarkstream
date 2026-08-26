@@ -1,6 +1,17 @@
 # Bonumark Stream Changelog
 
-This changelog tracks public GitHub releases. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+This file tracks public GitHub release milestones. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+
+## 0.7.0 - Hosting Portability & Upgrade Workflow
+
+- Consolidates the hosting-portability and upgrade work completed across the v0.6.1 through v0.6.8 development builds into the next public release after v0.6.0.
+- Treats locked-down application trees as a supported deployment model: normal runtime storage can remain writable while package-managed application code stays read-only to the web/PHP process.
+- Adds a first-class owner-run CLI upgrade workflow for shell-access installations and moves Admin and CLI upgrades onto the same core upgrade engine for package validation, owner-data preservation, software backups, selective rollback, obsolete-file cleanup, migration recovery, and upgrade history.
+- Adds maintained Nginx deployment guidance, capability-based reporting for optional PHP/server features, manual software/theme deployment guidance, and read-only installed-site deployment verification.
+- Defines compatibility floors of PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ and includes a GitHub Actions matrix across floor and newer reference database/PHP targets.
+- Hardens clean-route and private-path diagnostics, protects shipped script entry points as CLI-only, and removes fatal assumptions that mbstring is installed.
+- Preserves the v0.4.0+ upgrade line and the existing owner-data boundary, including configuration, database content, runtime data, media, uploads, backups, import/content-version data, and custom themes.
+- Adds no new database migration compared with v0.6.0. Installations older than v0.6.0 may still need earlier migrations that they have not yet applied.
 
 ## 0.6.0 - Profiles & Theme Architecture 2.0
 

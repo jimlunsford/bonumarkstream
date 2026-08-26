@@ -4,7 +4,7 @@ Bonumark Stream includes a disabled-by-default Remote Posting API for trusted ex
 
 This feature is meant for site owners who want to connect Bonumark Stream to custom clients, automation systems, shortcuts, scripts, future apps, or ChatGPT Actions. The feature is platform-neutral.
 
-## Current status in v0.6.0
+## Current status in v0.7.0
 
 Included now:
 
@@ -144,7 +144,7 @@ Public request without a token:
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,

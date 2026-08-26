@@ -15,8 +15,11 @@
  */
 
 if (PHP_SAPI !== 'cli') {
-    fwrite(STDERR, "This script must be run from the command line.\n");
-    exit(1);
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('CLI only.');
 }
 
 if ((string)getenv('BMS_DB_DANGER_RESET') !== '1') {
@@ -38,6 +41,7 @@ if ($host === '' || $name === '' || $user === '') {
 
 $prefix = 'bms_ci_' . strtolower(bin2hex(random_bytes(4))) . '_';
 $root = dirname(__DIR__);
+require_once $root . '/_bonumark_stream/app/database.php';
 $migrationDir = $root . '/_bonumark_stream/migrations';
 $files = glob($migrationDir . '/*.php') ?: [];
 sort($files);
@@ -52,6 +56,9 @@ $pdo = new PDO("mysql:host={$host};dbname={$name};charset={$charset}", $user, $p
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::ATTR_EMULATE_PREPARES => false,
 ]);
+
+$databaseInfo = bms_database_require_supported($pdo);
+fwrite(STDOUT, 'Database target: ' . (string)($databaseInfo['display'] ?? 'unknown') . ' (compatibility floor ' . (string)($databaseInfo['minimum'] ?? 'unknown') . "+)\n");
 
 $executed = [];
 try {

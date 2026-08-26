@@ -5,7 +5,7 @@ require_once __DIR__ . '/functions.php';
 function bms_pwa_limit_text(string $value, int $limit): string
 {
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        return mb_strlen($value, 'UTF-8') > $limit ? mb_substr($value, 0, $limit, 'UTF-8') : $value;
+        return bms_text_length($value) > $limit ? bms_text_substr($value, 0, $limit) : $value;
     }
     return strlen($value) > $limit ? substr($value, 0, $limit) : $value;
 }
@@ -443,8 +443,8 @@ function bms_share_target_clean_text(string $value, int $limit): string
     $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value) ?? $value;
     $value = trim($value);
     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-        if (mb_strlen($value, 'UTF-8') > $limit) {
-            $value = mb_substr($value, 0, $limit, 'UTF-8');
+        if (bms_text_length($value) > $limit) {
+            $value = bms_text_substr($value, 0, $limit);
         }
     } elseif (strlen($value) > $limit) {
         $value = substr($value, 0, $limit);

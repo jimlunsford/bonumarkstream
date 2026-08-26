@@ -6,8 +6,15 @@ require_once __DIR__ . '/_layout.php';
 bms_require_login();
 bms_require_capability('manage_appearance');
 
+$themeInstallCapability = bms_theme_zip_install_capability();
+$themeInstallAvailable = !empty($themeInstallCapability['available']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     bms_verify_csrf();
+    if (!$themeInstallAvailable) {
+        bms_flash((string)($themeInstallCapability['message'] ?? 'Admin theme ZIP installation is unavailable on this hosting configuration.'), 'warning');
+        bms_redirect(bms_admin_url('theme-install.php'));
+    }
     try {
         $replaceExisting = !empty($_POST['replace_existing']);
         $activate = !empty($_POST['activate_theme']);
@@ -38,6 +45,13 @@ bms_admin_header('Install Theme', [
   </div>
   <span class="status-pill published">Code-free only</span>
 </section>
+<?php if (!$themeInstallAvailable): ?>
+<section class="panel">
+  <p class="eyebrow">Hosting capability</p>
+  <h2>Theme ZIP installation requires manual deployment here.</h2>
+  <p class="meta"><?= htmlspecialchars((string)($themeInstallCapability['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+</section>
+<?php endif; ?>
 
 <div class="appearance-install-layout">
   <section class="panel appearance-upload-panel">
@@ -49,13 +63,13 @@ bms_admin_header('Install Theme', [
       <label class="appearance-file-drop" for="theme_zip">
         <span class="appearance-file-drop-title">Choose a theme ZIP</span>
         <span class="field-help">The archive must contain a <code>theme.json</code> manifest.</span>
-        <input id="theme_zip" type="file" name="theme_zip" accept=".zip,application/zip" required>
+        <input id="theme_zip" type="file" name="theme_zip" accept=".zip,application/zip" required <?= $themeInstallAvailable ? '' : 'disabled' ?>>
       </label>
       <div class="appearance-option-list">
-        <label class="appearance-toggle-card" for="replace_existing"><input id="replace_existing" type="checkbox" name="replace_existing" value="1"><span><strong>Update existing theme</strong><small>Replace an optional installed theme when the slug matches.</small></span></label>
-        <label class="appearance-toggle-card" for="activate_theme"><input id="activate_theme" type="checkbox" name="activate_theme" value="1"><span><strong>Activate after install</strong><small>Use the theme immediately after validation and installation.</small></span></label>
+        <label class="appearance-toggle-card" for="replace_existing"><input id="replace_existing" type="checkbox" name="replace_existing" value="1" <?= $themeInstallAvailable ? '' : 'disabled' ?>><span><strong>Update existing theme</strong><small>Replace an optional installed theme when the slug matches.</small></span></label>
+        <label class="appearance-toggle-card" for="activate_theme"><input id="activate_theme" type="checkbox" name="activate_theme" value="1" <?= $themeInstallAvailable ? '' : 'disabled' ?>><span><strong>Activate after install</strong><small>Use the theme immediately after validation and installation.</small></span></label>
       </div>
-      <div class="appearance-form-actions"><button type="submit">Install Theme</button><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a></div>
+      <div class="appearance-form-actions"><button type="submit" <?= $themeInstallAvailable ? '' : 'disabled' ?>>Install Theme</button><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a></div>
     </form>
   </section>
 

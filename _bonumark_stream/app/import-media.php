@@ -236,7 +236,7 @@ function bms_import_fetch_remote_image_once(string $url, int $maxBytes): array
     if ($error !== '') {
         $safeError = trim(preg_replace('/\s+/', ' ', $error) ?? $error);
         if (function_exists('mb_substr')) {
-            $safeError = mb_substr($safeError, 0, 160);
+            $safeError = bms_text_substr($safeError, 0, 160);
         } else {
             $safeError = substr($safeError, 0, 160);
         }

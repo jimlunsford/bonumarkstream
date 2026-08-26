@@ -557,7 +557,7 @@ class BMS_BlueskyArchiveImporter implements BMS_ImporterInterface
         $slug = 'bluesky-' . ($date !== '' ? $date . '-' : '') . $hash;
         $titleText = trim(preg_replace('/\s+/', ' ', $text) ?? $text);
         if (function_exists('mb_substr')) {
-            $titleText = mb_substr($titleText, 0, 72);
+            $titleText = bms_text_substr($titleText, 0, 72);
         } else {
             $titleText = substr($titleText, 0, 72);
         }
