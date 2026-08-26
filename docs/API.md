@@ -85,7 +85,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "remote_posting_enabled": false,
   "authenticated": false,
   "direct_publish_enabled": false,
@@ -112,7 +112,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "remote_posting_enabled": true,
   "authenticated": true,
   "direct_publish_enabled": true,

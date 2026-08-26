@@ -1,11 +1,11 @@
 {
   "name": "bonumark-stream",
-  "version": "0.7.0",
-  "generated_at": "2026-08-26T15:54:27Z",
+  "version": "0.7.1",
+  "generated_at": "2026-08-26T17:03:54Z",
   "files": [
     {
       "path": ".github/workflows/compatibility.yml",
-      "sha256": "b6fd1a70091bb5e7cf1a40005b51572c7454920bb0bb1c1d363510dda9496e88"
+      "sha256": "635222557eb79baa51a9506c2064ccaa54ffaf8dc448a6ac9475edc9e05f9f52"
     },
     {
       "path": ".gitignore",
@@ -17,7 +17,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "83c8c27127b3c2441a092a46a33450734fdf0470d370aca061a7168158577fcb"
+      "sha256": "fdd2969c9a4e20143971d55ee69133821f872869085eacb201ded263f86f91b4"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -29,7 +29,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "beaba58cc23e4f45c553ac609786b3ef7d6224c8c9cf0014af502d3fa98afecb"
+      "sha256": "27065ac45f22fbfe96f77a1aa4692e23b61b509f1107a73725b762f25a53a690"
     },
     {
       "path": "SECURITY.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "967d9afb101346667166f2e76e81910bc190488d7d41d50ca0072e9d92f00e32"
+      "sha256": "902311c7bb38fa1658ff403def6158ee7378fe9d6e2e284fa1c38735c31bd30b"
     },
     {
       "path": "_bonumark_stream/.htaccess",
@@ -45,15 +45,15 @@
     },
     {
       "path": "_bonumark_stream/CHANGELOG.md",
-      "sha256": "bb751b0f8c8725d1200aaa0ab890efe5f0be04e5d19e0a50dce05c380bfd7f60"
+      "sha256": "ad0a458883c7f578e28720177a0062912c9e530db9c753c0d02f91e8fc4c68e6"
     },
     {
       "path": "_bonumark_stream/PACKAGE.json",
-      "sha256": "d78389ccee5a4371113b10f7c785d745954d4b6e74b531da6040e83043b42281"
+      "sha256": "cc0c9d9a201db0d4ef1d645135640b97ffae2b6a1f5e070ed6311e0e26cf1c9c"
     },
     {
       "path": "_bonumark_stream/VERSION",
-      "sha256": "967d9afb101346667166f2e76e81910bc190488d7d41d50ca0072e9d92f00e32"
+      "sha256": "902311c7bb38fa1658ff403def6158ee7378fe9d6e2e284fa1c38735c31bd30b"
     },
     {
       "path": "_bonumark_stream/app/analytics.php",
@@ -85,7 +85,7 @@
     },
     {
       "path": "_bonumark_stream/app/functions.php",
-      "sha256": "135c58811e81c751bc97203bcfc6d6af7f832c88a954cd69114c1e5d79d87b38"
+      "sha256": "1c6011d1c6ed7dccd68c9590e1600a840725f3bee85eaf71762c357edd04e480"
     },
     {
       "path": "_bonumark_stream/app/import-media.php",
@@ -413,7 +413,7 @@
     },
     {
       "path": "_bonumark_stream/config.sample.php",
-      "sha256": "46a37b50015653944358872787cd62635e0d0c755e0b0872be1bab9cebe5a1ca"
+      "sha256": "4d03bcf91471e9c92235d67ec278f02351bcff4355bb608ffd485c60c98cad32"
     },
     {
       "path": "_bonumark_stream/data/.gitkeep",
@@ -985,7 +985,7 @@
     },
     {
       "path": "docs/API.md",
-      "sha256": "dcfdb2a3a1fa8f6920188e96aace63127ddf976a6189c5e8febc895437e268c0"
+      "sha256": "e0ae476f41a9453b77708ad56c2c74934c5e655f7da3f44262d5d1a53f0abeba"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -997,7 +997,7 @@
     },
     {
       "path": "docs/COMPATIBILITY.md",
-      "sha256": "1eb74b1c1f7df65396fc3b4aac10eb1c13768973ea4e02bbc32893542eb07721"
+      "sha256": "0e6abf695cbda273735354e56b4fae18fe11f1fce3c13cea0460e7142d2181ba"
     },
     {
       "path": "docs/DECLARATIVE-LAYOUTS.md",
@@ -1013,7 +1013,7 @@
     },
     {
       "path": "docs/INSTALL.md",
-      "sha256": "bba29eb34e129bb75f681c5043e6036a301a2894df4872b232713654ce85fb31"
+      "sha256": "5a3738cb52894722037ed2bfbbad9679c3f7659073fbc64ce746b167903b9f2a"
     },
     {
       "path": "docs/MEDIA-PRIVACY.md",
@@ -1025,7 +1025,7 @@
     },
     {
       "path": "docs/REMOTE-POSTING.md",
-      "sha256": "a67c93e81062458c85830bbf7bbc30f8f116a98bf087ab6bfe45c64ef87c82fe"
+      "sha256": "4bf1e3e7c97df2ad6a4c857245d18ffb2a434d4a6a37392d70cebe48fc24f92f"
     },
     {
       "path": "docs/SCHEDULED-TASKS.md",
@@ -1037,11 +1037,11 @@
     },
     {
       "path": "docs/UPGRADING.md",
-      "sha256": "9887bb284ce69a1adc77d848d998b2492a124c8e790d57df0db16ec7662efe37"
+      "sha256": "d9348f50041cb33ac32335832239099d23cf5f0f58365b7e9b3be1464185a227"
     },
     {
       "path": "docs/openapi/bonumark-stream-api.json",
-      "sha256": "7834eac0a41acd3b4bdf70261b007dcaa06a1cf01f8e0a0b131bae51e85aa397"
+      "sha256": "c1762b2e445fd35d71f0bc01fd3101e3760ded9fbe75517a44249cc8d1fc8647"
     },
     {
       "path": "docs/server/MANUAL-DEPLOYMENT.md",
@@ -1205,7 +1205,7 @@
     },
     {
       "path": "sw.js",
-      "sha256": "5346d510b853738ef5fbbb307446ca52eeb261aa1b75ed44ee5472e0a4cec80f"
+      "sha256": "5f1a14478028111a07e001539c775a1a080acc586a93c4430f3d5e5c51c14531"
     }
   ]
 }

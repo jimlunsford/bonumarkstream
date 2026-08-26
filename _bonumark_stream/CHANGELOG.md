@@ -1,3 +1,13 @@
+## 0.7.1 - Compatibility Workflow Correction Pass
+
+- Supersedes the unreleased v0.7.0 release candidate without changing the product milestone or runtime feature set.
+- Updates `.github/workflows/compatibility.yml` to use the Node 24 based `actions/checkout@v5`, create a clean tracked source snapshot with `git archive HEAD`, and run PHP lint, the package smoke test, migration/schema smoke test, and Remote Posting API database smoke test from that snapshot.
+- Prevents Git checkout metadata under `.git/` from being misclassified as unexpected package files by the release-manifest smoke checks.
+- Ensures `api/v1/stream/posts.php` is present in repository source, matching the v0.7.0 release package, release manifest, Remote Posting documentation, and smoke-test contract.
+- Updates current-version documentation and package metadata to v0.7.1.
+- Keeps the compatibility floors, application runtime behavior, upgrade behavior, owner-data preservation contract, and migration set unchanged.
+- Adds no database migration.
+
 ## 0.7.0 - Hosting Portability & Upgrade Workflow
 
 - Creates the next intended public GitHub milestone after v0.6.0 by consolidating the completed v0.6.1 through v0.6.8 development work under one release identity.
