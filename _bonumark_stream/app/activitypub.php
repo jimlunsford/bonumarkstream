@@ -81,11 +81,23 @@ function bms_activitypub_system_check_items(): array
         && function_exists('openssl_decrypt');
     $salt = trim((string)(bms_config()['security_salt'] ?? ''));
     $runner = bms_activitypub_scheduled_runner_capability();
+    try {
+        $owner = bms_activitypub_public_owner_user();
+    } catch (Throwable $e) {
+        $owner = null;
+    }
+    try {
+        $signingKey = bms_activitypub_active_signing_key(false);
+    } catch (Throwable $e) {
+        $signingKey = null;
+    }
 
     return [
         ['label' => 'ActivityPub canonical URL', 'status' => !empty($url['ok']) ? 'pass' : 'fail', 'message' => (string)$url['message']],
         ['label' => 'ActivityPub WebFinger routing', 'status' => !empty($routing['ok']) ? 'pass' : 'fail', 'message' => (string)$routing['message']],
+        ['label' => 'ActivityPub owner identity', 'status' => is_array($owner) ? 'pass' : 'fail', 'message' => is_array($owner) ? 'The public Admin profile is available as the stable site actor.' : 'ActivityPub requires an active Admin account with a public Profile.'],
         ['label' => 'ActivityPub cryptography', 'status' => $openssl && strlen($salt) >= 32 ? 'pass' : 'fail', 'message' => $openssl && strlen($salt) >= 32 ? 'OpenSSL and the installation secret are available for protected signing keys.' : 'ActivityPub requires OpenSSL and a high-entropy installation security salt.'],
+        ['label' => 'ActivityPub signing identity', 'status' => is_array($signingKey) ? 'pass' : 'warn', 'message' => is_array($signingKey) ? 'An active public signing key is available for the owner actor.' : 'No signing key is active yet. Read-only discovery works, but signed federation will require explicit key provisioning before Stage 3.'],
         ['label' => 'ActivityPub outbound HTTP', 'status' => function_exists('curl_init') ? 'pass' : 'fail', 'message' => function_exists('curl_init') ? 'PHP cURL is available for signed federation requests.' : 'ActivityPub requires PHP cURL for outbound federation requests.'],
         ['label' => 'ActivityPub scheduled delivery', 'status' => !empty($runner['ok']) ? 'pass' : 'warn', 'message' => (string)$runner['message']],
     ];
@@ -223,6 +235,50 @@ function bms_activitypub_active_signing_key(bool $includePrivate = false): ?arra
     }
     unset($key['private_key_encrypted']);
     return $key;
+}
+
+function bms_activitypub_public_owner_user(): ?array
+{
+    if (!bms_is_installed()) {
+        return null;
+    }
+    $stmt = bms_db()->query('SELECT id, username, display_name, role, status, bio, website, social_links, profile_visibility, avatar_path, created_at, updated_at FROM ' . bms_table('users') . " WHERE role = 'admin' AND status = 'active' AND profile_visibility <> 'private' ORDER BY id ASC LIMIT 1");
+    $owner = $stmt ? $stmt->fetch() : false;
+    return is_array($owner) ? $owner : null;
+}
+
+function bms_activitypub_published_stream_count(): int
+{
+    $stmt = bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts') . " WHERE post_type = 'stream' AND status = 'published'");
+    return $stmt ? max(0, (int)$stmt->fetchColumn()) : 0;
+}
+
+function bms_activitypub_published_stream_posts(int $page = 1, int $perPage = 20): array
+{
+    $page = max(1, $page);
+    $perPage = max(1, min(100, $perPage));
+    $offset = ($page - 1) * $perPage;
+    $stmt = bms_db()->query('SELECT * FROM ' . bms_table('posts') . " WHERE post_type = 'stream' AND status = 'published' ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT {$perPage} OFFSET {$offset}");
+    $rows = $stmt ? ($stmt->fetchAll() ?: []) : [];
+    return array_values(array_map(
+        static fn(array $row): array => bms_database_row_to_content_page($row),
+        array_filter($rows, 'is_array')
+    ));
+}
+
+function bms_activitypub_find_published_stream_post(int $postId): ?array
+{
+    if ($postId < 1) {
+        return null;
+    }
+    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id AND post_type = :post_type AND status = :status LIMIT 1');
+    $stmt->execute([
+        'id' => $postId,
+        'post_type' => 'stream',
+        'status' => 'published',
+    ]);
+    $row = $stmt->fetch();
+    return is_array($row) ? bms_database_row_to_content_page($row) : null;
 }
 
 function bms_activitypub_record_publication_transition(array $transition): void
