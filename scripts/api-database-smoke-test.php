@@ -49,6 +49,7 @@ $scenarios = [
     'missing_token',
     'invalid_token',
     'stream_read',
+    'activitypub_observer',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -153,11 +154,17 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_posting_direct_publish_enabled', '1');
         bms_api_smoke_set_setting('remote_posting_publish_confirmation_required', '1');
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
+        bms_api_smoke_set_setting('activitypub_enabled', $scenario === 'activitypub_observer' ? '1' : '0');
 
         bms_api_smoke_run_scenario($scenario);
         $activityPubEvents = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
         $activityPubDeliveries = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries'))->fetchColumn();
-        if ($activityPubEvents !== 0 || $activityPubDeliveries !== 0) {
+        if ($scenario === 'activitypub_observer') {
+            $completedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'observed' AND processed_at IS NOT NULL")->fetchColumn();
+            if ($activityPubEvents !== 2 || $completedEvents !== 2 || $activityPubDeliveries !== 0) {
+                throw new RuntimeException('The ActivityPub observer did not record exactly one publish and one changed update as completed observations.');
+            }
+        } elseif ($activityPubEvents !== 0 || $activityPubDeliveries !== 0) {
             throw new RuntimeException('Default-off Remote API behavior created ActivityPub events or deliveries.');
         }
     } finally {
@@ -229,6 +236,10 @@ function bms_api_smoke_run_scenario(string $scenario): void
             if (($catalog['posts'][0]['content']['markdown'] ?? '') !== 'Readable Stream content.' || trim((string)($catalog['posts'][0]['content']['html'] ?? '')) === '') {
                 throw new RuntimeException('Read API did not preserve Markdown and optional rendered HTML.');
             }
+            $outboxPosts = bms_activitypub_published_stream_posts(1, 20);
+            if (bms_activitypub_published_stream_count() !== 1 || count($outboxPosts) !== 1 || (int)($outboxPosts[0]['post_id'] ?? 0) !== $postId) {
+                throw new RuntimeException('The read-only ActivityPub outbox repository did not expose the existing public Stream post.');
+            }
             $_GET = ['id' => (string)$postId];
             $single = bms_api_read_stream_posts();
             if (empty($single['single']) || (int)($single['post']['id'] ?? 0) !== $postId) {
@@ -242,6 +253,31 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_expect_api_exception('invalid_status', function (): void {
                 bms_api_read_stream_posts();
             });
+            return;
+
+        case 'activitypub_observer':
+            $postId = bms_upsert_database_content([
+                'title' => 'Observed post',
+                'slug' => 'observed-post',
+                'status' => 'published',
+                'content_type' => 'stream',
+                'post_type' => 'stream',
+                'date' => '2026-08-27',
+                'description' => '',
+                'category' => 'Stream',
+                'tags' => [],
+                'body' => 'Initial observed content.',
+                'front_matter' => [],
+            ], 'published', 'observed-post.md', 1);
+            $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $postId]);
+            $row = $stmt->fetch();
+            if (!is_array($row)) {
+                throw new RuntimeException('The observer fixture post was not created.');
+            }
+            $page = bms_database_row_to_content_page($row);
+            $updated = bms_update_stream_post_body($page, 'Changed observed content.');
+            bms_update_stream_post_body($updated, 'Changed observed content.');
             return;
 
         case 'draft_create':
