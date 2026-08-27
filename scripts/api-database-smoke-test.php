@@ -155,6 +155,11 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
 
         bms_api_smoke_run_scenario($scenario);
+        $activityPubEvents = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+        $activityPubDeliveries = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries'))->fetchColumn();
+        if ($activityPubEvents !== 0 || $activityPubDeliveries !== 0) {
+            throw new RuntimeException('Default-off Remote API behavior created ActivityPub events or deliveries.');
+        }
     } finally {
         bms_api_smoke_drop_temp_tables($prefix);
         bms_api_smoke_remove_tree($tempRoot);

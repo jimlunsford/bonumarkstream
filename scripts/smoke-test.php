@@ -2051,6 +2051,35 @@ if (!str_contains($activityPubSource, "'status' => 'observed'")
     $failures[] = 'Pre-delivery ActivityPub publication observations must be stored as completed observations, not pending delivery work.';
 }
 
+$activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';
+$activityPubSerialization = @file_get_contents($root . '/_bonumark_stream/app/activitypub-serialization.php') ?: '';
+$frontController = @file_get_contents($root . '/index.php') ?: '';
+$apacheRoutes = @file_get_contents($root . '/.htaccess') ?: '';
+$nginxRoutes = @file_get_contents($root . '/docs/server/bonumark-stream-nginx.conf') ?: '';
+if (!str_contains($activityPubRoutes, 'function bms_dispatch_activitypub_route')
+    || !str_contains($activityPubSerialization, 'function bms_activitypub_actor_document')
+    || !str_contains($activityPubSerialization, 'function bms_activitypub_outbox_document')) {
+    bm_smoke_fail($failures, 'ActivityPub read-only identity and serialization are incomplete.');
+}
+foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $activityPubRoute) {
+    if (!str_contains($frontController . $apacheRoutes . $nginxRoutes, $activityPubRoute)) {
+        bm_smoke_fail($failures, 'ActivityPub routing is incomplete: ' . $activityPubRoute);
+    }
+}
+if (str_contains($activityPubRoutes, 'curl_')
+    || str_contains($activityPubRoutes, 'activitypub_inbox')
+    || str_contains($activityPubRoutes, 'activitypub_deliveries')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 2 must remain read-only and must not process inboxes or deliveries.');
+}
+foreach ([
+    "RewriteRule ^profile/([A-Za-z0-9._-]+)/?$",
+    "RewriteRule ^stream/([A-Za-z0-9._-]+)/?$",
+] as $humanRoute) {
+    if (!str_contains($apacheRoutes, $humanRoute)) {
+        bm_smoke_fail($failures, 'ActivityPub changed or removed an existing human-facing route: ' . $humanRoute);
+    }
+}
+
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
 if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
