@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/activitypub-inbox.php';
 
 function bms_scheduled_posts_lock_path(): string
 {
@@ -430,6 +431,18 @@ function bms_scheduled_task_handlers(): array
             },
             ['label' => 'Scheduled posts']
         );
+        if (bms_activitypub_enabled()) {
+            bms_register_scheduled_task_handler(
+                'activitypub_responses',
+                static function (array $context): array {
+                    return bms_activitypub_run_response_deliveries((int)($context['activitypub_delivery_limit'] ?? 20));
+                },
+                [
+                    'label' => 'ActivityPub follower responses',
+                    'allowed_sources' => ['manual', 'server_cron', 'web_cron'],
+                ]
+            );
+        }
     }
     $handlers = $GLOBALS['bms_scheduled_task_handlers'] ?? [];
     return is_array($handlers) ? $handlers : [];

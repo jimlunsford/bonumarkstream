@@ -53,6 +53,7 @@ DirectoryIndex index.php index.html
   RewriteEngine On
   RewriteRule ^\.well-known/webfinger/?$ index.php?__bonumark_route=activitypub_webfinger [L,QSA]
   RewriteRule ^activitypub/actor/?$ index.php?__bonumark_route=activitypub_actor [L,QSA]
+  RewriteRule ^activitypub/inbox/?$ index.php?__bonumark_route=activitypub_inbox [L,QSA]
   RewriteRule ^activitypub/outbox/?$ index.php?__bonumark_route=activitypub_outbox [L,QSA]
   RewriteRule ^activitypub/followers/?$ index.php?__bonumark_route=activitypub_followers [L,QSA]
   RewriteRule ^activitypub/following/?$ index.php?__bonumark_route=activitypub_following [L,QSA]

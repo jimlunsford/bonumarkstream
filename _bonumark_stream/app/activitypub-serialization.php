@@ -44,6 +44,11 @@ function bms_activitypub_outbox_url(?string $baseUrl = null): string
     return bms_activitypub_absolute_url('/activitypub/outbox', $baseUrl);
 }
 
+function bms_activitypub_inbox_url(?string $baseUrl = null): string
+{
+    return bms_activitypub_absolute_url('/activitypub/inbox', $baseUrl);
+}
+
 function bms_activitypub_followers_url(?string $baseUrl = null): string
 {
     return bms_activitypub_absolute_url('/activitypub/followers', $baseUrl);
@@ -184,6 +189,7 @@ function bms_activitypub_actor_document(array $owner, array $identity = [], ?arr
         'name' => $displayName !== '' ? $displayName : $username,
         'summary' => $summarySource !== '' ? bms_activitypub_absolutize_html(bms_markdown_to_html($summarySource, false), $baseUrl) : '',
         'url' => bms_activitypub_owner_profile_url($owner, $baseUrl),
+        'inbox' => bms_activitypub_inbox_url($baseUrl),
         'outbox' => bms_activitypub_outbox_url($baseUrl),
         'followers' => bms_activitypub_followers_url($baseUrl),
         'following' => bms_activitypub_following_url($baseUrl),
@@ -306,6 +312,18 @@ function bms_activitypub_empty_collection_document(string $collectionUrl): array
         'type' => 'OrderedCollection',
         'totalItems' => 0,
         'orderedItems' => [],
+    ];
+}
+
+function bms_activitypub_relationship_collection_document(string $collectionUrl, array $actorUris): array
+{
+    $actorUris = array_values(array_unique(array_filter(array_map('strval', $actorUris))));
+    return [
+        '@context' => bms_activitypub_context(),
+        'id' => $collectionUrl,
+        'type' => 'OrderedCollection',
+        'totalItems' => count($actorUris),
+        'orderedItems' => $actorUris,
     ];
 }
 

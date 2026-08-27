@@ -2,12 +2,14 @@
 
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/activitypub-serialization.php';
+require_once __DIR__ . '/activitypub-inbox.php';
 
 function bms_activitypub_route_names(): array
 {
     return [
         'activitypub_webfinger',
         'activitypub_actor',
+        'activitypub_inbox',
         'activitypub_outbox',
         'activitypub_followers',
         'activitypub_following',
@@ -146,7 +148,7 @@ function bms_activitypub_emit_json(array $payload, int $status, string $contentT
         http_response_code($status);
         header('Content-Type: ' . $contentType);
         header('Content-Length: ' . strlen($json));
-        header('Cache-Control: public, max-age=60, must-revalidate');
+        header('Cache-Control: ' . ($status >= 400 ? 'no-store, private' : 'public, max-age=60, must-revalidate'));
         header('Vary: Accept');
         header('X-Content-Type-Options: nosniff');
         header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'");
@@ -178,6 +180,39 @@ function bms_dispatch_activitypub_route(string $route): bool
     }
 
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if ($route === 'activitypub_inbox') {
+        if ($method !== 'POST') {
+            bms_activitypub_emit_error(405, 'Method not allowed.', ['Allow: POST', 'Cache-Control: no-store, private']);
+        }
+        try {
+            $baseUrl = trim((string)bms_setting_or_config('base_url', ''));
+            if (empty(bms_activitypub_configured_base_url($baseUrl)['ok']) || !bms_is_installed()) {
+                bms_activitypub_emit_error(503, 'ActivityPub identity is not ready.', ['Cache-Control: no-store, private']);
+            }
+            $headers = bms_activitypub_inbox_request_headers();
+            $contentLength = isset($headers['content-length']) && preg_match('/^[0-9]+$/', (string)$headers['content-length']) === 1
+                ? (int)$headers['content-length'] : null;
+            $body = bms_activitypub_inbox_read_body(null, $contentLength);
+            $result = bms_activitypub_receive_inbox([
+                'method' => 'POST',
+                'request_target' => (string)($_SERVER['REQUEST_URI'] ?? '/activitypub/inbox'),
+                'headers' => $headers,
+                'body' => $body,
+            ]);
+            bms_activitypub_emit_json(
+                ['accepted' => true, 'status' => (string)($result['status'] ?? 'processed')],
+                202,
+                'application/activity+json; charset=UTF-8',
+                ['Cache-Control: no-store, private']
+            );
+        } catch (BmsActivityPubSecurityException $e) {
+            error_log('Bonumark Stream ActivityPub inbox rejected a request: ' . $e->getMessage());
+            bms_activitypub_emit_error($e->httpStatus(), 'The inbox request was rejected.', ['Cache-Control: no-store, private']);
+        } catch (Throwable $e) {
+            error_log('Bonumark Stream ActivityPub inbox failed: ' . $e->getMessage());
+            bms_activitypub_emit_error(503, 'The inbox is temporarily unavailable.', ['Cache-Control: no-store, private']);
+        }
+    }
     if (!in_array($method, ['GET', 'HEAD'], true)) {
         bms_activitypub_emit_error(405, 'Method not allowed.', ['Allow: GET, HEAD']);
     }
@@ -224,11 +259,11 @@ function bms_dispatch_activitypub_route(string $route): bool
         }
 
         if ($route === 'activitypub_followers') {
-            bms_activitypub_emit_json(bms_activitypub_empty_collection_document(bms_activitypub_followers_url($baseUrl)), 200, $contentType);
+            bms_activitypub_emit_json(bms_activitypub_relationship_collection_document(bms_activitypub_followers_url($baseUrl), bms_activitypub_collection_actor_uris('followers')), 200, $contentType);
         }
 
         if ($route === 'activitypub_following') {
-            bms_activitypub_emit_json(bms_activitypub_empty_collection_document(bms_activitypub_following_url($baseUrl)), 200, $contentType);
+            bms_activitypub_emit_json(bms_activitypub_relationship_collection_document(bms_activitypub_following_url($baseUrl), bms_activitypub_collection_actor_uris('following')), 200, $contentType);
         }
 
         if ($route === 'activitypub_outbox') {
