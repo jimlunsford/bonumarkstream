@@ -38,6 +38,7 @@ $published = [
     'content_hash' => str_repeat('a', 64),
 ];
 $updated = array_merge($published, ['content_hash' => str_repeat('b', 64)]);
+$renamed = array_merge($published, ['slug' => 'foundation-test-renamed']);
 $draft = array_merge($updated, ['id' => 84, 'status' => 'draft']);
 $page = array_merge($published, ['post_type' => 'page']);
 
@@ -45,6 +46,7 @@ $publishTransition = bms_publication_transition(null, $published, ['source' => '
 bms_activitypub_test_assert(($publishTransition['event_type'] ?? '') === 'published', 'A new published Stream Post must produce a published transition.');
 $updateTransition = bms_publication_transition($published, $updated, ['source' => 'test']);
 bms_activitypub_test_assert(($updateTransition['event_type'] ?? '') === 'updated', 'A changed published Stream Post must produce an updated transition.');
+bms_activitypub_test_assert((bms_publication_transition($published, $renamed, ['source' => 'test'])['event_type'] ?? '') === 'updated', 'A changed public slug must produce an updated transition even when the content hash is unchanged.');
 bms_activitypub_test_assert(bms_publication_transition($published, $published, ['source' => 'test']) === null, 'An unchanged published Stream Post must not produce a transition.');
 $unpublishTransition = bms_publication_transition($updated, $draft, ['source' => 'test']);
 bms_activitypub_test_assert(($unpublishTransition['event_type'] ?? '') === 'unpublished', 'Moving a published Stream Post to draft must produce an unpublished transition.');

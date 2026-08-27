@@ -69,7 +69,10 @@ function bms_publication_transition(?array $before, ?array $after, array $contex
     if (!$beforePublished && $afterPublished) {
         $eventType = 'published';
     } elseif ($beforePublished && $afterPublished) {
-        if (hash_equals((string)$beforeState['content_hash'], (string)$afterState['content_hash'])) {
+        $sameContent = hash_equals((string)$beforeState['content_hash'], (string)$afterState['content_hash']);
+        $sameSlug = hash_equals((string)$beforeState['slug'], (string)$afterState['slug']);
+        $samePublishedAt = hash_equals((string)$beforeState['published_at'], (string)$afterState['published_at']);
+        if ($sameContent && $sameSlug && $samePublishedAt) {
             return null;
         }
         $eventType = 'updated';
