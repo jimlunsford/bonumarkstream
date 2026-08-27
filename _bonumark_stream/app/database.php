@@ -844,6 +844,7 @@ function bms_database_row_to_content_page(array $row): array
         'updated_at' => (string)($row['updated_at'] ?? ''),
         'published_at' => (string)($row['published_at'] ?? ''),
         'scheduled_at' => (string)($row['scheduled_at'] ?? $frontMatter['scheduled_at'] ?? ''),
+        'content_hash' => (string)($row['content_hash'] ?? ''),
         'is_pinned' => $postType === 'stream' && $status === 'published' && !empty($row['is_pinned']),
         'pinned_at' => $postType === 'stream' && $status === 'published' ? (string)($row['pinned_at'] ?? '') : '',
         'date_published' => (string)($row['date_published'] ?? ''),
@@ -1405,7 +1406,9 @@ function bms_update_stream_post_body(array $page, string $body): array
     $updated = $page;
     $updated['body'] = $body;
     $updated['raw'] = bms_database_content_raw($updated);
-    $contentHash = hash('sha256', (string)$updated['raw']);
+    $frontMatter = is_array($updated['front_matter'] ?? null) ? $updated['front_matter'] : [];
+    $encodedFrontMatter = json_encode($frontMatter, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $contentHash = hash('sha256', $body . "\n" . (is_string($encodedFrontMatter) ? $encodedFrontMatter : ''));
 
     $stmt = bms_db()->prepare('UPDATE ' . bms_table('posts') . ' SET content_body = :content_body, content_hash = :content_hash, updated_at = NOW() WHERE id = :id AND post_type = :post_type');
     $stmt->execute([
