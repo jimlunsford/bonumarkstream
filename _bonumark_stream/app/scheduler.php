@@ -382,6 +382,93 @@ function bms_publish_due_scheduled_posts(int $limit = 20): int
     }
 }
 
+function bms_register_scheduled_task_handler(string $name, callable $handler, array $options = []): void
+{
+    $name = strtolower(trim($name));
+    if ($name === '' || preg_match('/^[a-z0-9][a-z0-9_-]*$/', $name) !== 1) {
+        throw new InvalidArgumentException('Scheduled task handler names must use lowercase letters, numbers, underscores, or hyphens.');
+    }
+    $allowedSources = $options['allowed_sources'] ?? bms_scheduled_tasks_allowed_sources();
+    if (!is_array($allowedSources)) {
+        $allowedSources = [];
+    }
+    $allowedSources = array_values(array_intersect(
+        bms_scheduled_tasks_allowed_sources(),
+        array_map(static fn(mixed $source): string => strtolower(trim((string)$source)), $allowedSources)
+    ));
+    $GLOBALS['bms_scheduled_task_handlers'][$name] = [
+        'name' => $name,
+        'label' => trim((string)($options['label'] ?? $name)) ?: $name,
+        'handler' => $handler,
+        'allowed_sources' => $allowedSources,
+    ];
+}
+
+function bms_scheduled_task_handlers(): array
+{
+    if (empty($GLOBALS['bms_scheduled_task_core_handlers_registered'])) {
+        $GLOBALS['bms_scheduled_task_core_handlers_registered'] = true;
+        bms_register_scheduled_task_handler(
+            'scheduled_posts',
+            static function (array $context): array {
+                $published = bms_publish_due_scheduled_posts((int)($context['scheduled_post_limit'] ?? 50));
+                return [
+                    'ok' => true,
+                    'count' => $published,
+                    'message' => $published > 0
+                        ? 'Published ' . $published . ' due scheduled post' . ($published === 1 ? '' : 's') . '.'
+                        : 'No due scheduled posts were waiting.',
+                ];
+            },
+            ['label' => 'Scheduled posts']
+        );
+    }
+    $handlers = $GLOBALS['bms_scheduled_task_handlers'] ?? [];
+    return is_array($handlers) ? $handlers : [];
+}
+
+function bms_run_registered_scheduled_tasks(string $source, array $context = []): array
+{
+    $source = bms_scheduled_tasks_normalize_source($source);
+    $results = [];
+    foreach (bms_scheduled_task_handlers() as $name => $definition) {
+        if (!is_array($definition) || !is_callable($definition['handler'] ?? null)) {
+            continue;
+        }
+        $allowedSources = is_array($definition['allowed_sources'] ?? null) ? $definition['allowed_sources'] : [];
+        if (!in_array($source, $allowedSources, true)) {
+            $results[$name] = [
+                'ok' => true,
+                'status' => 'skipped',
+                'count' => 0,
+                'message' => (string)($definition['label'] ?? $name) . ' is not run from ' . bms_scheduled_tasks_source_label($source) . '.',
+            ];
+            continue;
+        }
+        try {
+            $result = ($definition['handler'])(array_merge($context, ['source' => $source, 'task' => $name]));
+            if (!is_array($result)) {
+                throw new RuntimeException('Scheduled task handlers must return an array.');
+            }
+            $results[$name] = [
+                'ok' => !array_key_exists('ok', $result) || !empty($result['ok']),
+                'status' => trim((string)($result['status'] ?? 'completed')) ?: 'completed',
+                'count' => max(0, (int)($result['count'] ?? 0)),
+                'message' => trim((string)($result['message'] ?? '')),
+            ];
+        } catch (Throwable $e) {
+            error_log('Bonumark Stream scheduled task handler ' . $name . ' failed: ' . $e->getMessage());
+            $results[$name] = [
+                'ok' => false,
+                'status' => 'error',
+                'count' => 0,
+                'message' => (string)($definition['label'] ?? $name) . ' failed.',
+            ];
+        }
+    }
+    return $results;
+}
+
 function bms_run_due_tasks(string $source = 'manual', bool $force = false, int $scheduledPostLimit = 50): array
 {
     $source = bms_scheduled_tasks_normalize_source($source);
@@ -393,6 +480,7 @@ function bms_run_due_tasks(string $source = 'manual', bool $force = false, int $
         'started_at_unix' => $startedAt,
         'completed_at_unix' => $startedAt,
         'scheduled_posts_published' => 0,
+        'task_results' => [],
         'message' => 'Scheduled tasks completed.',
         'skipped' => false,
     ];
@@ -439,14 +527,31 @@ function bms_run_due_tasks(string $source = 'manual', bool $force = false, int $
     }
 
     try {
-        $published = bms_publish_due_scheduled_posts($scheduledPostLimit);
+        $taskResults = bms_run_registered_scheduled_tasks($source, ['scheduled_post_limit' => $scheduledPostLimit]);
+        $scheduledPosts = is_array($taskResults['scheduled_posts'] ?? null) ? $taskResults['scheduled_posts'] : [];
+        $published = max(0, (int)($scheduledPosts['count'] ?? 0));
+        $ok = true;
+        $messages = [];
+        foreach ($taskResults as $taskResult) {
+            if (!is_array($taskResult)) {
+                continue;
+            }
+            if (empty($taskResult['ok'])) {
+                $ok = false;
+            }
+            $taskMessage = trim((string)($taskResult['message'] ?? ''));
+            if ($taskMessage !== '') {
+                $messages[] = $taskMessage;
+            }
+        }
         $completedAt = time();
-        $message = $published > 0
-            ? 'Published ' . $published . ' due scheduled post' . ($published === 1 ? '' : 's') . '.'
-            : 'No due scheduled posts were waiting.';
+        $message = $messages !== [] ? implode(' ', $messages) : 'Scheduled tasks completed.';
         $result = array_merge($base, [
+            'ok' => $ok,
+            'status' => $ok ? 'completed' : 'error',
             'completed_at_unix' => $completedAt,
             'scheduled_posts_published' => $published,
+            'task_results' => $taskResults,
             'message' => $message,
         ]);
         bms_scheduled_tasks_mark_last_run($result);
