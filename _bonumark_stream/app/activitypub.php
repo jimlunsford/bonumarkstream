@@ -231,14 +231,17 @@ function bms_activitypub_record_publication_transition(array $transition): void
         return;
     }
     $state = json_encode(['before' => $transition['before'] ?? null, 'after' => $transition['after'] ?? null], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (:post_id, :event_type, :source, :content_hash, :state_json, :status, UTC_TIMESTAMP(), NULL)');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (:post_id, :event_type, :source, :content_hash, :state_json, :status, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
     $stmt->execute([
         'post_id' => (int)($transition['post_id'] ?? 0) > 0 ? (int)$transition['post_id'] : null,
         'event_type' => (string)($transition['event_type'] ?? ''),
         'source' => (string)($transition['source'] ?? 'application'),
         'content_hash' => (string)($transition['content_hash'] ?? ''),
         'state_json' => is_string($state) ? $state : '{}',
-        'status' => 'pending',
+        // Stage 1 and Stage 2 only observe completed local publications. A
+        // future delivery worker must never interpret these historical rows
+        // as unsent federation work.
+        'status' => 'observed',
     ]);
 }
 

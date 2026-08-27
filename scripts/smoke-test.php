@@ -2045,6 +2045,12 @@ foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publicat
     }
 }
 
+$activityPubSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub.php');
+if (!str_contains($activityPubSource, "'status' => 'observed'")
+    || !str_contains($activityPubSource, 'UTC_TIMESTAMP(), UTC_TIMESTAMP())')) {
+    $failures[] = 'Pre-delivery ActivityPub publication observations must be stored as completed observations, not pending delivery work.';
+}
+
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
 if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {

@@ -35,7 +35,7 @@ return [
         `source` VARCHAR(60) NOT NULL DEFAULT 'application',
         `content_hash` CHAR(64) NOT NULL DEFAULT '',
         `state_json` LONGTEXT NOT NULL,
-        `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+        `status` VARCHAR(20) NOT NULL DEFAULT 'observed',
         `created_at` DATETIME NOT NULL,
         `processed_at` DATETIME NULL,
         PRIMARY KEY (`id`),

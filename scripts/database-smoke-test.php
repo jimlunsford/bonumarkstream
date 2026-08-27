@@ -185,6 +185,12 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         }
     }
 
+    $publicationEventStatus = $pdo->query("SHOW COLUMNS FROM `{$prefix}activitypub_publication_events` LIKE 'status'");
+    $publicationEventStatus = $publicationEventStatus ? $publicationEventStatus->fetch() : false;
+    if (!is_array($publicationEventStatus) || (string)($publicationEventStatus['Default'] ?? '') !== 'observed') {
+        throw new RuntimeException("{$label} ActivityPub publication observations must default to the completed observed state.");
+    }
+
     foreach ([
         'status_scheduled_at',
         'post_type_status_pinned_at',
