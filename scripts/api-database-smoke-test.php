@@ -50,6 +50,7 @@ $scenarios = [
     'invalid_token',
     'stream_read',
     'activitypub_observer',
+    'activitypub_inbox',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -154,8 +155,10 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_posting_direct_publish_enabled', '1');
         bms_api_smoke_set_setting('remote_posting_publish_confirmation_required', '1');
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
-        bms_api_smoke_set_setting('activitypub_enabled', $scenario === 'activitypub_observer' ? '1' : '0');
+        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_inbox'], true) ? '1' : '0');
+        bms_api_smoke_set_setting('activitypub_follow_policy', 'manual');
 
+        $GLOBALS['bms_api_smoke_temp_root'] = $tempRoot;
         bms_api_smoke_run_scenario($scenario);
         $activityPubEvents = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
         $activityPubDeliveries = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries'))->fetchColumn();
@@ -163,6 +166,13 @@ function bms_api_smoke_run_child(string $scenario): void
             $completedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'observed' AND processed_at IS NOT NULL")->fetchColumn();
             if ($activityPubEvents !== 2 || $completedEvents !== 2 || $activityPubDeliveries !== 0) {
                 throw new RuntimeException('The ActivityPub observer did not record exactly one publish and one changed update as completed observations.');
+            }
+        } elseif ($scenario === 'activitypub_inbox') {
+            $responseDeliveries = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'follower_response' AND event_id IS NULL AND status = 'delivered'")->fetchColumn();
+            $publicationDeliveries = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication' OR event_id IS NOT NULL")->fetchColumn();
+            $observedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'observed' AND processed_at IS NOT NULL")->fetchColumn();
+            if ($activityPubEvents !== 1 || $observedEvents !== 1 || $activityPubDeliveries !== 1 || $responseDeliveries !== 1 || $publicationDeliveries !== 0) {
+                throw new RuntimeException('The Stage 3 response queue was not isolated from historical observed publication events.');
             }
         } elseif ($activityPubEvents !== 0 || $activityPubDeliveries !== 0) {
             throw new RuntimeException('Default-off Remote API behavior created ActivityPub events or deliveries.');
@@ -280,6 +290,116 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_update_stream_post_body($updated, 'Changed observed content.');
             return;
 
+        case 'activitypub_inbox':
+            bms_activitypub_create_signing_key();
+            $remoteKey = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 2048]);
+            if ($remoteKey === false) {
+                throw new RuntimeException('The remote actor fixture key could not be generated.');
+            }
+            $remotePrivate = '';
+            openssl_pkey_export($remoteKey, $remotePrivate);
+            $remoteDetails = openssl_pkey_get_details($remoteKey);
+            $remotePublic = is_array($remoteDetails) ? (string)$remoteDetails['key'] : '';
+            $remoteActorUri = 'https://93.184.216.34/actor';
+            $remoteDocument = [
+                'id' => $remoteActorUri,
+                'type' => 'Person',
+                'preferredUsername' => 'remote',
+                'name' => 'Remote Fixture',
+                'inbox' => 'https://93.184.216.34/inbox',
+                'publicKey' => ['id' => $remoteActorUri . '#main-key', 'owner' => $remoteActorUri, 'publicKeyPem' => $remotePublic],
+            ];
+            $fetcher = static fn(string $url): array => ['document' => $remoteDocument, 'url' => $url];
+            $resolver = static fn(string $host): array => ['93.184.216.34'];
+            $now = time();
+            $follow = [
+                '@context' => 'https://www.w3.org/ns/activitystreams',
+                'id' => $remoteActorUri . '/activities/follow-1',
+                'type' => 'Follow',
+                'actor' => $remoteActorUri,
+                'object' => bms_activitypub_actor_url(),
+            ];
+            $request = bms_api_smoke_signed_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now);
+            $received = bms_activitypub_receive_inbox($request, $fetcher, $resolver, $now);
+            if ((string)($received['result_code'] ?? '') !== 'follow_pending') {
+                throw new RuntimeException('A valid signed Follow did not enter manual moderation.');
+            }
+            $receiptCount = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_inbox_receipts'))->fetchColumn();
+            $follower = bms_db()->query('SELECT * FROM ' . bms_table('activitypub_followers') . ' LIMIT 1')->fetch();
+            if ($receiptCount !== 1 || !is_array($follower) || (string)$follower['state'] !== 'pending') {
+                throw new RuntimeException('The valid Follow was not durably deduplicated and stored.');
+            }
+
+            bms_api_smoke_expect_security_exception(409, static function () use ($request, $fetcher, $resolver, $now): void {
+                bms_activitypub_receive_inbox($request, $fetcher, $resolver, $now);
+            });
+            $freshDuplicate = bms_api_smoke_signed_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now + 1);
+            $duplicate = bms_activitypub_receive_inbox($freshDuplicate, $fetcher, $resolver, $now + 1);
+            if ((string)($duplicate['result_code'] ?? '') !== 'duplicate_activity'
+                || (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_inbox_receipts'))->fetchColumn() !== 1) {
+                throw new RuntimeException('A duplicate activity with a fresh signature was not handled idempotently.');
+            }
+
+            $observed = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (NULL, :event_type, :source, :content_hash, :state_json, :status, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+            $observed->execute(['event_type' => 'update', 'source' => 'stage3_isolation_fixture', 'content_hash' => hash('sha256', 'fixture'), 'state_json' => '{}', 'status' => 'observed']);
+            bms_activitypub_moderate_follower((int)$follower['id'], 'approve');
+            $queued = bms_db()->query('SELECT * FROM ' . bms_table('activitypub_deliveries') . ' LIMIT 1')->fetch();
+            if (!is_array($queued) || (string)$queued['delivery_type'] !== 'follower_response' || $queued['event_id'] !== null) {
+                throw new RuntimeException('Follower approval did not create an isolated response delivery.');
+            }
+            $transport = static fn(array $target, array $options): array => ['status' => 202, 'headers' => ['content-type' => ['application/activity+json']], 'body' => '', 'primary_ip' => '93.184.216.34'];
+            $deliveryResult = bms_activitypub_run_response_deliveries(20, $transport, $resolver);
+            if ((int)($deliveryResult['count'] ?? 0) !== 1) {
+                throw new RuntimeException('The signed Accept response was not delivered through the queue.');
+            }
+
+            $undo = [
+                '@context' => 'https://www.w3.org/ns/activitystreams',
+                'id' => $remoteActorUri . '/activities/undo-follow-1',
+                'type' => 'Undo',
+                'actor' => $remoteActorUri,
+                'object' => $follow,
+            ];
+            $undoResult = bms_activitypub_receive_inbox(
+                bms_api_smoke_signed_activity_request($undo, $remoteActorUri . '#main-key', $remotePrivate, $now + 2),
+                $fetcher,
+                $resolver,
+                $now + 2
+            );
+            $followerState = (string)bms_db()->query('SELECT state FROM ' . bms_table('activitypub_followers') . ' LIMIT 1')->fetchColumn();
+            if ((string)($undoResult['result_code'] ?? '') !== 'follow_undone' || $followerState !== 'removed'
+                || bms_activitypub_collection_actor_uris('followers') !== []) {
+                throw new RuntimeException('Undo of Follow did not remove the follower without another delivery.');
+            }
+
+            $remoteActorId = (int)bms_db()->query('SELECT id FROM ' . bms_table('activitypub_remote_actors') . ' LIMIT 1')->fetchColumn();
+            $localFollowUri = bms_activitypub_absolute_url('/activitypub/activities/follow/test-outbound');
+            $followingInsert = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_following') . ' (remote_actor_id, actor_uri, follow_activity_uri, state, created_at, updated_at) VALUES (:remote_actor_id, :actor_uri, :follow_activity_uri, :state, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+            $followingInsert->execute(['remote_actor_id' => $remoteActorId, 'actor_uri' => $remoteActorUri, 'follow_activity_uri' => $localFollowUri, 'state' => 'pending']);
+            $accept = ['id' => $remoteActorUri . '/activities/accept-1', 'type' => 'Accept', 'actor' => $remoteActorUri, 'object' => $localFollowUri];
+            bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($accept, $remoteActorUri . '#main-key', $remotePrivate, $now + 3), $fetcher, $resolver, $now + 3);
+            if ((string)bms_db()->query('SELECT state FROM ' . bms_table('activitypub_following') . ' LIMIT 1')->fetchColumn() !== 'accepted') {
+                throw new RuntimeException('A valid Accept did not update the matching following relationship.');
+            }
+            $reject = ['id' => $remoteActorUri . '/activities/reject-1', 'type' => 'Reject', 'actor' => $remoteActorUri, 'object' => $localFollowUri];
+            bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($reject, $remoteActorUri . '#main-key', $remotePrivate, $now + 4), $fetcher, $resolver, $now + 4);
+            if ((string)bms_db()->query('SELECT state FROM ' . bms_table('activitypub_following') . ' LIMIT 1')->fetchColumn() !== 'rejected') {
+                throw new RuntimeException('A valid Reject did not update the matching following relationship.');
+            }
+
+            $unsupported = ['id' => $remoteActorUri . '/activities/like-1', 'type' => 'Like', 'actor' => $remoteActorUri, 'object' => bms_activitypub_object_url(999)];
+            $ignored = bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($unsupported, $remoteActorUri . '#main-key', $remotePrivate, $now + 5), $fetcher, $resolver, $now + 5);
+            if ((string)($ignored['result_code'] ?? '') !== 'unsupported_activity') {
+                throw new RuntimeException('An unsupported signed activity was not retained as ignored.');
+            }
+
+            $spoofed = ['id' => $remoteActorUri . '/activities/spoofed-1', 'type' => 'Follow', 'actor' => 'https://93.184.216.34/other-actor', 'object' => bms_activitypub_actor_url()];
+            bms_api_smoke_expect_security_exception(502, static function () use ($spoofed, $remoteActorUri, $remotePrivate, $fetcher, $resolver, $now): void {
+                bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($spoofed, $remoteActorUri . '#main-key', $remotePrivate, $now + 6), $fetcher, $resolver, $now + 6);
+            });
+            bms_api_smoke_activitypub_route_responses((string)($GLOBALS['bms_api_smoke_temp_root'] ?? ''));
+            return;
+
         case 'draft_create':
             $tokenData = bms_api_create_token('Draft token', ['status:read', 'stream:draft'], null, 1);
             $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . (string)$tokenData['plain_token'];
@@ -368,6 +488,180 @@ function bms_api_smoke_expect_api_exception(string $expectedCode, callable $call
         return;
     }
     throw new RuntimeException("Expected API error {$expectedCode}, but no API exception was thrown.");
+}
+
+function bms_api_smoke_expect_security_exception(int $expectedStatus, callable $callback): void
+{
+    try {
+        $callback();
+    } catch (BmsActivityPubSecurityException $e) {
+        if ($e->httpStatus() !== $expectedStatus) {
+            throw new RuntimeException("Expected ActivityPub HTTP {$expectedStatus}, got {$e->httpStatus()}.");
+        }
+        return;
+    }
+    throw new RuntimeException("Expected ActivityPub HTTP {$expectedStatus}, but no security exception was thrown.");
+}
+
+function bms_api_smoke_signed_activity_request(array $activity, string $keyId, string $privateKey, int $timestamp): array
+{
+    $body = json_encode($activity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($body)) {
+        throw new RuntimeException('The ActivityPub smoke activity could not be encoded.');
+    }
+    $date = gmdate('D, d M Y H:i:s', $timestamp) . ' GMT';
+    $digest = 'SHA-256=' . base64_encode(hash('sha256', $body, true));
+    $target = '/activitypub/inbox';
+    $signing = "(request-target): post {$target}\nhost: example.test\ndate: {$date}\ndigest: {$digest}";
+    $signature = '';
+    if (!openssl_sign($signing, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+        throw new RuntimeException('The ActivityPub smoke request could not be signed.');
+    }
+    return [
+        'method' => 'POST',
+        'request_target' => $target,
+        'body' => $body,
+        'headers' => [
+            'host' => 'example.test',
+            'date' => $date,
+            'digest' => $digest,
+            'content-type' => 'application/activity+json',
+            'content-length' => (string)strlen($body),
+            'signature' => 'keyId="' . $keyId . '",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="' . base64_encode($signature) . '"',
+        ],
+    ];
+}
+
+function bms_api_smoke_http_request(string $url, string $method = 'GET', array $headers = []): array
+{
+    $parts = parse_url($url);
+    $host = is_array($parts) ? (string)($parts['host'] ?? '') : '';
+    $port = is_array($parts) ? (int)($parts['port'] ?? 80) : 0;
+    $target = is_array($parts) ? (string)($parts['path'] ?? '/') : '/';
+    if (is_array($parts) && isset($parts['query'])) {
+        $target .= '?' . (string)$parts['query'];
+    }
+    $errorNumber = 0;
+    $errorMessage = '';
+    $socket = @stream_socket_client('tcp://' . $host . ':' . $port, $errorNumber, $errorMessage, 2);
+    if (!is_resource($socket)) {
+        throw new RuntimeException('The route smoke request failed: ' . $errorMessage);
+    }
+    stream_set_timeout($socket, 5);
+    $requestHeaders = array_merge(['Host: ' . $host . ':' . $port, 'Connection: close'], $headers);
+    $request = strtoupper($method) . ' ' . $target . " HTTP/1.1\r\n" . implode("\r\n", $requestHeaders) . "\r\n\r\n";
+    fwrite($socket, $request);
+    $raw = stream_get_contents($socket);
+    fclose($socket);
+    if (!is_string($raw) || !str_contains($raw, "\r\n\r\n")) {
+        throw new RuntimeException('The route smoke server returned an invalid HTTP response.');
+    }
+    [$headerText, $body] = explode("\r\n\r\n", $raw, 2);
+    preg_match('/^HTTP\/\d(?:\.\d)?\s+(\d{3})/i', $headerText, $statusMatch);
+    $status = (int)($statusMatch[1] ?? 0);
+    $responseHeaders = [];
+    foreach (preg_split('/\r?\n/', $headerText) ?: [] as $line) {
+        if (str_contains($line, ':')) {
+            [$name, $value] = explode(':', $line, 2);
+            $responseHeaders[strtolower(trim($name))] = trim($value);
+        }
+    }
+    return ['status' => $status, 'headers' => $responseHeaders, 'body' => $body];
+}
+
+function bms_api_smoke_activitypub_route_responses(string $root): void
+{
+    if ($root === '' || !is_file($root . '/index.php')) {
+        throw new RuntimeException('The temporary route-test installation is unavailable.');
+    }
+    $port = random_int(43100, 43999);
+    $log = $root . '/activitypub-route-server.log';
+    $command = [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $root, $root . '/index.php'];
+    $descriptors = [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']];
+    $process = proc_open($command, $descriptors, $pipes, $root, array_merge($_ENV, getenv()));
+    if (!is_resource($process)) {
+        throw new RuntimeException('The ActivityPub route test server could not be started.');
+    }
+    fclose($pipes[0]);
+    $base = 'http://127.0.0.1:' . $port . '/index.php?__bonumark_route=';
+    try {
+        $ready = false;
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            try {
+                $probe = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/activity+json']);
+                if ((int)$probe['status'] > 0) {
+                    $ready = true;
+                    break;
+                }
+            } catch (Throwable $e) {
+            }
+            usleep(100000);
+        }
+        if (!$ready) {
+            $serverLog = is_file($log) ? trim((string)file_get_contents($log)) : '';
+            throw new RuntimeException('The ActivityPub route test server did not become ready.' . ($serverLog !== '' ? ' ' . $serverLog : ''));
+        }
+
+        $actor = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/activity+json']);
+        if ((int)$actor['status'] !== 200 || !str_starts_with(strtolower((string)($actor['headers']['content-type'] ?? '')), 'application/activity+json')
+            || !str_contains((string)$actor['body'], '"inbox":"https://example.test/activitypub/inbox"')
+            || str_contains((string)$actor['body'], 'private_key') || str_contains((string)$actor['body'], 'api-smoke-')) {
+            throw new RuntimeException('The actor route failed ActivityPub negotiation or exposed private configuration.');
+        }
+        $jsonLd = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/ld+json; profile="https://www.w3.org/ns/activitystreams"']);
+        if ((int)$jsonLd['status'] !== 200 || !str_starts_with(strtolower((string)($jsonLd['headers']['content-type'] ?? '')), 'application/ld+json')) {
+            throw new RuntimeException('The actor route did not negotiate ActivityStreams JSON-LD.');
+        }
+        $ordinaryJson = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/json']);
+        if ((int)$ordinaryJson['status'] !== 200 || !str_starts_with(strtolower((string)($ordinaryJson['headers']['content-type'] ?? '')), 'application/json')) {
+            throw new RuntimeException('The actor route did not negotiate ordinary JSON.');
+        }
+        $head = bms_api_smoke_http_request($base . 'activitypub_actor', 'HEAD', ['Accept: application/activity+json']);
+        if ((int)$head['status'] !== 200 || (string)$head['body'] !== '' || (int)($head['headers']['content-length'] ?? 0) < 1) {
+            throw new RuntimeException('The actor HEAD response did not preserve GET metadata without a body.');
+        }
+        $method = bms_api_smoke_http_request($base . 'activitypub_actor', 'POST', ['Accept: application/activity+json']);
+        if ((int)$method['status'] !== 405 || (string)($method['headers']['allow'] ?? '') !== 'GET, HEAD') {
+            throw new RuntimeException('The read-only actor route did not reject an unsupported method.');
+        }
+        $unacceptable = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: text/html']);
+        if ((int)$unacceptable['status'] !== 406) {
+            throw new RuntimeException('The actor route did not reject an unacceptable media type.');
+        }
+        $webfingerUrl = $base . 'activitypub_webfinger&resource=' . rawurlencode('acct:admin@example.test');
+        $jrd = bms_api_smoke_http_request($webfingerUrl, 'GET', ['Accept: application/jrd+json']);
+        if ((int)$jrd['status'] !== 200 || !str_starts_with(strtolower((string)($jrd['headers']['content-type'] ?? '')), 'application/jrd+json')) {
+            throw new RuntimeException('WebFinger did not return JRD for the owner identity.');
+        }
+        $foreign = bms_api_smoke_http_request($base . 'activitypub_webfinger&resource=' . rawurlencode('acct:other@example.test'), 'GET', ['Accept: application/jrd+json']);
+        if ((int)$foreign['status'] !== 404) {
+            throw new RuntimeException('WebFinger resolved an identity other than the intended owner.');
+        }
+        $inboxGet = bms_api_smoke_http_request($base . 'activitypub_inbox', 'GET', ['Accept: application/activity+json']);
+        if ((int)$inboxGet['status'] !== 405 || (string)($inboxGet['headers']['allow'] ?? '') !== 'POST') {
+            throw new RuntimeException('The signed inbox accepted a read method.');
+        }
+        $followers = bms_api_smoke_http_request($base . 'activitypub_followers', 'GET', ['Accept: application/activity+json']);
+        if ((int)$followers['status'] !== 200 || !str_contains((string)$followers['body'], '"totalItems":0')) {
+            throw new RuntimeException('The followers collection exposed a removed follower.');
+        }
+        $unpublished = bms_api_smoke_http_request($base . 'activitypub_object&post_id=999', 'GET', ['Accept: application/activity+json']);
+        if ((int)$unpublished['status'] !== 404) {
+            throw new RuntimeException('An unpublished or missing object was exposed.');
+        }
+
+        bms_api_smoke_set_setting('activitypub_enabled', '0');
+        $disabledActor = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/activity+json']);
+        $profile = bms_api_smoke_http_request($base . 'profile&user=admin', 'GET', ['Accept: text/html']);
+        $apiStatus = bms_api_smoke_http_request($base . 'api_status', 'GET', ['Accept: application/json']);
+        if ((int)$disabledActor['status'] !== 404 || (int)$profile['status'] !== 200 || (int)$apiStatus['status'] !== 200) {
+            throw new RuntimeException('Disabling ActivityPub changed an existing Profile or Remote API route.');
+        }
+    } finally {
+        proc_terminate($process);
+        proc_close($process);
+        @unlink($log);
+    }
 }
 
 function bms_api_smoke_set_setting(string $key, string $value): void

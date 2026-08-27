@@ -159,6 +159,11 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_local_objects',
         'activitypub_publication_events',
         'activitypub_deliveries',
+        'activitypub_remote_actors',
+        'activitypub_inbox_receipts',
+        'activitypub_signature_replays',
+        'activitypub_followers',
+        'activitypub_following',
     ];
     foreach ($requiredTables as $table) {
         $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($prefix . $table));
@@ -174,7 +179,12 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_keys' => ['key_token', 'public_key_pem', 'private_key_encrypted', 'status'],
         'activitypub_local_objects' => ['post_id', 'object_uri', 'content_hash', 'deleted_at'],
         'activitypub_publication_events' => ['post_id', 'event_type', 'state_json', 'status'],
-        'activitypub_deliveries' => ['event_id', 'inbox_url', 'attempt_count', 'available_at'],
+        'activitypub_deliveries' => ['delivery_type', 'event_id', 'activity_uri', 'payload_json', 'dedupe_key', 'inbox_url', 'attempt_count', 'available_at'],
+        'activitypub_remote_actors' => ['actor_uri', 'inbox_url', 'public_key_id', 'public_key_pem', 'expires_at'],
+        'activitypub_inbox_receipts' => ['activity_uri', 'activity_type', 'actor_uri', 'body_hash', 'status'],
+        'activitypub_signature_replays' => ['fingerprint', 'key_id', 'expires_at'],
+        'activitypub_followers' => ['actor_uri', 'follow_activity_uri', 'follow_receipt_id', 'state'],
+        'activitypub_following' => ['actor_uri', 'follow_activity_uri', 'state'],
     ];
     foreach ($requiredColumns as $table => $columns) {
         foreach ($columns as $column) {
@@ -189,6 +199,12 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
     $publicationEventStatus = $publicationEventStatus ? $publicationEventStatus->fetch() : false;
     if (!is_array($publicationEventStatus) || (string)($publicationEventStatus['Default'] ?? '') !== 'observed') {
         throw new RuntimeException("{$label} ActivityPub publication observations must default to the completed observed state.");
+    }
+
+    $deliveryEventId = $pdo->query("SHOW COLUMNS FROM `{$prefix}activitypub_deliveries` LIKE 'event_id'");
+    $deliveryEventId = $deliveryEventId ? $deliveryEventId->fetch() : false;
+    if (!is_array($deliveryEventId) || (string)($deliveryEventId['Null'] ?? '') !== 'YES') {
+        throw new RuntimeException("{$label} follower response deliveries must remain structurally independent of publication events.");
     }
 
     foreach ([

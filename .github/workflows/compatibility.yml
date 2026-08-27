@@ -105,6 +105,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/activitypub-read-only-test.php
 
+      - name: Run ActivityPub security test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/activitypub-security-test.php
+
       - name: Run migration/schema smoke test
         env:
           BMS_DB_HOST: 127.0.0.1

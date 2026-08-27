@@ -112,7 +112,7 @@ $actor = bms_activitypub_actor_document($owner, $identity, $key, $baseUrl);
 bms_activitypub_read_only_assert(($actor['id'] ?? '') === 'https://stream.example/activitypub/actor', 'The actor ID must not depend on the username.');
 bms_activitypub_read_only_assert(($actor['url'] ?? '') === 'https://stream.example/profile/jim', 'The actor must preserve the human-facing Profile URL.');
 bms_activitypub_read_only_assert(($actor['outbox'] ?? '') === 'https://stream.example/activitypub/outbox', 'The actor must link its outbox.');
-bms_activitypub_read_only_assert(!isset($actor['inbox']), 'Stage 2 must not advertise an inbox that is not implemented.');
+bms_activitypub_read_only_assert(($actor['inbox'] ?? '') === 'https://stream.example/activitypub/inbox', 'The Stage 3 actor must advertise the signed inbox without changing its stable ID.');
 bms_activitypub_read_only_assert(str_contains((string)($actor['summary'] ?? ''), 'https://stream.example/stream/'), 'Actor profile HTML must use absolute local links.');
 bms_activitypub_read_only_assert(isset($actor['publicKey']['publicKeyPem']) && !str_contains(json_encode($actor) ?: '', 'must-not-leak'), 'Actor serialization may expose the public key but never protected private-key data.');
 
@@ -142,7 +142,7 @@ $followers = bms_activitypub_empty_collection_document(bms_activitypub_followers
 bms_activitypub_read_only_assert(($followers['type'] ?? '') === 'OrderedCollection' && ($followers['orderedItems'] ?? null) === [], 'Stage 2 follower and following collections must be explicitly empty.');
 
 $routeNames = bms_activitypub_route_names();
-foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $routeName) {
+foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $routeName) {
     bms_activitypub_read_only_assert(in_array($routeName, $routeNames, true), 'The Stage 2 route registry is missing ' . $routeName . '.');
 }
 $indexSource = (string)file_get_contents($root . '/index.php');
@@ -153,6 +153,6 @@ foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_outbox', 'a
 }
 $routeSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php');
 bms_activitypub_read_only_assert(!str_contains($routeSource, 'curl_') && !str_contains($routeSource, 'file_get_contents("http'), 'Stage 2 routes must not contain outbound network behavior.');
-bms_activitypub_read_only_assert(!str_contains($routeSource, 'activitypub_inbox'), 'Stage 2 must not add inbox processing.');
+bms_activitypub_read_only_assert(str_contains($routeSource, 'activitypub_inbox'), 'Stage 3 must add inbox processing without changing the read-only discovery routes.');
 
 fwrite(STDOUT, "ActivityPub Stage 2 read-only identity and discovery test passed.\n");

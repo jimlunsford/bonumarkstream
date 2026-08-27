@@ -2053,6 +2053,9 @@ if (!str_contains($activityPubSource, "'status' => 'observed'")
 
 $activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';
 $activityPubSerialization = @file_get_contents($root . '/_bonumark_stream/app/activitypub-serialization.php') ?: '';
+$activityPubSecurity = @file_get_contents($root . '/_bonumark_stream/app/activitypub-security.php') ?: '';
+$activityPubInbox = @file_get_contents($root . '/_bonumark_stream/app/activitypub-inbox.php') ?: '';
+$activityPubInboxMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0020_activitypub_inbox_followers.php') ?: '';
 $frontController = @file_get_contents($root . '/index.php') ?: '';
 $apacheRoutes = @file_get_contents($root . '/.htaccess') ?: '';
 $nginxRoutes = @file_get_contents($root . '/docs/server/bonumark-stream-nginx.conf') ?: '';
@@ -2061,15 +2064,22 @@ if (!str_contains($activityPubRoutes, 'function bms_dispatch_activitypub_route')
     || !str_contains($activityPubSerialization, 'function bms_activitypub_outbox_document')) {
     bm_smoke_fail($failures, 'ActivityPub read-only identity and serialization are incomplete.');
 }
-foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $activityPubRoute) {
+foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $activityPubRoute) {
     if (!str_contains($frontController . $apacheRoutes . $nginxRoutes, $activityPubRoute)) {
         bm_smoke_fail($failures, 'ActivityPub routing is incomplete: ' . $activityPubRoute);
     }
 }
 if (str_contains($activityPubRoutes, 'curl_')
-    || str_contains($activityPubRoutes, 'activitypub_inbox')
-    || str_contains($activityPubRoutes, 'activitypub_deliveries')) {
-    bm_smoke_fail($failures, 'ActivityPub Stage 2 must remain read-only and must not process inboxes or deliveries.');
+    || !str_contains($activityPubSecurity, 'CURLOPT_RESOLVE')
+    || !str_contains($activityPubSecurity, 'CURLOPT_FOLLOWLOCATION => false')
+    || !str_contains($activityPubInbox, "delivery_type = 'follower_response'")
+    || !str_contains($activityPubInbox, 'event_id IS NULL')) {
+    bm_smoke_fail($failures, 'The Stage 3 inbox and response-delivery security boundary is incomplete.');
+}
+foreach (['activitypub_remote_actors', 'activitypub_inbox_receipts', 'activitypub_signature_replays', 'activitypub_followers', 'activitypub_following'] as $activityPubTable) {
+    if (!str_contains($activityPubInboxMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub inbox migration is missing table: ' . $activityPubTable);
+    }
 }
 foreach ([
     "RewriteRule ^profile/([A-Za-z0-9._-]+)/?$",
