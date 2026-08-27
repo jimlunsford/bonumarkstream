@@ -309,7 +309,11 @@ function bms_api_smoke_run_scenario(string $scenario): void
                 'inbox' => 'https://93.184.216.34/inbox',
                 'publicKey' => ['id' => $remoteActorUri . '#main-key', 'owner' => $remoteActorUri, 'publicKeyPem' => $remotePublic],
             ];
-            $fetcher = static fn(string $url): array => ['document' => $remoteDocument, 'url' => $url];
+            $fetchCount = 0;
+            $fetcher = static function (string $url) use (&$remoteDocument, &$fetchCount): array {
+                $fetchCount++;
+                return ['document' => $remoteDocument, 'url' => $url];
+            };
             $resolver = static fn(string $host): array => ['93.184.216.34'];
             $now = time();
             $follow = [
@@ -333,6 +337,14 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_expect_security_exception(409, static function () use ($request, $fetcher, $resolver, $now): void {
                 bms_activitypub_receive_inbox($request, $fetcher, $resolver, $now);
             });
+            $malformedDigest = bms_api_smoke_signed_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now + 1);
+            $malformedDigest['headers']['digest'] = 'SHA-256=' . base64_encode(hash('sha256', 'malformed', true));
+            bms_api_smoke_expect_security_exception(400, static function () use ($malformedDigest, $fetcher, $resolver, $now): void {
+                bms_activitypub_receive_inbox($malformedDigest, $fetcher, $resolver, $now + 1);
+            });
+            if ($fetchCount !== 1) {
+                throw new RuntimeException('A non-cryptographic signature failure caused an unnecessary remote actor refresh.');
+            }
             $freshDuplicate = bms_api_smoke_rfc9421_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now + 1);
             $duplicate = bms_activitypub_receive_inbox($freshDuplicate, $fetcher, $resolver, $now + 1);
             if ((string)($duplicate['result_code'] ?? '') !== 'duplicate_activity'
@@ -397,6 +409,31 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_expect_security_exception(502, static function () use ($spoofed, $remoteActorUri, $remotePrivate, $fetcher, $resolver, $now): void {
                 bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($spoofed, $remoteActorUri . '#main-key', $remotePrivate, $now + 6), $fetcher, $resolver, $now + 6);
             });
+
+            $rotatedKey = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 2048]);
+            $rotatedPrivate = '';
+            if ($rotatedKey === false || !openssl_pkey_export($rotatedKey, $rotatedPrivate)) {
+                throw new RuntimeException('The rotated remote actor key could not be generated.');
+            }
+            $rotatedDetails = openssl_pkey_get_details($rotatedKey);
+            $remoteDocument['publicKey'] = [
+                'id' => $remoteActorUri . '#rotated-key',
+                'owner' => $remoteActorUri,
+                'publicKeyPem' => is_array($rotatedDetails) ? (string)$rotatedDetails['key'] : '',
+            ];
+            $rotatedActivity = ['id' => $remoteActorUri . '/activities/like-rotated-key', 'type' => 'Like', 'actor' => $remoteActorUri, 'object' => bms_activitypub_object_url(999)];
+            $rotatedResult = bms_activitypub_receive_inbox(
+                bms_api_smoke_rfc9421_activity_request($rotatedActivity, $remoteActorUri . '#rotated-key', $rotatedPrivate, $now + 7),
+                $fetcher,
+                $resolver,
+                $now + 7
+            );
+            $rotatedCachedActor = bms_activitypub_cached_remote_actor($remoteActorUri, true);
+            if ((string)($rotatedResult['result_code'] ?? '') !== 'unsupported_activity'
+                || !is_array($rotatedCachedActor)
+                || (string)$rotatedCachedActor['public_key_id'] !== $remoteActorUri . '#rotated-key') {
+                throw new RuntimeException('A legitimate authenticated remote key-ID rotation was not refreshed safely.');
+            }
             bms_api_smoke_activitypub_route_responses((string)($GLOBALS['bms_api_smoke_temp_root'] ?? ''));
             return;
 

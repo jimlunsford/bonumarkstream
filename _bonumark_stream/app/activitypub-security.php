@@ -9,15 +9,23 @@
 
 final class BmsActivityPubSecurityException extends RuntimeException
 {
-    public function __construct(string $message, int $httpStatus = 400)
+    private string $securityReason;
+
+    public function __construct(string $message, int $httpStatus = 400, string $securityReason = '')
     {
         parent::__construct($message, $httpStatus);
+        $this->securityReason = $securityReason;
     }
 
     public function httpStatus(): int
     {
         $status = $this->getCode();
         return $status >= 400 && $status <= 599 ? $status : 400;
+    }
+
+    public function securityReason(): string
+    {
+        return $this->securityReason;
     }
 }
 
@@ -639,7 +647,7 @@ function bms_activitypub_verify_legacy_http_signature(array $request, string $pu
     }
     $verified = openssl_verify((string)$built['string'], $signature, $publicKey, OPENSSL_ALGO_SHA256);
     if ($verified !== 1) {
-        throw new BmsActivityPubSecurityException('The HTTP signature could not be verified.', 401);
+        throw new BmsActivityPubSecurityException('The HTTP signature could not be verified.', 401, 'signature_mismatch');
     }
     return [
         'format' => 'legacy',
@@ -768,7 +776,7 @@ function bms_activitypub_verify_rfc9421_http_signature(array $request, string $p
         throw new BmsActivityPubSecurityException('The remote signing key is not an acceptable RSA key.', 401);
     }
     if (openssl_verify((string)$built['string'], $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
-        throw new BmsActivityPubSecurityException('The HTTP message signature could not be verified.', 401);
+        throw new BmsActivityPubSecurityException('The HTTP message signature could not be verified.', 401, 'signature_mismatch');
     }
     return [
         'format' => 'rfc9421',

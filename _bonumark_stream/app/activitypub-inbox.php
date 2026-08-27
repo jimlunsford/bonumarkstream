@@ -473,12 +473,24 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
         throw new BmsActivityPubSecurityException('The signed Host does not match this site.', 401);
     }
 
+    $signatureMetadata = bms_activitypub_signature_metadata(['headers' => $headers]);
+    $signatureKeyId = trim((string)$signatureMetadata['key_id']);
+    bms_activitypub_validate_remote_url($signatureKeyId, $resolver, true);
+
     // Discovery is bounded and SSRF-safe. New documents are not cached until
     // their key has successfully authenticated the activity.
     $remoteActor = bms_activitypub_discover_remote_actor($actorUri, false, $fetcher, $resolver, false);
     $remoteActorWasCached = isset($remoteActor['id']);
-    $signatureMetadata = bms_activitypub_signature_metadata(['headers' => $headers]);
-    if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureMetadata['key_id']))
+    if (!hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
+        throw new BmsActivityPubSecurityException('The signing key does not belong to the activity actor.', 401);
+    }
+    if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId) && $remoteActorWasCached) {
+        // A changed key ID can be legitimate rotation. Refresh exactly once,
+        // then apply the same exact actor and key-owner validation.
+        $remoteActor = bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
+        $remoteActorWasCached = false;
+    }
+    if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId)
         || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
         throw new BmsActivityPubSecurityException('The signing key does not belong to the activity actor.', 401);
     }
@@ -488,13 +500,15 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     try {
         $verification = bms_activitypub_verify_http_signature($request, (string)$remoteActor['public_key_pem'], $now);
     } catch (BmsActivityPubSecurityException $e) {
-        // One bounded refresh handles legitimate remote key rotation.
-        if ($e->httpStatus() !== 401) {
+        // One bounded refresh handles legitimate rotation of the key material
+        // at a stable key ID. Parse, coverage, date, and digest failures never
+        // cause an attacker-controlled refresh fetch.
+        if ($e->securityReason() !== 'signature_mismatch' || !$remoteActorWasCached) {
             throw $e;
         }
         $remoteActor = bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
         $remoteActorWasCached = false;
-        if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureMetadata['key_id']))
+        if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId)
             || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
             throw new BmsActivityPubSecurityException('The refreshed signing key does not belong to the activity actor.', 401);
         }
