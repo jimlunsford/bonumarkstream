@@ -48,6 +48,7 @@ function bms_default_config(): array
         'remote_posting_rate_limit_per_minute' => '60',
         'remote_media_upload_enabled' => '0',
         'activitypub_enabled' => '0',
+        'activitypub_follow_policy' => 'manual',
         'pwa_enabled' => '1',
         'pwa_share_target_enabled' => '1',
         'pwa_theme_color' => '#111827',
