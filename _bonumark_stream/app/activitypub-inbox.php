@@ -477,9 +477,8 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     // their key has successfully authenticated the activity.
     $remoteActor = bms_activitypub_discover_remote_actor($actorUri, false, $fetcher, $resolver, false);
     $remoteActorWasCached = isset($remoteActor['id']);
-    $signatureHeader = (string)($headers['signature'] ?? $headers['authorization'] ?? '');
-    $signatureParams = bms_activitypub_parse_signature_header($signatureHeader);
-    if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureParams['keyid']))
+    $signatureMetadata = bms_activitypub_signature_metadata(['headers' => $headers]);
+    if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureMetadata['key_id']))
         || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
         throw new BmsActivityPubSecurityException('The signing key does not belong to the activity actor.', 401);
     }
@@ -495,7 +494,7 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
         }
         $remoteActor = bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
         $remoteActorWasCached = false;
-        if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureParams['keyid']))
+        if (!hash_equals((string)$remoteActor['public_key_id'], trim((string)$signatureMetadata['key_id']))
             || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
             throw new BmsActivityPubSecurityException('The refreshed signing key does not belong to the activity actor.', 401);
         }

@@ -2072,6 +2072,8 @@ foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'ac
 if (str_contains($activityPubRoutes, 'curl_')
     || !str_contains($activityPubSecurity, 'CURLOPT_RESOLVE')
     || !str_contains($activityPubSecurity, 'CURLOPT_FOLLOWLOCATION => false')
+    || !str_contains($activityPubSecurity, 'function bms_activitypub_verify_rfc9421_http_signature')
+    || !str_contains($activityPubSecurity, "'format' => 'rfc9421'")
     || !str_contains($activityPubInbox, "delivery_type = 'follower_response'")
     || !str_contains($activityPubInbox, 'event_id IS NULL')) {
     bm_smoke_fail($failures, 'The Stage 3 inbox and response-delivery security boundary is incomplete.');

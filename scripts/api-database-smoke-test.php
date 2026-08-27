@@ -333,7 +333,7 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_expect_security_exception(409, static function () use ($request, $fetcher, $resolver, $now): void {
                 bms_activitypub_receive_inbox($request, $fetcher, $resolver, $now);
             });
-            $freshDuplicate = bms_api_smoke_signed_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now + 1);
+            $freshDuplicate = bms_api_smoke_rfc9421_activity_request($follow, $remoteActorUri . '#main-key', $remotePrivate, $now + 1);
             $duplicate = bms_activitypub_receive_inbox($freshDuplicate, $fetcher, $resolver, $now + 1);
             if ((string)($duplicate['result_code'] ?? '') !== 'duplicate_activity'
                 || (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_inbox_receipts'))->fetchColumn() !== 1) {
@@ -528,6 +528,41 @@ function bms_api_smoke_signed_activity_request(array $activity, string $keyId, s
             'content-type' => 'application/activity+json',
             'content-length' => (string)strlen($body),
             'signature' => 'keyId="' . $keyId . '",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="' . base64_encode($signature) . '"',
+        ],
+    ];
+}
+
+function bms_api_smoke_rfc9421_activity_request(array $activity, string $keyId, string $privateKey, int $timestamp): array
+{
+    $body = json_encode($activity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($body)) {
+        throw new RuntimeException('The RFC 9421 ActivityPub smoke activity could not be encoded.');
+    }
+    $target = '/activitypub/inbox';
+    $targetUri = 'https://example.test' . $target;
+    $contentDigest = 'sha-256=:' . base64_encode(hash('sha256', $body, true)) . ':';
+    $signatureParams = '("@method" "@target-uri" "content-digest");created=' . $timestamp
+        . ';keyid="' . $keyId . '";alg="rsa-v1_5-sha256"';
+    $signing = '"@method": POST'
+        . "\n\"@target-uri\": " . $targetUri
+        . "\n\"content-digest\": " . $contentDigest
+        . "\n\"@signature-params\": " . $signatureParams;
+    $signature = '';
+    if (!openssl_sign($signing, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+        throw new RuntimeException('The RFC 9421 ActivityPub smoke request could not be signed.');
+    }
+    return [
+        'method' => 'POST',
+        'request_target' => $target,
+        'target_uri' => $targetUri,
+        'body' => $body,
+        'headers' => [
+            'host' => 'example.test',
+            'content-digest' => $contentDigest,
+            'content-type' => 'application/activity+json',
+            'content-length' => (string)strlen($body),
+            'signature-input' => 'sig1=' . $signatureParams,
+            'signature' => 'sig1=:' . base64_encode($signature) . ':',
         ],
     ];
 }

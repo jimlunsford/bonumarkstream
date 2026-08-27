@@ -84,6 +84,7 @@ $request = [
 ];
 $verified = bms_activitypub_verify_http_signature($request, $publicKey, $now);
 bms_ap_security_assert((string)$verified['key_id'] === 'https://remote.example/actor#main-key', 'A valid HTTP signature should return its key ID.');
+bms_ap_security_assert((string)$verified['format'] === 'legacy', 'The legacy signature format should be identified explicitly.');
 
 $authorizationRequest = $request;
 unset($authorizationRequest['headers']['signature']);
@@ -100,6 +101,64 @@ $contentDigestRequest['headers']['content-digest'] = $contentDigest;
 $contentDigestRequest['headers']['signature'] = 'keyId="https://remote.example/actor#main-key",algorithm="rsa-sha256",headers="(request-target) host date content-digest",signature="' . base64_encode($contentDigestSignature) . '"';
 bms_ap_security_assert(isset(bms_activitypub_verify_http_signature($contentDigestRequest, $publicKey, $now)['fingerprint']), 'A signed RFC-style Content-Digest should be supported.');
 
+$rfcContentDigest = 'sha-256=:' . base64_encode(hash('sha256', $body, true)) . ':';
+$rfcSignatureParams = '("@method" "@target-uri" "content-digest");created=' . $now
+    . ';keyid="https://remote.example/actor#main-key";alg="rsa-v1_5-sha256"';
+$rfcSigningString = '"@method": POST'
+    . "\n\"@target-uri\": https://local.example/activitypub/inbox"
+    . "\n\"content-digest\": " . $rfcContentDigest
+    . "\n\"@signature-params\": " . $rfcSignatureParams;
+$rfcRawSignature = '';
+bms_ap_security_assert(openssl_sign($rfcSigningString, $rfcRawSignature, $privateKey, OPENSSL_ALGO_SHA256), 'The RFC 9421 test request could not be signed.');
+$rfcRequest = [
+    'method' => 'POST',
+    'request_target' => '/activitypub/inbox',
+    'target_uri' => 'https://local.example/activitypub/inbox',
+    'resolver' => $publicResolver,
+    'body' => $body,
+    'headers' => [
+        'host' => 'local.example',
+        'content-digest' => $rfcContentDigest,
+        'signature-input' => 'sig1=' . $rfcSignatureParams,
+        'signature' => 'sig1=:' . base64_encode($rfcRawSignature) . ':',
+    ],
+];
+$rfcVerified = bms_activitypub_verify_http_signature($rfcRequest, $publicKey, $now);
+bms_ap_security_assert((string)$rfcVerified['format'] === 'rfc9421', 'A valid RFC 9421 signature should be verified and identified.');
+bms_ap_security_assert((string)bms_activitypub_signature_metadata($rfcRequest)['key_id'] === 'https://remote.example/actor#main-key', 'RFC 9421 key metadata should be available before actor discovery.');
+
+$rfcSplitTargetParams = '("@method" "@authority" "@path" "content-digest");created=' . $now
+    . ';keyid="https://remote.example/actor#main-key"';
+$rfcSplitTargetSigning = '"@method": POST'
+    . "\n\"@authority\": local.example"
+    . "\n\"@path\": /activitypub/inbox"
+    . "\n\"content-digest\": " . $rfcContentDigest
+    . "\n\"@signature-params\": " . $rfcSplitTargetParams;
+$rfcSplitTargetSignature = '';
+bms_ap_security_assert(openssl_sign($rfcSplitTargetSigning, $rfcSplitTargetSignature, $privateKey, OPENSSL_ALGO_SHA256), 'The split-target RFC 9421 fixture could not be signed.');
+$rfcSplitTargetRequest = $rfcRequest;
+$rfcSplitTargetRequest['headers']['signature-input'] = 'sig2=' . $rfcSplitTargetParams;
+$rfcSplitTargetRequest['headers']['signature'] = 'sig2=:' . base64_encode($rfcSplitTargetSignature) . ':';
+bms_ap_security_assert(isset(bms_activitypub_verify_http_signature($rfcSplitTargetRequest, $publicKey, $now)['fingerprint']), 'RFC 9421 authority and path target coverage should be accepted.');
+
+$rfcBadDigest = $rfcRequest;
+$rfcBadDigest['headers']['content-digest'] = 'sha-256=:' . base64_encode(hash('sha256', 'tampered', true)) . ':';
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcBadDigest, $publicKey, $now), 400, 'An invalid RFC 9421 Content-Digest must be rejected.');
+$rfcMissingCoverage = $rfcRequest;
+$rfcMissingCoverage['headers']['signature-input'] = 'sig1=("@method" "@target-uri");created=' . $now . ';keyid="https://remote.example/actor#main-key"';
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcMissingCoverage, $publicKey, $now), 401, 'RFC 9421 must cover the request-body digest.');
+$rfcExpired = $rfcRequest;
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcExpired, $publicKey, $now + bms_activitypub_signature_window_seconds() + 1), 401, 'An expired RFC 9421 signature must be rejected.');
+$rfcAmbiguous = $rfcRequest;
+$rfcAmbiguous['headers']['signature'] .= ', sig2=:' . base64_encode($rfcRawSignature) . ':';
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcAmbiguous, $publicKey, $now), 401, 'Multiple RFC 9421 signatures must not create selection ambiguity.');
+$rfcMismatchedLabel = $rfcRequest;
+$rfcMismatchedLabel['headers']['signature'] = 'other=:' . base64_encode($rfcRawSignature) . ':';
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcMismatchedLabel, $publicKey, $now), 401, 'RFC 9421 Signature and Signature-Input labels must match.');
+$rfcWrongTarget = $rfcRequest;
+$rfcWrongTarget['target_uri'] = 'https://local.example/activitypub/other';
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcWrongTarget, $publicKey, $now), 401, 'RFC 9421 target URI must match the request target.');
+
 $badDigest = $request;
 $badDigest['headers']['digest'] = 'SHA-256=' . base64_encode(hash('sha256', 'tampered', true));
 bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($badDigest, $publicKey, $now), 400, 'An invalid digest must be rejected.');
@@ -115,6 +174,7 @@ $otherKey = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'privat
 $otherDetails = $otherKey !== false ? openssl_pkey_get_details($otherKey) : false;
 $otherPublic = is_array($otherDetails) ? (string)$otherDetails['key'] : '';
 bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($request, $otherPublic, $now), 401, 'A signature made by another key must be rejected.');
+bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcRequest, $otherPublic, $now), 401, 'An RFC 9421 signature made by another key must be rejected.');
 
 $actorDocument = [
     'id' => 'https://remote.example/actor',

@@ -359,6 +359,155 @@ function bms_activitypub_parse_signature_header(string $header): array
     return $params;
 }
 
+function bms_activitypub_parse_rfc9421_string(string $value, int &$offset): string
+{
+    $length = strlen($value);
+    if ($offset >= $length || $value[$offset] !== '"') {
+        throw new BmsActivityPubSecurityException('The HTTP message signature string is malformed.', 401);
+    }
+    $offset++;
+    $decoded = '';
+    while ($offset < $length) {
+        $character = $value[$offset++];
+        if ($character === '"') {
+            return $decoded;
+        }
+        $code = ord($character);
+        if ($character === '\\') {
+            if ($offset >= $length || !in_array($value[$offset], ['"', '\\'], true)) {
+                throw new BmsActivityPubSecurityException('The HTTP message signature string escape is invalid.', 401);
+            }
+            $decoded .= $value[$offset++];
+            continue;
+        }
+        if ($code < 0x20 || $code > 0x7e || $character === '"') {
+            throw new BmsActivityPubSecurityException('The HTTP message signature string contains an invalid character.', 401);
+        }
+        $decoded .= $character;
+    }
+    throw new BmsActivityPubSecurityException('The HTTP message signature string is unterminated.', 401);
+}
+
+function bms_activitypub_parse_rfc9421_signature_input(string $header): array
+{
+    $header = trim($header);
+    if ($header === '' || strlen($header) > 8192 || preg_match('/[\x00-\x1f\x7f-\xff]/', $header) === 1) {
+        throw new BmsActivityPubSecurityException('The Signature-Input field is missing, too large, or invalid.', 401);
+    }
+    if (preg_match('/^([a-z][a-z0-9_.*-]{0,63})=/', $header, $labelMatch) !== 1) {
+        throw new BmsActivityPubSecurityException('The Signature-Input label is invalid.', 401);
+    }
+    $label = (string)$labelMatch[1];
+    $offset = strlen($label) + 1;
+    if (($header[$offset] ?? '') !== '(') {
+        throw new BmsActivityPubSecurityException('The Signature-Input covered components are invalid.', 401);
+    }
+    $innerStart = $offset;
+    $offset++;
+    $components = [];
+    while (true) {
+        $component = bms_activitypub_parse_rfc9421_string($header, $offset);
+        if ($component === '' || strtolower($component) !== $component
+            || preg_match('/^(?:@[a-z][a-z0-9_-]*|[a-z][a-z0-9!#$%&\'*+.^_`|~-]*)$/', $component) !== 1) {
+            throw new BmsActivityPubSecurityException('The Signature-Input component identifier is unsupported.', 401);
+        }
+        if (in_array($component, $components, true)) {
+            throw new BmsActivityPubSecurityException('The Signature-Input repeats a covered component.', 401);
+        }
+        $components[] = $component;
+        $next = $header[$offset] ?? '';
+        if ($next === ')') {
+            $offset++;
+            break;
+        }
+        if ($next !== ' ' || ($header[$offset + 1] ?? '') !== '"') {
+            throw new BmsActivityPubSecurityException('The Signature-Input component list is not canonically serialized.', 401);
+        }
+        $offset++;
+        if (count($components) >= 20) {
+            throw new BmsActivityPubSecurityException('The Signature-Input covers too many components.', 401);
+        }
+    }
+    if ($components === []) {
+        throw new BmsActivityPubSecurityException('The Signature-Input must cover request components.', 401);
+    }
+
+    $params = [];
+    while ($offset < strlen($header)) {
+        if ($header[$offset] !== ';') {
+            throw new BmsActivityPubSecurityException('Multiple or malformed HTTP message signatures are not accepted.', 401);
+        }
+        $offset++;
+        if (preg_match('/\G([a-z][a-z0-9_.*-]{0,63})=/A', $header, $paramMatch, 0, $offset) !== 1) {
+            throw new BmsActivityPubSecurityException('A Signature-Input parameter is malformed.', 401);
+        }
+        $name = (string)$paramMatch[1];
+        $offset += strlen($paramMatch[0]);
+        if (array_key_exists($name, $params) || !in_array($name, ['created', 'expires', 'keyid', 'alg', 'nonce', 'tag'], true)) {
+            throw new BmsActivityPubSecurityException('A Signature-Input parameter is repeated or unsupported.', 401);
+        }
+        if (in_array($name, ['created', 'expires'], true)) {
+            if (preg_match('/\G(0|[1-9][0-9]{0,11})/A', $header, $integerMatch, 0, $offset) !== 1) {
+                throw new BmsActivityPubSecurityException('A Signature-Input timestamp is invalid.', 401);
+            }
+            $params[$name] = (int)$integerMatch[1];
+            $offset += strlen($integerMatch[1]);
+        } else {
+            $params[$name] = bms_activitypub_parse_rfc9421_string($header, $offset);
+        }
+    }
+    if (!isset($params['created']) || trim((string)($params['keyid'] ?? '')) === '') {
+        throw new BmsActivityPubSecurityException('The HTTP message signature requires created and keyid parameters.', 401);
+    }
+    if (isset($params['expires']) && (int)$params['expires'] < (int)$params['created']) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature expiration is invalid.', 401);
+    }
+    if (isset($params['alg']) && !hash_equals('rsa-v1_5-sha256', strtolower((string)$params['alg']))) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature algorithm is unsupported.', 401);
+    }
+    return [
+        'format' => 'rfc9421',
+        'label' => $label,
+        'components' => $components,
+        'params' => $params,
+        'signature_params' => substr($header, $innerStart),
+        'key_id' => (string)$params['keyid'],
+    ];
+}
+
+function bms_activitypub_parse_rfc9421_signature(string $header, string $expectedLabel): string
+{
+    $header = trim($header);
+    if ($header === '' || strlen($header) > 16384
+        || preg_match('/^([a-z][a-z0-9_.*-]{0,63})=:([A-Za-z0-9+\/=]+):$/', $header, $matches) !== 1
+        || !hash_equals($expectedLabel, (string)($matches[1] ?? ''))) {
+        throw new BmsActivityPubSecurityException('The RFC 9421 Signature field is malformed or ambiguous.', 401);
+    }
+    $encoded = (string)$matches[2];
+    $signature = base64_decode($encoded, true);
+    if (!is_string($signature) || $signature === '' || !hash_equals($encoded, base64_encode($signature))) {
+        throw new BmsActivityPubSecurityException('The RFC 9421 signature byte sequence is invalid.', 401);
+    }
+    return $signature;
+}
+
+function bms_activitypub_signature_metadata(array $request): array
+{
+    $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
+    if (trim((string)($headers['signature-input'] ?? '')) !== '') {
+        return bms_activitypub_parse_rfc9421_signature_input((string)$headers['signature-input']);
+    }
+    $signatureHeader = (string)($headers['signature'] ?? '');
+    if ($signatureHeader === '') {
+        $authorization = (string)($headers['authorization'] ?? '');
+        if (stripos($authorization, 'Signature ') === 0) {
+            $signatureHeader = $authorization;
+        }
+    }
+    $params = bms_activitypub_parse_signature_header($signatureHeader);
+    return ['format' => 'legacy', 'key_id' => trim((string)$params['keyid']), 'params' => $params];
+}
+
 function bms_activitypub_verify_body_digest(string $body, array $headers): string
 {
     $headers = bms_activitypub_normalize_request_headers($headers);
@@ -441,7 +590,7 @@ function bms_activitypub_signature_signing_string(array $params, array $headers,
     return ['string' => implode("\n", $lines), 'headers' => $names];
 }
 
-function bms_activitypub_verify_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+function bms_activitypub_verify_legacy_http_signature(array $request, string $publicKeyPem, int $now = 0): array
 {
     $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
     $signatureHeader = (string)($headers['signature'] ?? '');
@@ -493,11 +642,150 @@ function bms_activitypub_verify_http_signature(array $request, string $publicKey
         throw new BmsActivityPubSecurityException('The HTTP signature could not be verified.', 401);
     }
     return [
+        'format' => 'legacy',
         'key_id' => $keyId,
         'signature_date' => gmdate('Y-m-d H:i:s', $signedTimestamp),
         'fingerprint' => hash('sha256', $keyId . "\n" . (string)$params['signature'] . "\n" . $signedTimestamp . "\n" . hash('sha256', $body)),
         'signed_headers' => $built['headers'],
     ];
+}
+
+function bms_activitypub_rfc9421_target_context(array $request, array $headers): array
+{
+    $method = strtoupper(trim((string)($request['method'] ?? 'POST')));
+    $requestTarget = trim((string)($request['request_target'] ?? '/activitypub/inbox'));
+    if ($method === '' || preg_match('/^[A-Z][A-Z0-9!#$%&\'*+.^_`|~-]{0,31}$/', $method) !== 1
+        || $requestTarget === '' || $requestTarget[0] !== '/' || str_starts_with($requestTarget, '//')
+        || preg_match('/[\x00-\x20\x7f]/', $requestTarget) === 1 || str_contains($requestTarget, '#')) {
+        throw new BmsActivityPubSecurityException('The signed request target is invalid.', 401);
+    }
+    $host = strtolower(rtrim(trim((string)($headers['host'] ?? '')), '.'));
+    if ($host === '' || preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $host) !== 1) {
+        throw new BmsActivityPubSecurityException('The signed request authority is invalid.', 401);
+    }
+    $targetUri = trim((string)($request['target_uri'] ?? ''));
+    if ($targetUri === '') {
+        $targetUri = 'https://' . $host . $requestTarget;
+    }
+    $parts = parse_url($targetUri);
+    if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+        throw new BmsActivityPubSecurityException('The signed target URI is invalid.', 401);
+    }
+    $targetHost = strtolower(rtrim((string)($parts['host'] ?? ''), '.'));
+    $targetPort = (int)($parts['port'] ?? 0);
+    $authority = $targetHost . ($targetPort > 0 && $targetPort !== 443 ? ':' . $targetPort : '');
+    $path = (string)($parts['path'] ?? '');
+    $path = $path !== '' ? $path : '/';
+    $query = array_key_exists('query', $parts) ? '?' . (string)$parts['query'] : '';
+    $canonicalTargetUri = 'https://' . $authority . $path . $query;
+    if (!hash_equals($host, $authority) || !hash_equals($requestTarget, $path . $query)
+        || !hash_equals($targetUri, $canonicalTargetUri)) {
+        throw new BmsActivityPubSecurityException('The signed target URI does not match this request.', 401);
+    }
+    return [
+        'method' => $method,
+        'request_target' => $requestTarget,
+        'target_uri' => $canonicalTargetUri,
+        'authority' => $authority,
+        'scheme' => 'https',
+        'path' => $path,
+        'query' => $query !== '' ? $query : '?',
+    ];
+}
+
+function bms_activitypub_verify_rfc9421_content_digest(string $body, array $headers): void
+{
+    $contentDigest = trim((string)($headers['content-digest'] ?? ''));
+    if (preg_match('/^sha-256=:([A-Za-z0-9+\/=]+):$/i', $contentDigest, $matches) !== 1) {
+        throw new BmsActivityPubSecurityException('A canonical SHA-256 Content-Digest field is required.', 400);
+    }
+    $encoded = (string)$matches[1];
+    $actual = base64_decode($encoded, true);
+    $expected = hash('sha256', $body, true);
+    if (!is_string($actual) || !hash_equals($encoded, base64_encode($actual)) || !hash_equals($expected, $actual)) {
+        throw new BmsActivityPubSecurityException('The request body digest does not match.', 400);
+    }
+}
+
+function bms_activitypub_rfc9421_signature_base(array $metadata, array $request, array $headers): array
+{
+    $components = is_array($metadata['components'] ?? null) ? $metadata['components'] : [];
+    $target = bms_activitypub_rfc9421_target_context($request, $headers);
+    if (!in_array('@method', $components, true) || !in_array('content-digest', $components, true)) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature does not cover the method and body digest.', 401);
+    }
+    $coversTarget = in_array('@target-uri', $components, true);
+    $coversSplitTarget = in_array('@authority', $components, true) && in_array('@path', $components, true)
+        && (!str_contains((string)$target['request_target'], '?') || in_array('@query', $components, true));
+    if (!$coversTarget && !$coversSplitTarget) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature does not sufficiently cover the request target.', 401);
+    }
+
+    $supportedDerived = ['@method', '@target-uri', '@authority', '@scheme', '@request-target', '@path', '@query'];
+    $lines = [];
+    foreach ($components as $component) {
+        if (str_starts_with($component, '@')) {
+            if (!in_array($component, $supportedDerived, true)) {
+                throw new BmsActivityPubSecurityException('The HTTP message signature uses an unsupported derived component.', 401);
+            }
+            $key = str_replace('-', '_', substr($component, 1));
+            $value = (string)($target[$key] ?? '');
+        } else {
+            $value = trim((string)($headers[$component] ?? ''));
+            if ($value === '') {
+                throw new BmsActivityPubSecurityException('A covered request field is missing.', 401);
+            }
+        }
+        $lines[] = '"' . $component . '": ' . $value;
+    }
+    $lines[] = '"@signature-params": ' . (string)$metadata['signature_params'];
+    return ['string' => implode("\n", $lines), 'components' => $components];
+}
+
+function bms_activitypub_verify_rfc9421_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+{
+    $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
+    $metadata = bms_activitypub_parse_rfc9421_signature_input((string)($headers['signature-input'] ?? ''));
+    $keyId = trim((string)$metadata['key_id']);
+    bms_activitypub_validate_remote_url($keyId, $request['resolver'] ?? null, true);
+    $body = (string)($request['body'] ?? '');
+    bms_activitypub_verify_rfc9421_content_digest($body, $headers);
+    $built = bms_activitypub_rfc9421_signature_base($metadata, $request, $headers);
+
+    $params = is_array($metadata['params'] ?? null) ? $metadata['params'] : [];
+    $created = (int)($params['created'] ?? 0);
+    $expires = isset($params['expires']) ? (int)$params['expires'] : 0;
+    $now = $now > 0 ? $now : time();
+    $window = bms_activitypub_signature_window_seconds();
+    if ($created < 1 || abs($now - $created) > $window || ($expires > 0 && ($now > $expires || $expires > $created + $window))) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature is outside the accepted replay window.', 401);
+    }
+    $signature = bms_activitypub_parse_rfc9421_signature((string)($headers['signature'] ?? ''), (string)$metadata['label']);
+    $publicKey = openssl_pkey_get_public($publicKeyPem);
+    $details = $publicKey !== false ? openssl_pkey_get_details($publicKey) : false;
+    if ($publicKey === false || !is_array($details) || (int)($details['type'] ?? -1) !== OPENSSL_KEYTYPE_RSA || (int)($details['bits'] ?? 0) < 2048) {
+        throw new BmsActivityPubSecurityException('The remote signing key is not an acceptable RSA key.', 401);
+    }
+    if (openssl_verify((string)$built['string'], $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+        throw new BmsActivityPubSecurityException('The HTTP message signature could not be verified.', 401);
+    }
+    return [
+        'format' => 'rfc9421',
+        'key_id' => $keyId,
+        'signature_date' => gmdate('Y-m-d H:i:s', $created),
+        'fingerprint' => hash('sha256', "rfc9421\n" . $keyId . "\n" . base64_encode($signature) . "\n" . $created . "\n" . hash('sha256', $body)),
+        'signed_headers' => $built['components'],
+    ];
+}
+
+function bms_activitypub_verify_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+{
+    $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
+    if (trim((string)($headers['signature-input'] ?? '')) !== '') {
+        return bms_activitypub_verify_rfc9421_http_signature($request, $publicKeyPem, $now);
+    }
+    return bms_activitypub_verify_legacy_http_signature($request, $publicKeyPem, $now);
 }
 
 function bms_activitypub_sign_outbound_request(string $method, string $url, string $body, array $key): array

@@ -84,6 +84,19 @@ Themes style stable media contracts but do not implement media behavior.
 
 Profile covers and Profile photos use dedicated responsive candidate sets because their rendered slots differ from normal Stream media. Original uploads remain the source of truth.
 
+## ActivityPub boundary
+
+ActivityPub is an optional core protocol capability. The Bonumark database remains the source of truth, human-facing Profile and Stream Post URLs remain canonical presentation URLs, and themes do not own federation routes or behavior.
+
+The signed inbox accepts two explicitly separated authentication formats:
+
+- The widely deployed draft-cavage RSA-SHA256 format, including the `hs2019` algorithm identifier when the discovered actor key is an acceptable RSA key.
+- RFC 9421 HTTP Message Signatures using `Signature-Input`, `Signature`, and a covered SHA-256 `Content-Digest`. The Stage 3 verification profile requires a creation time, an actor-owned 2048-bit or larger RSA key, coverage of the method and body digest, and coverage of the full target URI or an equivalent authority/path/query set. It supports `rsa-v1_5-sha256`, whether selected from the RSA key or declared consistently by the signature.
+
+Both formats use the same actor/key ownership checks, five-minute replay window, durable replay fingerprint, activity deduplication, and transaction boundary. RFC 9421 verification is an inbound Stage 3 responsibility. Format discovery and adaptive RFC 9421 outbound signing belong to Stage 4 delivery work; Stage 3 follower responses continue to use the legacy RSA format for current fediverse interoperability.
+
+Publication observations and delivery work are separate states. Stage 1 and Stage 2 publication events are completed `observed` records. Stage 3 workers select only `follower_response` deliveries with a null publication event ID and cannot reactivate those observations.
+
 ## Upgrade boundary
 
 The upgrader treats configuration, the database, media/uploads, backups, data, and custom themes as protected owner data. Package-managed application files and the bundled theme can be replaced by a validated release package.
