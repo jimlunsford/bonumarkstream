@@ -243,6 +243,7 @@ function bms_admin_header(string $title, array $actions = []): void
             ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'files' => ['tools.php']],
             ['label' => 'Analytics', 'href' => bms_admin_url('analytics.php'), 'files' => ['analytics.php']],
             ['label' => 'Scheduled Tasks', 'href' => bms_admin_url('scheduled-tasks.php'), 'files' => ['scheduled-tasks.php', 'scheduled-runner.php']],
+            ['label' => 'ActivityPub', 'href' => bms_admin_url('activitypub.php'), 'files' => ['activitypub.php']],
             ['label' => 'Remote Posting', 'href' => bms_admin_url('remote-posting.php'), 'files' => ['remote-posting.php']],
             ['label' => 'Export', 'href' => bms_admin_url('export.php'), 'files' => ['export.php']],
             ['label' => 'Import', 'href' => bms_admin_url('import.php'), 'files' => ['import.php', 'import-markdown.php']],

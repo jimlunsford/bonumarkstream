@@ -475,7 +475,7 @@ function bms_admin_route_capability(string $script): ?string
         'comments.php' => 'manage_comments',
         'revisions.php', 'compare-revision.php', 'restore-revision.php' => 'restore_revisions',
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
-        'settings.php', 'settings-writing.php', 'settings-reading.php', 'security.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
+        'settings.php', 'settings-writing.php', 'settings-reading.php', 'security.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php', 'activitypub.php' => 'manage_settings',
         'users.php', 'user-new.php', 'user-edit.php' => 'manage_users',
         'tools.php', 'analytics.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php' => 'view_system',
         default => null,
