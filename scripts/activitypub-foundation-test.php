@@ -1,0 +1,93 @@
+<?php
+/**
+ * Database-free ActivityPub Stage 1 foundation test.
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    if (!headers_sent()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('CLI only.');
+}
+
+$root = dirname(__DIR__);
+require_once $root . '/_bonumark_stream/app/scheduler.php';
+
+function bms_activitypub_test_assert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+bms_activitypub_test_assert(!bms_activitypub_enabled(), 'ActivityPub must be disabled by default.');
+bms_activitypub_test_assert(!empty(bms_activitypub_configured_base_url('https://example.com')['ok']), 'A canonical HTTPS root URL should be accepted.');
+bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('http://example.com')['ok']), 'An HTTP canonical URL must be rejected.');
+bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('https://example.com/?debug=1')['ok']), 'A canonical URL with a query string must be rejected.');
+bms_activitypub_test_assert(!empty(bms_activitypub_webfinger_routing_capability('https://example.com', '')['ok']), 'A root installation should be eligible for WebFinger routing.');
+bms_activitypub_test_assert(empty(bms_activitypub_webfinger_routing_capability('https://example.com/blog', '/blog')['ok']), 'A subdirectory installation must require domain-root WebFinger mapping.');
+
+$published = [
+    'id' => 41,
+    'post_type' => 'stream',
+    'status' => 'published',
+    'slug' => 'foundation-test',
+    'content_hash' => str_repeat('a', 64),
+];
+$updated = array_merge($published, ['content_hash' => str_repeat('b', 64)]);
+$draft = array_merge($updated, ['id' => 84, 'status' => 'draft']);
+$page = array_merge($published, ['post_type' => 'page']);
+
+$publishTransition = bms_publication_transition(null, $published, ['source' => 'test']);
+bms_activitypub_test_assert(($publishTransition['event_type'] ?? '') === 'published', 'A new published Stream Post must produce a published transition.');
+$updateTransition = bms_publication_transition($published, $updated, ['source' => 'test']);
+bms_activitypub_test_assert(($updateTransition['event_type'] ?? '') === 'updated', 'A changed published Stream Post must produce an updated transition.');
+bms_activitypub_test_assert(bms_publication_transition($published, $published, ['source' => 'test']) === null, 'An unchanged published Stream Post must not produce a transition.');
+$unpublishTransition = bms_publication_transition($updated, $draft, ['source' => 'test']);
+bms_activitypub_test_assert(($unpublishTransition['event_type'] ?? '') === 'unpublished', 'Moving a published Stream Post to draft must produce an unpublished transition.');
+bms_activitypub_test_assert((int)($unpublishTransition['post_id'] ?? 0) === 41, 'An unpublish transition must retain the published post identity.');
+$deleteTransition = bms_publication_transition($updated, null, ['source' => 'test']);
+bms_activitypub_test_assert(($deleteTransition['event_type'] ?? '') === 'deleted', 'Deleting a published Stream Post must produce a deleted transition.');
+bms_activitypub_test_assert(bms_publication_transition(null, $page, ['source' => 'test']) === null, 'Pages must remain outside the ActivityPub publication seam.');
+
+$observed = [];
+bms_register_publication_transition_handler('foundation_test', static function (array $transition) use (&$observed): void {
+    $observed[] = $transition;
+});
+bms_dispatch_publication_transition(null, $published, ['source' => 'foundation_test']);
+bms_activitypub_test_assert(count($observed) === 1 && ($observed[0]['event_type'] ?? '') === 'published', 'Registered publication handlers must receive normalized transitions.');
+
+bms_register_scheduled_task_handler('foundation_test', static fn(array $context): array => [
+    'ok' => true,
+    'count' => 2,
+    'message' => 'Foundation handler ran from ' . (string)($context['source'] ?? 'unknown') . '.',
+], [
+    'label' => 'Foundation test',
+    'allowed_sources' => ['server_cron'],
+]);
+$publicTaskResults = bms_run_registered_scheduled_tasks('public_traffic', ['scheduled_post_limit' => 1]);
+bms_activitypub_test_assert(($publicTaskResults['foundation_test']['status'] ?? '') === 'skipped', 'Durable-only task handlers must be skipped on public traffic.');
+$cronTaskResults = bms_run_registered_scheduled_tasks('server_cron', ['scheduled_post_limit' => 1]);
+bms_activitypub_test_assert((int)($cronTaskResults['foundation_test']['count'] ?? 0) === 2, 'A registered handler must run from an allowed source.');
+bms_activitypub_test_assert(isset($cronTaskResults['scheduled_posts']), 'The existing scheduled-post handler must remain registered.');
+
+if (!function_exists('openssl_encrypt') || !function_exists('openssl_decrypt')) {
+    throw new RuntimeException('OpenSSL is required for the ActivityPub foundation test.');
+}
+$encryptionKey = random_bytes(32);
+$privateKeyFixture = "-----BEGIN PRIVATE KEY-----\nfoundation-test\n-----END PRIVATE KEY-----\n";
+$encrypted = bms_activitypub_encrypt_private_key_with_key($privateKeyFixture, $encryptionKey);
+bms_activitypub_test_assert($encrypted !== $privateKeyFixture, 'A private key must not be stored as plaintext.');
+bms_activitypub_test_assert(bms_activitypub_decrypt_private_key_with_key($encrypted, $encryptionKey) === $privateKeyFixture, 'An encrypted private key must round trip with the installation-derived key.');
+$wrongKeyRejected = false;
+try {
+    bms_activitypub_decrypt_private_key_with_key($encrypted, random_bytes(32));
+} catch (RuntimeException $e) {
+    $wrongKeyRejected = true;
+}
+bms_activitypub_test_assert($wrongKeyRejected, 'An encrypted private key must reject the wrong installation-derived key.');
+
+fwrite(STDOUT, "ActivityPub Stage 1 foundation test passed.\n");

@@ -2017,6 +2017,34 @@ if ($locationTemplate === '' || str_contains($locationTemplate, 'latitude') || s
     bm_smoke_fail($failures, 'Public Local Places template is missing or exposes coordinates.');
 }
 
+$activityPubSource = @file_get_contents($root . '/_bonumark_stream/app/activitypub.php') ?: '';
+$publicationSource = @file_get_contents($root . '/_bonumark_stream/app/publication.php') ?: '';
+$schedulerSource = @file_get_contents($root . '/_bonumark_stream/app/scheduler.php') ?: '';
+$activityPubMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0018_activitypub_foundation.php') ?: '';
+if (!str_contains($functionDefaults, "'activitypub_enabled' => '0'")
+    || !str_contains($configSample, "'activitypub_enabled' => '0'")
+    || !str_contains($activityPubSource, 'function bms_activitypub_enabled(): bool')
+    || !str_contains($activityPubSource, 'if (!bms_activitypub_enabled()')
+    || !str_contains($activityPubSource, 'bms_activitypub_encrypt_private_key_with_key')
+    || !str_contains($activityPubSource, 'bms_register_publication_transition_handler')) {
+    bm_smoke_fail($failures, 'The default-off ActivityPub capability and protected signing-key foundation is incomplete.');
+}
+if (!str_contains($publicationSource, 'function bms_dispatch_publication_transition')
+    || !str_contains($databaseSource, "['source' => 'database_upsert']")
+    || !str_contains($schedulerSource, "['source' => 'scheduled_tasks']")) {
+    bm_smoke_fail($failures, 'The core publication-transition seam is incomplete.');
+}
+if (!str_contains($schedulerSource, 'function bms_register_scheduled_task_handler')
+    || !str_contains($schedulerSource, 'function bms_run_registered_scheduled_tasks')
+    || !str_contains($schedulerSource, "'task_results' =>")) {
+    bm_smoke_fail($failures, 'The generic scheduled-task handler registry is incomplete.');
+}
+foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publication_events', 'activitypub_deliveries'] as $activityPubTable) {
+    if (!str_contains($activityPubMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub foundation migration is missing table: ' . $activityPubTable);
+    }
+}
+
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
 if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {

@@ -89,6 +89,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/smoke-test.php
 
+      - name: Run ActivityPub foundation test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/activitypub-foundation-test.php
+
       - name: Run migration/schema smoke test
         env:
           BMS_DB_HOST: 127.0.0.1

@@ -155,6 +155,10 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'analytics_daily',
         'places',
         'user_profiles',
+        'activitypub_keys',
+        'activitypub_local_objects',
+        'activitypub_publication_events',
+        'activitypub_deliveries',
     ];
     foreach ($requiredTables as $table) {
         $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($prefix . $table));
@@ -167,6 +171,10 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'posts' => ['scheduled_at', 'is_pinned', 'pinned_at'],
         'media' => ['privacy_status', 'privacy_note', 'privacy_checked_at'],
         'user_profiles' => ['featured_items_json', 'profile_photos_json'],
+        'activitypub_keys' => ['key_token', 'public_key_pem', 'private_key_encrypted', 'status'],
+        'activitypub_local_objects' => ['post_id', 'object_uri', 'content_hash', 'deleted_at'],
+        'activitypub_publication_events' => ['post_id', 'event_type', 'state_json', 'status'],
+        'activitypub_deliveries' => ['event_id', 'inbox_url', 'attempt_count', 'available_at'],
     ];
     foreach ($requiredColumns as $table => $columns) {
         foreach ($columns as $column) {
