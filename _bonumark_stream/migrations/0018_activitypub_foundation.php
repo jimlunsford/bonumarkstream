@@ -1,0 +1,62 @@
+<?php
+return [
+    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_keys` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `key_token` CHAR(32) NOT NULL,
+        `algorithm` VARCHAR(40) NOT NULL DEFAULT 'rsa-sha256',
+        `public_key_pem` TEXT NOT NULL,
+        `private_key_encrypted` LONGTEXT NOT NULL,
+        `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+        `created_at` DATETIME NOT NULL,
+        `retired_at` DATETIME NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `key_token` (`key_token`),
+        KEY `status_created` (`status`, `created_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_local_objects` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `post_id` BIGINT UNSIGNED NOT NULL,
+        `object_uri` VARCHAR(500) NOT NULL,
+        `object_type` VARCHAR(40) NOT NULL DEFAULT 'Note',
+        `content_hash` CHAR(64) NOT NULL DEFAULT '',
+        `published_at` DATETIME NULL,
+        `updated_at` DATETIME NOT NULL,
+        `deleted_at` DATETIME NULL,
+        `created_at` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `post_id` (`post_id`),
+        UNIQUE KEY `object_uri` (`object_uri`),
+        KEY `deleted_at` (`deleted_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_publication_events` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `post_id` BIGINT UNSIGNED NULL,
+        `event_type` VARCHAR(30) NOT NULL,
+        `source` VARCHAR(60) NOT NULL DEFAULT 'application',
+        `content_hash` CHAR(64) NOT NULL DEFAULT '',
+        `state_json` LONGTEXT NOT NULL,
+        `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+        `created_at` DATETIME NOT NULL,
+        `processed_at` DATETIME NULL,
+        PRIMARY KEY (`id`),
+        KEY `status_created` (`status`, `created_at`),
+        KEY `post_created` (`post_id`, `created_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_deliveries` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `event_id` BIGINT UNSIGNED NOT NULL,
+        `inbox_url` VARCHAR(500) NOT NULL,
+        `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+        `attempt_count` INT UNSIGNED NOT NULL DEFAULT 0,
+        `available_at` DATETIME NOT NULL,
+        `last_attempt_at` DATETIME NULL,
+        `delivered_at` DATETIME NULL,
+        `http_status` SMALLINT UNSIGNED NULL,
+        `last_error` TEXT NULL,
+        `created_at` DATETIME NOT NULL,
+        `updated_at` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `status_available` (`status`, `available_at`),
+        KEY `event_id` (`event_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+];

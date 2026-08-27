@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/publication.php';
+require_once __DIR__ . '/activitypub.php';
 
 function bms_table_prefix(): string
 {
@@ -1997,4 +1999,3 @@ if (function_exists('bms_apply_site_timezone')) {
         // Keep config.php's timezone fallback if settings are unavailable during setup or repair.
     }
 }
-

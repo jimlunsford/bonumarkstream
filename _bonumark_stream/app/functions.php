@@ -47,6 +47,7 @@ function bms_default_config(): array
         'remote_posting_publish_confirmation_required' => '1',
         'remote_posting_rate_limit_per_minute' => '60',
         'remote_media_upload_enabled' => '0',
+        'activitypub_enabled' => '0',
         'pwa_enabled' => '1',
         'pwa_share_target_enabled' => '1',
         'pwa_theme_color' => '#111827',
@@ -2904,6 +2905,13 @@ function bms_security_status(): array
         'status' => (string)($publicUrlProbe['status'] ?? 'warn'),
         'message' => (string)($publicUrlProbe['message'] ?? 'Public URL routing could not be verified.'),
     ];
+    if (function_exists('bms_activitypub_system_check_items')) {
+        foreach (bms_activitypub_system_check_items() as $activityPubItem) {
+            if (is_array($activityPubItem)) {
+                $items[] = $activityPubItem;
+            }
+        }
+    }
     return $items;
 }
 
