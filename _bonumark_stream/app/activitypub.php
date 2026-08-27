@@ -100,7 +100,7 @@ function bms_activitypub_key_encryption_key(): string
     return hash_hkdf('sha256', $salt, 32, 'bonumark-stream-activitypub-private-key-v1');
 }
 
-function bms_activitypub_encrypt_private_key(string $privateKey): string
+function bms_activitypub_encrypt_private_key_with_key(string $privateKey, string $encryptionKey): string
 {
     if (!function_exists('openssl_encrypt')) {
         throw new RuntimeException('OpenSSL encryption is unavailable.');
@@ -108,7 +108,10 @@ function bms_activitypub_encrypt_private_key(string $privateKey): string
     $iv = random_bytes(12);
     $tag = '';
     $aad = 'bonumark-stream-activitypub-key-v1';
-    $ciphertext = openssl_encrypt($privateKey, 'aes-256-gcm', bms_activitypub_key_encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, $aad, 16);
+    if (strlen($encryptionKey) !== 32) {
+        throw new InvalidArgumentException('ActivityPub private-key encryption requires a 32-byte key.');
+    }
+    $ciphertext = openssl_encrypt($privateKey, 'aes-256-gcm', $encryptionKey, OPENSSL_RAW_DATA, $iv, $tag, $aad, 16);
     if (!is_string($ciphertext) || strlen($tag) !== 16) {
         throw new RuntimeException('The ActivityPub private key could not be encrypted.');
     }
@@ -125,7 +128,12 @@ function bms_activitypub_encrypt_private_key(string $privateKey): string
     return $payload;
 }
 
-function bms_activitypub_decrypt_private_key(string $payload): string
+function bms_activitypub_encrypt_private_key(string $privateKey): string
+{
+    return bms_activitypub_encrypt_private_key_with_key($privateKey, bms_activitypub_key_encryption_key());
+}
+
+function bms_activitypub_decrypt_private_key_with_key(string $payload, string $encryptionKey): string
 {
     if (!function_exists('openssl_decrypt')) {
         throw new RuntimeException('OpenSSL decryption is unavailable.');
@@ -140,11 +148,19 @@ function bms_activitypub_decrypt_private_key(string $payload): string
     if (!is_string($iv) || strlen($iv) !== 12 || !is_string($tag) || strlen($tag) !== 16 || !is_string($ciphertext)) {
         throw new RuntimeException('The encrypted ActivityPub private key payload is invalid.');
     }
-    $privateKey = openssl_decrypt($ciphertext, 'aes-256-gcm', bms_activitypub_key_encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, 'bonumark-stream-activitypub-key-v1');
+    if (strlen($encryptionKey) !== 32) {
+        throw new InvalidArgumentException('ActivityPub private-key decryption requires a 32-byte key.');
+    }
+    $privateKey = openssl_decrypt($ciphertext, 'aes-256-gcm', $encryptionKey, OPENSSL_RAW_DATA, $iv, $tag, 'bonumark-stream-activitypub-key-v1');
     if (!is_string($privateKey) || $privateKey === '') {
         throw new RuntimeException('The ActivityPub private key could not be decrypted.');
     }
     return $privateKey;
+}
+
+function bms_activitypub_decrypt_private_key(string $payload): string
+{
+    return bms_activitypub_decrypt_private_key_with_key($payload, bms_activitypub_key_encryption_key());
 }
 
 function bms_activitypub_generate_signing_key(): array

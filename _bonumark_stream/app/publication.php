@@ -79,7 +79,7 @@ function bms_publication_transition(?array $before, ?array $after, array $contex
         return null;
     }
 
-    $current = $afterState ?? $beforeState;
+    $current = ($eventType === 'unpublished' || $eventType === 'deleted') ? $beforeState : ($afterState ?? $beforeState);
     return [
         'event_type' => $eventType,
         'source' => strtolower(trim((string)($context['source'] ?? 'application'))) ?: 'application',

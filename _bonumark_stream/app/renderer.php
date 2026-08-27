@@ -1179,7 +1179,11 @@ function bms_unpublish_file(string $publishedFilename): array
         bms_sync_stream_metadata($draft, 'drafts', $draftFilename, $authorId);
     }
 
-    return $draft + ['filename' => $draftFilename];
+    $result = $draft + ['filename' => $draftFilename];
+    if (function_exists('bms_dispatch_publication_transition')) {
+        bms_dispatch_publication_transition($page, $result, ['source' => 'unpublish']);
+    }
+    return $result;
 }
 
 function bms_delete_content_file(string $type, string $filename): array
@@ -1198,6 +1202,9 @@ function bms_delete_content_file(string $type, string $filename): array
     }
     if (function_exists('bms_delete_post_metadata_by_filename')) {
         bms_delete_post_metadata_by_filename($section, $filename);
+    }
+    if (function_exists('bms_dispatch_publication_transition')) {
+        bms_dispatch_publication_transition($page, null, ['source' => 'trash']);
     }
     return $page;
 }

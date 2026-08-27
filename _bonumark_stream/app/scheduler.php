@@ -366,6 +366,14 @@ function bms_publish_due_scheduled_posts(int $limit = 20): int
             ]);
             if ($update->rowCount() > 0) {
                 $published++;
+                try {
+                    $afterSelect = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+                    $afterSelect->execute(['id' => $id]);
+                    $afterRow = $afterSelect->fetch();
+                    bms_dispatch_publication_transition($row, is_array($afterRow) ? $afterRow : null, ['source' => 'scheduled_tasks']);
+                } catch (Throwable $e) {
+                    error_log('Bonumark Stream scheduled publication transition lookup failed: ' . $e->getMessage());
+                }
             }
         }
         bms_set_setting('scheduled_posts_last_due_check', (string)time());

@@ -1117,6 +1117,14 @@ function bms_upsert_database_content(array $page, string $section, string $filen
         $postId = (int)$pdo->lastInsertId();
     }
     bms_sync_post_terms($postId, $page);
+    try {
+        $afterStmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+        $afterStmt->execute(['id' => $postId]);
+        $after = $afterStmt->fetch();
+        bms_dispatch_publication_transition($existing, is_array($after) ? $after : null, ['source' => 'database_upsert']);
+    } catch (Throwable $e) {
+        error_log('Bonumark Stream publication transition lookup failed: ' . $e->getMessage());
+    }
     return $postId;
 }
 
@@ -1412,6 +1420,7 @@ function bms_update_stream_post_body(array $page, string $body): array
 
     $updated['content_hash'] = $contentHash;
     $updated['updated_at'] = gmdate('Y-m-d H:i:s');
+    bms_dispatch_publication_transition($page, $updated, ['source' => 'quick_edit']);
     return $updated;
 }
 
