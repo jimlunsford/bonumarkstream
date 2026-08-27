@@ -114,6 +114,7 @@ jobs:
           php scripts/activitypub-security-test.php
 
       - name: Run migration/schema smoke test
+        if: always()
         env:
           BMS_DB_HOST: 127.0.0.1
           BMS_DB_NAME: bonumark_ci
@@ -127,6 +128,7 @@ jobs:
           php scripts/database-smoke-test.php
 
       - name: Run Remote API database smoke test
+        if: always()
         env:
           BMS_DB_HOST: 127.0.0.1
           BMS_DB_NAME: bonumark_ci
