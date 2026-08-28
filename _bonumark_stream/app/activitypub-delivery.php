@@ -7,6 +7,11 @@
  * attempted. Only the scheduled worker performs network I/O.
  */
 
+function bms_activitypub_publication_payload_max_bytes(): int
+{
+    return 5242880;
+}
+
 function bms_activitypub_find_stream_post(int $postId): ?array
 {
     if ($postId < 1 || !bms_is_installed()) {
@@ -384,7 +389,7 @@ function bms_activitypub_deliver_publication_row(array $delivery, array $key, ?c
         throw new RuntimeException('The publication worker received an isolated non-publication delivery.');
     }
     $payload = (string)($delivery['payload_json'] ?? '');
-    $document = bms_activitypub_decode_json_document($payload, bms_activitypub_inbox_max_bytes());
+    $document = bms_activitypub_decode_json_document($payload, bms_activitypub_publication_payload_max_bytes());
     if (!in_array((string)($document['type'] ?? ''), ['Create', 'Update', 'Delete'], true)) {
         throw new RuntimeException('Only local publication activities are eligible for publication delivery.');
     }

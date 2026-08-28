@@ -794,6 +794,18 @@ function bms_api_smoke_verify_activitypub_publication(): void
     if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries') . ' WHERE event_id = ' . (int)$firstEvent['id'])->fetchColumn() !== 2) {
         throw new RuntimeException('Shared inbox fan-out did not deduplicate three followers into two HTTP deliveries.');
     }
+    for ($attachmentCount = 1; $attachmentCount <= 4; $attachmentCount++) {
+        $attachmentPage = array_replace($published, [
+            'post_id' => $postId,
+            'id' => $postId,
+            'featured_media' => $mediaPaths[0],
+            'media_gallery' => array_slice($mediaPaths, 0, $attachmentCount),
+        ]);
+        $attachmentObject = bms_activitypub_post_object($attachmentPage, null, false);
+        if (count((array)($attachmentObject['attachment'] ?? [])) !== $attachmentCount) {
+            throw new RuntimeException('ActivityStreams serialization did not preserve a ' . $attachmentCount . '-item media gallery.');
+        }
+    }
 
     $current = bms_activitypub_find_stream_post($postId);
     if (!is_array($current)) {
