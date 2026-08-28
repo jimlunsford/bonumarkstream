@@ -24,6 +24,19 @@ function bms_activitypub_test_assert(bool $condition, string $message): void
 }
 
 bms_activitypub_test_assert(!bms_activitypub_enabled(), 'ActivityPub must be disabled by default.');
+
+$activityPubAdminSource = (string)file_get_contents($root . '/admin/activitypub.php');
+$systemCheckAdminSource = (string)file_get_contents($root . '/admin/system-check.php');
+$schedulerRequire = "require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';";
+bms_activitypub_test_assert(
+    str_contains($activityPubAdminSource, $schedulerRequire),
+    'The ActivityPub Admin readiness check must load scheduled-task health before reporting delivery capability.'
+);
+bms_activitypub_test_assert(
+    str_contains($systemCheckAdminSource, $schedulerRequire),
+    'System Check must load scheduled-task health before reporting ActivityPub delivery capability.'
+);
+
 bms_activitypub_test_assert(!empty(bms_activitypub_configured_base_url('https://example.com')['ok']), 'A canonical HTTPS root URL should be accepted.');
 bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('http://example.com')['ok']), 'An HTTP canonical URL must be rejected.');
 bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('https://example.com/?debug=1')['ok']), 'A canonical URL with a query string must be rejected.');
