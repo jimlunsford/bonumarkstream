@@ -174,6 +174,7 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
 
     $requiredColumns = [
         'posts' => ['scheduled_at', 'is_pinned', 'pinned_at'],
+        'trash' => ['post_id', 'original_status', 'content_body', 'content_front_matter'],
         'media' => ['privacy_status', 'privacy_note', 'privacy_checked_at'],
         'user_profiles' => ['featured_items_json', 'profile_photos_json'],
         'activitypub_keys' => ['key_token', 'public_key_pem', 'private_key_encrypted', 'status'],

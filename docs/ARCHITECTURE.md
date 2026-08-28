@@ -8,6 +8,12 @@ The database is the runtime source of truth for posts, pages, accounts, Profiles
 
 Markdown is used for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
 
+## Durable post identity
+
+A Bonumark post's database ID is immutable for the lifetime of that logical post and survives every reversible lifecycle transition. Slug changes, draft, scheduled, and published status changes, unpublish, trash, restore, and republish update the existing `posts` row. Permanent deletion is the only normal lifecycle operation that removes that row.
+
+Trash records retain a nullable reference to the durable post ID. The nullable form preserves compatibility with historical trash records created before durable row identity was enforced. New code must not implement a lifecycle transition by deleting and reinserting an existing logical post.
+
 ## Account model
 
 Bonumark Stream has two account types:

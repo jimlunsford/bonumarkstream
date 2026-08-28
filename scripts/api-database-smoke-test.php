@@ -49,6 +49,7 @@ $scenarios = [
     'missing_token',
     'invalid_token',
     'stream_read',
+    'durable_post_lifecycle',
     'activitypub_observer',
     'activitypub_inbox',
     'draft_create',
@@ -134,6 +135,8 @@ function bms_api_smoke_run_child(string $scenario): void
     $_SERVER['REQUEST_METHOD'] = 'POST';
 
     require_once $tempRoot . '/_bonumark_stream/app/api.php';
+    require_once $tempRoot . '/_bonumark_stream/app/renderer.php';
+    require_once $tempRoot . '/_bonumark_stream/app/importers.php';
 
     try {
         bms_install_schema(bms_db(), $prefix);
@@ -263,6 +266,10 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_expect_api_exception('invalid_status', function (): void {
                 bms_api_read_stream_posts();
             });
+            return;
+
+        case 'durable_post_lifecycle':
+            bms_api_smoke_verify_durable_post_lifecycle();
             return;
 
         case 'activitypub_observer':
@@ -512,6 +519,188 @@ function bms_api_smoke_run_scenario(string $scenario): void
     }
 
     throw new RuntimeException('Unknown API smoke scenario: ' . $scenario);
+}
+
+function bms_api_smoke_verify_durable_post_lifecycle(): void
+{
+    $pdo = bms_db();
+    $mediaPath = 'media/lifecycle-image.jpg';
+    $mediaInsert = $pdo->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, privacy_status, privacy_note, privacy_checked_at, created_at, updated_at, trashed_at, trashed_by) VALUES (:filename, :original_filename, :public_path, :mime_type, :file_size, :width, :height, :alt_text, :caption, :uploaded_by, :file_hash, :variants, :privacy_status, :privacy_note, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, NULL)');
+    $mediaInsert->execute([
+        'filename' => 'lifecycle-image.jpg',
+        'original_filename' => 'Lifecycle Image.jpg',
+        'public_path' => $mediaPath,
+        'mime_type' => 'image/jpeg',
+        'file_size' => 12345,
+        'width' => 1200,
+        'height' => 800,
+        'alt_text' => 'Lifecycle image alt text',
+        'caption' => 'Lifecycle image caption',
+        'uploaded_by' => 1,
+        'file_hash' => hash('sha256', 'lifecycle-image'),
+        'variants' => '{}',
+        'privacy_status' => 'clean',
+        'privacy_note' => '',
+    ]);
+
+    $draft = bms_database_content_page_for_status([
+        'title' => 'Durable identity post',
+        'slug' => 'durable-identity-post',
+        'content_type' => 'stream',
+        'post_type' => 'stream',
+        'date' => '2026-08-28',
+        'description' => 'Lifecycle regression fixture.',
+        'category' => 'Stream',
+        'tags' => ['identity'],
+        'body' => 'Initial lifecycle body.',
+        'front_matter' => [],
+        'featured_media' => $mediaPath,
+        'media_gallery' => [$mediaPath],
+        'stream_created_at' => '2026-08-28 01:00:00',
+    ], 'draft', 'stream');
+    $postId = bms_upsert_database_content($draft, 'drafts', 'durable-identity-post.md', 1);
+    if ($postId < 1) {
+        throw new RuntimeException('The durable lifecycle draft was not created.');
+    }
+
+    $published = bms_publish_file('durable-identity-post.md');
+    if ((int)($published['post_id'] ?? $published['id'] ?? 0) !== $postId) {
+        throw new RuntimeException('Draft publication replaced the durable post identity.');
+    }
+
+    $pdo->prepare('INSERT INTO ' . bms_table('comments') . ' (post_slug, post_id, user_id, parent_id, body, status, ip_hash, user_agent_hash, created_at, updated_at, approved_at) VALUES (:slug, :post_id, 1, NULL, :body, :status, :ip_hash, :agent_hash, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())')->execute([
+        'slug' => 'durable-identity-post',
+        'post_id' => $postId,
+        'body' => 'Identity-linked comment.',
+        'status' => 'approved',
+        'ip_hash' => hash('sha256', 'lifecycle-ip'),
+        'agent_hash' => hash('sha256', 'lifecycle-agent'),
+    ]);
+    $pdo->prepare('INSERT INTO ' . bms_table('stream_likes') . ' (post_id, post_slug, visitor_hash, created_at) VALUES (:post_id, :slug, :visitor_hash, UTC_TIMESTAMP())')->execute([
+        'post_id' => $postId,
+        'slug' => 'durable-identity-post',
+        'visitor_hash' => hash('sha256', 'lifecycle-like'),
+    ]);
+
+    $page = bms_find_database_content_by_slug_status('durable-identity-post', 'published', 'stream');
+    if (!is_array($page)) {
+        throw new RuntimeException('The published lifecycle fixture could not be loaded.');
+    }
+    bms_record_revision_from_page($page, 'published', 'durable-identity-post.md', 1);
+    $edited = bms_update_stream_post_body($page, 'Material lifecycle edit.');
+    if ((int)($edited['post_id'] ?? 0) !== $postId) {
+        throw new RuntimeException('A body edit changed the durable post identity.');
+    }
+
+    $renamed = bms_database_content_page_for_status(array_replace($edited, ['slug' => 'durable-identity-renamed']), 'published', 'stream');
+    $renamedId = bms_upsert_database_content($renamed, 'published', 'durable-identity-renamed.md', 1);
+    if ($renamedId !== $postId || bms_find_database_content_by_slug_status('durable-identity-post', 'published', 'stream') !== null) {
+        throw new RuntimeException('A slug change recreated the post or left a stale published row.');
+    }
+    $linkedComments = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('comments') . ' WHERE post_id = ' . $postId . " AND post_slug = 'durable-identity-renamed'")->fetchColumn();
+    $linkedLikes = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('stream_likes') . ' WHERE post_id = ' . $postId . " AND post_slug = 'durable-identity-renamed'")->fetchColumn();
+    $linkedRevisions = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('revisions') . ' WHERE post_id = ' . $postId)->fetchColumn();
+    if ($linkedComments !== 1 || $linkedLikes !== 1 || $linkedRevisions < 1) {
+        throw new RuntimeException('Comments, likes, or revisions were detached by a slug change.');
+    }
+
+    $quickEdited = bms_update_stream_post_body($renamed, 'Quick edit lifecycle body.');
+    $scheduledAt = gmdate('Y-m-d H:i:s', time() + 3600);
+    $scheduledId = bms_schedule_post_page($quickEdited, 'scheduled', 'durable-identity-renamed.md', 1, $scheduledAt);
+    if ($scheduledId !== $postId || bms_activitypub_published_stream_count() !== 0) {
+        throw new RuntimeException('Scheduling changed post identity or exposed scheduled content publicly.');
+    }
+    $pdo->prepare('UPDATE ' . bms_table('posts') . ' SET scheduled_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) WHERE id = :id')->execute(['id' => $postId]);
+    if (bms_publish_due_scheduled_posts(20) !== 1) {
+        throw new RuntimeException('The due scheduled post was not published.');
+    }
+    $scheduledPublished = bms_activitypub_find_published_stream_post($postId);
+    if (!is_array($scheduledPublished) || (int)($scheduledPublished['post_id'] ?? 0) !== $postId) {
+        throw new RuntimeException('Scheduled publication did not preserve durable identity.');
+    }
+
+    $feed = bms_render_rss_feed(bms_list_content_records('published'), 'stream');
+    if (!str_contains($feed, '/stream/durable-identity-renamed/') || str_contains($feed, '/stream/durable-identity-post/')) {
+        throw new RuntimeException('The public feed did not follow the canonical slug change.');
+    }
+    $rawExport = bms_database_content_raw($scheduledPublished);
+    if (!str_contains($rawExport, 'durable-identity-renamed') || !str_contains($rawExport, $mediaPath)) {
+        throw new RuntimeException('The database export representation lost the current slug or media attachment.');
+    }
+
+    $unpublished = bms_unpublish_file('durable-identity-renamed.md');
+    if ((int)($unpublished['post_id'] ?? 0) !== $postId || bms_activitypub_published_stream_count() !== 0) {
+        throw new RuntimeException('Unpublish changed post identity or left the post publicly visible.');
+    }
+    $republished = bms_publish_file('durable-identity-renamed.md');
+    if ((int)($republished['post_id'] ?? 0) !== $postId) {
+        throw new RuntimeException('Republish replaced the durable post identity.');
+    }
+
+    bms_delete_content_file('published', 'durable-identity-renamed.md');
+    $trash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $trashedPost = $pdo->query('SELECT * FROM ' . bms_table('posts') . ' WHERE id = ' . $postId)->fetch();
+    if (!is_array($trash) || (int)($trash['post_id'] ?? 0) !== $postId || !is_array($trashedPost) || (string)$trashedPost['status'] !== 'trash'
+        || bms_activitypub_published_stream_count() !== 0 || bms_api_smoke_public_post_count() !== 0) {
+        throw new RuntimeException('Trash did not preserve identity or hide the post from public repositories.');
+    }
+    $restoredPublished = bms_restore_trash_item((int)$trash['id']);
+    if ((int)($restoredPublished['post_id'] ?? 0) !== $postId || (string)($restoredPublished['restored_status'] ?? '') !== 'published') {
+        throw new RuntimeException('Restore to published did not preserve durable identity.');
+    }
+
+    bms_unpublish_file('durable-identity-renamed.md');
+    for ($cycle = 0; $cycle < 2; $cycle++) {
+        bms_delete_content_file('draft', 'durable-identity-renamed.md');
+        $cycleTrash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' ORDER BY id DESC LIMIT 1')->fetch();
+        if (!is_array($cycleTrash) || (int)($cycleTrash['post_id'] ?? 0) !== $postId) {
+            throw new RuntimeException('A repeated trash cycle lost the durable post reference.');
+        }
+        $cycleRestore = bms_restore_trash_item((int)$cycleTrash['id']);
+        if ((int)($cycleRestore['post_id'] ?? 0) !== $postId || (string)($cycleRestore['restored_status'] ?? '') !== 'draft') {
+            throw new RuntimeException('A repeated draft restore changed post identity.');
+        }
+    }
+
+    $current = $pdo->query('SELECT * FROM ' . bms_table('posts') . ' WHERE id = ' . $postId)->fetch();
+    $currentPage = is_array($current) ? bms_database_row_to_content_page($current) : null;
+    if (!is_array($currentPage) || bms_normalize_media_gallery($currentPage['media_gallery'] ?? [], (string)($currentPage['featured_media'] ?? '')) !== [$mediaPath]) {
+        throw new RuntimeException('Media attachment state did not survive the reversible lifecycle.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE id = ' . $postId)->fetchColumn() !== 1) {
+        throw new RuntimeException('The reversible lifecycle created duplicate or stale post rows.');
+    }
+
+    $importItem = bms_import_make_item([
+        'title' => 'Imported lifecycle control',
+        'slug' => 'imported-lifecycle-control',
+        'body' => 'Imported lifecycle content.',
+        'status' => 'published',
+        'content_type' => 'stream',
+        'date' => '2026-08-28',
+        'created_at' => '2026-08-28 02:00:00',
+    ]);
+    $importResult = bms_import_commit_items([$importItem->toArray()], 'published', true, 'skip');
+    if ((int)($importResult['imported'] ?? 0) !== 1 || (int)($importResult['published'] ?? 0) !== 1) {
+        throw new RuntimeException('Import behavior regressed during the durable identity correction.');
+    }
+
+    bms_delete_content_file('draft', 'durable-identity-renamed.md');
+    $finalTrash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    if (!is_array($finalTrash)) {
+        throw new RuntimeException('The final permanent-deletion fixture was not placed in Trash.');
+    }
+    bms_delete_trash_item_permanently((int)$finalTrash['id']);
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE id = ' . $postId)->fetchColumn() !== 0) {
+        throw new RuntimeException('Permanent deletion did not remove the post row.');
+    }
+}
+
+function bms_api_smoke_public_post_count(): int
+{
+    $_GET = ['status' => 'published', 'per_page' => '100', 'page' => '1'];
+    $result = bms_api_read_stream_posts();
+    return (int)($result['pagination']['total'] ?? 0);
 }
 
 function bms_api_smoke_expect_api_exception(string $expectedCode, callable $callback): void

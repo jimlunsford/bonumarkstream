@@ -1172,17 +1172,11 @@ function bms_unpublish_file(string $publishedFilename): array
         throw new RuntimeException('A draft with this slug already exists. Delete or rename the draft first.');
     }
 
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename('published', $filename);
-    }
     if (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($draft, 'drafts', $draftFilename, $authorId);
     }
 
     $result = $draft + ['filename' => $draftFilename];
-    if (function_exists('bms_dispatch_publication_transition')) {
-        bms_dispatch_publication_transition($page, $result, ['source' => 'unpublish']);
-    }
     return $result;
 }
 
@@ -1196,16 +1190,39 @@ function bms_delete_content_file(string $type, string $filename): array
         throw new RuntimeException('Content record not found.');
     }
 
+    $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
+    if ($postId < 1) {
+        throw new RuntimeException('The post identity could not be preserved in Trash.');
+    }
     $trashFilename = date('Ymd-His') . '-' . $originalStatus . '-' . $filename;
-    if (function_exists('bms_record_trashed_content')) {
+    $pdo = bms_db();
+    $beforeRow = null;
+    $afterRow = null;
+    $pdo->beginTransaction();
+    try {
+        $before = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id FOR UPDATE');
+        $before->execute(['id' => $postId]);
+        $beforeRow = $before->fetch();
+        if (!is_array($beforeRow) || (string)($beforeRow['status'] ?? '') !== $originalStatus) {
+            throw new RuntimeException('The post changed before it could be moved to Trash.');
+        }
         bms_record_trashed_content($page, $originalStatus, $filename, $trashFilename);
+        $update = $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'trash', markdown_path = :markdown_path, html_path = NULL, scheduled_at = NULL, is_pinned = 0, pinned_at = NULL, updated_at = UTC_TIMESTAMP() WHERE id = :id AND post_type = 'stream'");
+        $update->execute(['markdown_path' => 'content/trash/' . $trashFilename, 'id' => $postId]);
+        if ($update->rowCount() < 1) {
+            throw new RuntimeException('The post could not be moved to Trash without changing its identity.');
+        }
+        $after = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+        $after->execute(['id' => $postId]);
+        $afterRow = $after->fetch();
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
     }
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename($section, $filename);
-    }
-    if (function_exists('bms_dispatch_publication_transition')) {
-        bms_dispatch_publication_transition($page, null, ['source' => 'trash']);
-    }
+    bms_dispatch_publication_transition(is_array($beforeRow) ? $beforeRow : $page, is_array($afterRow) ? $afterRow : null, ['source' => 'trash']);
     return $page;
 }
 
@@ -1235,9 +1252,6 @@ function bms_publish_file(string $draftFilename): array
         throw new RuntimeException('A published stream post already uses this slug.');
     }
 
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename($sourceSection, $filename);
-    }
     if (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($published, 'published', $publishedFilename, $authorId);
     }

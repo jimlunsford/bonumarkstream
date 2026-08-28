@@ -1061,13 +1061,25 @@ function bms_upsert_database_content(array $page, string $section, string $filen
     $record = bms_database_content_record_from_page($page, $section, $filename, $authorId);
     $pdo = bms_db();
     $existing = null;
+    $requestedPostId = (int)($page['post_id'] ?? $page['id'] ?? 0);
     try {
-        $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE slug = :slug AND status = :status AND post_type = :post_type LIMIT 1');
-        $stmt->execute(['slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type']]);
+        if ($requestedPostId > 0) {
+            $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $requestedPostId]);
+        } else {
+            $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE slug = :slug AND status = :status AND post_type = :post_type LIMIT 1');
+            $stmt->execute(['slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type']]);
+        }
         $row = $stmt->fetch();
         $existing = is_array($row) ? $row : null;
     } catch (Throwable $e) {
         $existing = null;
+    }
+    if ($requestedPostId > 0 && !$existing) {
+        throw new RuntimeException('The existing logical post could not be found. Bonumark will not recreate it with a different identity.');
+    }
+    if ($existing && (string)($existing['post_type'] ?? '') !== (string)$record['post_type']) {
+        throw new RuntimeException('The existing post identity belongs to a different content type.');
     }
 
     if ($authorId === null && $existing) {
@@ -1108,6 +1120,14 @@ function bms_upsert_database_content(array $page, string $section, string $filen
             (int)$existing['id'],
         ]);
         $postId = (int)$existing['id'];
+        $previousSlug = bms_slugify((string)($existing['slug'] ?? ''));
+        $currentSlug = bms_slugify((string)$record['slug']);
+        if ($record['post_type'] === 'stream' && $previousSlug !== '' && $currentSlug !== '' && $previousSlug !== $currentSlug) {
+            $commentSlug = $pdo->prepare('UPDATE ' . bms_table('comments') . ' SET post_slug = :current_slug, updated_at = updated_at WHERE post_id = :post_id');
+            $commentSlug->execute(['current_slug' => $currentSlug, 'post_id' => $postId]);
+            $likeSlug = $pdo->prepare('UPDATE ' . bms_table('stream_likes') . ' SET post_slug = :current_slug WHERE post_id = :post_id');
+            $likeSlug->execute(['current_slug' => $currentSlug, 'post_id' => $postId]);
+        }
     } else {
         $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
         $stmt->execute([
@@ -1200,6 +1220,16 @@ function bms_database_content_page_for_status(array $page, string $status, strin
     $updated['raw'] = $raw;
     if (isset($page['author_id'])) {
         $updated['author_id'] = (int)$page['author_id'];
+    }
+    $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
+    if ($postId > 0) {
+        $updated['post_id'] = $postId;
+        $updated['id'] = $postId;
+    }
+    foreach (['created_at', 'updated_at', 'published_at'] as $identityField) {
+        if (array_key_exists($identityField, $page)) {
+            $updated[$identityField] = $page[$identityField];
+        }
     }
     return $updated;
 }
@@ -1641,8 +1671,8 @@ function bms_record_trashed_content(array $page, string $originalStatus, string 
     if (!bms_is_installed()) {
         return;
     }
-    $normalizedStatus = $originalStatus === 'published' ? 'published' : 'draft';
-    $originalSection = $normalizedStatus === 'published' ? 'published' : 'drafts';
+    $normalizedStatus = in_array($originalStatus, ['published', 'scheduled'], true) ? $originalStatus : 'draft';
+    $originalSection = $normalizedStatus === 'published' ? 'published' : ($normalizedStatus === 'scheduled' ? 'scheduled' : 'drafts');
     $originalAuthorId = bms_content_author_id_for_file($originalSection, $originalFilename);
     if ($originalAuthorId === null && (int)($page['author_id'] ?? 0) > 0) {
         $originalAuthorId = (int)$page['author_id'];
@@ -1654,10 +1684,12 @@ function bms_record_trashed_content(array $page, string $originalStatus, string 
     $virtualPath = trim($trashPath) !== ''
         ? str_replace(rtrim(bms_root_path(), '/\\') . '/', '', $trashPath)
         : 'content/trash/' . basename($trashFilename ?: (date('Ymd-His') . '-' . $normalizedStatus . '-' . bms_database_content_filename_for_page($page)));
+    $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
 
     try {
-        $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('trash') . ' (title, slug, original_status, original_filename, trash_filename, markdown_path, post_type, content_body, content_front_matter, content_source, content_hash, original_author_id, deleted_by, deleted_at) VALUES (:title, :slug, :original_status, :original_filename, :trash_filename, :markdown_path, :post_type, :content_body, :content_front_matter, :content_source, :content_hash, :original_author_id, :deleted_by, NOW())');
+        $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('trash') . ' (post_id, title, slug, original_status, original_filename, trash_filename, markdown_path, post_type, content_body, content_front_matter, content_source, content_hash, original_author_id, deleted_by, deleted_at) VALUES (:post_id, :title, :slug, :original_status, :original_filename, :trash_filename, :markdown_path, :post_type, :content_body, :content_front_matter, :content_source, :content_hash, :original_author_id, :deleted_by, NOW())');
         $stmt->execute([
+            'post_id' => $postId > 0 ? $postId : null,
             'title' => (string)($page['title'] ?? 'Untitled'),
             'slug' => (string)($page['slug'] ?? bms_slugify((string)($page['title'] ?? 'untitled'))),
             'original_status' => $normalizedStatus,
@@ -1783,12 +1815,34 @@ function bms_restore_trash_item(int $id): array
     $restored = bms_database_content_page_for_status($page, $status, 'stream');
     $filename = basename((string)($item['original_filename'] ?: bms_database_content_filename_for_page($restored)));
     $slug = bms_slugify((string)($restored['slug'] ?? pathinfo($filename, PATHINFO_FILENAME)));
-    if (bms_find_database_content_by_slug_status($slug, $status, 'stream')) {
+    $linkedPostId = (int)($item['post_id'] ?? 0);
+    $conflict = bms_find_database_content_by_slug_status($slug, $status, 'stream');
+    if ($conflict && (int)($conflict['post_id'] ?? $conflict['id'] ?? 0) !== $linkedPostId) {
         throw new RuntimeException('A ' . ($status === 'published' ? 'published stream post' : ($status === 'scheduled' ? 'scheduled stream post' : 'draft')) . ' already uses this slug. Rename or remove it first.');
     }
-    bms_db()->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
+    if ($linkedPostId > 0) {
+        $linked = bms_db()->prepare('SELECT id, status, post_type FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+        $linked->execute(['id' => $linkedPostId]);
+        $linkedRow = $linked->fetch();
+        if (!is_array($linkedRow) || (string)($linkedRow['status'] ?? '') !== 'trash' || (string)($linkedRow['post_type'] ?? '') !== 'stream') {
+            throw new RuntimeException('The trashed post identity is unavailable or no longer in Trash.');
+        }
+        $restored['post_id'] = $linkedPostId;
+        $restored['id'] = $linkedPostId;
+    }
     $originalAuthorId = (int)($item['original_author_id'] ?? 0);
-    bms_sync_stream_metadata($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
+    $pdo = bms_db();
+    $pdo->beginTransaction();
+    try {
+        bms_sync_stream_metadata($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
+        $pdo->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
     return $restored + ['filename' => $filename, 'restored_status' => $status];
 }
 
@@ -1801,6 +1855,12 @@ function bms_delete_trash_item_permanently(int $id): ?array
     $path = bms_root_path((string)($item['markdown_path'] ?? ''));
     if (is_file($path)) {
         @unlink($path);
+    }
+    $postId = (int)($item['post_id'] ?? 0);
+    if ($postId > 0) {
+        $pdo = bms_db();
+        $pdo->prepare('DELETE FROM ' . bms_table('post_terms') . ' WHERE post_id = :post_id')->execute(['post_id' => $postId]);
+        $pdo->prepare("DELETE FROM " . bms_table('posts') . " WHERE id = :id AND status = 'trash'")->execute(['id' => $postId]);
     }
     bms_db()->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
     return $item;
@@ -1995,6 +2055,10 @@ function bms_restore_revision_over_current(int $id): array
         }
     }
     $restored = bms_database_content_page_for_status(array_replace($revisionPage, ['slug' => $slug]), $targetStatus, 'stream');
+    if ($currentPage) {
+        $restored['post_id'] = (int)($currentPage['post_id'] ?? $currentPage['id'] ?? 0);
+        $restored['id'] = $restored['post_id'];
+    }
     $filename = bms_database_content_filename_for_page($restored);
     bms_sync_stream_metadata($restored, $section, $filename, $targetAuthorId ?? bms_revision_original_author_id($revision));
     if ($section === 'published') {

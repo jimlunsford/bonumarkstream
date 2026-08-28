@@ -68,6 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $updatedPage = bms_parse_markdown_string($raw);
+        $updatedPage['post_id'] = (int)($page['post_id'] ?? $page['id'] ?? 0);
+        $updatedPage['id'] = $updatedPage['post_id'];
         $newFilename = $updatedPage['slug'] . '.md';
         $oldSlug = bms_slugify((string)($page['slug'] ?? pathinfo($file, PATHINFO_FILENAME)));
         $newSlug = bms_slugify((string)($updatedPage['slug'] ?? $newFilename));
@@ -96,9 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('bms_record_revision_from_page')) {
                 bms_record_revision_from_page($page, 'published', $file, $originalAuthorId);
             }
-            if (function_exists('bms_delete_post_metadata_by_filename') && ($newFilename !== $file || $targetSection !== $section)) {
-                bms_delete_post_metadata_by_filename($section, $file);
-            }
             if (is_file($path)) {
                 @unlink($path);
             }
@@ -112,9 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('bms_record_revision_from_page')) {
                 bms_record_revision_from_page($page, 'draft', $file, $originalAuthorId);
             }
-            if (function_exists('bms_delete_post_metadata_by_filename') && ($newFilename !== $file || $targetSection !== $section)) {
-                bms_delete_post_metadata_by_filename($section, $file);
-            }
             if (function_exists('bms_schedule_post_page')) {
                 bms_schedule_post_page($updatedPage, 'scheduled', $newFilename, $originalAuthorId, (string)$scheduledAtUtc);
             }
@@ -123,9 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (function_exists('bms_record_revision_from_page')) {
             bms_record_revision_from_page($page, 'draft', $file, $originalAuthorId);
-        }
-        if (function_exists('bms_delete_post_metadata_by_filename') && ($newFilename !== $file || $targetSection !== $section)) {
-            bms_delete_post_metadata_by_filename($section, $file);
         }
         if (is_file($path)) {
             @unlink($path);
