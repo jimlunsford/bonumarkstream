@@ -294,16 +294,43 @@ function bms_activitypub_decode_json_document(string $json, int $maxBytes): arra
     return $decoded;
 }
 
-function bms_activitypub_fetch_json(string $url, ?callable $transport = null, ?callable $resolver = null): array
+function bms_activitypub_fetch_json(string $url, ?callable $transport = null, ?callable $resolver = null, ?array $signingKey = null): array
 {
+    $accept = 'Accept: application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/json;q=0.8';
     $response = bms_activitypub_http_request($url, [
         'method' => 'GET',
         'max_bytes' => bms_activitypub_remote_document_max_bytes(),
         'max_redirects' => 2,
-        'headers' => [
-            'Accept: application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/json;q=0.8',
-        ],
+        'headers' => [$accept],
     ], $transport, $resolver);
+
+    if (in_array((int)($response['status'] ?? 0), [401, 403], true)) {
+        if ($signingKey === null && function_exists('bms_activitypub_active_signing_key')) {
+            try {
+                $activeKey = bms_activitypub_active_signing_key(true);
+                $signingKey = is_array($activeKey) ? $activeKey : null;
+            } catch (Throwable $e) {
+                $signingKey = null;
+            }
+        }
+        if (is_array($signingKey) && trim((string)($signingKey['private_key_pem'] ?? '')) !== '') {
+            $authorizedUrl = trim((string)($response['url'] ?? $url));
+            $headers = bms_activitypub_sign_outbound_request('GET', $authorizedUrl, '', $signingKey, 'legacy');
+            $headers = array_values(array_filter(
+                $headers,
+                static fn(string $header): bool => stripos($header, 'Accept:') !== 0
+            ));
+            $headers[] = $accept;
+            $response = bms_activitypub_http_request($authorizedUrl, [
+                'method' => 'GET',
+                'max_bytes' => bms_activitypub_remote_document_max_bytes(),
+                // A signature is bound to this exact target. Do not forward it
+                // across a redirect to another destination.
+                'max_redirects' => 0,
+                'headers' => $headers,
+            ], $transport, $resolver);
+        }
+    }
     if ((int)($response['status'] ?? 0) !== 200) {
         throw new BmsActivityPubSecurityException('The remote actor document was not available.', 502);
     }
@@ -843,19 +870,23 @@ function bms_activitypub_sign_outbound_request(string $method, string $url, stri
         ];
     }
     $digest = 'SHA-256=' . base64_encode(hash('sha256', $body, true));
-    $headersList = '(request-target) host date digest';
+    $bodylessGet = strtoupper($method) === 'GET' && $body === '';
+    $headersList = $bodylessGet ? '(request-target) host date' : '(request-target) host date digest';
     $signing = '(request-target): ' . strtolower($method) . ' ' . $target
-        . "\nhost: " . $host . "\ndate: " . $date . "\ndigest: " . $digest;
+        . "\nhost: " . $host . "\ndate: " . $date
+        . ($bodylessGet ? '' : "\ndigest: " . $digest);
     $signature = '';
     if (!openssl_sign($signing, $signature, (string)($key['private_key_pem'] ?? ''), OPENSSL_ALGO_SHA256)) {
         throw new RuntimeException('The federation response could not be signed.');
     }
-    return [
+    $headers = [
         'Host: ' . $host,
         'Date: ' . $date,
-        'Digest: ' . $digest,
-        'Content-Type: ' . $contentType,
         'Accept: application/activity+json, application/ld+json',
         'Signature: keyId="' . $keyId . '",algorithm="rsa-sha256",headers="' . $headersList . '",signature="' . base64_encode($signature) . '"',
     ];
+    if (!$bodylessGet) {
+        array_splice($headers, 2, 0, ['Digest: ' . $digest, 'Content-Type: ' . $contentType]);
+    }
+    return $headers;
 }
