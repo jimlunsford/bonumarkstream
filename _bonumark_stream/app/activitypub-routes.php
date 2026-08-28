@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('BMS_STATELESS_PROTOCOL_REQUEST')) {
+    define('BMS_STATELESS_PROTOCOL_REQUEST', true);
+}
+
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/activitypub-serialization.php';
 require_once __DIR__ . '/activitypub-inbox.php';
@@ -146,6 +150,9 @@ function bms_activitypub_emit_json(array $payload, int $status, string $contentT
         $contentType = 'application/json; charset=UTF-8';
     }
     if (!headers_sent()) {
+        header_remove('Set-Cookie');
+        header_remove('Expires');
+        header_remove('Pragma');
         http_response_code($status);
         header('Content-Type: ' . $contentType);
         header('Content-Length: ' . strlen($json));

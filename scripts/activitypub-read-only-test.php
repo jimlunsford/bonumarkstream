@@ -24,6 +24,15 @@ function bms_activitypub_read_only_assert(bool $condition, string $message): voi
     }
 }
 
+bms_activitypub_read_only_assert(
+    defined('BMS_STATELESS_PROTOCOL_REQUEST') && BMS_STATELESS_PROTOCOL_REQUEST === true,
+    'ActivityPub routes must declare a stateless protocol request before loading application authentication helpers.'
+);
+bms_activitypub_read_only_assert(
+    session_status() !== PHP_SESSION_ACTIVE,
+    'Public ActivityPub discovery and inbox routes must not start a Bonumark browser session.'
+);
+
 $baseUrl = 'https://stream.example';
 $owner = [
     'id' => 1,

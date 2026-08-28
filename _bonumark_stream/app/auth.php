@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/database.php';
 
-bms_start_secure_session();
+if (!defined('BMS_STATELESS_PROTOCOL_REQUEST') || BMS_STATELESS_PROTOCOL_REQUEST !== true) {
+    bms_start_secure_session();
+}
 bms_send_security_headers();
 
 function bms_find_user_by_username(string $username): ?array
