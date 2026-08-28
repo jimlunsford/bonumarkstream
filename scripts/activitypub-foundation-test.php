@@ -37,6 +37,29 @@ bms_activitypub_test_assert(
     'System Check must load scheduled-task health before reporting ActivityPub delivery capability.'
 );
 
+$runnerNow = (new DateTimeImmutable('2026-08-28 14:20:00', new DateTimeZone('UTC')))->getTimestamp();
+$recentDurableRun = [[
+    'source' => 'server_cron',
+    'status' => 'completed',
+    'completed_at' => '2026-08-28 14:15:01',
+]];
+bms_activitypub_test_assert(
+    bms_activitypub_recent_durable_task_history($recentDurableRun, 900, $runnerNow),
+    'A recent completed server-cron history row must remain durable evidence after a fallback overwrites the last task source.'
+);
+bms_activitypub_test_assert(
+    !bms_activitypub_recent_durable_task_history([array_merge($recentDurableRun[0], ['status' => 'error'])], 900, $runnerNow),
+    'A failed durable task run must not satisfy federation delivery readiness.'
+);
+bms_activitypub_test_assert(
+    !bms_activitypub_recent_durable_task_history([array_merge($recentDurableRun[0], ['source' => 'public_traffic'])], 900, $runnerNow),
+    'A public-traffic fallback must not satisfy federation delivery readiness.'
+);
+bms_activitypub_test_assert(
+    !bms_activitypub_recent_durable_task_history([array_merge($recentDurableRun[0], ['completed_at' => '2026-08-28 14:00:00'])], 900, $runnerNow),
+    'A stale durable task run must not satisfy federation delivery readiness.'
+);
+
 bms_activitypub_test_assert(!empty(bms_activitypub_configured_base_url('https://example.com')['ok']), 'A canonical HTTPS root URL should be accepted.');
 bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('http://example.com')['ok']), 'An HTTP canonical URL must be rejected.');
 bms_activitypub_test_assert(empty(bms_activitypub_configured_base_url('https://example.com/?debug=1')['ok']), 'A canonical URL with a query string must be rejected.');

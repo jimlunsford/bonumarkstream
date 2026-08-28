@@ -60,11 +60,45 @@ function bms_activitypub_scheduled_runner_capability(): array
     }
     $status = bms_scheduled_tasks_status();
     $lastSource = (string)($status['last_source'] ?? '');
+    $lastStatus = (string)($status['last_status'] ?? '');
     $durableSource = in_array($lastSource, ['server_cron', 'web_cron'], true);
-    if (!empty($status['web_cron_enabled']) || (($status['status'] ?? '') === 'healthy' && $durableSource)) {
+    $expectedMinutes = max(1, (int)($status['expected_interval_minutes'] ?? 5));
+    $thresholdSeconds = max(900, $expectedMinutes * 60 * 3);
+    $history = function_exists('bms_scheduled_tasks_history') ? bms_scheduled_tasks_history(100) : [];
+    $recentDurableHistory = bms_activitypub_recent_durable_task_history($history, $thresholdSeconds);
+    if (!empty($status['web_cron_enabled'])
+        || (($status['status'] ?? '') === 'healthy' && $durableSource && $lastStatus === 'completed')
+        || $recentDurableHistory) {
         return ['ok' => true, 'message' => 'A dependable scheduled-task runner is configured or has run recently.'];
     }
     return ['ok' => false, 'message' => 'Configure server cron or authenticated web cron before enabling federation delivery. Browser and public-traffic fallbacks are not dependable delivery workers.'];
+}
+
+function bms_activitypub_recent_durable_task_history(array $history, int $thresholdSeconds, ?int $now = null): bool
+{
+    $now = $now ?? time();
+    $thresholdSeconds = max(1, $thresholdSeconds);
+    foreach ($history as $run) {
+        if (!is_array($run)
+            || !in_array((string)($run['source'] ?? ''), ['server_cron', 'web_cron'], true)
+            || (string)($run['status'] ?? '') !== 'completed') {
+            continue;
+        }
+        $completedAt = trim((string)($run['completed_at'] ?? ''));
+        if ($completedAt === '') {
+            continue;
+        }
+        try {
+            $completed = new DateTimeImmutable($completedAt, new DateTimeZone('UTC'));
+        } catch (Throwable $e) {
+            continue;
+        }
+        $timestamp = $completed->getTimestamp();
+        if ($timestamp <= $now + 300 && max(0, $now - $timestamp) <= $thresholdSeconds) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function bms_activitypub_system_check_items(): array
