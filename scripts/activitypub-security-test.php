@@ -176,6 +176,39 @@ $otherPublic = is_array($otherDetails) ? (string)$otherDetails['key'] : '';
 bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($request, $otherPublic, $now), 401, 'A signature made by another key must be rejected.');
 bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($rfcRequest, $otherPublic, $now), 401, 'An RFC 9421 signature made by another key must be rejected.');
 
+$outboundKey = ['private_key_pem' => $privateKey];
+$outboundUrl = 'https://remote.example/inbox?delivery=1';
+$outboundPayload = '{"type":"Create","id":"https://local.example/activitypub/activities/create/42"}';
+$headerMap = static function (array $headerLines): array {
+    $mapped = [];
+    foreach ($headerLines as $line) {
+        [$name, $value] = array_map('trim', explode(':', (string)$line, 2));
+        $mapped[strtolower($name)] = $value;
+    }
+    return $mapped;
+};
+$legacyOutbound = $headerMap(bms_activitypub_sign_outbound_request('POST', $outboundUrl, $outboundPayload, $outboundKey, 'legacy'));
+$legacyParams = bms_activitypub_parse_signature_header((string)($legacyOutbound['signature'] ?? ''));
+$legacyRaw = base64_decode((string)$legacyParams['signature'], true);
+$legacyBase = '(request-target): post /inbox?delivery=1'
+    . "\nhost: " . (string)$legacyOutbound['host']
+    . "\ndate: " . (string)$legacyOutbound['date']
+    . "\ndigest: " . (string)$legacyOutbound['digest'];
+bms_ap_security_assert(is_string($legacyRaw) && openssl_verify($legacyBase, $legacyRaw, $publicKey, OPENSSL_ALGO_SHA256) === 1, 'The outbound legacy RSA signature must verify over the deployed federation fields.');
+
+$rfcOutbound = $headerMap(bms_activitypub_sign_outbound_request('POST', $outboundUrl, $outboundPayload, $outboundKey, 'rfc9421'));
+$rfcMetadata = bms_activitypub_parse_rfc9421_signature_input((string)($rfcOutbound['signature-input'] ?? ''));
+$rfcOutboundRequest = [
+    'method' => 'POST',
+    'request_target' => '/inbox?delivery=1',
+    'target_uri' => $outboundUrl,
+    'body' => $outboundPayload,
+];
+$rfcBuilt = bms_activitypub_rfc9421_signature_base($rfcMetadata, $rfcOutboundRequest, $rfcOutbound);
+$rfcOutboundRaw = bms_activitypub_parse_rfc9421_signature((string)($rfcOutbound['signature'] ?? ''), (string)$rfcMetadata['label']);
+bms_ap_security_assert(openssl_verify((string)$rfcBuilt['string'], $rfcOutboundRaw, $publicKey, OPENSSL_ALGO_SHA256) === 1, 'The outbound RFC 9421 signature must verify over the method, target URI, content digest, and content type.');
+bms_activitypub_verify_rfc9421_content_digest($outboundPayload, $rfcOutbound);
+
 $actorDocument = [
     'id' => 'https://remote.example/actor',
     'type' => 'Person',

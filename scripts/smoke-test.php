@@ -2045,10 +2045,13 @@ foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publicat
     }
 }
 
-$activityPubSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub.php');
-if (!str_contains($activityPubSource, "'status' => 'observed'")
-    || !str_contains($activityPubSource, 'UTC_TIMESTAMP(), UTC_TIMESTAMP())')) {
-    $failures[] = 'Pre-delivery ActivityPub publication observations must be stored as completed observations, not pending delivery work.';
+$activityPubDelivery = @file_get_contents($root . '/_bonumark_stream/app/activitypub-delivery.php') ?: '';
+$activityPubDeliveryMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0022_activitypub_publication_delivery.php') ?: '';
+if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
+    || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
+    || !str_contains($activityPubDelivery, 'bms_activitypub_queue_publication_fanout')
+    || !str_contains($activityPubDeliveryMigration, 'transition_fingerprint')) {
+    $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
 }
 
 $activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';
@@ -2064,7 +2067,7 @@ if (!str_contains($activityPubRoutes, 'function bms_dispatch_activitypub_route')
     || !str_contains($activityPubSerialization, 'function bms_activitypub_outbox_document')) {
     bm_smoke_fail($failures, 'ActivityPub read-only identity and serialization are incomplete.');
 }
-foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity'] as $activityPubRoute) {
+foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity', 'activitypub_event_activity'] as $activityPubRoute) {
     if (!str_contains($frontController . $apacheRoutes . $nginxRoutes, $activityPubRoute)) {
         bm_smoke_fail($failures, 'ActivityPub routing is incomplete: ' . $activityPubRoute);
     }

@@ -51,6 +51,7 @@ $scenarios = [
     'stream_read',
     'durable_post_lifecycle',
     'activitypub_observer',
+    'activitypub_publication',
     'activitypub_inbox',
     'draft_create',
     'publish_scope',
@@ -158,7 +159,7 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_posting_direct_publish_enabled', '1');
         bms_api_smoke_set_setting('remote_posting_publish_confirmation_required', '1');
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
-        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_inbox'], true) ? '1' : '0');
+        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_publication', 'activitypub_inbox'], true) ? '1' : '0');
         bms_api_smoke_set_setting('activitypub_follow_policy', 'manual');
 
         $GLOBALS['bms_api_smoke_temp_root'] = $tempRoot;
@@ -166,9 +167,10 @@ function bms_api_smoke_run_child(string $scenario): void
         $activityPubEvents = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
         $activityPubDeliveries = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries'))->fetchColumn();
         if ($scenario === 'activitypub_observer') {
-            $completedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'observed' AND processed_at IS NOT NULL")->fetchColumn();
-            if ($activityPubEvents !== 2 || $completedEvents !== 2 || $activityPubDeliveries !== 0) {
-                throw new RuntimeException('The ActivityPub observer did not record exactly one publish and one changed update as completed observations.');
+            $completedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'completed' AND processed_at IS NOT NULL AND activity_uri IS NOT NULL AND payload_json IS NOT NULL")->fetchColumn();
+            $localObjects = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_local_objects'))->fetchColumn();
+            if ($activityPubEvents !== 2 || $completedEvents !== 2 || $localObjects !== 1 || $activityPubDeliveries !== 0) {
+                throw new RuntimeException('Stage 4 did not record exactly one Create and one changed Update without fan-out when there are no followers.');
             }
         } elseif ($scenario === 'activitypub_inbox') {
             $responseDeliveries = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'follower_response' AND event_id IS NULL AND status = 'delivered'")->fetchColumn();
@@ -177,7 +179,7 @@ function bms_api_smoke_run_child(string $scenario): void
             if ($activityPubEvents !== 1 || $observedEvents !== 1 || $activityPubDeliveries !== 1 || $responseDeliveries !== 1 || $publicationDeliveries !== 0) {
                 throw new RuntimeException('The Stage 3 response queue was not isolated from historical observed publication events.');
             }
-        } elseif ($activityPubEvents !== 0 || $activityPubDeliveries !== 0) {
+        } elseif ($scenario !== 'activitypub_publication' && ($activityPubEvents !== 0 || $activityPubDeliveries !== 0)) {
             throw new RuntimeException('Default-off Remote API behavior created ActivityPub events or deliveries.');
         }
     } finally {
@@ -295,6 +297,10 @@ function bms_api_smoke_run_scenario(string $scenario): void
             $page = bms_database_row_to_content_page($row);
             $updated = bms_update_stream_post_body($page, 'Changed observed content.');
             bms_update_stream_post_body($updated, 'Changed observed content.');
+            return;
+
+        case 'activitypub_publication':
+            bms_api_smoke_verify_activitypub_publication();
             return;
 
         case 'activitypub_inbox':
@@ -693,6 +699,269 @@ function bms_api_smoke_verify_durable_post_lifecycle(): void
     bms_delete_trash_item_permanently((int)$finalTrash['id']);
     if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE id = ' . $postId)->fetchColumn() !== 0) {
         throw new RuntimeException('Permanent deletion did not remove the post row.');
+    }
+}
+
+function bms_api_smoke_verify_activitypub_publication(): void
+{
+    $pdo = bms_db();
+    $localKey = bms_activitypub_create_signing_key();
+    $publicKey = (string)$localKey['public_key_pem'];
+    $resolver = static fn(string $host): array => ['93.184.216.34'];
+
+    $actorInsert = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_remote_actors') . ' (actor_uri, actor_type, preferred_username, display_name, inbox_url, shared_inbox_url, public_key_id, public_key_pem, key_owner_uri, document_json, fetched_at, expires_at, created_at, updated_at) VALUES (:actor_uri, \'Person\', :username, :display_name, :inbox_url, :shared_inbox_url, :public_key_id, :public_key_pem, :key_owner_uri, :document_json, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $followerInsert = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_followers') . ' (remote_actor_id, actor_uri, follow_activity_uri, follow_receipt_id, state, response_activity_uri, followed_at, moderated_at, created_at, updated_at) VALUES (:remote_actor_id, :actor_uri, :follow_uri, 1, \'accepted\', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $actorIds = [];
+    foreach ([
+        ['one', 'https://93.184.216.34/inbox/one', 'https://93.184.216.34/inbox/shared', true],
+        ['two', 'https://93.184.216.34/inbox/two', 'https://93.184.216.34/inbox/shared', true],
+        ['three', 'https://93.184.216.34/inbox/three', null, false],
+    ] as [$username, $inbox, $sharedInbox, $rfc9421]) {
+        $actorUri = 'https://93.184.216.34/actors/' . $username;
+        $document = [
+            'id' => $actorUri,
+            'type' => 'Person',
+            'preferredUsername' => $username,
+            'inbox' => $inbox,
+            'endpoints' => array_filter([
+                'sharedInbox' => $sharedInbox,
+                'signatureAlgorithms' => $rfc9421 ? ['rfc9421'] : null,
+            ], static fn(mixed $value): bool => $value !== null),
+            'publicKey' => ['id' => $actorUri . '#main-key', 'owner' => $actorUri, 'publicKeyPem' => $publicKey],
+        ];
+        $actorInsert->execute([
+            'actor_uri' => $actorUri,
+            'username' => $username,
+            'display_name' => ucfirst($username),
+            'inbox_url' => $inbox,
+            'shared_inbox_url' => $sharedInbox,
+            'public_key_id' => $actorUri . '#main-key',
+            'public_key_pem' => $publicKey,
+            'key_owner_uri' => $actorUri,
+            'document_json' => json_encode($document, JSON_UNESCAPED_SLASHES),
+        ]);
+        $actorId = (int)$pdo->lastInsertId();
+        $actorIds[$username] = $actorId;
+        $followerInsert->execute(['remote_actor_id' => $actorId, 'actor_uri' => $actorUri, 'follow_uri' => $actorUri . '/activities/follow']);
+    }
+
+    $mediaPaths = [];
+    $mediaInsert = $pdo->prepare('INSERT INTO ' . bms_table('media') . ' (filename, original_filename, public_path, mime_type, file_size, width, height, alt_text, caption, uploaded_by, file_hash, image_variants_json, privacy_status, privacy_note, privacy_checked_at, created_at, updated_at, trashed_at, trashed_by) VALUES (:filename, :original_filename, :public_path, \'image/jpeg\', 100, :width, :height, :alt_text, \'\', 1, :file_hash, \'{}\', \'clean\', \'\', UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, NULL)');
+    for ($index = 1; $index <= 4; $index++) {
+        $path = 'media/activitypub-stage4-' . $index . '.jpg';
+        $file = bms_public_path($path);
+        if (!is_dir(dirname($file)) && !mkdir(dirname($file), 0775, true) && !is_dir(dirname($file))) {
+            throw new RuntimeException('The Stage 4 media fixture directory could not be created.');
+        }
+        file_put_contents($file, 'stage4-media-' . $index);
+        $mediaInsert->execute([
+            'filename' => basename($path),
+            'original_filename' => 'Stage 4 Image ' . $index . '.jpg',
+            'public_path' => $path,
+            'width' => 1000 + $index,
+            'height' => 700 + $index,
+            'alt_text' => 'Stage 4 alt text ' . $index,
+            'file_hash' => hash('sha256', 'stage4-media-' . $index),
+        ]);
+        $mediaPaths[] = $path;
+    }
+
+    $published = bms_database_content_page_for_status([
+        'title' => 'Federated lifecycle post',
+        'slug' => 'federated-lifecycle-post',
+        'content_type' => 'stream',
+        'post_type' => 'stream',
+        'date' => '2026-08-28',
+        'description' => '',
+        'category' => 'Stream',
+        'tags' => [],
+        'body' => 'First federated publication.',
+        'front_matter' => [],
+        'featured_media' => $mediaPaths[0],
+        'media_gallery' => $mediaPaths,
+        'stream_created_at' => '2026-08-28 03:00:00',
+    ], 'published', 'stream');
+    $postId = bms_upsert_database_content($published, 'published', 'federated-lifecycle-post.md', 1);
+    $objectId = bms_activitypub_object_url($postId);
+    $firstEvent = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' ORDER BY id ASC LIMIT 1')->fetch();
+    $firstPayload = is_array($firstEvent) ? json_decode((string)$firstEvent['payload_json'], true) : null;
+    $attachments = is_array($firstPayload) ? ($firstPayload['object']['attachment'] ?? []) : [];
+    if (!is_array($firstEvent) || (string)$firstPayload['type'] !== 'Create' || (string)$firstPayload['object']['id'] !== $objectId
+        || count((array)$attachments) !== 4 || (string)($attachments[0]['name'] ?? '') !== 'Stage 4 alt text 1'
+        || (int)($attachments[0]['width'] ?? 0) !== 1001 || (int)($attachments[0]['height'] ?? 0) !== 701) {
+        throw new RuntimeException('The first Stage 4 Create did not preserve durable identity and complete media metadata.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries') . ' WHERE event_id = ' . (int)$firstEvent['id'])->fetchColumn() !== 2) {
+        throw new RuntimeException('Shared inbox fan-out did not deduplicate three followers into two HTTP deliveries.');
+    }
+
+    $current = bms_activitypub_find_stream_post($postId);
+    if (!is_array($current)) {
+        throw new RuntimeException('The federated fixture could not be reloaded.');
+    }
+    bms_upsert_database_content($current, 'published', 'federated-lifecycle-post.md', 1);
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn() !== 1) {
+        throw new RuntimeException('An identical published save created a duplicate activity.');
+    }
+    $edited = bms_update_stream_post_body($current, 'Material federated update.');
+    $renamed = bms_database_content_page_for_status(array_replace($edited, ['slug' => 'federated-lifecycle-renamed']), 'published', 'stream');
+    if (bms_upsert_database_content($renamed, 'published', 'federated-lifecycle-renamed.md', 1) !== $postId) {
+        throw new RuntimeException('A federated slug update changed the durable post identity.');
+    }
+    $unpublished = bms_unpublish_file('federated-lifecycle-renamed.md');
+    $republished = bms_publish_file((string)$unpublished['filename']);
+    bms_delete_content_file('published', (string)$republished['filename']);
+    $trash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    if (!is_array($trash)) {
+        throw new RuntimeException('The federated fixture did not retain its Trash reference.');
+    }
+    $restored = bms_restore_trash_item((int)$trash['id']);
+    if ((int)($restored['post_id'] ?? 0) !== $postId || (string)($restored['restored_status'] ?? '') !== 'published') {
+        throw new RuntimeException('A federated restore did not reuse the true local object identity.');
+    }
+    bms_delete_content_file('published', (string)$restored['filename']);
+    $finalTrash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $eventsBeforePermanentDelete = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+    bms_delete_trash_item_permanently((int)$finalTrash['id']);
+    $eventsAfterPermanentDelete = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+    $tombstone = bms_activitypub_local_object($postId);
+    if ($eventsBeforePermanentDelete !== $eventsAfterPermanentDelete || !is_array($tombstone) || (string)$tombstone['object_uri'] !== $objectId || trim((string)$tombstone['deleted_at']) === '') {
+        throw new RuntimeException('Permanent deletion duplicated Delete or lost the durable tombstone.');
+    }
+
+    $scheduled = bms_database_content_page_for_status([
+        'title' => 'Scheduled federation post', 'slug' => 'scheduled-federation-post', 'content_type' => 'stream', 'post_type' => 'stream',
+        'date' => '2026-08-28', 'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Scheduled federation body.', 'front_matter' => [],
+    ], 'scheduled', 'stream');
+    $scheduledId = bms_upsert_database_content($scheduled, 'scheduled', 'scheduled-federation-post.md', 1);
+    $beforeDue = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+    $pdo->prepare('UPDATE ' . bms_table('posts') . ' SET scheduled_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE) WHERE id = :id')->execute(['id' => $scheduledId]);
+    bms_publish_due_scheduled_posts(10);
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn() !== $beforeDue + 1) {
+        throw new RuntimeException('Scheduled federation ran before due or failed to create exactly one Create when published.');
+    }
+
+    $observed = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (NULL, \'historical\', \'stage2_fixture\', :hash, \'{}\', \'observed\', UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $observed->execute(['hash' => hash('sha256', 'historical-observed')]);
+    $observedId = (int)$pdo->lastInsertId();
+
+    $attemptsBeforeMissingKey = (int)$pdo->query("SELECT COALESCE(SUM(attempt_count), 0) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication'")->fetchColumn();
+    $pdo->exec("UPDATE " . bms_table('activitypub_keys') . " SET status = 'retired' WHERE status = 'active'");
+    $missingKey = bms_activitypub_run_publication_deliveries(20, null, $resolver);
+    $attemptsAfterMissingKey = (int)$pdo->query("SELECT COALESCE(SUM(attempt_count), 0) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication'")->fetchColumn();
+    if (!empty($missingKey['ok']) || $attemptsBeforeMissingKey !== $attemptsAfterMissingKey) {
+        throw new RuntimeException('A missing signing key claimed publication work or created a scheduled hot loop.');
+    }
+    $pdo->prepare("UPDATE " . bms_table('activitypub_keys') . " SET status = 'active' WHERE id = :id")->execute(['id' => (int)$localKey['id']]);
+
+    $signatureKinds = [];
+    $transport = static function (array $target, array $options) use (&$signatureKinds): array {
+        $headers = implode("\n", array_map('strval', (array)($options['headers'] ?? [])));
+        $signatureKinds[] = str_contains(strtolower($headers), 'signature-input:') ? 'rfc9421' : 'legacy';
+        return ['status' => 202, 'headers' => [], 'body' => '', 'primary_ip' => '93.184.216.34'];
+    };
+    do {
+        $result = bms_activitypub_run_publication_deliveries(20, $transport, $resolver);
+    } while ((int)($result['count'] ?? 0) > 0);
+    if (!in_array('legacy', $signatureKinds, true) || !in_array('rfc9421', $signatureKinds, true)) {
+        throw new RuntimeException('Adaptive delivery did not exercise both legacy and RFC 9421 outbound signatures.');
+    }
+    if ((int)$pdo->query("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication' AND event_id IS NOT NULL AND status <> 'delivered'")->fetchColumn() !== 0) {
+        throw new RuntimeException('Bounded publication delivery did not complete every queued endpoint.');
+    }
+    if ((string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_publication_events') . ' WHERE id = ' . $observedId)->fetchColumn() !== 'observed') {
+        throw new RuntimeException('The publication worker reactivated a historical observed event.');
+    }
+    $duplicateRun = bms_activitypub_run_publication_deliveries(20, $transport, $resolver);
+    if ((int)($duplicateRun['count'] ?? 0) !== 0) {
+        throw new RuntimeException('A duplicate worker run redelivered completed activities.');
+    }
+
+    $deliveryId = (int)$pdo->query("SELECT id FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication' ORDER BY id ASC LIMIT 1")->fetchColumn();
+    $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'processing', last_attempt_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 16 MINUTE) WHERE id = :id")->execute(['id' => $deliveryId]);
+    bms_activitypub_run_publication_deliveries(1, $transport, $resolver);
+    if ((string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $deliveryId)->fetchColumn() !== 'delivered') {
+        throw new RuntimeException('Stale processing work was not recovered safely.');
+    }
+
+    $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), attempt_count = 0 WHERE id = :id")->execute(['id' => $deliveryId]);
+    $rateLimited = static fn(array $target, array $options): array => ['status' => 429, 'headers' => ['retry-after' => ['120']], 'body' => '', 'primary_ip' => '93.184.216.34'];
+    bms_activitypub_run_publication_deliveries(1, $rateLimited, $resolver);
+    $rateRow = $pdo->query('SELECT status, TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), available_at) AS wait_seconds FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $deliveryId)->fetch();
+    if (!is_array($rateRow) || (string)$rateRow['status'] !== 'retry' || (int)$rateRow['wait_seconds'] < 100) {
+        throw new RuntimeException('HTTP 429 Retry-After was not retained as bounded retry work.');
+    }
+    $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET available_at = UTC_TIMESTAMP() WHERE id = :id")->execute(['id' => $deliveryId]);
+    bms_activitypub_run_publication_deliveries(1, $transport, $resolver);
+
+    foreach ([[503, 'retry'], [410, 'dead']] as [$statusCode, $expectedStatus]) {
+        $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), attempt_count = 0 WHERE id = :id")->execute(['id' => $deliveryId]);
+        $failureTransport = static fn(array $target, array $options): array => ['status' => $statusCode, 'headers' => [], 'body' => '', 'primary_ip' => '93.184.216.34'];
+        bms_activitypub_run_publication_deliveries(1, $failureTransport, $resolver);
+        if ((string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $deliveryId)->fetchColumn() !== $expectedStatus) {
+            throw new RuntimeException('Publication retry classification failed for HTTP ' . $statusCode . '.');
+        }
+    }
+    if (!bms_activitypub_manual_retry_publication_delivery($deliveryId)) {
+        throw new RuntimeException('A dead publication delivery could not be retried safely in place.');
+    }
+    bms_activitypub_run_publication_deliveries(1, $transport, $resolver);
+
+    $privateDelivery = $pdo->prepare("SELECT id FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication' AND recipient_actor_ids_json = :actor_ids ORDER BY id ASC LIMIT 1");
+    $privateDelivery->execute(['actor_ids' => json_encode([(int)$actorIds['three']])]);
+    $privateDeliveryId = (int)$privateDelivery->fetchColumn();
+    $pdo->prepare('UPDATE ' . bms_table('activitypub_remote_actors') . ' SET inbox_url = :inbox, shared_inbox_url = NULL, expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY) WHERE id = :id')->execute(['inbox' => 'https://127.0.0.1/private-inbox', 'id' => (int)$actorIds['three']]);
+    $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), attempt_count = 0 WHERE id = :id")->execute(['id' => $privateDeliveryId]);
+    $privateTransportCalls = 0;
+    $mustNotConnect = static function (array $target, array $options) use (&$privateTransportCalls): array {
+        $privateTransportCalls++;
+        return ['status' => 202, 'headers' => [], 'body' => '', 'primary_ip' => '127.0.0.1'];
+    };
+    bms_activitypub_run_publication_deliveries(1, $mustNotConnect, $resolver);
+    if ($privateTransportCalls !== 0 || (string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $privateDeliveryId)->fetchColumn() !== 'retry') {
+        throw new RuntimeException('A cached private-network inbox reached the outbound transport.');
+    }
+    $pdo->prepare('UPDATE ' . bms_table('activitypub_remote_actors') . ' SET inbox_url = :inbox, expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY) WHERE id = :id')->execute(['inbox' => 'https://93.184.216.34/inbox/three', 'id' => (int)$actorIds['three']]);
+    $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), attempt_count = 0 WHERE id = :id")->execute(['id' => $privateDeliveryId]);
+    $unreachable = static function (array $target, array $options): array {
+        throw new BmsActivityPubSecurityException('The fixture inbox is unreachable.', 502);
+    };
+    bms_activitypub_run_publication_deliveries(1, $unreachable, $resolver);
+    if ((string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $privateDeliveryId)->fetchColumn() !== 'retry') {
+        throw new RuntimeException('An unreachable follower inbox was not retained for bounded retry.');
+    }
+
+    $pdo->prepare('UPDATE ' . bms_table('activitypub_remote_actors') . ' SET shared_inbox_url = :shared_inbox, inbox_url = :inbox, document_json = JSON_SET(document_json, \'$.inbox\', :document_inbox), expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY) WHERE id = :id')->execute([
+        'shared_inbox' => 'https://93.184.216.34/inbox/one-new',
+        'inbox' => 'https://93.184.216.34/inbox/one-new',
+        'document_inbox' => 'https://93.184.216.34/inbox/one-new',
+        'id' => (int)$actorIds['one'],
+    ]);
+    $scheduledPage = bms_activitypub_find_stream_post($scheduledId);
+    bms_update_stream_post_body((array)$scheduledPage, 'Scheduled post changed after publication.');
+    $latestEventId = (int)$pdo->query('SELECT id FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $scheduledId . ' ORDER BY id DESC LIMIT 1')->fetchColumn();
+    $latestDelivery = $pdo->query('SELECT * FROM ' . bms_table('activitypub_deliveries') . ' WHERE event_id = ' . $latestEventId . ' ORDER BY id ASC LIMIT 1')->fetch();
+    if (!is_array($latestDelivery)) {
+        throw new RuntimeException('The actor inbox-change fixture did not create delivery work.');
+    }
+    bms_activitypub_reconcile_publication_delivery_target($latestDelivery, null, $resolver);
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries') . ' WHERE event_id = ' . $latestEventId)->fetchColumn() !== 3) {
+        throw new RuntimeException('An accepted follower inbox change was not split from its former shared inbox safely.');
+    }
+
+    $rfcDelivery = $pdo->query("SELECT * FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'publication' AND signature_mode = 'rfc9421' ORDER BY id DESC LIMIT 1")->fetch();
+    if (is_array($rfcDelivery)) {
+        $fallbackCalls = [];
+        $fallbackTransport = static function (array $target, array $options) use (&$fallbackCalls): array {
+            $headers = implode("\n", array_map('strval', (array)($options['headers'] ?? [])));
+            $rfc = str_contains(strtolower($headers), 'signature-input:');
+            $fallbackCalls[] = $rfc ? 'rfc9421' : 'legacy';
+            return ['status' => $rfc ? 401 : 202, 'headers' => [], 'body' => '', 'primary_ip' => '93.184.216.34'];
+        };
+        $fallbackResponse = bms_activitypub_deliver_publication_row($rfcDelivery, bms_activitypub_active_signing_key(true), $fallbackTransport, $resolver);
+        if ((int)($fallbackResponse['status'] ?? 0) !== 202 || $fallbackCalls !== ['rfc9421', 'legacy']) {
+            throw new RuntimeException('RFC 9421 authentication rejection did not receive one bounded legacy fallback.');
+        }
     }
 }
 
