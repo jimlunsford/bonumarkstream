@@ -194,7 +194,7 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
             'fingerprint' => $fingerprint,
         ]);
         $eventId = (int)$pdo->lastInsertId();
-        $activityUri = $activityType === 'Create' && $generation === 1
+        $activityUri = $activityType === 'Create' && $generation === 1 && !is_array($previous)
             ? bms_activitypub_create_activity_url($postId)
             : bms_activitypub_event_activity_url($eventId);
         $document = bms_activitypub_publication_activity($activityType, $snapshot, $activityUri);
@@ -207,14 +207,15 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
 
         $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         $humanUrl = trim((string)($snapshot['url'] ?? ''));
-        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, publication_generation = :generation, transition_sequence = :sequence, published_at = CASE WHEN :activity_type = \'Create\' THEN UTC_TIMESTAMP() ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
+        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, publication_generation = :generation, transition_sequence = :sequence, published_at = CASE WHEN :published_activity_type = \'Create\' THEN UTC_TIMESTAMP() ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :deleted_activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
         $updateObject->execute([
             'content_hash' => (string)($transition['content_hash'] ?? ''),
             'object_json' => is_string($snapshotJson) ? $snapshotJson : null,
             'human_url' => $humanUrl !== '' ? $humanUrl : null,
             'generation' => $generation,
             'sequence' => $sequence,
-            'activity_type' => $activityType,
+            'published_activity_type' => $activityType,
+            'deleted_activity_type' => $activityType,
             'id' => (int)$localObject['id'],
         ]);
         $queued = bms_activitypub_queue_publication_fanout($eventId, $activityUri, $payload);
@@ -418,8 +419,8 @@ function bms_activitypub_update_publication_event_status(int $eventId): void
     }
     $active = array_sum(array_intersect_key($counts, array_flip(['pending', 'retry', 'processing'])));
     $status = $active > 0 ? 'queued' : (!empty($counts['dead']) ? 'dead' : 'completed');
-    $update = bms_db()->prepare('UPDATE ' . bms_table('activitypub_publication_events') . ' SET status = :status, processed_at = CASE WHEN :status = \'queued\' THEN NULL ELSE UTC_TIMESTAMP() END WHERE id = :id');
-    $update->execute(['status' => $status, 'id' => $eventId]);
+    $update = bms_db()->prepare('UPDATE ' . bms_table('activitypub_publication_events') . ' SET status = :status, processed_at = CASE WHEN :processed_status = \'queued\' THEN NULL ELSE UTC_TIMESTAMP() END WHERE id = :id');
+    $update->execute(['status' => $status, 'processed_status' => $status, 'id' => $eventId]);
 }
 
 function bms_activitypub_run_publication_deliveries(int $limit = 20, ?callable $transport = null, ?callable $resolver = null, ?callable $fetcher = null): array
