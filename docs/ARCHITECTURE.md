@@ -103,6 +103,23 @@ Both formats use the same actor/key ownership checks, five-minute replay window,
 
 Publication observations and delivery work are separate states. Stage 1 and Stage 2 publication events are completed `observed` records. Stage 3 workers select only `follower_response` deliveries with a null publication event ID and cannot reactivate those observations.
 
+Stage 4 records a durable activity only for a newly committed local transition while ActivityPub is enabled. It never scans historical posts into delivery work. The publication worker selects only `publication` deliveries with a non-null event ID, runs only from a durable manual or cron runner, and cannot claim follower responses or historical `observed` events. Local publication commits before remote delivery is attempted, and delivery retries always reuse the same activity ID and payload.
+
+The federated object ID is derived from the immutable database post ID and does not change with the human-facing slug. Publication lifecycle behavior is centralized:
+
+- The first publication emits `Create`.
+- An identical published save emits nothing.
+- A material published edit or slug change emits `Update`.
+- Unpublish or trash emits `Delete` and retains a durable tombstone snapshot.
+- Restore to draft emits nothing.
+- Republish or direct restore to published emits `Create` with the same object ID.
+- Permanent deletion after an earlier `Delete` emits nothing further and retains the local object/tombstone row after the post row is removed.
+- A scheduled post emits nothing before its due publication and emits `Create` when it becomes published.
+
+Some remote implementations treat an object ID as permanently tombstoned after `Delete`. Bonumark does not assign a false replacement identity to restored content. A later `Create` therefore retains the true object ID even when a remote implementation chooses not to restore it.
+
+Outbound publication delivery supports both the deployed legacy RSA HTTP Signature format and RFC 9421 using RSA PKCS#1 v1.5 with SHA-256. A remote actor must explicitly advertise RFC 9421 capability before it is selected. A shared inbox uses RFC 9421 only when every grouped recipient advertises it. Authentication-related rejection of an RFC 9421 attempt receives one bounded legacy fallback for the same activity; subsequent retries retain the compatible format. Every remote destination is revalidated through the SSRF-safe pinned-address transport immediately before connection, and POST redirects are disabled.
+
 ## Upgrade boundary
 
 The upgrader treats configuration, the database, media/uploads, backups, data, and custom themes as protected owner data. Package-managed application files and the bundled theme can be replaced by a validated release package.

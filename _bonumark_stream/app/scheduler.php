@@ -433,6 +433,16 @@ function bms_scheduled_task_handlers(): array
         );
         if (bms_activitypub_enabled()) {
             bms_register_scheduled_task_handler(
+                'activitypub_publications',
+                static function (array $context): array {
+                    return bms_activitypub_run_publication_deliveries((int)($context['activitypub_delivery_limit'] ?? 20));
+                },
+                [
+                    'label' => 'ActivityPub publications',
+                    'allowed_sources' => ['manual', 'server_cron', 'web_cron'],
+                ]
+            );
+            bms_register_scheduled_task_handler(
                 'activitypub_responses',
                 static function (array $context): array {
                     return bms_activitypub_run_response_deliveries((int)($context['activitypub_delivery_limit'] ?? 20));

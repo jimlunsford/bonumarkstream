@@ -1859,6 +1859,9 @@ function bms_delete_trash_item_permanently(int $id): ?array
     $postId = (int)($item['post_id'] ?? 0);
     if ($postId > 0) {
         $pdo = bms_db();
+        if (function_exists('bms_activitypub_ensure_tombstone_before_permanent_delete')) {
+            bms_activitypub_ensure_tombstone_before_permanent_delete($postId);
+        }
         $pdo->prepare('DELETE FROM ' . bms_table('post_terms') . ' WHERE post_id = :post_id')->execute(['post_id' => $postId]);
         $pdo->prepare("DELETE FROM " . bms_table('posts') . " WHERE id = :id AND status = 'trash'")->execute(['id' => $postId]);
     }

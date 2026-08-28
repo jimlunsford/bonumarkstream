@@ -69,6 +69,11 @@ function bms_activitypub_create_activity_url(int $postId, ?string $baseUrl = nul
     return bms_activitypub_absolute_url('/activitypub/activities/create/' . max(0, $postId), $baseUrl);
 }
 
+function bms_activitypub_event_activity_url(int $eventId, ?string $baseUrl = null): string
+{
+    return bms_activitypub_absolute_url('/activitypub/activities/events/' . max(0, $eventId), $baseUrl);
+}
+
 function bms_activitypub_owner_profile_url(array $owner, ?string $baseUrl = null): string
 {
     $username = bms_normalize_username((string)($owner['username'] ?? ''));
@@ -238,13 +243,34 @@ function bms_activitypub_post_attachments(array $page, ?string $baseUrl = null):
         if ($url === '') {
             continue;
         }
-        $mediaType = bms_activitypub_media_type($url);
-        $attachments[] = [
+        $media = null;
+        $relative = trim(str_replace('\\', '/', (string)(parse_url($url, PHP_URL_PATH) ?? '')), '/');
+        $basePath = trim((string)(parse_url(trim($baseUrl ?? (string)bms_setting_or_config('base_url', '')), PHP_URL_PATH) ?? ''), '/');
+        if ($basePath !== '' && str_starts_with($relative, $basePath . '/')) {
+            $relative = substr($relative, strlen($basePath) + 1);
+        }
+        if (str_starts_with($relative, 'media/') && function_exists('bms_is_installed') && bms_is_installed()) {
+            try {
+                $mediaStmt = bms_db()->prepare('SELECT mime_type, width, height, alt_text, original_filename FROM ' . bms_table('media') . ' WHERE public_path = :public_path LIMIT 1');
+                $mediaStmt->execute(['public_path' => $relative]);
+                $mediaRow = $mediaStmt->fetch();
+                $media = is_array($mediaRow) ? $mediaRow : null;
+            } catch (Throwable $e) {
+                $media = null;
+            }
+        }
+        $mediaType = trim((string)($media['mime_type'] ?? '')) ?: bms_activitypub_media_type($url);
+        $attachment = [
             'type' => str_starts_with($mediaType, 'image/') ? 'Image' : 'Document',
             'mediaType' => $mediaType,
             'url' => $url,
-            'name' => rawurldecode(basename((string)(parse_url($url, PHP_URL_PATH) ?? 'Media'))),
+            'name' => trim((string)($media['alt_text'] ?? '')) ?: (trim((string)($media['original_filename'] ?? '')) ?: rawurldecode(basename((string)(parse_url($url, PHP_URL_PATH) ?? 'Media')))),
         ];
+        if ((int)($media['width'] ?? 0) > 0 && (int)($media['height'] ?? 0) > 0) {
+            $attachment['width'] = (int)$media['width'];
+            $attachment['height'] = (int)$media['height'];
+        }
+        $attachments[] = $attachment;
     }
     return $attachments;
 }
@@ -302,6 +328,30 @@ function bms_activitypub_create_activity(array $page, ?string $baseUrl = null, b
         $activity['published'] = $published;
     }
     return $activity;
+}
+
+function bms_activitypub_publication_activity(string $type, array $object, string $activityUri, ?string $baseUrl = null, bool $includeContext = true): array
+{
+    $type = ucfirst(strtolower(trim($type)));
+    if (!in_array($type, ['Create', 'Update', 'Delete'], true)) {
+        throw new InvalidArgumentException('Unsupported local publication activity type.');
+    }
+    $objectId = trim((string)($object['id'] ?? ''));
+    if ($objectId === '') {
+        throw new RuntimeException('The local publication object has no durable identity.');
+    }
+    $activity = [
+        'id' => $activityUri,
+        'type' => $type,
+        'actor' => bms_activitypub_actor_url($baseUrl),
+        'to' => ['https://www.w3.org/ns/activitystreams#Public'],
+        'cc' => [bms_activitypub_followers_url($baseUrl)],
+        'object' => $type === 'Delete'
+            ? ['id' => $objectId, 'type' => 'Tombstone', 'formerType' => (string)($object['type'] ?? 'Note'), 'deleted' => gmdate('Y-m-d\TH:i:s\Z')]
+            : array_diff_key($object, ['@context' => true]),
+        'published' => gmdate('Y-m-d\TH:i:s\Z'),
+    ];
+    return $includeContext ? ['@context' => bms_activitypub_context()] + $activity : $activity;
 }
 
 function bms_activitypub_empty_collection_document(string $collectionUrl): array

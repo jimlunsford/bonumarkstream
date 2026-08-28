@@ -32,6 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $moderation = (string)($_POST['moderation'] ?? '');
             bms_activitypub_moderate_follower($followerId, $moderation);
             bms_flash('Follower state updated. Any required signed response is queued for the durable task runner.', 'success');
+        } elseif ($action === 'retry_publication') {
+            $deliveryId = max(0, (int)($_POST['delivery_id'] ?? 0));
+            if (!bms_activitypub_manual_retry_publication_delivery($deliveryId)) {
+                throw new RuntimeException('The publication delivery is not eligible for manual retry.');
+            }
+            bms_flash('Publication delivery queued for a safe retry.', 'success');
         } else {
             throw new RuntimeException('The ActivityPub action was not recognized.');
         }
@@ -46,12 +52,13 @@ $enabled = bms_activitypub_enabled();
 $policy = bms_activitypub_follow_policy();
 $key = bms_activitypub_active_signing_key(false);
 $followers = bms_activitypub_follower_rows('', 200);
+$publicationDeliveries = bms_activitypub_publication_delivery_rows(200);
 $checks = bms_activitypub_system_check_items();
 
 bms_admin_header('ActivityPub', [bms_view_site_action()]);
 ?>
 <section class="panel settings-workflow-hero">
-  <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Stage 3 accepts signed follower activity and sends only follower Accept or Reject responses. Local post delivery remains disabled.</p></div>
+  <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Committed public Stream Post transitions are recorded locally, then delivered asynchronously without delaying or rolling back Bonumark publishing.</p></div>
   <span class="static-pill <?= $enabled ? 'generated' : 'draft' ?>"><?= $enabled ? 'ENABLED' : 'DISABLED' ?></span>
 </section>
 
@@ -84,6 +91,21 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
       <div class="settings-record-cell"><strong><?= htmlspecialchars(trim((string)$follower['display_name']) ?: trim((string)$follower['preferred_username']) ?: 'Remote actor', ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)$follower['actor_uri'], ENT_QUOTES, 'UTF-8') ?></small></div>
       <div class="settings-record-cell"><span class="static-pill <?= (string)$follower['state'] === 'accepted' ? 'generated' : ((string)$follower['state'] === 'pending' ? 'warning' : 'draft') ?>"><?= htmlspecialchars(strtoupper((string)$follower['state']), ENT_QUOTES, 'UTF-8') ?></span></div>
       <div class="settings-record-cell"><form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="moderate"><input type="hidden" name="follower_id" value="<?= (int)$follower['id'] ?>"><button type="submit" name="moderation" value="approve" class="button-link secondary">Approve</button><button type="submit" name="moderation" value="reject" class="button-link secondary">Reject</button><button type="submit" name="moderation" value="block" class="button-link secondary danger">Block</button><button type="submit" name="moderation" value="remove" class="button-link secondary">Remove</button></form></div>
+    </article>
+  <?php endforeach; ?></div><?php endif; ?>
+</section>
+
+<section class="panel settings-section-panel">
+  <div class="settings-record-heading"><div><p class="eyebrow">Publication delivery</p><h2>Outbound federation</h2><p class="meta">Each row belongs to one durable local activity. Retries reuse that activity and never recreate the post or expose signing material.</p></div><span class="static-pill draft"><?= count($publicationDeliveries) ?> RECORD<?= count($publicationDeliveries) === 1 ? '' : 'S' ?></span></div>
+  <?php if (!$publicationDeliveries): ?><div class="settings-empty-state"><h3>No publication delivery has been queued.</h3><p class="meta">Existing historical posts remain discoverable through the outbox but are not backfilled to followers.</p></div><?php else: ?>
+  <div class="settings-record-list"><?php foreach ($publicationDeliveries as $delivery):
+    $deliveryStatus = (string)($delivery['status'] ?? 'pending');
+    $lastError = trim((string)($delivery['last_error'] ?? ''));
+  ?>
+    <article class="settings-history-record">
+      <div class="settings-record-cell"><strong><?= htmlspecialchars(ucfirst((string)($delivery['event_type'] ?? 'publication')) . ' post #' . (int)($delivery['post_id'] ?? 0), ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)($delivery['inbox_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></div>
+      <div class="settings-record-cell"><span class="static-pill <?= $deliveryStatus === 'delivered' ? 'generated' : ($deliveryStatus === 'dead' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper($deliveryStatus), ENT_QUOTES, 'UTF-8') ?></span><small>Attempts: <?= (int)($delivery['attempt_count'] ?? 0) ?><?php if ((int)($delivery['http_status'] ?? 0) > 0): ?> · HTTP <?= (int)$delivery['http_status'] ?><?php endif; ?></small></div>
+      <div class="settings-record-cell"><?php if ($lastError !== ''): ?><small><?= htmlspecialchars($lastError, ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?><?php if (in_array($deliveryStatus, ['retry', 'dead'], true)): ?><form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="retry_publication"><input type="hidden" name="delivery_id" value="<?= (int)$delivery['id'] ?>"><button type="submit" class="button-link secondary">Retry safely</button></form><?php endif; ?></div>
     </article>
   <?php endforeach; ?></div><?php endif; ?>
 </section>

@@ -1,11 +1,15 @@
 <?php
 
+require_once __DIR__ . '/activitypub-security.php';
+require_once __DIR__ . '/activitypub-serialization.php';
+require_once __DIR__ . '/activitypub-delivery.php';
+
 /**
  * ActivityPub foundation.
  *
- * Stage 1 exposes no protocol routes and performs no network activity. These
- * helpers provide a default-off capability boundary, encrypted signing-key
- * storage, and a durable record of completed local publication transitions.
+ * These helpers provide the default-off capability boundary, encrypted
+ * signing-key storage, and durable local federation state. Remote publication
+ * delivery remains isolated in the scheduled worker.
  */
 
 function bms_activitypub_enabled(): bool
@@ -97,7 +101,7 @@ function bms_activitypub_system_check_items(): array
         ['label' => 'ActivityPub WebFinger routing', 'status' => !empty($routing['ok']) ? 'pass' : 'fail', 'message' => (string)$routing['message']],
         ['label' => 'ActivityPub owner identity', 'status' => is_array($owner) ? 'pass' : 'fail', 'message' => is_array($owner) ? 'The public Admin profile is available as the stable site actor.' : 'ActivityPub requires an active Admin account with a public Profile.'],
         ['label' => 'ActivityPub cryptography', 'status' => $openssl && strlen($salt) >= 32 ? 'pass' : 'fail', 'message' => $openssl && strlen($salt) >= 32 ? 'OpenSSL and the installation secret are available for protected signing keys.' : 'ActivityPub requires OpenSSL and a high-entropy installation security salt.'],
-        ['label' => 'ActivityPub signing identity', 'status' => is_array($signingKey) ? 'pass' : 'warn', 'message' => is_array($signingKey) ? 'An active public signing key is available for the owner actor.' : 'No signing key is active yet. Read-only discovery works, but signed federation will require explicit key provisioning before Stage 3.'],
+        ['label' => 'ActivityPub signing identity', 'status' => is_array($signingKey) ? 'pass' : 'warn', 'message' => is_array($signingKey) ? 'An active public signing key is available for the owner actor.' : 'No signing key is active yet. Discovery remains available, but inbox responses and publication deliveries will wait without claiming work.'],
         ['label' => 'ActivityPub outbound HTTP', 'status' => function_exists('curl_init') ? 'pass' : 'fail', 'message' => function_exists('curl_init') ? 'PHP cURL is available for signed federation requests.' : 'ActivityPub requires PHP cURL for outbound federation requests.'],
         ['label' => 'ActivityPub scheduled delivery', 'status' => !empty($runner['ok']) ? 'pass' : 'warn', 'message' => (string)$runner['message']],
     ];
@@ -286,19 +290,7 @@ function bms_activitypub_record_publication_transition(array $transition): void
     if (!bms_activitypub_enabled() || (string)($transition['post_type'] ?? '') !== 'stream') {
         return;
     }
-    $state = json_encode(['before' => $transition['before'] ?? null, 'after' => $transition['after'] ?? null], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (:post_id, :event_type, :source, :content_hash, :state_json, :status, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
-    $stmt->execute([
-        'post_id' => (int)($transition['post_id'] ?? 0) > 0 ? (int)$transition['post_id'] : null,
-        'event_type' => (string)($transition['event_type'] ?? ''),
-        'source' => (string)($transition['source'] ?? 'application'),
-        'content_hash' => (string)($transition['content_hash'] ?? ''),
-        'state_json' => is_string($state) ? $state : '{}',
-        // Stage 1 and Stage 2 only observe completed local publications. A
-        // future delivery worker must never interpret these historical rows
-        // as unsent federation work.
-        'status' => 'observed',
-    ]);
+    bms_activitypub_record_actionable_publication_transition($transition);
 }
 
 bms_register_publication_transition_handler('activitypub', 'bms_activitypub_record_publication_transition');

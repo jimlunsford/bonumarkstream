@@ -796,7 +796,7 @@ function bms_activitypub_verify_http_signature(array $request, string $publicKey
     return bms_activitypub_verify_legacy_http_signature($request, $publicKeyPem, $now);
 }
 
-function bms_activitypub_sign_outbound_request(string $method, string $url, string $body, array $key): array
+function bms_activitypub_sign_outbound_request(string $method, string $url, string $body, array $key, string $format = 'legacy'): array
 {
     $parts = parse_url($url);
     if (!is_array($parts) || trim((string)($parts['host'] ?? '')) === '') {
@@ -810,7 +810,38 @@ function bms_activitypub_sign_outbound_request(string $method, string $url, stri
     if (isset($parts['query'])) {
         $target .= '?' . (string)$parts['query'];
     }
+    $format = strtolower(trim($format));
+    if (!in_array($format, ['legacy', 'rfc9421'], true)) {
+        throw new InvalidArgumentException('The outbound HTTP signature format is unsupported.');
+    }
     $date = gmdate('D, d M Y H:i:s') . ' GMT';
+    $contentType = 'application/activity+json';
+    $keyId = bms_activitypub_actor_url() . '#main-key';
+    if ($format === 'rfc9421') {
+        $targetUri = 'https://' . $host . ($target !== '' ? $target : '/');
+        $contentDigest = 'sha-256=:' . base64_encode(hash('sha256', $body, true)) . ':';
+        $created = time();
+        $components = '"@method" "@target-uri" "content-digest" "content-type"';
+        $signatureParams = '(' . $components . ');created=' . $created . ';keyid="' . addcslashes($keyId, "\\\"") . '";alg="rsa-v1_5-sha256"';
+        $signing = '"@method": ' . strtoupper($method)
+            . "\n\"@target-uri\": " . $targetUri
+            . "\n\"content-digest\": " . $contentDigest
+            . "\n\"content-type\": " . $contentType
+            . "\n\"@signature-params\": " . $signatureParams;
+        $signature = '';
+        if (!openssl_sign($signing, $signature, (string)($key['private_key_pem'] ?? ''), OPENSSL_ALGO_SHA256)) {
+            throw new RuntimeException('The federation request could not be signed with an HTTP message signature.');
+        }
+        return [
+            'Host: ' . $host,
+            'Date: ' . $date,
+            'Content-Digest: ' . $contentDigest,
+            'Content-Type: ' . $contentType,
+            'Accept: application/activity+json, application/ld+json',
+            'Signature-Input: sig1=' . $signatureParams,
+            'Signature: sig1=:' . base64_encode($signature) . ':',
+        ];
+    }
     $digest = 'SHA-256=' . base64_encode(hash('sha256', $body, true));
     $headersList = '(request-target) host date digest';
     $signing = '(request-target): ' . strtolower($method) . ' ' . $target
@@ -823,8 +854,8 @@ function bms_activitypub_sign_outbound_request(string $method, string $url, stri
         'Host: ' . $host,
         'Date: ' . $date,
         'Digest: ' . $digest,
-        'Content-Type: application/activity+json',
+        'Content-Type: ' . $contentType,
         'Accept: application/activity+json, application/ld+json',
-        'Signature: keyId="' . bms_activitypub_actor_url() . '#main-key",algorithm="rsa-sha256",headers="' . $headersList . '",signature="' . base64_encode($signature) . '"',
+        'Signature: keyId="' . $keyId . '",algorithm="rsa-sha256",headers="' . $headersList . '",signature="' . base64_encode($signature) . '"',
     ];
 }
