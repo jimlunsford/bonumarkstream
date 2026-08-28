@@ -41,8 +41,19 @@ function bms_publication_state(?array $content): ?array
         $frontMatter = [];
     }
     $contentHash = strtolower(trim((string)($content['content_hash'] ?? '')));
-    if (preg_match('/^[a-f0-9]{64}$/', $contentHash) !== 1) {
-        $body = (string)($content['content_body'] ?? $content['body'] ?? $content['raw'] ?? '');
+    $hasMaterialContent = array_key_exists('content_body', $content) || array_key_exists('body', $content);
+    if ($hasMaterialContent) {
+        $body = str_replace(["\r\n", "\r"], "\n", (string)($content['content_body'] ?? $content['body'] ?? ''));
+        $featured = (string)($content['featured_media'] ?? $frontMatter['featured_media'] ?? '');
+        $gallery = bms_normalize_media_gallery($content['media_gallery'] ?? $frontMatter['media_gallery'] ?? [], $featured);
+        $material = json_encode([
+            'body' => $body,
+            'featured_media' => $featured,
+            'media_gallery' => $gallery,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $contentHash = hash('sha256', is_string($material) ? $material : $body);
+    } elseif (preg_match('/^[a-f0-9]{64}$/', $contentHash) !== 1) {
+        $body = (string)($content['raw'] ?? '');
         $encodedFrontMatter = json_encode($frontMatter, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $contentHash = hash('sha256', $body . "\n" . (is_string($encodedFrontMatter) ? $encodedFrontMatter : ''));
     }

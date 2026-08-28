@@ -841,6 +841,37 @@ function bms_api_smoke_verify_activitypub_publication(): void
         throw new RuntimeException('Scheduled federation ran before due or failed to create exactly one Create when published.');
     }
 
+    $eventsBeforeRemoteApi = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+    $tokenData = bms_api_create_token('Stage 4 publish token', ['status:read', 'stream:draft', 'stream:publish'], null, 1);
+    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . (string)$tokenData['plain_token'];
+    $token = bms_api_authenticate(['stream:draft', 'stream:publish']);
+    $remotePost = bms_api_create_remote_stream_post([
+        'content' => 'Remote API Stage 4 publication.',
+        'status' => 'published',
+        'slug' => 'remote-api-stage4-publication',
+        'confirm_publish' => true,
+    ], $token, 'published');
+    if ((int)($remotePost['post_id'] ?? 0) < 1
+        || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn() !== $eventsBeforeRemoteApi + 1) {
+        throw new RuntimeException('A confirmed Remote API publication did not create exactly one durable Create.');
+    }
+
+    $eventsBeforeImport = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
+    $importItem = bms_import_make_item([
+        'title' => 'Stage 4 imported publication',
+        'slug' => 'stage4-imported-publication',
+        'body' => 'Imported Stage 4 publication.',
+        'status' => 'published',
+        'content_type' => 'stream',
+        'date' => '2026-08-28',
+        'created_at' => '2026-08-28 04:00:00',
+    ]);
+    $importResult = bms_import_commit_items([$importItem->toArray()], 'published', true, 'skip');
+    if ((int)($importResult['published'] ?? 0) !== 1
+        || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn() !== $eventsBeforeImport + 1) {
+        throw new RuntimeException('An imported publication did not create exactly one durable Create.');
+    }
+
     $observed = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, source, content_hash, state_json, status, created_at, processed_at) VALUES (NULL, \'historical\', \'stage2_fixture\', :hash, \'{}\', \'observed\', UTC_TIMESTAMP(), UTC_TIMESTAMP())');
     $observed->execute(['hash' => hash('sha256', 'historical-observed')]);
     $observedId = (int)$pdo->lastInsertId();
