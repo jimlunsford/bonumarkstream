@@ -196,6 +196,42 @@ $legacyBase = '(request-target): post /inbox?delivery=1'
     . "\ndigest: " . (string)$legacyOutbound['digest'];
 bms_ap_security_assert(is_string($legacyRaw) && openssl_verify($legacyBase, $legacyRaw, $publicKey, OPENSSL_ALGO_SHA256) === 1, 'The outbound legacy RSA signature must verify over the deployed federation fields.');
 
+$authorizedFetchUrl = 'https://remote.example/actor';
+$authorizedFetchHeaders = $headerMap(bms_activitypub_sign_outbound_request('GET', $authorizedFetchUrl, '', $outboundKey, 'legacy'));
+$authorizedFetchParams = bms_activitypub_parse_signature_header((string)($authorizedFetchHeaders['signature'] ?? ''));
+$authorizedFetchRaw = base64_decode((string)$authorizedFetchParams['signature'], true);
+$authorizedFetchBase = '(request-target): get /actor'
+    . "\nhost: " . (string)$authorizedFetchHeaders['host']
+    . "\ndate: " . (string)$authorizedFetchHeaders['date'];
+bms_ap_security_assert(!isset($authorizedFetchHeaders['digest']) && !isset($authorizedFetchHeaders['content-type']), 'A signed actor GET must not invent request-body fields.');
+bms_ap_security_assert(is_string($authorizedFetchRaw) && openssl_verify($authorizedFetchBase, $authorizedFetchRaw, $publicKey, OPENSSL_ALGO_SHA256) === 1, 'The authorized-fetch signature must verify over the GET target, host, and date.');
+
+$actorDocument = [
+    'id' => 'https://remote.example/actor',
+    'type' => 'Person',
+    'inbox' => 'https://remote.example/inbox',
+    'publicKey' => ['id' => 'https://remote.example/actor#main-key', 'owner' => 'https://remote.example/actor', 'publicKeyPem' => $publicKey],
+];
+$authorizedFetchCalls = 0;
+$authorizedFetchTransport = static function (array $target, array $request) use (&$authorizedFetchCalls, $actorDocument): array {
+    $authorizedFetchCalls++;
+    $headers = array_values(array_map('strval', (array)($request['headers'] ?? [])));
+    $hasSignature = count(array_filter($headers, static fn(string $header): bool => stripos($header, 'Signature:') === 0)) === 1;
+    if ($authorizedFetchCalls === 1) {
+        bms_ap_security_assert(!$hasSignature, 'Remote actor discovery should try an ordinary public GET first.');
+        return ['status' => 401, 'headers' => ['content-type' => ['application/json']], 'body' => '{"error":"authorized fetch required"}', 'primary_ip' => '93.184.216.34'];
+    }
+    bms_ap_security_assert($hasSignature, 'A 401 actor response should receive one signed GET fallback.');
+    return [
+        'status' => 200,
+        'headers' => ['content-type' => ['application/activity+json']],
+        'body' => json_encode($actorDocument, JSON_UNESCAPED_SLASHES),
+        'primary_ip' => '93.184.216.34',
+    ];
+};
+$authorizedDocument = bms_activitypub_fetch_json($authorizedFetchUrl, $authorizedFetchTransport, $publicResolver, $outboundKey);
+bms_ap_security_assert($authorizedFetchCalls === 2 && (string)($authorizedDocument['document']['id'] ?? '') === $authorizedFetchUrl, 'Authorized actor discovery should return the signed-fetch document after one bounded retry.');
+
 $rfcOutbound = $headerMap(bms_activitypub_sign_outbound_request('POST', $outboundUrl, $outboundPayload, $outboundKey, 'rfc9421'));
 $rfcMetadata = bms_activitypub_parse_rfc9421_signature_input((string)($rfcOutbound['signature-input'] ?? ''));
 $rfcOutboundRequest = [
@@ -209,12 +245,6 @@ $rfcOutboundRaw = bms_activitypub_parse_rfc9421_signature((string)($rfcOutbound[
 bms_ap_security_assert(openssl_verify((string)$rfcBuilt['string'], $rfcOutboundRaw, $publicKey, OPENSSL_ALGO_SHA256) === 1, 'The outbound RFC 9421 signature must verify over the method, target URI, content digest, and content type.');
 bms_activitypub_verify_rfc9421_content_digest($outboundPayload, $rfcOutbound);
 
-$actorDocument = [
-    'id' => 'https://remote.example/actor',
-    'type' => 'Person',
-    'inbox' => 'https://remote.example/inbox',
-    'publicKey' => ['id' => 'https://remote.example/actor#main-key', 'owner' => 'https://remote.example/actor', 'publicKeyPem' => $publicKey],
-];
 $actor = bms_activitypub_validate_remote_actor_document($actorDocument, 'https://remote.example/actor', $publicResolver);
 bms_ap_security_assert((string)$actor['key_owner_uri'] === (string)$actor['actor_uri'], 'The actor and key owner should match.');
 $spoofedOwner = $actorDocument;
