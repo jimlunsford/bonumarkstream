@@ -49,10 +49,11 @@ function bms_activitypub_record_permalink_alias(PDO $pdo, int $postId, string $p
 
 function bms_activitypub_permalink_alias_target(string $slug): string
 {
-    $slug = bms_slugify($slug);
+    $slug = trim($slug);
     if ($slug === '' || !bms_is_installed()) {
         return '';
     }
+    $slug = bms_slugify($slug);
 
     try {
         $pdo = bms_db();
@@ -61,8 +62,12 @@ function bms_activitypub_permalink_alias_target(string $slug): string
         }
         $stmt = $pdo->prepare('SELECT p.slug FROM ' . bms_table('activitypub_permalink_aliases') . ' a INNER JOIN ' . bms_table('posts') . " p ON p.id = a.post_id WHERE a.slug = :slug AND p.post_type = 'stream' AND p.status = 'published' LIMIT 1");
         $stmt->execute(['slug' => $slug]);
-        $currentSlug = bms_slugify((string)($stmt->fetchColumn() ?: ''));
-        if ($currentSlug === '' || $currentSlug === $slug) {
+        $currentSlug = trim((string)($stmt->fetchColumn() ?: ''));
+        if ($currentSlug === '') {
+            return '';
+        }
+        $currentSlug = bms_slugify($currentSlug);
+        if ($currentSlug === $slug) {
             return '';
         }
         return bms_stream_url($currentSlug);
