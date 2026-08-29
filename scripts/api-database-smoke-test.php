@@ -820,8 +820,21 @@ function bms_api_smoke_verify_activitypub_publication(): void
     if (bms_upsert_database_content($renamed, 'published', 'federated-lifecycle-renamed.md', 1) !== $postId) {
         throw new RuntimeException('A federated slug update changed the durable post identity.');
     }
+    $aliasCount = (int)$pdo->query("SELECT COUNT(*) FROM " . bms_table('activitypub_permalink_aliases') . " WHERE post_id = " . $postId . " AND slug = 'federated-lifecycle-post'")->fetchColumn();
+    if ($aliasCount !== 1
+        || bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== bms_stream_url('federated-lifecycle-renamed')
+        || bms_database_slug_exists('federated-lifecycle-post', 'federated-lifecycle-renamed', 'stream')
+        || !bms_database_slug_exists('federated-lifecycle-post', 'unrelated-current-slug', 'stream')) {
+        throw new RuntimeException('A federated slug update did not preserve and reserve its prior public permalink.');
+    }
     $unpublished = bms_unpublish_file('federated-lifecycle-renamed.md');
+    if (bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== '') {
+        throw new RuntimeException('An unpublished federated post remained reachable through its prior permalink.');
+    }
     $republished = bms_publish_file((string)$unpublished['filename']);
+    if (bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== bms_stream_url('federated-lifecycle-renamed')) {
+        throw new RuntimeException('A republished federated post did not restore its prior permalink redirect.');
+    }
     bms_delete_content_file('published', (string)$republished['filename']);
     $trash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
     if (!is_array($trash)) {

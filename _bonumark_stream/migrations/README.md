@@ -10,3 +10,4 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0014_local_places.php` creates the private Local Places directory used for nearby matching and post check-ins.
 - `0016_profile_featured_work.php` adds ordered semantic featured-work JSON to Profile identity records for deliberate Stream post, Page, or external-link curation.
 - `0017_profile_photos.php` adds ordered Profile-owned photo JSON for up to four identity photos with alt text and captions.
+- `0023_activitypub_permalink_aliases.php` preserves prior federated Stream slugs as durable redirects to the current published permalink.

@@ -384,6 +384,13 @@ function bms_handle_stream_route(): void
             $page = bms_find_database_content_by_slug_status($slug, 'published', 'stream');
         }
         if (!$page) {
+            $aliasTarget = function_exists('bms_activitypub_permalink_alias_target')
+                ? bms_activitypub_permalink_alias_target($slug)
+                : '';
+            if ($aliasTarget !== '') {
+                http_response_code(301);
+                bms_redirect($aliasTarget);
+            }
             http_response_code(404);
             echo bms_render_public_theme_template('empty', [
                 'context' => 'stream-single',

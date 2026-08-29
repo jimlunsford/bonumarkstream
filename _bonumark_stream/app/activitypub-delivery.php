@@ -34,6 +34,43 @@ function bms_activitypub_local_object(int $postId): ?array
     return is_array($row) ? $row : null;
 }
 
+function bms_activitypub_record_permalink_alias(PDO $pdo, int $postId, string $previousSlug, string $currentSlug): void
+{
+    $previousSlug = bms_slugify($previousSlug);
+    $currentSlug = bms_slugify($currentSlug);
+    if ($postId < 1 || $previousSlug === '' || $currentSlug === '' || $previousSlug === $currentSlug
+        || !bms_database_table_exists($pdo, bms_table('activitypub_permalink_aliases'))) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_permalink_aliases') . ' (post_id, slug, created_at) VALUES (:post_id, :slug, UTC_TIMESTAMP())');
+    $stmt->execute(['post_id' => $postId, 'slug' => $previousSlug]);
+}
+
+function bms_activitypub_permalink_alias_target(string $slug): string
+{
+    $slug = bms_slugify($slug);
+    if ($slug === '' || !bms_is_installed()) {
+        return '';
+    }
+
+    try {
+        $pdo = bms_db();
+        if (!bms_database_table_exists($pdo, bms_table('activitypub_permalink_aliases'))) {
+            return '';
+        }
+        $stmt = $pdo->prepare('SELECT p.slug FROM ' . bms_table('activitypub_permalink_aliases') . ' a INNER JOIN ' . bms_table('posts') . " p ON p.id = a.post_id WHERE a.slug = :slug AND p.post_type = 'stream' AND p.status = 'published' LIMIT 1");
+        $stmt->execute(['slug' => $slug]);
+        $currentSlug = bms_slugify((string)($stmt->fetchColumn() ?: ''));
+        if ($currentSlug === '' || $currentSlug === $slug) {
+            return '';
+        }
+        return bms_stream_url($currentSlug);
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
 function bms_activitypub_local_tombstone_document(array $localObject, bool $includeContext = true): array
 {
     $document = [
@@ -162,6 +199,19 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
         $localObject = $selectObject->fetch();
         if (!is_array($localObject)) {
             throw new RuntimeException('The durable ActivityPub object identity could not be established.');
+        }
+
+        $beforeState = is_array($transition['before'] ?? null) ? $transition['before'] : [];
+        $afterState = is_array($transition['after'] ?? null) ? $transition['after'] : [];
+        if ((int)($localObject['publication_generation'] ?? 0) > 0
+            && (string)($beforeState['status'] ?? '') === 'published'
+            && (string)($afterState['status'] ?? '') === 'published') {
+            bms_activitypub_record_permalink_alias(
+                $pdo,
+                $postId,
+                (string)($beforeState['slug'] ?? ''),
+                (string)($afterState['slug'] ?? '')
+            );
         }
 
         $state = json_encode(['before' => $transition['before'] ?? null, 'after' => $transition['after'] ?? null], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

@@ -896,9 +896,31 @@ function bms_database_slug_exists(string $slug, string $currentSlug = '', string
             $sql .= ' AND post_type = :post_type';
             $params['post_type'] = $postType;
         }
-        $stmt = bms_db()->prepare($sql);
+        $pdo = bms_db();
+        $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        return (int)$stmt->fetchColumn() > 0;
+        if ((int)$stmt->fetchColumn() > 0) {
+            return true;
+        }
+        if ($postType !== 'stream' || !bms_database_table_exists($pdo, bms_table('activitypub_permalink_aliases'))) {
+            return false;
+        }
+
+        $currentPostId = 0;
+        if ($currentSlug !== '') {
+            $current = $pdo->prepare('SELECT id FROM ' . bms_table('posts') . ' WHERE slug = :slug AND post_type = :post_type LIMIT 1');
+            $current->execute(['slug' => $currentSlug, 'post_type' => 'stream']);
+            $currentPostId = max(0, (int)($current->fetchColumn() ?: 0));
+        }
+        $aliasSql = 'SELECT COUNT(*) FROM ' . bms_table('activitypub_permalink_aliases') . ' WHERE slug = :slug';
+        $aliasParams = ['slug' => $slug];
+        if ($currentPostId > 0) {
+            $aliasSql .= ' AND post_id <> :post_id';
+            $aliasParams['post_id'] = $currentPostId;
+        }
+        $alias = $pdo->prepare($aliasSql);
+        $alias->execute($aliasParams);
+        return (int)$alias->fetchColumn() > 0;
     } catch (Throwable $e) {
         return false;
     }

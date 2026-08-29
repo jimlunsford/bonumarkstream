@@ -2047,10 +2047,15 @@ foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publicat
 
 $activityPubDelivery = @file_get_contents($root . '/_bonumark_stream/app/activitypub-delivery.php') ?: '';
 $activityPubDeliveryMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0022_activitypub_publication_delivery.php') ?: '';
+$activityPubPermalinkMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0023_activitypub_permalink_aliases.php') ?: '';
+$publicRoutesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
 if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
     || !str_contains($activityPubDelivery, 'bms_activitypub_queue_publication_fanout')
-    || !str_contains($activityPubDeliveryMigration, 'transition_fingerprint')) {
+    || !str_contains($activityPubDeliveryMigration, 'transition_fingerprint')
+    || !str_contains($activityPubPermalinkMigration, 'activitypub_permalink_aliases')
+    || !str_contains($activityPubDelivery, 'function bms_activitypub_permalink_alias_target')
+    || !str_contains($publicRoutesSource, 'bms_activitypub_permalink_alias_target')) {
     $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
 }
 
