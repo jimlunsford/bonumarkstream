@@ -127,6 +127,7 @@ bms_activitypub_read_only_assert(isset($actor['publicKey']['publicKeyPem']) && !
 
 $object = bms_activitypub_post_object($post, $baseUrl);
 bms_activitypub_read_only_assert(($object['id'] ?? '') === 'https://stream.example/activitypub/objects/42', 'A post object must use its stable numeric database identity.');
+bms_activitypub_read_only_assert(bms_activitypub_generation_object_url(42, 2, $baseUrl) === 'https://stream.example/activitypub/objects/42/generations/2', 'Later publication generations must use deterministic generation-aware object identities.');
 bms_activitypub_read_only_assert(($object['url'] ?? '') === 'https://stream.example/stream/hello-fediverse/', 'A post object must preserve the human-facing Stream Post URL.');
 bms_activitypub_read_only_assert(($object['attributedTo'] ?? '') === 'https://stream.example/activitypub/actor', 'A post object must be attributed to the site owner actor.');
 bms_activitypub_read_only_assert(($object['published'] ?? '') === '2026-08-27T12:30:00Z', 'Published timestamps must be canonical UTC ActivityStreams values.');

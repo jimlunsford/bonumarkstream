@@ -2048,12 +2048,15 @@ foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publicat
 $activityPubDelivery = @file_get_contents($root . '/_bonumark_stream/app/activitypub-delivery.php') ?: '';
 $activityPubDeliveryMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0022_activitypub_publication_delivery.php') ?: '';
 $activityPubPermalinkMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0023_activitypub_permalink_aliases.php') ?: '';
+$activityPubGenerationMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0024_activitypub_publication_generations.php') ?: '';
 $publicRoutesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
 if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
     || !str_contains($activityPubDelivery, 'bms_activitypub_queue_publication_fanout')
     || !str_contains($activityPubDeliveryMigration, 'transition_fingerprint')
     || !str_contains($activityPubPermalinkMigration, 'activitypub_permalink_aliases')
+    || !str_contains($activityPubGenerationMigration, 'post_generation')
+    || !str_contains($activityPubDelivery, 'bms_activitypub_highest_publication_generation')
     || !str_contains($activityPubDelivery, 'function bms_activitypub_permalink_alias_target')
     || !str_contains($publicRoutesSource, 'bms_activitypub_permalink_alias_target')) {
     $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
@@ -2076,6 +2079,10 @@ foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'ac
     if (!str_contains($frontController . $apacheRoutes . $nginxRoutes, $activityPubRoute)) {
         bm_smoke_fail($failures, 'ActivityPub routing is incomplete: ' . $activityPubRoute);
     }
+}
+if (!str_contains($apacheRoutes, 'activitypub/objects/([1-9][0-9]*)/generations/([1-9][0-9]*)')
+    || !str_contains($nginxRoutes, 'activitypub/objects/([1-9][0-9]*)/generations/([1-9][0-9]*)')) {
+    bm_smoke_fail($failures, 'ActivityPub generation-aware object routing is incomplete.');
 }
 if (str_contains($activityPubRoutes, 'curl_')
     || !str_contains($activityPubSecurity, 'CURLOPT_RESOLVE')

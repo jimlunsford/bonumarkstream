@@ -28,10 +28,38 @@ function bms_activitypub_local_object(int $postId): ?array
     if ($postId < 1 || !bms_is_installed()) {
         return null;
     }
-    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id LIMIT 1');
+    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id ORDER BY publication_generation DESC, id DESC LIMIT 1');
     $stmt->execute(['post_id' => $postId]);
     $row = $stmt->fetch();
     return is_array($row) ? $row : null;
+}
+
+function bms_activitypub_local_object_generation(int $postId, int $generation): ?array
+{
+    if ($postId < 1 || $generation < 1 || !bms_is_installed()) {
+        return null;
+    }
+    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id AND publication_generation = :generation LIMIT 1');
+    $stmt->execute(['post_id' => $postId, 'generation' => $generation]);
+    $row = $stmt->fetch();
+    return is_array($row) ? $row : null;
+}
+
+function bms_activitypub_highest_publication_generation(PDO $pdo, int $postId): int
+{
+    if ($postId < 1) {
+        return 0;
+    }
+    $local = $pdo->prepare('SELECT COALESCE(MAX(publication_generation), 0) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id');
+    $local->execute(['post_id' => $postId]);
+    $highest = max(0, (int)$local->fetchColumn());
+    $generationColumn = $pdo->query('SHOW COLUMNS FROM ' . bms_table('activitypub_publication_events') . " LIKE 'publication_generation'");
+    if ($generationColumn && $generationColumn->fetch()) {
+        $events = $pdo->prepare("SELECT COALESCE(MAX(publication_generation), 0) FROM " . bms_table('activitypub_publication_events') . " WHERE post_id = :post_id AND status <> 'observed'");
+        $events->execute(['post_id' => $postId]);
+        $highest = max($highest, (int)$events->fetchColumn());
+    }
+    return $highest;
 }
 
 function bms_activitypub_record_permalink_alias(PDO $pdo, int $postId, string $previousSlug, string $currentSlug): void
@@ -159,7 +187,7 @@ function bms_activitypub_publication_targets(): array
     return array_values($groups);
 }
 
-function bms_activitypub_queue_publication_fanout(int $eventId, string $activityUri, string $payload): int
+function bms_activitypub_queue_publication_fanout(int $eventId, int $generation, string $objectUri, string $activityUri, string $payload): int
 {
     $count = 0;
     foreach (bms_activitypub_publication_targets() as $target) {
@@ -168,9 +196,11 @@ function bms_activitypub_queue_publication_fanout(int $eventId, string $activity
         $actorJson = json_encode($actorIds, JSON_UNESCAPED_SLASHES);
         $inboxUrl = (string)$target['inbox_url'];
         $dedupeKey = hash('sha256', "publication\n" . $eventId . "\n" . $inboxUrl);
-        $stmt = bms_db()->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_deliveries') . ' (delivery_type, event_id, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES (\'publication\', :event_id, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, :signature_mode, \'pending\', 0, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+        $stmt = bms_db()->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_deliveries') . ' (delivery_type, event_id, publication_generation, object_uri, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES (\'publication\', :event_id, :generation, :object_uri, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, :signature_mode, \'pending\', 0, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
         $stmt->execute([
             'event_id' => $eventId,
+            'generation' => $generation,
+            'object_uri' => $objectUri,
             'activity_uri' => $activityUri,
             'payload_json' => $payload,
             'dedupe_key' => $dedupeKey,
@@ -197,18 +227,15 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
         $pdo->beginTransaction();
     }
     try {
-        $insertObject = $pdo->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (:post_id, :object_uri, \'Note\', \'\', NULL, NULL, 0, 0, NULL, UTC_TIMESTAMP(), NULL, UTC_TIMESTAMP())');
-        $insertObject->execute(['post_id' => $postId, 'object_uri' => bms_activitypub_object_url($postId)]);
-        $selectObject = $pdo->prepare('SELECT * FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id FOR UPDATE');
+        $selectObject = $pdo->prepare('SELECT * FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id ORDER BY publication_generation DESC, id DESC LIMIT 1 FOR UPDATE');
         $selectObject->execute(['post_id' => $postId]);
         $localObject = $selectObject->fetch();
-        if (!is_array($localObject)) {
-            throw new RuntimeException('The durable ActivityPub object identity could not be established.');
-        }
+        $localObject = is_array($localObject) ? $localObject : null;
+        $highestGeneration = bms_activitypub_highest_publication_generation($pdo, $postId);
 
         $beforeState = is_array($transition['before'] ?? null) ? $transition['before'] : [];
         $afterState = is_array($transition['after'] ?? null) ? $transition['after'] : [];
-        if ((int)($localObject['publication_generation'] ?? 0) > 0
+        if ($highestGeneration > 0
             && (string)($beforeState['status'] ?? '') === 'published'
             && (string)($afterState['status'] ?? '') === 'published') {
             bms_activitypub_record_permalink_alias(
@@ -219,13 +246,30 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
             );
         }
 
+        if ($activityType === 'Delete' && is_array($localObject) && trim((string)($localObject['deleted_at'] ?? '')) !== '') {
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+            return;
+        }
+
+        $effectiveActivityType = $activityType;
+        if ($activityType === 'Update' && (!is_array($localObject) || trim((string)($localObject['deleted_at'] ?? '')) !== '')) {
+            $effectiveActivityType = 'Create';
+        }
+        if ($effectiveActivityType === 'Create' && is_array($localObject) && trim((string)($localObject['deleted_at'] ?? '')) === '') {
+            throw new RuntimeException('A live ActivityPub publication generation cannot be replaced without Delete.');
+        }
+        $recordedEventType = $effectiveActivityType === 'Create'
+            ? 'published'
+            : (string)$transition['event_type'];
         $state = json_encode(['before' => $transition['before'] ?? null, 'after' => $transition['after'] ?? null], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $state = is_string($state) ? $state : '{}';
         $latest = $pdo->prepare("SELECT event_type, content_hash, state_json FROM " . bms_table('activitypub_publication_events') . " WHERE post_id = :post_id AND status <> 'observed' ORDER BY id DESC LIMIT 1");
         $latest->execute(['post_id' => $postId]);
         $previous = $latest->fetch();
         if (is_array($previous)
-            && hash_equals((string)$previous['event_type'], (string)$transition['event_type'])
+            && hash_equals((string)$previous['event_type'], $recordedEventType)
             && hash_equals((string)$previous['content_hash'], (string)($transition['content_hash'] ?? ''))
             && hash_equals((string)$previous['state_json'], $state)) {
             if ($ownsTransaction) {
@@ -234,30 +278,72 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
             return;
         }
 
-        $snapshot = json_decode((string)($localObject['last_object_json'] ?? ''), true, bms_activitypub_json_max_depth());
-        if ($activityType !== 'Delete' || !is_array($snapshot)) {
+        if ($effectiveActivityType === 'Create') {
+            $generation = $highestGeneration + 1;
+        } elseif (is_array($localObject)) {
+            $generation = max(1, (int)($localObject['publication_generation'] ?? 1));
+        } else {
+            $generation = max(1, $highestGeneration);
+        }
+        $objectUri = $effectiveActivityType === 'Create' || !is_array($localObject)
+            ? bms_activitypub_generation_object_url($postId, $generation)
+            : trim((string)$localObject['object_uri']);
+        if ($objectUri === '') {
+            throw new RuntimeException('The durable ActivityPub generation has no object URI.');
+        }
+
+        $snapshot = is_array($localObject)
+            ? json_decode((string)($localObject['last_object_json'] ?? ''), true, bms_activitypub_json_max_depth())
+            : null;
+        if ($effectiveActivityType !== 'Delete' || !is_array($snapshot)) {
             if (!is_array($page)) {
                 throw new RuntimeException('The local post snapshot is unavailable for federation.');
             }
-            $snapshot = bms_activitypub_post_object($page, null, false);
+            $snapshot = bms_activitypub_post_object(array_replace($page, [
+                'activitypub_object_uri' => $objectUri,
+                'activitypub_publication_generation' => $generation,
+            ]), null, false);
         }
-        $generation = (int)($localObject['publication_generation'] ?? 0) + ($activityType === 'Create' ? 1 : 0);
-        $sequence = (int)($localObject['transition_sequence'] ?? 0) + 1;
-        $fingerprint = hash('sha256', $postId . "\n" . $sequence . "\n" . $activityType . "\n" . $state);
-        $insertEvent = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, event_type, activity_uri, source, content_hash, state_json, payload_json, transition_fingerprint, status, created_at, processed_at) VALUES (:post_id, :event_type, NULL, :source, :content_hash, :state_json, NULL, :fingerprint, \'recording\', UTC_TIMESTAMP(), NULL)');
+        $snapshot['id'] = $objectUri;
+
+        $sequenceStmt = $pdo->prepare('SELECT COALESCE(MAX(transition_sequence), 0) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = :post_id');
+        $sequenceStmt->execute(['post_id' => $postId]);
+        $sequence = max(0, (int)$sequenceStmt->fetchColumn()) + 1;
+        if ($effectiveActivityType === 'Create' || !is_array($localObject)) {
+            $insertObject = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (:post_id, :object_uri, \'Note\', \'\', NULL, NULL, :generation, :sequence, NULL, UTC_TIMESTAMP(), NULL, UTC_TIMESTAMP())');
+            $insertObject->execute([
+                'post_id' => $postId,
+                'object_uri' => $objectUri,
+                'generation' => $generation,
+                'sequence' => $sequence,
+            ]);
+            $localObject = [
+                'id' => (int)$pdo->lastInsertId(),
+                'post_id' => $postId,
+                'object_uri' => $objectUri,
+                'publication_generation' => $generation,
+                'transition_sequence' => $sequence,
+                'deleted_at' => null,
+            ];
+        }
+
+        $fingerprint = hash('sha256', $postId . "\n" . $generation . "\n" . $sequence . "\n" . $effectiveActivityType . "\n" . $state);
+        $insertEvent = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_publication_events') . ' (post_id, publication_generation, object_uri, event_type, activity_uri, source, content_hash, state_json, payload_json, transition_fingerprint, status, created_at, processed_at) VALUES (:post_id, :generation, :object_uri, :event_type, NULL, :source, :content_hash, :state_json, NULL, :fingerprint, \'recording\', UTC_TIMESTAMP(), NULL)');
         $insertEvent->execute([
             'post_id' => $postId,
-            'event_type' => (string)$transition['event_type'],
+            'generation' => $generation,
+            'object_uri' => $objectUri,
+            'event_type' => $recordedEventType,
             'source' => (string)($transition['source'] ?? 'application'),
             'content_hash' => (string)($transition['content_hash'] ?? ''),
             'state_json' => $state,
             'fingerprint' => $fingerprint,
         ]);
         $eventId = (int)$pdo->lastInsertId();
-        $activityUri = $activityType === 'Create' && $generation === 1 && !is_array($previous)
+        $activityUri = $effectiveActivityType === 'Create' && $generation === 1 && !is_array($previous)
             ? bms_activitypub_create_activity_url($postId)
             : bms_activitypub_event_activity_url($eventId);
-        $document = bms_activitypub_publication_activity($activityType, $snapshot, $activityUri);
+        $document = bms_activitypub_publication_activity($effectiveActivityType, $snapshot, $activityUri);
         $payload = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         if (!is_string($payload)) {
             throw new RuntimeException('The durable publication activity could not be encoded.');
@@ -267,18 +353,17 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
 
         $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         $humanUrl = trim((string)($snapshot['url'] ?? ''));
-        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, publication_generation = :generation, transition_sequence = :sequence, published_at = CASE WHEN :published_activity_type = \'Create\' THEN UTC_TIMESTAMP() ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :deleted_activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
+        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, transition_sequence = :sequence, published_at = CASE WHEN :published_activity_type = \'Create\' THEN UTC_TIMESTAMP() ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :deleted_activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
         $updateObject->execute([
             'content_hash' => (string)($transition['content_hash'] ?? ''),
             'object_json' => is_string($snapshotJson) ? $snapshotJson : null,
             'human_url' => $humanUrl !== '' ? $humanUrl : null,
-            'generation' => $generation,
             'sequence' => $sequence,
-            'published_activity_type' => $activityType,
-            'deleted_activity_type' => $activityType,
+            'published_activity_type' => $effectiveActivityType,
+            'deleted_activity_type' => $effectiveActivityType,
             'id' => (int)$localObject['id'],
         ]);
-        $queued = bms_activitypub_queue_publication_fanout($eventId, $activityUri, $payload);
+        $queued = bms_activitypub_queue_publication_fanout($eventId, $generation, $objectUri, $activityUri, $payload);
         $finish = $pdo->prepare('UPDATE ' . bms_table('activitypub_publication_events') . ' SET status = :status, processed_at = :processed_at WHERE id = :id');
         $finish->execute(['status' => $queued > 0 ? 'queued' : 'completed', 'processed_at' => $queued > 0 ? null : gmdate('Y-m-d H:i:s'), 'id' => $eventId]);
         if ($ownsTransaction) {
@@ -411,9 +496,11 @@ function bms_activitypub_reconcile_publication_delivery_target(array $delivery, 
         $idsJson = json_encode($ids, JSON_UNESCAPED_SLASHES);
         $targetUrl = (string)$group['inbox_url'];
         $dedupeKey = hash('sha256', "publication\n" . (int)$delivery['event_id'] . "\n" . $targetUrl);
-        $insert = bms_db()->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_deliveries') . ' (delivery_type, event_id, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES (\'publication\', :event_id, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, :signature_mode, \'pending\', 0, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+        $insert = bms_db()->prepare('INSERT IGNORE INTO ' . bms_table('activitypub_deliveries') . ' (delivery_type, event_id, publication_generation, object_uri, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES (\'publication\', :event_id, :generation, :object_uri, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, :signature_mode, \'pending\', 0, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
         $insert->execute([
             'event_id' => (int)$delivery['event_id'],
+            'generation' => (int)($delivery['publication_generation'] ?? 0),
+            'object_uri' => (string)($delivery['object_uri'] ?? ''),
             'activity_uri' => (string)$delivery['activity_uri'],
             'payload_json' => (string)$delivery['payload_json'],
             'dedupe_key' => $dedupeKey,
@@ -443,10 +530,32 @@ function bms_activitypub_deliver_publication_row(array $delivery, array $key, ?c
     if ((string)($delivery['delivery_type'] ?? '') !== 'publication' || (int)($delivery['event_id'] ?? 0) < 1) {
         throw new RuntimeException('The publication worker received an isolated non-publication delivery.');
     }
+    $generation = (int)($delivery['publication_generation'] ?? 0);
+    $objectUri = trim((string)($delivery['object_uri'] ?? ''));
+    $event = bms_activitypub_publication_event((int)$delivery['event_id']);
+    if ($generation < 1 || $objectUri === '' || !is_array($event)
+        || (int)($event['publication_generation'] ?? 0) !== $generation
+        || !hash_equals(trim((string)($event['object_uri'] ?? '')), $objectUri)
+        || !hash_equals((string)($event['payload_json'] ?? ''), (string)($delivery['payload_json'] ?? ''))) {
+        throw new RuntimeException('The publication delivery no longer matches its immutable generation event.');
+    }
+    $retiredBeforeEvent = bms_db()->prepare("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE post_id = :post_id AND object_uri = :object_uri AND id < :event_id AND event_type IN ('unpublished', 'deleted') AND status <> 'observed'");
+    $retiredBeforeEvent->execute([
+        'post_id' => (int)($event['post_id'] ?? 0),
+        'object_uri' => $objectUri,
+        'event_id' => (int)$event['id'],
+    ]);
+    if ((int)$retiredBeforeEvent->fetchColumn() > 0) {
+        throw new RuntimeException('The publication delivery targets an ActivityPub object URI that was already retired.');
+    }
     $payload = (string)($delivery['payload_json'] ?? '');
     $document = bms_activitypub_decode_json_document($payload, bms_activitypub_publication_payload_max_bytes());
     if (!in_array((string)($document['type'] ?? ''), ['Create', 'Update', 'Delete'], true)) {
         throw new RuntimeException('Only local publication activities are eligible for publication delivery.');
+    }
+    $payloadObjectUri = trim((string)($document['object']['id'] ?? ''));
+    if ($payloadObjectUri === '' || !hash_equals($objectUri, $payloadObjectUri)) {
+        throw new RuntimeException('The publication delivery payload targets the wrong generation object.');
     }
     $url = trim((string)$delivery['inbox_url']);
     $mode = (string)($delivery['signature_mode'] ?? 'legacy') === 'rfc9421' ? 'rfc9421' : 'legacy';

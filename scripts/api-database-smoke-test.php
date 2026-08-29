@@ -782,11 +782,13 @@ function bms_api_smoke_verify_activitypub_publication(): void
         'stream_created_at' => '2026-08-28 03:00:00',
     ], 'published', 'stream');
     $postId = bms_upsert_database_content($published, 'published', 'federated-lifecycle-post.md', 1);
-    $objectId = bms_activitypub_object_url($postId);
+    $objectId = bms_activitypub_generation_object_url($postId, 1);
     $firstEvent = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' ORDER BY id ASC LIMIT 1')->fetch();
     $firstPayload = is_array($firstEvent) ? json_decode((string)$firstEvent['payload_json'], true) : null;
     $attachments = is_array($firstPayload) ? ($firstPayload['object']['attachment'] ?? []) : [];
-    if (!is_array($firstEvent) || (string)$firstPayload['type'] !== 'Create' || (string)$firstPayload['object']['id'] !== $objectId
+    if (!is_array($firstEvent) || (int)($firstEvent['publication_generation'] ?? 0) !== 1
+        || (string)($firstEvent['object_uri'] ?? '') !== $objectId
+        || (string)$firstPayload['type'] !== 'Create' || (string)$firstPayload['object']['id'] !== $objectId
         || count((array)$attachments) !== 4 || (string)($attachments[0]['name'] ?? '') !== 'Stage 4 alt text 1'
         || (int)($attachments[0]['width'] ?? 0) !== 1001 || (int)($attachments[0]['height'] ?? 0) !== 701) {
         throw new RuntimeException('The first Stage 4 Create did not preserve durable identity and complete media metadata.');
@@ -820,6 +822,14 @@ function bms_api_smoke_verify_activitypub_publication(): void
     if (bms_upsert_database_content($renamed, 'published', 'federated-lifecycle-renamed.md', 1) !== $postId) {
         throw new RuntimeException('A federated slug update changed the durable post identity.');
     }
+    $generationOneUpdate = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $generationOneUpdatePayload = is_array($generationOneUpdate) ? json_decode((string)$generationOneUpdate['payload_json'], true) : null;
+    if (!is_array($generationOneUpdate) || (int)$generationOneUpdate['publication_generation'] !== 1
+        || (string)($generationOneUpdatePayload['type'] ?? '') !== 'Update'
+        || (string)($generationOneUpdatePayload['object']['id'] ?? '') !== $objectId
+        || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = ' . $postId)->fetchColumn() !== 1) {
+        throw new RuntimeException('A published edit or slug change escaped ActivityPub generation 1.');
+    }
     $aliasCount = (int)$pdo->query("SELECT COUNT(*) FROM " . bms_table('activitypub_permalink_aliases') . " WHERE post_id = " . $postId . " AND slug = 'federated-lifecycle-post'")->fetchColumn();
     if ($aliasCount !== 1
         || bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== bms_stream_url('federated-lifecycle-renamed')
@@ -831,10 +841,83 @@ function bms_api_smoke_verify_activitypub_publication(): void
     if (bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== '') {
         throw new RuntimeException('An unpublished federated post remained reachable through its prior permalink.');
     }
+    $generationOneDelete = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $generationOneDeletePayload = is_array($generationOneDelete) ? json_decode((string)$generationOneDelete['payload_json'], true) : null;
+    $generationOneObject = bms_activitypub_local_object_generation($postId, 1);
+    $generationOneTombstone = is_array($generationOneObject) ? bms_activitypub_local_tombstone_document($generationOneObject) : [];
+    if (!is_array($generationOneDelete) || (int)$generationOneDelete['publication_generation'] !== 1
+        || (string)($generationOneDeletePayload['type'] ?? '') !== 'Delete'
+        || (string)($generationOneDeletePayload['object']['id'] ?? '') !== $objectId
+        || !is_array($generationOneObject) || trim((string)($generationOneObject['deleted_at'] ?? '')) === ''
+        || (string)($generationOneTombstone['id'] ?? '') !== $objectId
+        || (string)($generationOneTombstone['type'] ?? '') !== 'Tombstone') {
+        throw new RuntimeException('Delete did not permanently retire ActivityPub generation 1 as a Tombstone.');
+    }
+    $generationOneDeleteDelivery = $pdo->query('SELECT * FROM ' . bms_table('activitypub_deliveries') . ' WHERE event_id = ' . (int)$generationOneDelete['id'] . ' ORDER BY id ASC LIMIT 1')->fetch();
     $republished = bms_publish_file((string)$unpublished['filename']);
     if (bms_activitypub_permalink_alias_target('federated-lifecycle-post') !== bms_stream_url('federated-lifecycle-renamed')) {
         throw new RuntimeException('A republished federated post did not restore its prior permalink redirect.');
     }
+    $objectIdTwo = bms_activitypub_generation_object_url($postId, 2);
+    $generationTwoCreate = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $generationTwoCreatePayload = is_array($generationTwoCreate) ? json_decode((string)$generationTwoCreate['payload_json'], true) : null;
+    $generationTwoObject = bms_activitypub_local_object_generation($postId, 2);
+    if ((int)($republished['post_id'] ?? 0) !== $postId || !is_array($generationTwoCreate)
+        || (int)$generationTwoCreate['publication_generation'] !== 2
+        || (string)($generationTwoCreatePayload['type'] ?? '') !== 'Create'
+        || (string)($generationTwoCreatePayload['object']['id'] ?? '') !== $objectIdTwo
+        || $objectIdTwo === $objectId || !is_array($generationTwoObject)
+        || trim((string)($generationTwoObject['deleted_at'] ?? '')) !== ''
+        || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = ' . $postId)->fetchColumn() !== 2) {
+        throw new RuntimeException('Republish did not create a distinct ActivityPub generation 2 for the same Bonumark post.');
+    }
+    $outboxPosts = bms_activitypub_published_stream_posts(1, 20);
+    $outboxCreate = count($outboxPosts) === 1 ? bms_activitypub_create_activity($outboxPosts[0], null, false) : [];
+    if ((string)($outboxCreate['id'] ?? '') !== (string)$generationTwoCreate['activity_uri']
+        || (string)($outboxCreate['object']['id'] ?? '') !== $objectIdTwo) {
+        throw new RuntimeException('The outbox did not represent the current ActivityPub publication generation.');
+    }
+    $stalePayloads = [];
+    $staleTransport = static function (array $target, array $options) use (&$stalePayloads): array {
+        $stalePayloads[] = json_decode((string)($options['body'] ?? ''), true);
+        return ['status' => 202, 'headers' => [], 'body' => '', 'primary_ip' => '93.184.216.34'];
+    };
+    if (!is_array($generationOneDeleteDelivery)) {
+        throw new RuntimeException('The generation 1 retry fixture did not retain immutable delivery work.');
+    }
+    bms_activitypub_deliver_publication_row($generationOneDeleteDelivery, bms_activitypub_active_signing_key(true), $staleTransport, $resolver);
+    if ((string)($stalePayloads[0]['object']['id'] ?? '') !== $objectId
+        || (string)($stalePayloads[0]['object']['id'] ?? '') === $objectIdTwo) {
+        throw new RuntimeException('A stale generation 1 delivery targeted the current generation.');
+    }
+    $tamperedRetry = array_replace($generationOneDeleteDelivery, [
+        'publication_generation' => 2,
+        'object_uri' => $objectIdTwo,
+    ]);
+    $tamperedRejected = false;
+    try {
+        bms_activitypub_deliver_publication_row($tamperedRetry, bms_activitypub_active_signing_key(true), $staleTransport, $resolver);
+    } catch (RuntimeException $e) {
+        $tamperedRejected = str_contains($e->getMessage(), 'immutable generation event');
+    }
+    if (!$tamperedRejected || count($stalePayloads) !== 1) {
+        throw new RuntimeException('Generation metadata could be changed to retarget stale delivery work.');
+    }
+
+    $generationTwoPage = bms_activitypub_find_stream_post($postId);
+    $generationTwoPage = is_array($generationTwoPage)
+        ? bms_update_stream_post_body($generationTwoPage, 'Generation 2 material update.')
+        : null;
+    $generationTwoUpdate = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $generationTwoUpdatePayload = is_array($generationTwoUpdate) ? json_decode((string)$generationTwoUpdate['payload_json'], true) : null;
+    if (!is_array($generationTwoPage) || !is_array($generationTwoUpdate)
+        || (int)$generationTwoUpdate['publication_generation'] !== 2
+        || (string)($generationTwoUpdatePayload['type'] ?? '') !== 'Update'
+        || (string)($generationTwoUpdatePayload['object']['id'] ?? '') !== $objectIdTwo
+        || trim((string)((bms_activitypub_local_object_generation($postId, 1)['deleted_at'] ?? ''))) === '') {
+        throw new RuntimeException('An edit after republish did not update generation 2 exclusively.');
+    }
+
     bms_delete_content_file('published', (string)$republished['filename']);
     $trash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
     if (!is_array($trash)) {
@@ -844,13 +927,42 @@ function bms_api_smoke_verify_activitypub_publication(): void
     if ((int)($restored['post_id'] ?? 0) !== $postId || (string)($restored['restored_status'] ?? '') !== 'published') {
         throw new RuntimeException('A federated restore did not reuse the true local object identity.');
     }
+    $objectIdThree = bms_activitypub_generation_object_url($postId, 3);
+    $generationThreeCreate = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $generationThreePayload = is_array($generationThreeCreate) ? json_decode((string)$generationThreeCreate['payload_json'], true) : null;
+    if (!is_array($generationThreeCreate) || (int)$generationThreeCreate['publication_generation'] !== 3
+        || (string)($generationThreePayload['type'] ?? '') !== 'Create'
+        || (string)($generationThreePayload['object']['id'] ?? '') !== $objectIdThree
+        || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = ' . $postId)->fetchColumn() !== 3) {
+        throw new RuntimeException('A second Delete and republish cycle did not create generation 3.');
+    }
     bms_delete_content_file('published', (string)$restored['filename']);
     $finalTrash = $pdo->query('SELECT * FROM ' . bms_table('trash') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
+    $history = $pdo->query('SELECT publication_generation, object_uri, event_type, payload_json FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . " AND status <> 'observed' ORDER BY id")->fetchAll();
+    $historyCounts = [];
+    foreach ($history as $historyEvent) {
+        $historyGeneration = (int)($historyEvent['publication_generation'] ?? 0);
+        $historyObjectUri = (string)($historyEvent['object_uri'] ?? '');
+        $historyPayload = json_decode((string)($historyEvent['payload_json'] ?? ''), true);
+        $expectedHistoryUri = bms_activitypub_generation_object_url($postId, $historyGeneration);
+        if ($historyGeneration < 1 || $historyObjectUri !== $expectedHistoryUri
+            || (string)($historyPayload['object']['id'] ?? '') !== $expectedHistoryUri) {
+            throw new RuntimeException('Immutable ActivityPub history crossed publication generation identities.');
+        }
+        $historyKey = $historyGeneration . ':' . (string)$historyEvent['event_type'];
+        $historyCounts[$historyKey] = ($historyCounts[$historyKey] ?? 0) + 1;
+    }
+    foreach ([1, 2, 3] as $historyGeneration) {
+        if (($historyCounts[$historyGeneration . ':published'] ?? 0) !== 1
+            || ($historyCounts[$historyGeneration . ':unpublished'] ?? 0) + ($historyCounts[$historyGeneration . ':deleted'] ?? 0) !== 1) {
+            throw new RuntimeException('ActivityPub history did not preserve exactly one Create and one Delete for generation ' . $historyGeneration . '.');
+        }
+    }
     $eventsBeforePermanentDelete = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
     bms_delete_trash_item_permanently((int)$finalTrash['id']);
     $eventsAfterPermanentDelete = (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
     $tombstone = bms_activitypub_local_object($postId);
-    if ($eventsBeforePermanentDelete !== $eventsAfterPermanentDelete || !is_array($tombstone) || (string)$tombstone['object_uri'] !== $objectId || trim((string)$tombstone['deleted_at']) === '') {
+    if ($eventsBeforePermanentDelete !== $eventsAfterPermanentDelete || !is_array($tombstone) || (string)$tombstone['object_uri'] !== $objectIdThree || trim((string)$tombstone['deleted_at']) === '') {
         throw new RuntimeException('Permanent deletion duplicated Delete or lost the durable tombstone.');
     }
 
@@ -1160,6 +1272,12 @@ function bms_api_smoke_activitypub_route_responses(string $root): void
     if ($root === '' || !is_file($root . '/index.php')) {
         throw new RuntimeException('The temporary route-test installation is unavailable.');
     }
+    $tombstoneInsert = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (998, :object_uri, \'Note\', \'\', NULL, NULL, 1, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $tombstoneInsert->execute(['object_uri' => bms_activitypub_generation_object_url(998, 1)]);
+    $activeGenerationUri = bms_activitypub_generation_object_url(997, 2);
+    $activeGenerationObject = json_encode(['id' => $activeGenerationUri, 'type' => 'Note', 'content' => '<p>Active generation fixture.</p>'], JSON_UNESCAPED_SLASHES);
+    $activeInsert = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (997, :object_uri, \'Note\', :content_hash, :object_json, NULL, 2, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, UTC_TIMESTAMP())');
+    $activeInsert->execute(['object_uri' => $activeGenerationUri, 'content_hash' => hash('sha256', 'active-generation-fixture'), 'object_json' => $activeGenerationObject]);
     $port = random_int(43100, 43999);
     $log = $root . '/activitypub-route-server.log';
     $command = [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $root, $root . '/index.php'];
@@ -1234,6 +1352,18 @@ function bms_api_smoke_activitypub_route_responses(string $root): void
         $unpublished = bms_api_smoke_http_request($base . 'activitypub_object&post_id=999', 'GET', ['Accept: application/activity+json']);
         if ((int)$unpublished['status'] !== 404) {
             throw new RuntimeException('An unpublished or missing object was exposed.');
+        }
+        $tombstone = bms_api_smoke_http_request($base . 'activitypub_object&post_id=998', 'GET', ['Accept: application/activity+json']);
+        $tombstoneDocument = json_decode((string)$tombstone['body'], true);
+        if ((int)$tombstone['status'] !== 410 || (string)($tombstoneDocument['type'] ?? '') !== 'Tombstone'
+            || (string)($tombstoneDocument['id'] ?? '') !== bms_activitypub_generation_object_url(998, 1)) {
+            throw new RuntimeException('A retired publication generation did not dereference as a Tombstone with HTTP 410.');
+        }
+        $activeGeneration = bms_api_smoke_http_request($base . 'activitypub_object&post_id=997&generation=2', 'GET', ['Accept: application/activity+json']);
+        $activeGenerationDocument = json_decode((string)$activeGeneration['body'], true);
+        if ((int)$activeGeneration['status'] !== 200 || (string)($activeGenerationDocument['type'] ?? '') !== 'Note'
+            || (string)($activeGenerationDocument['id'] ?? '') !== $activeGenerationUri) {
+            throw new RuntimeException('An active later publication generation was not dereferenceable by its generation-aware URI.');
         }
 
         bms_api_smoke_set_setting('activitypub_enabled', '0');

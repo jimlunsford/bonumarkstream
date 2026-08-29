@@ -11,3 +11,4 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0016_profile_featured_work.php` adds ordered semantic featured-work JSON to Profile identity records for deliberate Stream post, Page, or external-link curation.
 - `0017_profile_photos.php` adds ordered Profile-owned photo JSON for up to four identity photos with alt text and captions.
 - `0023_activitypub_permalink_aliases.php` preserves prior federated Stream slugs as durable redirects to the current published permalink.
+- `0024_activitypub_publication_generations.php` separates immutable Bonumark post identity from generation-specific ActivityPub object identities and permanently retains retired generation tombstones.

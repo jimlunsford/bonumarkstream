@@ -64,6 +64,16 @@ function bms_activitypub_object_url(int $postId, ?string $baseUrl = null): strin
     return bms_activitypub_absolute_url('/activitypub/objects/' . max(0, $postId), $baseUrl);
 }
 
+function bms_activitypub_generation_object_url(int $postId, int $generation, ?string $baseUrl = null): string
+{
+    $postId = max(0, $postId);
+    $generation = max(1, $generation);
+    if ($generation === 1) {
+        return bms_activitypub_object_url($postId, $baseUrl);
+    }
+    return bms_activitypub_absolute_url('/activitypub/objects/' . $postId . '/generations/' . $generation, $baseUrl);
+}
+
 function bms_activitypub_create_activity_url(int $postId, ?string $baseUrl = null): string
 {
     return bms_activitypub_absolute_url('/activitypub/activities/create/' . max(0, $postId), $baseUrl);
@@ -278,13 +288,18 @@ function bms_activitypub_post_attachments(array $page, ?string $baseUrl = null):
 function bms_activitypub_post_object(array $page, ?string $baseUrl = null, bool $includeContext = true): array
 {
     $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
+    $objectUri = trim((string)($page['activitypub_object_uri'] ?? ''));
+    if ($objectUri === '') {
+        $generation = max(1, (int)($page['activitypub_publication_generation'] ?? 1));
+        $objectUri = bms_activitypub_generation_object_url($postId, $generation, $baseUrl);
+    }
     $published = bms_activitypub_datetime((string)($page['published_at'] ?? $page['stream_created_at'] ?? $page['created_at'] ?? ''));
     $updated = bms_activitypub_datetime((string)($page['updated_at'] ?? ''));
     $content = bms_activitypub_absolutize_html(bms_markdown_to_html((string)($page['body'] ?? ''), true), $baseUrl);
     $followers = bms_activitypub_followers_url($baseUrl);
 
     $object = [
-        'id' => bms_activitypub_object_url($postId, $baseUrl),
+        'id' => $objectUri,
         'type' => 'Note',
         'attributedTo' => bms_activitypub_actor_url($baseUrl),
         'content' => $content,
@@ -312,9 +327,13 @@ function bms_activitypub_post_object(array $page, ?string $baseUrl = null, bool 
 function bms_activitypub_create_activity(array $page, ?string $baseUrl = null, bool $includeContext = true): array
 {
     $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
+    $activityUri = trim((string)($page['activitypub_create_activity_uri'] ?? ''));
+    if ($activityUri === '') {
+        $activityUri = bms_activitypub_create_activity_url($postId, $baseUrl);
+    }
     $published = bms_activitypub_datetime((string)($page['published_at'] ?? $page['stream_created_at'] ?? $page['created_at'] ?? ''));
     $activity = [
-        'id' => bms_activitypub_create_activity_url($postId, $baseUrl),
+        'id' => $activityUri,
         'type' => 'Create',
         'actor' => bms_activitypub_actor_url($baseUrl),
         'to' => ['https://www.w3.org/ns/activitystreams#Public'],

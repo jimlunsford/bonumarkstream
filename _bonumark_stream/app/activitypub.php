@@ -287,7 +287,7 @@ function bms_activitypub_public_owner_user(): ?array
 
 function bms_activitypub_published_stream_count(): int
 {
-    $stmt = bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts') . " WHERE post_type = 'stream' AND status = 'published'");
+    $stmt = bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts') . " p WHERE p.post_type = 'stream' AND p.status = 'published' AND NOT EXISTS (SELECT 1 FROM " . bms_table('activitypub_local_objects') . " lo WHERE lo.post_id = p.id AND lo.deleted_at IS NOT NULL AND lo.publication_generation = (SELECT MAX(current_lo.publication_generation) FROM " . bms_table('activitypub_local_objects') . ' current_lo WHERE current_lo.post_id = p.id))');
     return $stmt ? max(0, (int)$stmt->fetchColumn()) : 0;
 }
 
@@ -296,12 +296,27 @@ function bms_activitypub_published_stream_posts(int $page = 1, int $perPage = 20
     $page = max(1, $page);
     $perPage = max(1, min(100, $perPage));
     $offset = ($page - 1) * $perPage;
-    $stmt = bms_db()->query('SELECT * FROM ' . bms_table('posts') . " WHERE post_type = 'stream' AND status = 'published' ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT {$perPage} OFFSET {$offset}");
+    $stmt = bms_db()->query('SELECT p.* FROM ' . bms_table('posts') . " p WHERE p.post_type = 'stream' AND p.status = 'published' AND NOT EXISTS (SELECT 1 FROM " . bms_table('activitypub_local_objects') . " lo WHERE lo.post_id = p.id AND lo.deleted_at IS NOT NULL AND lo.publication_generation = (SELECT MAX(current_lo.publication_generation) FROM " . bms_table('activitypub_local_objects') . " current_lo WHERE current_lo.post_id = p.id)) ORDER BY COALESCE(p.published_at, p.created_at) DESC, p.id DESC LIMIT {$perPage} OFFSET {$offset}");
     $rows = $stmt ? ($stmt->fetchAll() ?: []) : [];
-    return array_values(array_map(
-        static fn(array $row): array => bms_database_row_to_content_page($row),
-        array_filter($rows, 'is_array')
-    ));
+    $pages = [];
+    foreach (array_filter($rows, 'is_array') as $row) {
+        $page = bms_database_row_to_content_page($row);
+        $postId = (int)($row['id'] ?? 0);
+        $localObject = bms_activitypub_local_object($postId);
+        if (is_array($localObject) && trim((string)($localObject['deleted_at'] ?? '')) === '') {
+            $generation = max(1, (int)($localObject['publication_generation'] ?? 1));
+            $page['activitypub_object_uri'] = (string)$localObject['object_uri'];
+            $page['activitypub_publication_generation'] = $generation;
+            $event = bms_db()->prepare("SELECT activity_uri FROM " . bms_table('activitypub_publication_events') . " WHERE post_id = :post_id AND publication_generation = :generation AND event_type = 'published' AND status <> 'observed' ORDER BY id ASC LIMIT 1");
+            $event->execute(['post_id' => $postId, 'generation' => $generation]);
+            $activityUri = trim((string)($event->fetchColumn() ?: ''));
+            if ($activityUri !== '') {
+                $page['activitypub_create_activity_uri'] = $activityUri;
+            }
+        }
+        $pages[] = $page;
+    }
+    return $pages;
 }
 
 function bms_activitypub_find_published_stream_post(int $postId): ?array

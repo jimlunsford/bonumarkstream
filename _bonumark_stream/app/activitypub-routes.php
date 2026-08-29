@@ -306,21 +306,39 @@ function bms_dispatch_activitypub_route(string $route): bool
             if (!is_scalar($postId) || preg_match('/^[1-9][0-9]*$/', (string)$postId) !== 1) {
                 bms_activitypub_emit_error(404, 'The requested object was not found.');
             }
+            $postId = (int)$postId;
             if ($route === 'activitypub_create_activity') {
-                $durableEvent = bms_activitypub_publication_event_by_activity_uri(bms_activitypub_create_activity_url((int)$postId, $baseUrl));
+                $durableEvent = bms_activitypub_publication_event_by_activity_uri(bms_activitypub_create_activity_url($postId, $baseUrl));
                 $durableDocument = is_array($durableEvent) ? json_decode((string)$durableEvent['payload_json'], true, bms_activitypub_json_max_depth()) : null;
                 if (is_array($durableDocument) && !array_is_list($durableDocument)) {
                     bms_activitypub_emit_json($durableDocument, 200, $contentType);
                 }
             }
-            $post = bms_activitypub_find_published_stream_post((int)$postId);
-            if (!is_array($post)) {
-                if ($route === 'activitypub_object') {
-                    $localObject = bms_activitypub_local_object((int)$postId);
-                    if (is_array($localObject) && trim((string)($localObject['deleted_at'] ?? '')) !== '') {
+            $generation = 1;
+            if ($route === 'activitypub_object' && array_key_exists('generation', $_GET)) {
+                $generationRaw = $_GET['generation'];
+                if (!is_scalar($generationRaw) || preg_match('/^[1-9][0-9]*$/', (string)$generationRaw) !== 1 || (int)$generationRaw < 2) {
+                    bms_activitypub_emit_error(404, 'The requested object was not found.');
+                }
+                $generation = (int)$generationRaw;
+            }
+            if ($route === 'activitypub_object') {
+                $localObject = bms_activitypub_local_object_generation($postId, $generation);
+                if (is_array($localObject)) {
+                    if (trim((string)($localObject['deleted_at'] ?? '')) !== '') {
                         bms_activitypub_emit_json(bms_activitypub_local_tombstone_document($localObject), 410, $contentType);
                     }
+                    $durableObject = json_decode((string)($localObject['last_object_json'] ?? ''), true, bms_activitypub_json_max_depth());
+                    if (is_array($durableObject) && !array_is_list($durableObject)) {
+                        bms_activitypub_emit_json(['@context' => bms_activitypub_context()] + $durableObject, 200, $contentType);
+                    }
                 }
+                if ($generation > 1) {
+                    bms_activitypub_emit_error(404, 'The requested object was not found.');
+                }
+            }
+            $post = bms_activitypub_find_published_stream_post($postId);
+            if (!is_array($post)) {
                 bms_activitypub_emit_error(404, 'The requested object was not found.');
             }
             $document = $route === 'activitypub_object'
