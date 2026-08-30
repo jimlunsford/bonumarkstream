@@ -786,9 +786,13 @@ function bms_api_smoke_verify_activitypub_publication(): void
     $firstEvent = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' ORDER BY id ASC LIMIT 1')->fetch();
     $firstPayload = is_array($firstEvent) ? json_decode((string)$firstEvent['payload_json'], true) : null;
     $attachments = is_array($firstPayload) ? ($firstPayload['object']['attachment'] ?? []) : [];
+    $generationOneCreateObject = bms_activitypub_local_object_generation($postId, 1);
+    $generationOnePublished = is_array($firstPayload) ? (string)($firstPayload['object']['published'] ?? '') : '';
     if (!is_array($firstEvent) || (int)($firstEvent['publication_generation'] ?? 0) !== 1
         || (string)($firstEvent['object_uri'] ?? '') !== $objectId
         || (string)$firstPayload['type'] !== 'Create' || (string)$firstPayload['object']['id'] !== $objectId
+        || !is_array($generationOneCreateObject) || $generationOnePublished === ''
+        || $generationOnePublished !== bms_activitypub_datetime((string)($generationOneCreateObject['published_at'] ?? ''))
         || count((array)$attachments) !== 4 || (string)($attachments[0]['name'] ?? '') !== 'Stage 4 alt text 1'
         || (int)($attachments[0]['width'] ?? 0) !== 1001 || (int)($attachments[0]['height'] ?? 0) !== 701) {
         throw new RuntimeException('The first Stage 4 Create did not preserve durable identity and complete media metadata.');
@@ -862,11 +866,14 @@ function bms_api_smoke_verify_activitypub_publication(): void
     $generationTwoCreate = $pdo->query('SELECT * FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . $postId . ' ORDER BY id DESC LIMIT 1')->fetch();
     $generationTwoCreatePayload = is_array($generationTwoCreate) ? json_decode((string)$generationTwoCreate['payload_json'], true) : null;
     $generationTwoObject = bms_activitypub_local_object_generation($postId, 2);
+    $generationTwoPublished = is_array($generationTwoCreatePayload) ? (string)($generationTwoCreatePayload['object']['published'] ?? '') : '';
     if ((int)($republished['post_id'] ?? 0) !== $postId || !is_array($generationTwoCreate)
         || (int)$generationTwoCreate['publication_generation'] !== 2
         || (string)($generationTwoCreatePayload['type'] ?? '') !== 'Create'
         || (string)($generationTwoCreatePayload['object']['id'] ?? '') !== $objectIdTwo
         || $objectIdTwo === $objectId || !is_array($generationTwoObject)
+        || $generationTwoPublished === ''
+        || $generationTwoPublished !== bms_activitypub_datetime((string)($generationTwoObject['published_at'] ?? ''))
         || trim((string)($generationTwoObject['deleted_at'] ?? '')) !== ''
         || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_local_objects') . ' WHERE post_id = ' . $postId)->fetchColumn() !== 2) {
         throw new RuntimeException('Republish did not create a distinct ActivityPub generation 2 for the same Bonumark post.');
@@ -914,6 +921,7 @@ function bms_api_smoke_verify_activitypub_publication(): void
         || (int)$generationTwoUpdate['publication_generation'] !== 2
         || (string)($generationTwoUpdatePayload['type'] ?? '') !== 'Update'
         || (string)($generationTwoUpdatePayload['object']['id'] ?? '') !== $objectIdTwo
+        || (string)($generationTwoUpdatePayload['object']['published'] ?? '') !== $generationTwoPublished
         || trim((string)((bms_activitypub_local_object_generation($postId, 1)['deleted_at'] ?? ''))) === '') {
         throw new RuntimeException('An edit after republish did not update generation 2 exclusively.');
     }

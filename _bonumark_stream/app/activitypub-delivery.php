@@ -291,6 +291,12 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
         if ($objectUri === '') {
             throw new RuntimeException('The durable ActivityPub generation has no object URI.');
         }
+        $generationPublishedAt = $effectiveActivityType === 'Create'
+            ? gmdate('Y-m-d H:i:s')
+            : (is_array($localObject) ? trim((string)($localObject['published_at'] ?? '')) : '');
+        if ($generationPublishedAt === '' && is_array($page)) {
+            $generationPublishedAt = trim((string)($page['published_at'] ?? $page['stream_created_at'] ?? $page['created_at'] ?? ''));
+        }
 
         $snapshot = is_array($localObject)
             ? json_decode((string)($localObject['last_object_json'] ?? ''), true, bms_activitypub_json_max_depth())
@@ -302,6 +308,7 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
             $snapshot = bms_activitypub_post_object(array_replace($page, [
                 'activitypub_object_uri' => $objectUri,
                 'activitypub_publication_generation' => $generation,
+                'published_at' => $generationPublishedAt,
             ]), null, false);
         }
         $snapshot['id'] = $objectUri;
@@ -353,13 +360,14 @@ function bms_activitypub_record_actionable_publication_transition(array $transit
 
         $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         $humanUrl = trim((string)($snapshot['url'] ?? ''));
-        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, transition_sequence = :sequence, published_at = CASE WHEN :published_activity_type = \'Create\' THEN UTC_TIMESTAMP() ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :deleted_activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
+        $updateObject = $pdo->prepare('UPDATE ' . bms_table('activitypub_local_objects') . ' SET content_hash = :content_hash, last_object_json = :object_json, last_human_url = :human_url, transition_sequence = :sequence, published_at = CASE WHEN :published_activity_type = \'Create\' THEN :generation_published_at ELSE published_at END, updated_at = UTC_TIMESTAMP(), deleted_at = CASE WHEN :deleted_activity_type = \'Delete\' THEN UTC_TIMESTAMP() ELSE NULL END WHERE id = :id');
         $updateObject->execute([
             'content_hash' => (string)($transition['content_hash'] ?? ''),
             'object_json' => is_string($snapshotJson) ? $snapshotJson : null,
             'human_url' => $humanUrl !== '' ? $humanUrl : null,
             'sequence' => $sequence,
             'published_activity_type' => $effectiveActivityType,
+            'generation_published_at' => $generationPublishedAt !== '' ? $generationPublishedAt : null,
             'deleted_activity_type' => $effectiveActivityType,
             'id' => (int)$localObject['id'],
         ]);
