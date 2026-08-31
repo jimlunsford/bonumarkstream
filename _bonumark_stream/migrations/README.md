@@ -13,3 +13,4 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0023_activitypub_permalink_aliases.php` preserves prior federated Stream slugs as durable redirects to the current published permalink.
 - `0024_activitypub_publication_generations.php` separates immutable Bonumark post identity from generation-specific ActivityPub object identities and permanently retains retired generation tombstones.
 - `0025_activitypub_remote_interactions.php` adds generation-bound remote replies, federated Like and Announce state with exact activity ledgers, and actor/domain blocks without changing local comments or anonymous likes.
+- `0026_activitypub_owner_participation.php` adds durable owner Following history, a private cache of followed-actor Notes, owner Like and Announce ledgers, and one-to-one remote reply targets for normal Bonumark Stream Posts.

@@ -121,6 +121,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/activitypub-interactions-test.php
 
+      - name: Run ActivityPub Stage 6 owner participation test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/activitypub-owner-test.php
+
       - name: Run migration/schema smoke test
         if: always()
         env:

@@ -124,6 +124,12 @@ Stage 5 keeps inbound remote replies, Likes, and Announces in federation-owned t
 
 Stage 5 processing remains behind the Stage 3 authenticated inbox and its legacy and RFC 9421 signature verification, digest validation, replay protection, actor/key consistency, SSRF-safe discovery, bounded request size, and bounded JSON depth. Actor and domain blocks apply before visible interaction state is created. Type-specific authenticated-actor rate limits bound reply mutations and lightweight social interactions.
 
+Stage 6 adds owner participation without creating a second publishing system or a public remote timeline. Following relationships and their immutable Follow/Undo activity history remain federation-owned records. Sanitized remote Notes are cached only for accepted Following relationships and are exposed only in authenticated Admin. Remote actors never become local users, and cached remote objects never become Bonumark archive entries.
+
+An owner reply is a normal Bonumark Stream Post with one core-owned remote reply-target record. Publication serialization adds `inReplyTo`, while Create, Update, Delete, and republish continue through the existing generation-aware publication lifecycle. The remote target may remain stable across republication, but each local publication generation keeps its own immutable object identity and does not inherit federation interactions from a retired generation.
+
+Owner Likes and Announces use separate durable aggregate and activity-ledger records. Repeated active actions are idempotent, each Undo references the exact prior activity, and a later action after Undo receives a new immutable activity URI. Owner actions use the existing signed, queued, SSRF-safe delivery transport and never alter anonymous local likes or inbound Stage 5 interaction state. A cached remote object tombstone is permanent locally, so a changed activity URI, stale Update, or forced refetch cannot resurrect deleted remote content.
+
 ## Upgrade boundary
 
 The upgrader treats configuration, the database, media/uploads, backups, data, and custom themes as protected owner data. Package-managed application files and the bundled theme can be replaced by a validated release package.

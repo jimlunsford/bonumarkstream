@@ -1,0 +1,75 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('CLI only.');
+}
+
+require_once __DIR__ . '/../_bonumark_stream/app/functions.php';
+require_once __DIR__ . '/../_bonumark_stream/app/activitypub-inbox.php';
+
+function bms_ap_stage6_assert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$target = 'https://remote.example/notes/one';
+$likeKey = bms_activitypub_owner_interaction_key('Like', $target);
+bms_ap_stage6_assert(strlen($likeKey) === 64, 'The owner interaction key is not a SHA-256 identity.');
+bms_ap_stage6_assert($likeKey === bms_activitypub_owner_interaction_key('Like', $target), 'Owner interaction identity is not deterministic.');
+bms_ap_stage6_assert($likeKey !== bms_activitypub_owner_interaction_key('Announce', $target), 'Owner Like and Announce state were conflated.');
+bms_ap_stage6_assert($likeKey !== bms_activitypub_owner_interaction_key('Like', 'https://remote.example/notes/two'), 'Owner interactions do not distinguish exact remote objects.');
+
+$followUri = bms_activitypub_owner_activity_url('follow', 'https://local.example');
+$follow = bms_activitypub_owner_action_document('Follow', $followUri, 'https://remote.example/actor', 'https://remote.example/actor');
+bms_ap_stage6_assert(($follow['type'] ?? '') === 'Follow' && ($follow['object'] ?? '') === 'https://remote.example/actor', 'Outbound Follow serialization is invalid.');
+$undoUri = bms_activitypub_owner_activity_url('undo-follow', 'https://local.example');
+$undo = bms_activitypub_owner_action_document('Undo', $undoUri, 'https://remote.example/actor', 'https://remote.example/actor', $followUri);
+bms_ap_stage6_assert(($undo['type'] ?? '') === 'Undo' && ($undo['object'] ?? '') === $followUri, 'Undo Follow does not reference the exact durable Follow.');
+bms_ap_stage6_assert($followUri !== bms_activitypub_owner_activity_url('follow', 'https://local.example'), 'A later owner activity reused an immutable activity identity.');
+$announce = bms_activitypub_owner_action_document('Announce', bms_activitypub_owner_activity_url('announce', 'https://local.example'), 'https://remote.example/actor', $target, '', true);
+bms_ap_stage6_assert(($announce['to'][0] ?? '') === 'https://www.w3.org/ns/activitystreams#Public' && in_array('https://remote.example/actor', (array)($announce['cc'] ?? []), true), 'An owner Announce was not serialized as a public boost addressed to the remote actor.');
+
+$note = [
+    'id' => $target,
+    'type' => 'Note',
+    'attributedTo' => 'https://remote.example/actor',
+    'content' => '<p onclick="evil()">Safe <strong>remote</strong> text.</p><script>alert(1)</script><a href="javascript:alert(1)">bad</a>',
+    'url' => 'https://remote.example/@owner/one',
+    'summary' => '<b>summary</b>',
+    'published' => '2026-08-31T12:00:00Z',
+];
+$data = bms_activitypub_remote_note_data($note, 'https://remote.example/actor');
+bms_ap_stage6_assert(($data['object_uri'] ?? '') === $target, 'Remote Note identity was not retained.');
+bms_ap_stage6_assert(!str_contains((string)$data['content_html'], '<script') && !str_contains((string)$data['content_html'], 'onclick') && !str_contains((string)$data['content_html'], 'javascript:'), 'Remote Note HTML was not sanitized.');
+bms_ap_stage6_assert(str_contains((string)$data['content_text'], 'Safe remote text.'), 'Safe remote Note text was not retained.');
+$maliciousNote = $note;
+$maliciousNote['url'] = 'javascript:alert(1)';
+$maliciousNote['inReplyTo'] = 'file:///etc/passwd';
+$maliciousData = bms_activitypub_remote_note_data($maliciousNote, 'https://remote.example/actor');
+$maliciousMetadata = json_decode((string)$maliciousData['metadata_json'], true);
+bms_ap_stage6_assert($maliciousData['human_url'] === null && (string)($maliciousMetadata['inReplyTo'] ?? '') === '', 'Unsafe remote object links entered the owner inbox cache.');
+
+try {
+    bms_activitypub_remote_note_data($note, 'https://other.example/actor');
+    throw new RuntimeException('A spoofed remote Note actor was accepted.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage6_assert($e->httpStatus() === 403, 'A spoofed remote Note returned the wrong status.');
+}
+
+foreach (['http://remote.example/notes/one', 'https://127.0.0.1/private', 'https://user:pass@remote.example/notes/one'] as $unsafe) {
+    try {
+        bms_activitypub_identifier_uri($unsafe, false);
+        if (str_starts_with($unsafe, 'https://127.0.0.1')) {
+            bms_activitypub_validate_remote_url($unsafe, static fn(string $host): array => ['127.0.0.1'], false);
+        }
+        throw new RuntimeException('An unsafe Stage 6 target was accepted: ' . $unsafe);
+    } catch (BmsActivityPubSecurityException $e) {
+        bms_ap_stage6_assert(in_array($e->httpStatus(), [400, 403], true), 'An unsafe Stage 6 target returned the wrong status.');
+    }
+}
+
+fwrite(STDOUT, "ActivityPub Stage 6 owner participation unit test passed.\n");
