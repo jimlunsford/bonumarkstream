@@ -20,6 +20,7 @@ function bms_activitypub_route_names(): array
         'activitypub_object',
         'activitypub_create_activity',
         'activitypub_event_activity',
+        'activitypub_owner_activity',
     ];
 }
 
@@ -296,6 +297,20 @@ function bms_dispatch_activitypub_route(string $route): bool
             $event = bms_activitypub_publication_event((int)$eventId);
             $document = is_array($event) ? json_decode((string)$event['payload_json'], true, bms_activitypub_json_max_depth()) : null;
             if (!is_array($document) || array_is_list($document)) {
+                bms_activitypub_emit_error(404, 'The requested activity was not found.');
+            }
+            bms_activitypub_emit_json($document, 200, $contentType);
+        }
+
+        if ($route === 'activitypub_owner_activity') {
+            $kind = is_scalar($_GET['owner_kind'] ?? null) ? (string)$_GET['owner_kind'] : '';
+            $token = is_scalar($_GET['owner_token'] ?? null) ? (string)$_GET['owner_token'] : '';
+            if (preg_match('/^[a-z0-9-]+$/', $kind) !== 1 || preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
+                bms_activitypub_emit_error(404, 'The requested activity was not found.');
+            }
+            $activityUri = bms_activitypub_absolute_url('/activitypub/activities/owner/' . $kind . '/' . $token, $baseUrl);
+            $document = bms_activitypub_owner_activity_document($activityUri);
+            if (!is_array($document)) {
                 bms_activitypub_emit_error(404, 'The requested activity was not found.');
             }
             bms_activitypub_emit_json($document, 200, $contentType);

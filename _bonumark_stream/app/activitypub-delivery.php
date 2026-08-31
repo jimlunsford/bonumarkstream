@@ -164,10 +164,22 @@ function bms_activitypub_actor_advertises_rfc9421(array $actor): bool
     return false;
 }
 
-function bms_activitypub_publication_targets(): array
+function bms_activitypub_publication_targets(int $postId = 0): array
 {
     $stmt = bms_db()->query("SELECT a.id, a.actor_uri, a.inbox_url, a.shared_inbox_url, a.document_json FROM " . bms_table('activitypub_followers') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . " a ON a.id = f.remote_actor_id WHERE f.state = 'accepted' ORDER BY a.id ASC");
     $actors = $stmt ? ($stmt->fetchAll() ?: []) : [];
+    if ($postId > 0 && function_exists('bms_activitypub_reply_target_for_post')) {
+        $replyTarget = bms_activitypub_reply_target_for_post($postId);
+        if (is_array($replyTarget) && !bms_activitypub_actor_is_blocked((string)$replyTarget['actor_uri'])) {
+            $actors[] = [
+                'id' => (int)$replyTarget['remote_actor_id'],
+                'actor_uri' => (string)$replyTarget['actor_uri'],
+                'inbox_url' => (string)$replyTarget['inbox_url'],
+                'shared_inbox_url' => (string)($replyTarget['shared_inbox_url'] ?? ''),
+                'document_json' => (string)$replyTarget['document_json'],
+            ];
+        }
+    }
     $groups = [];
     foreach ($actors as $actor) {
         if (!is_array($actor)) {
@@ -189,8 +201,11 @@ function bms_activitypub_publication_targets(): array
 
 function bms_activitypub_queue_publication_fanout(int $eventId, int $generation, string $objectUri, string $activityUri, string $payload): int
 {
+    $postStmt = bms_db()->prepare('SELECT post_id FROM ' . bms_table('activitypub_publication_events') . ' WHERE id = :id LIMIT 1');
+    $postStmt->execute(['id' => $eventId]);
+    $postId = (int)$postStmt->fetchColumn();
     $count = 0;
-    foreach (bms_activitypub_publication_targets() as $target) {
+    foreach (bms_activitypub_publication_targets($postId) as $target) {
         $actorIds = array_values(array_unique(array_filter(array_map('intval', (array)$target['actor_ids']))));
         sort($actorIds, SORT_NUMERIC);
         $actorJson = json_encode($actorIds, JSON_UNESCAPED_SLASHES);

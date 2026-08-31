@@ -3,6 +3,7 @@
 require_once __DIR__ . '/activitypub-security.php';
 require_once __DIR__ . '/activitypub-serialization.php';
 require_once __DIR__ . '/activitypub-interactions.php';
+require_once __DIR__ . '/activitypub-owner.php';
 
 function bms_activitypub_follow_policy(): string
 {
@@ -433,9 +434,55 @@ function bms_activitypub_process_follow_response(array $activity, string $type):
         throw new BmsActivityPubSecurityException('The response object is invalid.', 400);
     }
     $state = $type === 'Accept' ? 'accepted' : 'rejected';
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('activitypub_following') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id SET f.state = :state, f.updated_at = UTC_TIMESTAMP() WHERE f.follow_activity_uri = :follow_activity_uri AND a.actor_uri = :actor_uri');
-    $stmt->execute(['state' => $state, 'follow_activity_uri' => $followUri, 'actor_uri' => $actorUri]);
-    return $stmt->rowCount() > 0 ? 'following_' . $state : 'response_unmatched';
+    $responseUri = bms_activitypub_identifier_uri((string)($activity['id'] ?? ''), true);
+    $stmt = bms_db()->prepare('SELECT f.id FROM ' . bms_table('activitypub_following') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id WHERE f.follow_activity_uri = :follow_activity_uri AND a.actor_uri = :actor_uri LIMIT 1 FOR UPDATE');
+    $stmt->execute(['follow_activity_uri' => $followUri, 'actor_uri' => $actorUri]);
+    $followingId = (int)$stmt->fetchColumn();
+    if ($followingId < 1) {
+        return 'response_unmatched';
+    }
+    $update = bms_db()->prepare('UPDATE ' . bms_table('activitypub_following') . ' SET state = :state, response_activity_uri = :response_activity_uri, state_changed_at = UTC_TIMESTAMP(), last_error = NULL, updated_at = UTC_TIMESTAMP() WHERE id = :id');
+    $update->execute(['state' => $state, 'response_activity_uri' => $responseUri, 'id' => $followingId]);
+    $log = bms_db()->prepare('UPDATE ' . bms_table('activitypub_follow_log') . ' SET state = :state, response_activity_uri = :response_activity_uri, updated_at = UTC_TIMESTAMP() WHERE following_id = :following_id AND activity_uri = :follow_activity_uri AND activity_type = \'Follow\'');
+    $log->execute(['state' => $state, 'response_activity_uri' => $responseUri, 'following_id' => $followingId, 'follow_activity_uri' => $followUri]);
+    return 'following_' . $state;
+}
+
+function bms_activitypub_process_create_or_cache(array $activity, array $remoteActor, int $receiptId): string
+{
+    $note = $activity['object'] ?? null;
+    if (!is_array($note) || array_is_list($note)) {
+        return bms_activitypub_process_reply_create($activity, $remoteActor, $receiptId);
+    }
+    $inReplyTo = bms_activitypub_target_object_id($note['inReplyTo'] ?? null);
+    if ($inReplyTo !== '') {
+        $result = bms_activitypub_process_reply_create($activity, $remoteActor, $receiptId);
+        if ($result !== 'reply_unknown_target') {
+            return $result;
+        }
+        if (str_starts_with($inReplyTo, bms_activitypub_absolute_url('/activitypub/objects/'))) {
+            return $result;
+        }
+    }
+    return bms_activitypub_process_followed_note_create($activity, $remoteActor);
+}
+
+function bms_activitypub_process_update_or_cache(array $activity, array $remoteActor, int $receiptId): string
+{
+    $objectUri = bms_activitypub_target_object_id($activity['object'] ?? null);
+    if ($objectUri !== '' && is_array(bms_activitypub_remote_reply_by_uri($objectUri, true))) {
+        return bms_activitypub_process_reply_update($activity, $receiptId);
+    }
+    return bms_activitypub_process_followed_note_update($activity, $remoteActor);
+}
+
+function bms_activitypub_process_delete_or_cache(array $activity, array $remoteActor, int $receiptId): string
+{
+    $objectUri = bms_activitypub_target_object_id($activity['object'] ?? null);
+    if ($objectUri !== '' && is_array(bms_activitypub_remote_reply_by_uri($objectUri, true))) {
+        return bms_activitypub_process_reply_delete($activity, $receiptId);
+    }
+    return bms_activitypub_process_followed_note_delete($activity, $remoteActor);
 }
 
 function bms_activitypub_process_verified_activity(array $activity, array $remoteActor, int $receiptId): string
@@ -449,9 +496,9 @@ function bms_activitypub_process_verified_activity(array $activity, array $remot
         'Follow' => bms_activitypub_process_follow($activity, $remoteActor, $receiptId),
         'Undo' => bms_activitypub_process_undo($activity),
         'Accept', 'Reject' => bms_activitypub_process_follow_response($activity, $type),
-        'Create' => bms_activitypub_process_reply_create($activity, $remoteActor, $receiptId),
-        'Update' => bms_activitypub_process_reply_update($activity, $receiptId),
-        'Delete' => bms_activitypub_process_reply_delete($activity, $receiptId),
+        'Create' => bms_activitypub_process_create_or_cache($activity, $remoteActor, $receiptId),
+        'Update' => bms_activitypub_process_update_or_cache($activity, $remoteActor, $receiptId),
+        'Delete' => bms_activitypub_process_delete_or_cache($activity, $remoteActor, $receiptId),
         'Like', 'Announce' => bms_activitypub_process_remote_interaction($activity, $remoteActor, $receiptId, $type),
         default => 'unsupported_activity',
     };

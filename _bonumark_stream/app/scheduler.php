@@ -452,6 +452,16 @@ function bms_scheduled_task_handlers(): array
                     'allowed_sources' => ['manual', 'server_cron', 'web_cron'],
                 ]
             );
+            bms_register_scheduled_task_handler(
+                'activitypub_owner_actions',
+                static function (array $context): array {
+                    return bms_activitypub_run_owner_deliveries((int)($context['activitypub_delivery_limit'] ?? 20));
+                },
+                [
+                    'label' => 'ActivityPub owner actions',
+                    'allowed_sources' => ['manual', 'server_cron', 'web_cron'],
+                ]
+            );
         }
     }
     $handlers = $GLOBALS['bms_scheduled_task_handlers'] ?? [];

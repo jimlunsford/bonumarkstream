@@ -317,6 +317,12 @@ function bms_activitypub_post_object(array $page, ?string $baseUrl = null, bool 
     if ($updated !== '' && $updated !== $published) {
         $object['updated'] = $updated;
     }
+    if (function_exists('bms_activitypub_reply_target_for_post')) {
+        $replyTarget = bms_activitypub_reply_target_for_post($postId);
+        if (is_array($replyTarget) && trim((string)($replyTarget['in_reply_to_uri'] ?? '')) !== '') {
+            $object['inReplyTo'] = (string)$replyTarget['in_reply_to_uri'];
+        }
+    }
     $attachments = bms_activitypub_post_attachments($page, $baseUrl);
     if ($attachments !== []) {
         $object['attachment'] = $attachments;

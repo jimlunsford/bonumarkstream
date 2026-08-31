@@ -401,6 +401,7 @@ function bms_activitypub_result_is_ignored(string $result): bool
         || str_contains($result, '_unknown_target') || str_contains($result, '_target_retired')
         || str_contains($result, '_unmatched') || str_contains($result, '_after_delete')
         || str_contains($result, '_duplicate') || str_contains($result, '_inactive')
+        || str_contains($result, 'remote_note_not_followed')
         || in_array($result, ['reply_parent_deleted', 'blocked_actor'], true);
 }
 
@@ -434,6 +435,12 @@ function bms_activitypub_block_actor(string $actorUri, string $reason = ''): voi
     $stmt->execute(['block_type' => 'actor', 'block_value' => $actorUri, 'reason' => bms_activitypub_remote_plain_text($reason, 255)]);
     bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_replies') . " SET moderation_state = 'hidden', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $actorUri]);
     bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_interactions') . " SET state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state = 'active'")->execute(['actor_uri' => $actorUri]);
+    bms_db()->prepare("UPDATE " . bms_table('activitypub_followers') . " SET state = 'blocked', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'blocked'")->execute(['actor_uri' => $actorUri]);
+    if (bms_database_table_exists(bms_db(), bms_table('activitypub_remote_objects'))) {
+        bms_db()->prepare("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = UTC_TIMESTAMP(), last_error = 'Actor blocked locally.', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['actor_uri' => $actorUri]);
+        bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $actorUri]);
+        bms_activitypub_cancel_blocked_owner_deliveries($actorUri, 'Actor blocked locally.');
+    }
 }
 
 function bms_activitypub_block_domain_for_actor(string $actorUri, string $reason = ''): string
@@ -451,9 +458,42 @@ function bms_activitypub_block_domain_for_actor(string $actorUri, string $reason
         if (hash_equals($domain, bms_activitypub_actor_domain($candidate))) {
             bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_replies') . " SET moderation_state = 'hidden', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $candidate]);
             bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_interactions') . " SET state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state = 'active'")->execute(['actor_uri' => $candidate]);
+            bms_db()->prepare("UPDATE " . bms_table('activitypub_followers') . " SET state = 'blocked', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'blocked'")->execute(['actor_uri' => $candidate]);
+            if (bms_database_table_exists(bms_db(), bms_table('activitypub_remote_objects'))) {
+                bms_db()->prepare("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = UTC_TIMESTAMP(), last_error = 'Domain blocked locally.', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['actor_uri' => $candidate]);
+                bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $candidate]);
+                bms_activitypub_cancel_blocked_owner_deliveries($candidate, 'Domain blocked locally.');
+            }
         }
     }
     return $domain;
+}
+
+function bms_activitypub_cancel_blocked_owner_deliveries(string $actorUri, string $reason): void
+{
+    $stmt = bms_db()->prepare('SELECT id FROM ' . bms_table('activitypub_remote_actors') . ' WHERE actor_uri = :actor_uri LIMIT 1');
+    $stmt->execute(['actor_uri' => $actorUri]);
+    $actorId = (int)$stmt->fetchColumn();
+    if ($actorId < 1) {
+        return;
+    }
+    $message = bms_activitypub_remote_plain_text($reason, 255);
+    $rows = bms_db()->query("SELECT id, activity_uri, recipient_actor_ids_json FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'owner_activity' AND event_id IS NULL AND status IN ('pending', 'retry')");
+    $activityUris = [];
+    foreach ($rows ? ($rows->fetchAll() ?: []) : [] as $row) {
+        $recipientIds = json_decode((string)($row['recipient_actor_ids_json'] ?? '[]'), true);
+        if (!is_array($recipientIds) || !in_array($actorId, array_map('intval', $recipientIds), true)) {
+            continue;
+        }
+        $cancel = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'dead', last_error = :last_error, updated_at = UTC_TIMESTAMP() WHERE id = :id AND status IN ('pending', 'retry')");
+        $cancel->execute(['last_error' => $message, 'id' => (int)$row['id']]);
+        $activityUris[(string)$row['activity_uri']] = true;
+    }
+    foreach (array_keys($activityUris) as $activityUri) {
+        if (function_exists('bms_activitypub_mark_owner_delivery_result')) {
+            bms_activitypub_mark_owner_delivery_result(['activity_uri' => $activityUri], 'failed', $message);
+        }
+    }
 }
 
 function bms_activitypub_approved_replies_for_post(int $postId, int $generation): array
