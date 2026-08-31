@@ -1672,14 +1672,8 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     if (bms_activitypub_remote_inbox_rows() !== []) {
         throw new RuntimeException('A blocked actor remained visible in the private owner inbox.');
     }
-    try {
-        bms_activitypub_owner_interact('Like', $noteUri, $fetcher, $resolver);
-        throw new RuntimeException('A blocked actor remained eligible for owner interaction.');
-    } catch (BmsActivityPubSecurityException $e) {
-        if ($e->httpStatus() !== 403) {
-            throw $e;
-        }
-    }
+    bms_api_smoke_expect_security_exception(403, static fn() => bms_activitypub_follow_remote_actor((string)$actors['owner-target']['uri'], $fetcher, $resolver));
+    bms_api_smoke_expect_security_exception(410, static fn() => bms_activitypub_owner_interact('Like', $noteUri, $fetcher, $resolver));
     $blockedPending = $pdo->prepare("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'owner_activity' AND recipient_actor_ids_json = :recipient_actor_ids_json AND status IN ('pending', 'retry', 'processing')");
     $blockedPending->execute(['recipient_actor_ids_json' => json_encode([(int)$follow['following']['remote_actor_id']], JSON_UNESCAPED_SLASHES)]);
     if ((int)$blockedPending->fetchColumn() !== 0) {
