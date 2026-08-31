@@ -3,6 +3,7 @@
 require_once __DIR__ . '/activitypub-security.php';
 require_once __DIR__ . '/activitypub-serialization.php';
 require_once __DIR__ . '/activitypub-delivery.php';
+require_once __DIR__ . '/activitypub-interactions.php';
 
 /**
  * ActivityPub foundation.

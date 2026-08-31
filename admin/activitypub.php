@@ -33,6 +33,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $moderation = (string)($_POST['moderation'] ?? '');
             bms_activitypub_moderate_follower($followerId, $moderation);
             bms_flash('Follower state updated. Any required signed response is queued for the durable task runner.', 'success');
+        } elseif ($action === 'moderate_reply') {
+            $replyId = max(0, (int)($_POST['reply_id'] ?? 0));
+            $moderation = (string)($_POST['moderation'] ?? '');
+            $user = bms_current_user();
+            bms_activitypub_moderate_remote_reply($replyId, $moderation, (int)($user['id'] ?? 0));
+            bms_flash('Remote reply moderation state updated.', 'success');
+        } elseif ($action === 'block_reply_actor') {
+            $actorUri = (string)($_POST['actor_uri'] ?? '');
+            bms_activitypub_block_actor($actorUri, 'Blocked from remote reply moderation.');
+            bms_flash('The remote actor is blocked and its visible federation interactions are hidden.', 'success');
+        } elseif ($action === 'block_reply_domain') {
+            $actorUri = (string)($_POST['actor_uri'] ?? '');
+            $domain = bms_activitypub_block_domain_for_actor($actorUri, 'Blocked from remote reply moderation.');
+            bms_flash('The remote domain ' . $domain . ' is blocked and its visible federation interactions are hidden.', 'success');
         } elseif ($action === 'retry_publication') {
             $deliveryId = max(0, (int)($_POST['delivery_id'] ?? 0));
             if (!bms_activitypub_manual_retry_publication_delivery($deliveryId)) {
@@ -53,6 +67,7 @@ $enabled = bms_activitypub_enabled();
 $policy = bms_activitypub_follow_policy();
 $key = bms_activitypub_active_signing_key(false);
 $followers = bms_activitypub_follower_rows('', 200);
+$remoteReplies = bms_activitypub_remote_reply_rows('', 200);
 $publicationDeliveries = bms_activitypub_publication_delivery_rows(200);
 $checks = bms_activitypub_system_check_items();
 
@@ -61,6 +76,28 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
 <section class="panel settings-workflow-hero">
   <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Committed public Stream Post transitions are recorded locally, then delivered asynchronously without delaying or rolling back Bonumark publishing.</p></div>
   <span class="static-pill <?= $enabled ? 'generated' : 'draft' ?>"><?= $enabled ? 'ENABLED' : 'DISABLED' ?></span>
+</section>
+
+<section class="panel settings-section-panel">
+  <div class="settings-record-heading"><div><p class="eyebrow">Reply moderation</p><h2>Remote replies</h2><p class="meta">Remote replies remain federation-owned records. Content shown here is sanitized plain text, and protocol identifiers are escaped and bounded.</p></div><span class="static-pill draft"><?= count($remoteReplies) ?> RECORD<?= count($remoteReplies) === 1 ? '' : 'S' ?></span></div>
+  <?php if (!$remoteReplies): ?><div class="settings-empty-state"><h3>No authenticated remote reply has been received.</h3><p class="meta">New remote replies default to pending review.</p></div><?php else: ?>
+  <div class="settings-record-list"><?php foreach ($remoteReplies as $reply):
+    $replyState = (string)($reply['moderation_state'] ?? 'pending');
+    $lifecycleState = (string)($reply['lifecycle_state'] ?? 'active');
+    $replyActorName = trim((string)($reply['display_name'] ?? '')) ?: trim((string)($reply['preferred_username'] ?? '')) ?: 'Remote actor';
+    $replyPostTitle = trim((string)($reply['post_title'] ?? '')) ?: ('Post #' . (int)($reply['target_post_id'] ?? 0));
+  ?>
+    <article class="settings-history-record">
+      <div class="settings-record-cell"><strong><?= htmlspecialchars($replyActorName, ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)$reply['actor_uri'], ENT_QUOTES, 'UTF-8') ?></small><p><?= nl2br(htmlspecialchars((string)($reply['content_text'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></p></div>
+      <div class="settings-record-cell"><strong><?= htmlspecialchars($replyPostTitle, ENT_QUOTES, 'UTF-8') ?></strong><small>Post #<?= (int)$reply['target_post_id'] ?> · Generation <?= (int)$reply['target_publication_generation'] ?></small><small><?= htmlspecialchars((string)$reply['target_object_uri'], ENT_QUOTES, 'UTF-8') ?></small></div>
+      <div class="settings-record-cell"><span class="static-pill <?= $replyState === 'approved' && $lifecycleState === 'active' ? 'generated' : ($replyState === 'pending' ? 'warning' : 'draft') ?>"><?= htmlspecialchars(strtoupper($lifecycleState === 'deleted' ? 'deleted' : $replyState), ENT_QUOTES, 'UTF-8') ?></span><small>Object: <?= htmlspecialchars((string)$reply['remote_object_uri'], ENT_QUOTES, 'UTF-8') ?></small><small>Last activity: <?= htmlspecialchars((string)$reply['last_activity_uri'], ENT_QUOTES, 'UTF-8') ?></small></div>
+      <div class="settings-record-cell">
+        <?php if ($lifecycleState === 'active' && $replyState !== 'target_retired'): ?><form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="moderate_reply"><input type="hidden" name="reply_id" value="<?= (int)$reply['id'] ?>"><button type="submit" name="moderation" value="approve" class="button-link secondary">Approve</button><button type="submit" name="moderation" value="pending" class="button-link secondary">Pending</button><button type="submit" name="moderation" value="reject" class="button-link secondary">Reject</button><button type="submit" name="moderation" value="hide" class="button-link secondary danger">Hide</button></form><?php endif; ?>
+        <form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="block_reply_actor"><input type="hidden" name="actor_uri" value="<?= htmlspecialchars((string)$reply['actor_uri'], ENT_QUOTES, 'UTF-8') ?>"><button type="submit" class="button-link secondary danger">Block actor</button></form>
+        <form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="block_reply_domain"><input type="hidden" name="actor_uri" value="<?= htmlspecialchars((string)$reply['actor_uri'], ENT_QUOTES, 'UTF-8') ?>"><button type="submit" class="button-link secondary danger">Block domain</button></form>
+      </div>
+    </article>
+  <?php endforeach; ?></div><?php endif; ?>
 </section>
 
 <section class="panel settings-section-panel">

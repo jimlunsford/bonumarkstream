@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/activitypub-security.php';
 require_once __DIR__ . '/activitypub-serialization.php';
+require_once __DIR__ . '/activitypub-interactions.php';
 
 function bms_activitypub_follow_policy(): string
 {
@@ -400,11 +401,18 @@ function bms_activitypub_process_follow(array $activity, array $remoteActor, int
 
 function bms_activitypub_process_undo(array $activity): string
 {
+    $interactionResult = bms_activitypub_process_interaction_undo($activity);
+    if (is_string($interactionResult)) {
+        return $interactionResult;
+    }
     $actorUri = bms_activitypub_actor_reference($activity['actor'] ?? null);
     $object = $activity['object'] ?? null;
     $followUri = bms_activitypub_target_object_id($object);
     if ($followUri === '') {
         throw new BmsActivityPubSecurityException('The Undo object is invalid.', 400);
+    }
+    if (is_array($object) && in_array((string)($object['type'] ?? ''), ['Like', 'Announce'], true)) {
+        return 'undo_unmatched';
     }
     if (is_array($object) && strcasecmp((string)($object['type'] ?? ''), 'Follow') !== 0) {
         throw new BmsActivityPubSecurityException('Only Undo of Follow is supported.', 400);
@@ -433,10 +441,18 @@ function bms_activitypub_process_follow_response(array $activity, string $type):
 function bms_activitypub_process_verified_activity(array $activity, array $remoteActor, int $receiptId): string
 {
     $type = trim((string)($activity['type'] ?? ''));
+    $actorUri = bms_activitypub_actor_reference($activity['actor'] ?? null);
+    if (in_array($type, ['Create', 'Update', 'Like', 'Announce'], true) && bms_activitypub_actor_is_blocked($actorUri)) {
+        return 'blocked_actor';
+    }
     return match ($type) {
         'Follow' => bms_activitypub_process_follow($activity, $remoteActor, $receiptId),
         'Undo' => bms_activitypub_process_undo($activity),
         'Accept', 'Reject' => bms_activitypub_process_follow_response($activity, $type),
+        'Create' => bms_activitypub_process_reply_create($activity, $remoteActor, $receiptId),
+        'Update' => bms_activitypub_process_reply_update($activity, $receiptId),
+        'Delete' => bms_activitypub_process_reply_delete($activity, $receiptId),
+        'Like', 'Announce' => bms_activitypub_process_remote_interaction($activity, $remoteActor, $receiptId, $type),
         default => 'unsupported_activity',
     };
 }
@@ -517,6 +533,7 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     if (!$remoteActorWasCached) {
         $remoteActor = bms_activitypub_store_remote_actor($remoteActor);
     }
+    bms_activitypub_enforce_stage5_rate_limit($actorUri, $type);
 
     $pdo = bms_db();
     $pdo->beginTransaction();
@@ -531,7 +548,7 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
         }
         $receiptId = (int)$insert['receipt']['id'];
         $resultCode = bms_activitypub_process_verified_activity($activity, $remoteActor, $receiptId);
-        $receiptStatus = $resultCode === 'unsupported_activity' ? 'ignored' : 'processed';
+        $receiptStatus = bms_activitypub_result_is_ignored($resultCode) ? 'ignored' : 'processed';
         bms_activitypub_finish_receipt($receiptId, $receiptStatus, $resultCode);
         $pdo->commit();
         return ['status' => $receiptStatus, 'result_code' => $resultCode, 'receipt_id' => $receiptId];
