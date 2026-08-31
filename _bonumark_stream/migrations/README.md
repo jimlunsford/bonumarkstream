@@ -12,3 +12,4 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0017_profile_photos.php` adds ordered Profile-owned photo JSON for up to four identity photos with alt text and captions.
 - `0023_activitypub_permalink_aliases.php` preserves prior federated Stream slugs as durable redirects to the current published permalink.
 - `0024_activitypub_publication_generations.php` separates immutable Bonumark post identity from generation-specific ActivityPub object identities and permanently retains retired generation tombstones.
+- `0025_activitypub_remote_interactions.php` adds generation-bound remote replies, federated Like and Announce state with exact activity ledgers, and actor/domain blocks without changing local comments or anonymous likes.

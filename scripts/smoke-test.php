@@ -2049,6 +2049,8 @@ $activityPubDelivery = @file_get_contents($root . '/_bonumark_stream/app/activit
 $activityPubDeliveryMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0022_activitypub_publication_delivery.php') ?: '';
 $activityPubPermalinkMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0023_activitypub_permalink_aliases.php') ?: '';
 $activityPubGenerationMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0024_activitypub_publication_generations.php') ?: '';
+$activityPubInteractionMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0025_activitypub_remote_interactions.php') ?: '';
+$activityPubInteractions = @file_get_contents($root . '/_bonumark_stream/app/activitypub-interactions.php') ?: '';
 $publicRoutesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
 if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
@@ -2060,6 +2062,20 @@ if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($activityPubDelivery, 'function bms_activitypub_permalink_alias_target')
     || !str_contains($publicRoutesSource, 'bms_activitypub_permalink_alias_target')) {
     $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
+}
+foreach (['activitypub_blocks', 'activitypub_remote_replies', 'activitypub_remote_interactions', 'activitypub_remote_interaction_activities'] as $activityPubTable) {
+    if (!str_contains($activityPubInteractionMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub Stage 5 migration is missing table: ' . $activityPubTable);
+    }
+}
+if (!str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_create')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_update')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_delete')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_remote_interaction')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_interaction_undo')
+    || !str_contains($activityPubInteractions, 'target_publication_generation')
+    || !str_contains($activityPubInteractions, 'bms_activitypub_sanitize_remote_html')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 5 generation-aware inbound interaction handling is incomplete.');
 }
 
 $activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';

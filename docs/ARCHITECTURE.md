@@ -105,20 +105,24 @@ Publication observations and delivery work are separate states. Stage 1 and Stag
 
 Stage 4 records a durable activity only for a newly committed local transition while ActivityPub is enabled. It never scans historical posts into delivery work. The publication worker selects only `publication` deliveries with a non-null event ID, runs only from a durable manual or cron runner, and cannot claim follower responses or historical `observed` events. Local publication commits before remote delivery is attempted, and delivery retries always reuse the same activity ID and payload.
 
-The federated object ID is derived from the immutable database post ID and does not change with the human-facing slug. Publication lifecycle behavior is centralized:
+Bonumark post identity and federated publication identity are deliberately separate. Each publication generation has one immutable ActivityPub object URI derived from the database post ID and generation. The human-facing slug may change without changing either identity. Publication lifecycle behavior is centralized:
 
 - The first publication emits `Create`.
 - An identical published save emits nothing.
 - A material published edit or slug change emits `Update`.
 - Unpublish or trash emits `Delete` and retains a durable tombstone snapshot.
 - Restore to draft emits nothing.
-- Republish or direct restore to published emits `Create` with the same object ID.
+- Republish or direct restore to published emits `Create` for a new publication generation and a new generation-specific object ID.
 - Permanent deletion after an earlier `Delete` emits nothing further and retains the local object/tombstone row after the post row is removed.
 - A scheduled post emits nothing before its due publication and emits `Create` when it becomes published.
 
-Some remote implementations treat an object ID as permanently tombstoned after `Delete`. Bonumark does not assign a false replacement identity to restored content. A later `Create` therefore retains the true object ID even when a remote implementation chooses not to restore it.
+Every deleted generation retains a permanent local tombstone. A later publication does not reuse or resurrect that identity, and federation interactions do not migrate between generations.
 
 Outbound publication delivery supports both the deployed legacy RSA HTTP Signature format and RFC 9421 using RSA PKCS#1 v1.5 with SHA-256. A remote actor must explicitly advertise RFC 9421 capability before it is selected. A shared inbox uses RFC 9421 only when every grouped recipient advertises it. Authentication-related rejection of an RFC 9421 attempt receives one bounded legacy fallback for the same activity; subsequent retries retain the compatible format. Every remote destination is revalidated through the SSRF-safe pinned-address transport immediately before connection, and POST redirects are disabled.
+
+Stage 5 keeps inbound remote replies, Likes, and Announces in federation-owned tables linked to the existing remote actor cache and the exact local publication generation. Remote replies default to moderation and retain protocol identity, sanitized content, ownership, update, and tombstone state. Approved replies enter a core-owned comment presentation model without becoming local comments or Commenter accounts. Federated Likes and Announces remain separate from anonymous local likes. Their activity ledger permits Undo only for the exact authenticated actor and exact activity URI, while the aggregate state prevents changed activity IDs from creating duplicate visible interactions.
+
+Stage 5 processing remains behind the Stage 3 authenticated inbox and its legacy and RFC 9421 signature verification, digest validation, replay protection, actor/key consistency, SSRF-safe discovery, bounded request size, and bounded JSON depth. Actor and domain blocks apply before visible interaction state is created. Type-specific authenticated-actor rate limits bound reply mutations and lightweight social interactions.
 
 ## Upgrade boundary
 

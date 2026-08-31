@@ -224,6 +224,10 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_signature_replays',
         'activitypub_followers',
         'activitypub_following',
+        'activitypub_blocks',
+        'activitypub_remote_replies',
+        'activitypub_remote_interactions',
+        'activitypub_remote_interaction_activities',
     ];
     foreach ($requiredTables as $table) {
         $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($prefix . $table));
@@ -246,6 +250,10 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_signature_replays' => ['fingerprint', 'key_id', 'expires_at'],
         'activitypub_followers' => ['actor_uri', 'follow_activity_uri', 'follow_receipt_id', 'state'],
         'activitypub_following' => ['actor_uri', 'follow_activity_uri', 'state'],
+        'activitypub_blocks' => ['block_type', 'block_value', 'reason'],
+        'activitypub_remote_replies' => ['remote_actor_id', 'remote_object_uri', 'target_post_id', 'target_publication_generation', 'target_object_uri', 'content_html', 'moderation_state', 'lifecycle_state', 'deleted_at'],
+        'activitypub_remote_interactions' => ['semantic_key', 'interaction_type', 'remote_actor_id', 'target_publication_generation', 'target_object_uri', 'current_activity_uri', 'state'],
+        'activitypub_remote_interaction_activities' => ['interaction_id', 'activity_uri', 'activity_type', 'receipt_id', 'state', 'undo_activity_uri'],
     ];
     foreach ($requiredColumns as $table => $columns) {
         foreach ($columns as $column) {

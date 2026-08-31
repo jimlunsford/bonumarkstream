@@ -53,6 +53,8 @@ $scenarios = [
     'activitypub_observer',
     'activitypub_publication',
     'activitypub_inbox',
+    'activitypub_stage5',
+    'activitypub_stage5_disabled',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -159,7 +161,7 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_posting_direct_publish_enabled', '1');
         bms_api_smoke_set_setting('remote_posting_publish_confirmation_required', '1');
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
-        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_publication', 'activitypub_inbox'], true) ? '1' : '0');
+        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_publication', 'activitypub_inbox', 'activitypub_stage5'], true) ? '1' : '0');
         bms_api_smoke_set_setting('activitypub_follow_policy', 'manual');
 
         $GLOBALS['bms_api_smoke_temp_root'] = $tempRoot;
@@ -414,8 +416,8 @@ function bms_api_smoke_run_scenario(string $scenario): void
 
             $unsupported = ['id' => $remoteActorUri . '/activities/like-1', 'type' => 'Like', 'actor' => $remoteActorUri, 'object' => bms_activitypub_object_url(999)];
             $ignored = bms_activitypub_receive_inbox(bms_api_smoke_signed_activity_request($unsupported, $remoteActorUri . '#main-key', $remotePrivate, $now + 5), $fetcher, $resolver, $now + 5);
-            if ((string)($ignored['result_code'] ?? '') !== 'unsupported_activity') {
-                throw new RuntimeException('An unsupported signed activity was not retained as ignored.');
+            if ((string)($ignored['result_code'] ?? '') !== 'like_unknown_target') {
+                throw new RuntimeException('A signed interaction with an unknown local object was not retained as ignored.');
             }
 
             $spoofed = ['id' => $remoteActorUri . '/activities/spoofed-1', 'type' => 'Follow', 'actor' => 'https://93.184.216.34/other-actor', 'object' => bms_activitypub_actor_url()];
@@ -442,12 +444,20 @@ function bms_api_smoke_run_scenario(string $scenario): void
                 $now + 7
             );
             $rotatedCachedActor = bms_activitypub_cached_remote_actor($remoteActorUri, true);
-            if ((string)($rotatedResult['result_code'] ?? '') !== 'unsupported_activity'
+            if ((string)($rotatedResult['result_code'] ?? '') !== 'like_unknown_target'
                 || !is_array($rotatedCachedActor)
                 || (string)$rotatedCachedActor['public_key_id'] !== $remoteActorUri . '#rotated-key') {
                 throw new RuntimeException('A legitimate authenticated remote key-ID rotation was not refreshed safely.');
             }
             bms_api_smoke_activitypub_route_responses((string)($GLOBALS['bms_api_smoke_temp_root'] ?? ''));
+            return;
+
+        case 'activitypub_stage5':
+            bms_api_smoke_verify_activitypub_stage5();
+            return;
+
+        case 'activitypub_stage5_disabled':
+            bms_api_smoke_expect_security_exception(404, static fn() => bms_activitypub_receive_inbox([]));
             return;
 
         case 'draft_create':
@@ -1138,6 +1148,237 @@ function bms_api_smoke_verify_activitypub_publication(): void
         if ((int)($fallbackResponse['status'] ?? 0) !== 202 || $fallbackCalls !== ['rfc9421', 'legacy']) {
             throw new RuntimeException('RFC 9421 authentication rejection did not receive one bounded legacy fallback.');
         }
+    }
+}
+
+function bms_api_smoke_verify_activitypub_stage5(): void
+{
+    $pdo = bms_db();
+    $postId = bms_upsert_database_content([
+        'title' => 'Stage 5 target', 'slug' => 'stage-5-target', 'status' => 'draft',
+        'content_type' => 'stream', 'post_type' => 'stream', 'date' => '2026-08-31',
+        'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Stage 5 local content.', 'front_matter' => [],
+    ], 'drafts', 'stage-5-target.md', 1);
+    $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'published', published_at = UTC_TIMESTAMP() WHERE id = :id")->execute(['id' => $postId]);
+    $retiredUri = bms_activitypub_object_url($postId);
+    $currentUri = bms_activitypub_generation_object_url($postId, 2);
+    $localInsert = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (:post_id, :object_uri, :object_type, :content_hash, :object_json, :human_url, :generation, :sequence, UTC_TIMESTAMP(), UTC_TIMESTAMP(), :deleted_at, UTC_TIMESTAMP())');
+    $localInsert->execute(['post_id' => $postId, 'object_uri' => $retiredUri, 'object_type' => 'Note', 'content_hash' => hash('sha256', 'retired'), 'object_json' => json_encode(['id' => $retiredUri, 'type' => 'Tombstone']), 'human_url' => bms_stream_url('stage-5-target'), 'generation' => 1, 'sequence' => 1, 'deleted_at' => gmdate('Y-m-d H:i:s')]);
+    $localInsert->execute(['post_id' => $postId, 'object_uri' => $currentUri, 'object_type' => 'Note', 'content_hash' => hash('sha256', 'current'), 'object_json' => json_encode(['id' => $currentUri, 'type' => 'Note', 'content' => '<p>Stage 5 local content.</p>']), 'human_url' => bms_stream_url('stage-5-target'), 'generation' => 2, 'sequence' => 2, 'deleted_at' => null]);
+
+    $commentInsert = $pdo->prepare("INSERT INTO " . bms_table('comments') . " (post_slug, post_id, user_id, parent_id, body, status, ip_hash, user_agent_hash, created_at, updated_at, approved_at) VALUES ('stage-5-target', :post_id, 1, NULL, 'Local comment remains local.', 'approved', :ip_hash, :ua_hash, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+    $commentInsert->execute(['post_id' => $postId, 'ip_hash' => hash('sha256', 'stage5-ip'), 'ua_hash' => hash('sha256', 'stage5-ua')]);
+    $localCommentCount = bms_comment_count_for_slug('stage-5-target');
+    $localLikeCount = bms_stream_like_count_for_slug('stage-5-target');
+
+    $actors = [];
+    foreach (['alpha', 'beta'] as $name) {
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 2048]);
+        $private = '';
+        if ($key === false || !openssl_pkey_export($key, $private)) {
+            throw new RuntimeException('The Stage 5 actor key could not be generated.');
+        }
+        $details = openssl_pkey_get_details($key);
+        $uri = 'https://93.184.216.34/actors/' . $name;
+        $actors[$name] = [
+            'uri' => $uri, 'key_id' => $uri . '#main-key', 'private' => $private,
+            'document' => [
+                'id' => $uri, 'type' => 'Person', 'preferredUsername' => $name,
+                'name' => ucfirst($name) . ' Remote', 'inbox' => 'https://93.184.216.34/inbox/' . $name,
+                'publicKey' => ['id' => $uri . '#main-key', 'owner' => $uri, 'publicKeyPem' => is_array($details) ? (string)$details['key'] : ''],
+            ],
+        ];
+    }
+    $fetcher = static function (string $url) use (&$actors): array {
+        foreach ($actors as $actor) {
+            if ($url === $actor['uri']) {
+                return ['document' => $actor['document'], 'url' => $url];
+            }
+        }
+        throw new RuntimeException('Unexpected Stage 5 actor fetch.');
+    };
+    $resolver = static fn(string $host): array => ['93.184.216.34'];
+    $clock = time();
+    $send = static function (array $activity, string $actorName = 'alpha') use (&$clock, &$actors, $fetcher, $resolver): array {
+        $clock++;
+        $actor = $actors[$actorName];
+        return bms_activitypub_receive_inbox(
+            bms_api_smoke_signed_activity_request($activity, (string)$actor['key_id'], (string)$actor['private'], $clock),
+            $fetcher,
+            $resolver,
+            $clock
+        );
+    };
+    $alphaUri = (string)$actors['alpha']['uri'];
+    $betaUri = (string)$actors['beta']['uri'];
+    $replyUri = $alphaUri . '/notes/reply-1';
+    $reply = [
+        'id' => $alphaUri . '/activities/create-reply-1', 'type' => 'Create', 'actor' => $alphaUri,
+        'object' => [
+            'id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri,
+            'published' => gmdate(DATE_ATOM, $clock),
+            'content' => '<p>Hello <strong>federation</strong>.</p><script>alert(1)</script><p><a href="javascript:alert(1)" onclick="evil()">bad</a> <a href="https://remote.example/safe">safe</a></p>',
+        ],
+    ];
+    $created = $send($reply);
+    if (($created['result_code'] ?? '') !== 'reply_pending') {
+        throw new RuntimeException('A valid current-generation remote reply did not enter moderation.');
+    }
+    $storedReply = bms_activitypub_remote_reply_by_uri($replyUri);
+    if (!is_array($storedReply) || (int)$storedReply['target_publication_generation'] !== 2
+        || str_contains((string)$storedReply['content_html'], '<script')
+        || str_contains((string)$storedReply['content_html'], 'javascript:')
+        || str_contains((string)$storedReply['content_html'], 'onclick')
+        || !str_contains((string)$storedReply['content_html'], 'https://remote.example/safe')) {
+        throw new RuntimeException('Remote reply identity, generation binding, or HTML sanitization failed.');
+    }
+    bms_activitypub_moderate_remote_reply((int)$storedReply['id'], 'approve', 1);
+    $presented = bms_comments_view_data('stage-5-target');
+    if ($localCommentCount !== 1 || (int)$presented['count'] !== 2
+        || count(array_filter((array)$presented['comments'], static fn(array $item): bool => ($item['source'] ?? '') === 'activitypub')) !== 1) {
+        throw new RuntimeException('Approved remote replies were not presented beside, but separate from, local comments.');
+    }
+
+    $nestedUri = $alphaUri . '/notes/reply-2';
+    $nested = ['id' => $alphaUri . '/activities/create-reply-2', 'type' => 'Create', 'actor' => $alphaUri, 'object' => ['id' => $nestedUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $replyUri, 'content' => '<p>Nested reply.</p>']];
+    if (($send($nested)['result_code'] ?? '') !== 'reply_pending') {
+        throw new RuntimeException('A nested reply did not inherit the exact root publication generation.');
+    }
+    $nestedStored = bms_activitypub_remote_reply_by_uri($nestedUri);
+    if (!is_array($nestedStored) || (int)$nestedStored['parent_reply_id'] !== (int)$storedReply['id'] || (int)$nestedStored['target_publication_generation'] !== 2) {
+        throw new RuntimeException('Nested reply identity was not preserved.');
+    }
+
+    $freshDuplicate = $reply;
+    if (($send($freshDuplicate)['result_code'] ?? '') !== 'duplicate_activity') {
+        throw new RuntimeException('Duplicate Create activity URI was not idempotent.');
+    }
+    $changedCreate = $reply;
+    $changedCreate['id'] = $alphaUri . '/activities/create-reply-1-alias';
+    if (($send($changedCreate)['result_code'] ?? '') !== 'reply_duplicate_object') {
+        throw new RuntimeException('A changed Create URI bypassed remote object idempotency.');
+    }
+
+    $retiredReplyUri = $alphaUri . '/notes/retired-reply';
+    $retiredReply = ['id' => $alphaUri . '/activities/create-retired-reply', 'type' => 'Create', 'actor' => $alphaUri, 'object' => ['id' => $retiredReplyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $retiredUri, 'content' => '<p>Retired generation reply.</p>']];
+    if (($send($retiredReply)['result_code'] ?? '') !== 'reply_target_retired') {
+        throw new RuntimeException('A reply to a retired generation was not deliberately retained as non-visible.');
+    }
+    $retiredStored = bms_activitypub_remote_reply_by_uri($retiredReplyUri);
+    if (!is_array($retiredStored) || (int)$retiredStored['target_publication_generation'] !== 1 || (string)$retiredStored['moderation_state'] !== 'target_retired') {
+        throw new RuntimeException('A retired-generation reply migrated or became visible.');
+    }
+    $unknown = ['id' => $alphaUri . '/activities/create-unknown', 'type' => 'Create', 'actor' => $alphaUri, 'object' => ['id' => $alphaUri . '/notes/unknown', 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => bms_activitypub_generation_object_url(9999, 9), 'content' => '<p>Unknown.</p>']];
+    if (($send($unknown)['result_code'] ?? '') !== 'reply_unknown_target') {
+        throw new RuntimeException('A reply to an unknown local object was not ignored.');
+    }
+
+    $update = ['id' => $alphaUri . '/activities/update-reply-1', 'type' => 'Update', 'actor' => $alphaUri, 'object' => ['id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri, 'updated' => gmdate(DATE_ATOM, $clock), 'content' => '<p>Updated reply text.</p>']];
+    if (($send($update)['result_code'] ?? '') !== 'reply_updated') {
+        throw new RuntimeException('The owning actor could not update its accepted remote reply.');
+    }
+    $updatedStored = bms_activitypub_remote_reply_by_uri($replyUri);
+    if (!is_array($updatedStored) || (string)$updatedStored['moderation_state'] !== 'approved' || !str_contains((string)$updatedStored['content_text'], 'Updated reply text')) {
+        throw new RuntimeException('Remote reply Update lost moderation state or sanitized content.');
+    }
+    $wrongUpdate = $update;
+    $wrongUpdate['id'] = $betaUri . '/activities/wrong-update';
+    $wrongUpdate['actor'] = $betaUri;
+    $wrongUpdate['object']['attributedTo'] = $betaUri;
+    bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongUpdate, 'beta'));
+
+    $wrongDelete = ['id' => $betaUri . '/activities/wrong-delete', 'type' => 'Delete', 'actor' => $betaUri, 'object' => $replyUri];
+    bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongDelete, 'beta'));
+    $delete = ['id' => $alphaUri . '/activities/delete-reply-1', 'type' => 'Delete', 'actor' => $alphaUri, 'object' => $replyUri];
+    if (($send($delete)['result_code'] ?? '') !== 'reply_deleted') {
+        throw new RuntimeException('The owning actor could not delete its remote reply.');
+    }
+    $afterDelete = $update;
+    $afterDelete['id'] = $alphaUri . '/activities/update-after-delete';
+    if (($send($afterDelete)['result_code'] ?? '') !== 'reply_update_after_delete') {
+        throw new RuntimeException('Update after Delete was not rejected without resurrection.');
+    }
+    if ((string)bms_activitypub_remote_reply_by_uri($replyUri)['lifecycle_state'] !== 'deleted') {
+        throw new RuntimeException('A deleted remote reply lost its tombstone state.');
+    }
+
+    $like1 = ['id' => $alphaUri . '/activities/like-1', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $currentUri];
+    if (($send($like1)['result_code'] ?? '') !== 'like_recorded') {
+        throw new RuntimeException('A valid inbound Like was not recorded.');
+    }
+    $likeDuplicate = $like1;
+    $likeDuplicate['id'] = $alphaUri . '/activities/like-duplicate';
+    if (($send($likeDuplicate)['result_code'] ?? '') !== 'like_duplicate' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 1) {
+        throw new RuntimeException('A duplicate semantic Like created duplicate visible state.');
+    }
+    $wrongUndoLike = ['id' => $betaUri . '/activities/undo-like-wrong', 'type' => 'Undo', 'actor' => $betaUri, 'object' => ['id' => $like1['id'], 'type' => 'Like', 'actor' => $betaUri, 'object' => $currentUri]];
+    bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongUndoLike, 'beta'));
+    $undoLike = ['id' => $alphaUri . '/activities/undo-like-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $like1];
+    if (($send($undoLike)['result_code'] ?? '') !== 'like_undone' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 0) {
+        throw new RuntimeException('Undo Like did not remove only the exact owning interaction.');
+    }
+    $likeAgain = $like1;
+    $likeAgain['id'] = $alphaUri . '/activities/like-again';
+    if (($send($likeAgain)['result_code'] ?? '') !== 'like_recorded' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 1) {
+        throw new RuntimeException('A new Like after Undo did not create one current interaction.');
+    }
+    $undoDuplicate = ['id' => $alphaUri . '/activities/undo-like-duplicate', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $likeDuplicate];
+    if (($send($undoDuplicate)['result_code'] ?? '') !== 'like_undo_inactive' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 1) {
+        throw new RuntimeException('Undo of a duplicate activity removed a different current Like.');
+    }
+
+    $announce = ['id' => $alphaUri . '/activities/announce-1', 'type' => 'Announce', 'actor' => $alphaUri, 'object' => $currentUri];
+    if (($send($announce)['result_code'] ?? '') !== 'announce_recorded') {
+        throw new RuntimeException('A valid Announce was not recorded.');
+    }
+    $announceDuplicate = $announce;
+    $announceDuplicate['id'] = $alphaUri . '/activities/announce-duplicate';
+    if (($send($announceDuplicate)['result_code'] ?? '') !== 'announce_duplicate') {
+        throw new RuntimeException('A duplicate Announce was not idempotent.');
+    }
+    $undoAnnounce = ['id' => $alphaUri . '/activities/undo-announce-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $announce];
+    if (($send($undoAnnounce)['result_code'] ?? '') !== 'announce_undone' || bms_activitypub_federated_interaction_count($postId, 2, 'Announce') !== 0) {
+        throw new RuntimeException('Undo Announce did not remove the exact owning interaction.');
+    }
+
+    $retiredLike = ['id' => $alphaUri . '/activities/like-retired', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $retiredUri];
+    if (($send($retiredLike)['result_code'] ?? '') !== 'like_target_retired') {
+        throw new RuntimeException('A Like against a retired generation was not isolated.');
+    }
+    $retiredInteraction = $pdo->query("SELECT * FROM " . bms_table('activitypub_remote_interactions') . " WHERE current_activity_uri = " . $pdo->quote($retiredLike['id']))->fetch();
+    if (!is_array($retiredInteraction) || (int)$retiredInteraction['target_publication_generation'] !== 1 || (string)$retiredInteraction['state'] !== 'target_retired') {
+        throw new RuntimeException('A retired-generation interaction migrated to the current generation.');
+    }
+
+    $malformed = ['id' => $alphaUri . '/activities/malformed-create', 'type' => 'Create', 'actor' => $alphaUri, 'object' => $alphaUri . '/notes/not-embedded'];
+    bms_api_smoke_expect_security_exception(400, static fn() => $send($malformed));
+    bms_activitypub_block_actor($betaUri, 'Stage 5 blocked actor fixture.');
+    $blockedLike = ['id' => $betaUri . '/activities/blocked-like', 'type' => 'Like', 'actor' => $betaUri, 'object' => $currentUri];
+    if (($send($blockedLike, 'beta')['result_code'] ?? '') !== 'blocked_actor') {
+        throw new RuntimeException('A blocked actor was able to create a Stage 5 interaction.');
+    }
+    $pdo->prepare('INSERT INTO ' . bms_table('activitypub_blocks') . " (block_type, block_value, reason, created_at, updated_at) VALUES ('domain', 'blocked.example', '', UTC_TIMESTAMP(), UTC_TIMESTAMP())")->execute();
+    if (!bms_activitypub_actor_is_blocked('https://blocked.example/users/test')) {
+        throw new RuntimeException('A blocked domain did not apply across Stage 5 activity types.');
+    }
+
+    $rateCount = $pdo->prepare("SELECT COUNT(*) FROM " . bms_table('activitypub_inbox_receipts') . " WHERE actor_uri = :actor_uri AND activity_type = 'Create' AND received_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)");
+    $rateCount->execute(['actor_uri' => $alphaUri]);
+    $createCount = (int)$rateCount->fetchColumn();
+    $rateInsert = $pdo->prepare("INSERT INTO " . bms_table('activitypub_inbox_receipts') . " (activity_uri, activity_type, actor_uri, key_id, body_hash, signature_date, activity_json, status, result_code, received_at, processed_at) VALUES (:activity_uri, 'Create', :actor_uri, :key_id, :body_hash, UTC_TIMESTAMP(), '{}', 'ignored', 'rate_fixture', UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+    for ($index = $createCount; $index < 30; $index++) {
+        $rateInsert->execute(['activity_uri' => $alphaUri . '/activities/rate-' . $index, 'actor_uri' => $alphaUri, 'key_id' => (string)$actors['alpha']['key_id'], 'body_hash' => hash('sha256', 'rate-' . $index)]);
+    }
+    bms_api_smoke_expect_security_exception(429, static fn() => bms_activitypub_enforce_stage5_rate_limit($alphaUri, 'Create'));
+
+    $replayActivity = ['id' => $alphaUri . '/activities/replay-check', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $currentUri];
+    $clock++;
+    $replayRequest = bms_api_smoke_signed_activity_request($replayActivity, (string)$actors['alpha']['key_id'], (string)$actors['alpha']['private'], $clock);
+    bms_activitypub_receive_inbox($replayRequest, $fetcher, $resolver, $clock);
+    bms_api_smoke_expect_security_exception(409, static fn() => bms_activitypub_receive_inbox($replayRequest, $fetcher, $resolver, $clock));
+
+    if (bms_comment_count_for_slug('stage-5-target') !== $localCommentCount || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount) {
+        throw new RuntimeException('Stage 5 changed local comments or anonymous local likes.');
     }
 }
 

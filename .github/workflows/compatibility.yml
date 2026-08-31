@@ -113,6 +113,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/activitypub-security-test.php
 
+      - name: Run ActivityPub Stage 5 interaction test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/activitypub-interactions-test.php
+
       - name: Run migration/schema smoke test
         if: always()
         env:
