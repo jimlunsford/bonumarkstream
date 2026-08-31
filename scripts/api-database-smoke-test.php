@@ -1402,6 +1402,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
 function bms_api_smoke_verify_activitypub_stage6(): void
 {
     $pdo = bms_db();
+    bms_activitypub_create_signing_key();
     $resolver = static fn(string $host): array => ['93.184.216.34'];
     $actors = [];
     foreach (['owner-target', 'wrong-actor', 'failed-target'] as $name) {
