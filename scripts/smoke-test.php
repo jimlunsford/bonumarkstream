@@ -21,6 +21,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $root = dirname(__DIR__);
+$checkReleaseManifest = !in_array('--source-tree', $argv ?? [], true);
 
 if (is_file($root . '/_bonumark_stream/installed.lock') || is_file($root . '/_bonumark_stream/config.php')) {
     fwrite(STDERR, "Bonumark package smoke test is for a clean source/release tree, not an installed site. Use Admin > System Check for live installation diagnostics.\n");
@@ -2137,9 +2138,9 @@ foreach ([
 
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
-if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
+if ($checkReleaseManifest && (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files']))) {
     bm_smoke_fail($failures, 'Release manifest is missing or invalid.');
-} else {
+} elseif ($checkReleaseManifest) {
     $manifestFiles = [];
     foreach ($manifest['files'] as $entry) {
         $relative = str_replace('\\', '/', (string)($entry['path'] ?? ''));

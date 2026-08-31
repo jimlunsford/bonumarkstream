@@ -599,7 +599,7 @@ function bms_activitypub_create_owner_reply_draft(string $targetUri, string $bod
 
 function bms_activitypub_reply_target_for_post(int $postId): ?array
 {
-    if ($postId < 1) {
+    if ($postId < 1 || !function_exists('bms_is_installed') || !bms_is_installed()) {
         return null;
     }
     $stmt = bms_db()->prepare('SELECT t.*, a.inbox_url, a.shared_inbox_url, a.document_json FROM ' . bms_table('activitypub_reply_targets') . ' t INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = t.remote_actor_id WHERE t.post_id = :post_id LIMIT 1');

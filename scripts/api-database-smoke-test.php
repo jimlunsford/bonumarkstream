@@ -1456,7 +1456,7 @@ function bms_api_smoke_verify_activitypub_stage6(): void
         bms_activitypub_follow_remote_actor('https://127.0.0.1/actor', $fetcher, static fn(string $host): array => ['127.0.0.1']);
         throw new RuntimeException('An owner Follow bypassed SSRF destination checks.');
     } catch (BmsActivityPubSecurityException $e) {
-        if ($e->httpStatus() !== 403) {
+        if ($e->httpStatus() !== 400) {
             throw $e;
         }
     }

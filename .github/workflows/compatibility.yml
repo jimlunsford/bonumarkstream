@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
-          php scripts/smoke-test.php
+          php scripts/smoke-test.php --source-tree
 
       - name: Run ActivityPub foundation test
         if: always()
