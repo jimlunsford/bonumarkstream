@@ -33,6 +33,12 @@ function bms_activitypub_remote_link_url(string $value): string
         || trim((string)($parts['host'] ?? '')) === '' || isset($parts['user']) || isset($parts['pass'])) {
         return '';
     }
+    $host = strtolower(rtrim(trim((string)$parts['host'], '[]'), '.'));
+    if ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')
+        || str_ends_with($host, '.internal') || str_ends_with($host, '.home.arpa')
+        || (filter_var($host, FILTER_VALIDATE_IP) !== false && !bms_activitypub_ip_is_public($host))) {
+        return '';
+    }
     return filter_var($value, FILTER_VALIDATE_URL) ? $value : '';
 }
 
@@ -141,8 +147,12 @@ function bms_activitypub_remote_datetime(mixed $value): ?string
     if (!is_string($value) || trim($value) === '') {
         return null;
     }
+    $value = trim($value);
+    if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/D', $value) !== 1) {
+        throw new BmsActivityPubSecurityException('A remote timestamp is invalid.', 400);
+    }
     try {
-        $date = new DateTimeImmutable(trim($value));
+        $date = new DateTimeImmutable($value);
         return $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
     } catch (Throwable $e) {
         throw new BmsActivityPubSecurityException('A remote timestamp is invalid.', 400);

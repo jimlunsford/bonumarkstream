@@ -36,7 +36,7 @@ bms_ap_stage5_assert(str_contains((string)$sanitized['html'], 'nofollow noopener
 bms_ap_stage5_assert(str_contains((string)$sanitized['text'], 'Safe text.'), 'Sanitized remote plain text was not retained.');
 
 bms_ap_stage5_assert(bms_activitypub_remote_link_url('https://remote.example/profile') === 'https://remote.example/profile', 'A safe remote profile URL was rejected.');
-foreach (['http://remote.example/profile', 'javascript:alert(1)', 'https://user:pass@remote.example/profile', "https://remote.example/\nheader"] as $unsafeUrl) {
+foreach (['http://remote.example/profile', 'javascript:alert(1)', 'https://user:pass@remote.example/profile', 'https://127.0.0.1/private', 'https://localhost/private', 'https://service.internal/private', "https://remote.example/\nheader"] as $unsafeUrl) {
     bms_ap_stage5_assert(bms_activitypub_remote_link_url($unsafeUrl) === '', 'An unsafe remote URL was accepted: ' . $unsafeUrl);
 }
 
@@ -46,6 +46,13 @@ bms_ap_stage5_assert($key === bms_activitypub_interaction_semantic_key('https://
 bms_ap_stage5_assert($key !== bms_activitypub_interaction_semantic_key('https://remote.example/actor', 'Like', 'https://local.example/activitypub/objects/1/generations/8'), 'Interaction identity migrated between publication generations.');
 bms_ap_stage5_assert($key !== bms_activitypub_interaction_semantic_key('https://remote.example/other', 'Like', 'https://local.example/activitypub/objects/1/generations/9'), 'Interaction identity does not distinguish remote actors.');
 bms_ap_stage5_assert($key !== bms_activitypub_interaction_semantic_key('https://remote.example/actor', 'Announce', 'https://local.example/activitypub/objects/1/generations/9'), 'Like and Announce identities were conflated.');
+
+try {
+    bms_activitypub_remote_datetime('tomorrow');
+    throw new RuntimeException('A non-protocol remote timestamp was accepted.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage5_assert($e->httpStatus() === 400, 'An invalid remote timestamp returned the wrong status.');
+}
 
 try {
     bms_activitypub_sanitize_remote_html(str_repeat('x', 65537));
