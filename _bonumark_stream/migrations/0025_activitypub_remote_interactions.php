@@ -64,7 +64,7 @@ return [
         KEY `target_state` (`target_post_id`, `target_publication_generation`, `interaction_type`, `state`),
         KEY `actor_updated` (`remote_actor_id`, `updated_at`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_remote_interaction_activities` (
+    "CREATE TABLE IF NOT EXISTS `{{prefix}}activitypub_interaction_log` (
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `interaction_id` BIGINT UNSIGNED NOT NULL,
         `remote_actor_id` BIGINT UNSIGNED NOT NULL,

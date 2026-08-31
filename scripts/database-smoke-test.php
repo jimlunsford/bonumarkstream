@@ -227,7 +227,7 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_blocks',
         'activitypub_remote_replies',
         'activitypub_remote_interactions',
-        'activitypub_remote_interaction_activities',
+        'activitypub_interaction_log',
     ];
     foreach ($requiredTables as $table) {
         $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($prefix . $table));
@@ -253,7 +253,7 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_blocks' => ['block_type', 'block_value', 'reason'],
         'activitypub_remote_replies' => ['remote_actor_id', 'remote_object_uri', 'target_post_id', 'target_publication_generation', 'target_object_uri', 'content_html', 'moderation_state', 'lifecycle_state', 'deleted_at'],
         'activitypub_remote_interactions' => ['semantic_key', 'interaction_type', 'remote_actor_id', 'target_publication_generation', 'target_object_uri', 'current_activity_uri', 'state'],
-        'activitypub_remote_interaction_activities' => ['interaction_id', 'activity_uri', 'activity_type', 'receipt_id', 'state', 'undo_activity_uri'],
+        'activitypub_interaction_log' => ['interaction_id', 'activity_uri', 'activity_type', 'receipt_id', 'state', 'undo_activity_uri'],
     ];
     foreach ($requiredColumns as $table => $columns) {
         foreach ($columns as $column) {

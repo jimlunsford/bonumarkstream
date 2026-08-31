@@ -355,7 +355,7 @@ function bms_activitypub_process_remote_interaction(array $activity, array $remo
             $ledgerState = 'duplicate';
         }
     }
-    $ledger = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_remote_interaction_activities') . ' (interaction_id, remote_actor_id, actor_uri, activity_uri, activity_type, receipt_id, state, undo_activity_uri, activity_at, undone_at, created_at, updated_at) VALUES (:interaction_id, :remote_actor_id, :actor_uri, :activity_uri, :activity_type, :receipt_id, :state, NULL, :activity_at, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $ledger = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_interaction_log') . ' (interaction_id, remote_actor_id, actor_uri, activity_uri, activity_type, receipt_id, state, undo_activity_uri, activity_at, undone_at, created_at, updated_at) VALUES (:interaction_id, :remote_actor_id, :actor_uri, :activity_uri, :activity_type, :receipt_id, :state, NULL, :activity_at, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
     $ledger->execute(['interaction_id' => $interactionId, 'remote_actor_id' => (int)$remoteActor['id'], 'actor_uri' => $actorUri, 'activity_uri' => $activityUri, 'activity_type' => $type, 'receipt_id' => $receiptId, 'state' => $ledgerState, 'activity_at' => bms_activitypub_remote_datetime($activity['published'] ?? null)]);
     if ($retired) {
         return strtolower($type) . '_target_retired';
@@ -375,7 +375,7 @@ function bms_activitypub_process_interaction_undo(array $activity): ?string
     if (is_array($object) && !hash_equals($actorUri, bms_activitypub_actor_reference($object['actor'] ?? null))) {
         throw new BmsActivityPubSecurityException('The Undo actor does not own the referenced interaction.', 403);
     }
-    $stmt = bms_db()->prepare('SELECT ia.*, i.current_activity_uri, i.state AS interaction_state FROM ' . bms_table('activitypub_remote_interaction_activities') . ' ia INNER JOIN ' . bms_table('activitypub_remote_interactions') . ' i ON i.id = ia.interaction_id WHERE ia.activity_uri = :activity_uri LIMIT 1 FOR UPDATE');
+    $stmt = bms_db()->prepare('SELECT ia.*, i.current_activity_uri, i.state AS interaction_state FROM ' . bms_table('activitypub_interaction_log') . ' ia INNER JOIN ' . bms_table('activitypub_remote_interactions') . ' i ON i.id = ia.interaction_id WHERE ia.activity_uri = :activity_uri LIMIT 1 FOR UPDATE');
     $stmt->execute(['activity_uri' => $objectUri]);
     $ledger = $stmt->fetch();
     if (!is_array($ledger)) {
@@ -388,7 +388,7 @@ function bms_activitypub_process_interaction_undo(array $activity): ?string
         return strtolower((string)$ledger['activity_type']) . '_undo_inactive';
     }
     $undoUri = bms_activitypub_identifier_uri((string)$activity['id'], true);
-    $update = bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_interaction_activities') . " SET state = 'undone', undo_activity_uri = :undo_uri, undone_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id");
+    $update = bms_db()->prepare("UPDATE " . bms_table('activitypub_interaction_log') . " SET state = 'undone', undo_activity_uri = :undo_uri, undone_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id");
     $update->execute(['undo_uri' => $undoUri, 'id' => (int)$ledger['id']]);
     $aggregate = bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_interactions') . " SET state = 'undone', undone_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id");
     $aggregate->execute(['id' => (int)$ledger['interaction_id']]);

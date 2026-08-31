@@ -2063,7 +2063,7 @@ if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($publicRoutesSource, 'bms_activitypub_permalink_alias_target')) {
     $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
 }
-foreach (['activitypub_blocks', 'activitypub_remote_replies', 'activitypub_remote_interactions', 'activitypub_remote_interaction_activities'] as $activityPubTable) {
+foreach (['activitypub_blocks', 'activitypub_remote_replies', 'activitypub_remote_interactions', 'activitypub_interaction_log'] as $activityPubTable) {
     if (!str_contains($activityPubInteractionMigration, '{{prefix}}' . $activityPubTable)) {
         bm_smoke_fail($failures, 'ActivityPub Stage 5 migration is missing table: ' . $activityPubTable);
     }
