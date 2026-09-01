@@ -3362,7 +3362,8 @@ body.bonumark-public .stream-site-shell {
 body.bonumark-public .ledger-home-shell,
 body.bonumark-public .ledger-single-shell,
 body.bonumark-public .ledger-archive-shell,
-body.bonumark-public .ledger-search-shell {
+body.bonumark-public .ledger-search-shell,
+body.bonumark-public .ledger-following-shell {
   width: min(100%, 860px);
   justify-self: center;
 }
@@ -4308,7 +4309,8 @@ body.bonumark-public .ledger-single-shell .stream-comments-mount {
 body.bonumark-public.context-home-stream-home .ledger-header,
 body.bonumark-public.context-stream-single .ledger-header,
 body.bonumark-public.context-stream-archive .ledger-header,
-body.bonumark-public.context-search-page .ledger-header {
+body.bonumark-public.context-search-page .ledger-header,
+body.bonumark-public.context-following-page .ledger-header {
   width: min(100%, 860px);
   justify-self: center;
 }
@@ -4451,4 +4453,3 @@ body.bonumark-public.context-profile-page .bms-layout-group-midnight-profile-con
     grid-template-columns: 1fr;
   }
 }
-

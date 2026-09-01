@@ -76,6 +76,8 @@ $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.p
 $appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
 $themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
+$sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
+$publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
 bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
 bms_ap_following_assert(str_contains($routes, "'following_conversation'") && str_contains($routes, 'bms_handle_activitypub_following_route'), 'Private Following routes are not core-owned.');
 bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following'") && str_contains($appearance, "bms_current_user_can('view_admin')"), 'Owner-only Following navigation is incomplete.');
@@ -89,6 +91,12 @@ bms_ap_following_assert(str_contains($template, 'following-card-inner stream-car
 bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
 bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
 bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
+bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
+bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
+foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .ledger-following-shell'), 'Following does not share the public Stream content width.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .ledger-header'), 'Following masthead does not share the public Stream width.');
+}
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
 

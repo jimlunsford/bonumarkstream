@@ -14,20 +14,11 @@ ml_open_document($data, [
 ?>
         <?= (string)($data['notice_html'] ?? '') ?>
 
-        <section class="following-intro stream-state-card ledger-panel ledger-following-intro">
-          <div>
-            <p class="eyebrow">Private federation</p>
-            <h1><?= $conversation ? 'Conversation' : 'Following' ?></h1>
-            <p class="meta"><?= $conversation
-                ? 'A private, sanitized view of the cached remote conversation.'
-                : 'Newest posts from accepted Following relationships. Nothing here enters the public Stream unless you create and publish a Bonumark post.' ?></p>
-          </div>
-          <?php if ($conversation): ?>
+        <?php if ($conversation): ?>
+          <nav class="following-conversation-nav" aria-label="Following navigation">
             <a class="stream-meta-pill following-back" href="<?= $h((string)($data['following_url'] ?? '')) ?>">Back to Following</a>
-          <?php else: ?>
-            <span class="stream-meta-pill"><?= (int)($data['timeline_count'] ?? count($items)) ?> cached note<?= (int)($data['timeline_count'] ?? count($items)) === 1 ? '' : 's' ?></span>
-          <?php endif; ?>
-        </section>
+          </nav>
+        <?php endif; ?>
 
         <?php if ($conversation && empty($data['conversation_found'])): ?>
           <section class="following-empty stream-state-card">
