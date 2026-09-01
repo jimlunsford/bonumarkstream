@@ -1,16 +1,5 @@
 body.bonumark-public.context-following-page .following-shell {
-  display: grid;
-  gap: 1rem;
-  width: 100%;
-}
-
-body.bonumark-public.context-following-page .following-intro,
-body.bonumark-public.context-following-page .following-empty,
-body.bonumark-public.context-following-page .following-card {
-  background: var(--ledger-panel, #fff);
-  border: 1px solid var(--ledger-line, #d9dde5);
-  border-radius: var(--ledger-radius, 16px);
-  box-shadow: var(--ledger-shadow, 0 12px 30px rgba(15, 23, 42, .08));
+  gap: var(--ledger-gap, 1rem);
 }
 
 body.bonumark-public.context-following-page .following-intro {
@@ -18,7 +7,6 @@ body.bonumark-public.context-following-page .following-intro {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: clamp(1rem, 3vw, 1.6rem);
 }
 
 body.bonumark-public.context-following-page .following-intro h1,
@@ -33,50 +21,7 @@ body.bonumark-public.context-following-page .following-intro .meta {
 
 body.bonumark-public.context-following-page .following-feed {
   display: grid;
-  gap: 1rem;
-}
-
-body.bonumark-public.context-following-page .following-card {
-  overflow: clip;
-}
-
-body.bonumark-public.context-following-page .following-card-inner {
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
   gap: .9rem;
-  padding: clamp(1rem, 3vw, 1.35rem);
-}
-
-body.bonumark-public.context-following-page .following-avatar,
-body.bonumark-public.context-following-page .following-avatar img {
-  border-radius: 50%;
-  height: 3rem;
-  width: 3rem;
-}
-
-body.bonumark-public.context-following-page .following-avatar {
-  align-items: center;
-  background: var(--ledger-panel-soft, #eef1f6);
-  color: var(--ledger-muted, #5f6878);
-  display: flex;
-  font-weight: 800;
-  justify-content: center;
-  overflow: hidden;
-}
-
-body.bonumark-public.context-following-page .following-avatar img {
-  object-fit: cover;
-}
-
-body.bonumark-public.context-following-page .following-card-main {
-  min-width: 0;
-}
-
-body.bonumark-public.context-following-page .following-card-header {
-  align-items: start;
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
 }
 
 body.bonumark-public.context-following-page .following-actor {
@@ -86,26 +31,21 @@ body.bonumark-public.context-following-page .following-actor {
 }
 
 body.bonumark-public.context-following-page .following-handle,
-body.bonumark-public.context-following-page .following-time,
 body.bonumark-public.context-following-page .following-media-alt,
 body.bonumark-public.context-following-page .following-action-error {
-  color: var(--ledger-muted, #687386);
-  font-size: .84rem;
+  color: var(--ledger-dim, #687386);
+  font-size: inherit;
 }
 
 body.bonumark-public.context-following-page .following-handle {
-  display: block;
   overflow-wrap: anywhere;
 }
 
 body.bonumark-public.context-following-page .following-time {
-  flex: 0 0 auto;
   text-decoration: none;
 }
 
 body.bonumark-public.context-following-page .following-content {
-  line-height: 1.65;
-  margin-top: .8rem;
   overflow-wrap: anywhere;
 }
 
@@ -141,7 +81,6 @@ body.bonumark-public.context-following-page .following-tombstone p {
 body.bonumark-public.context-following-page .following-media {
   display: grid;
   gap: .4rem;
-  margin-top: 1rem;
 }
 
 body.bonumark-public.context-following-page .following-media.is-gallery {
@@ -166,11 +105,7 @@ body.bonumark-public.context-following-page .following-media audio {
 }
 
 body.bonumark-public.context-following-page .following-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  margin-top: 1rem;
+  justify-content: flex-end;
 }
 
 body.bonumark-public.context-following-page .following-action-form {
@@ -182,6 +117,25 @@ body.bonumark-public.context-following-page button.stream-meta-pill,
 body.bonumark-public.context-following-page summary.stream-meta-pill {
   cursor: pointer;
   font: inherit;
+}
+
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill {
+  min-height: 30px;
+  padding: .28rem .5rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ledger-dim, #687386);
+  font-size: .72rem;
+}
+
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:hover,
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:focus-visible,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:hover,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--ledger-line, #d9dde5) 70%, transparent);
+  background: var(--ledger-panel-soft, rgba(18, 26, 37, .56));
+  color: var(--ledger-muted, #687386);
 }
 
 body.bonumark-public.context-following-page .stream-meta-pill.is-active {
@@ -228,21 +182,9 @@ body.bonumark-public.context-following-page .following-empty {
 }
 
 @media (max-width: 680px) {
-  body.bonumark-public.context-following-page .following-intro,
-  body.bonumark-public.context-following-page .following-card-header {
+  body.bonumark-public.context-following-page .following-intro {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  body.bonumark-public.context-following-page .following-card-inner {
-    grid-template-columns: 2.5rem minmax(0, 1fr);
-    gap: .7rem;
-  }
-
-  body.bonumark-public.context-following-page .following-avatar,
-  body.bonumark-public.context-following-page .following-avatar img {
-    height: 2.5rem;
-    width: 2.5rem;
   }
 
   body.bonumark-public.context-following-page .following-media.is-gallery {

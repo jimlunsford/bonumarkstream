@@ -9,12 +9,12 @@ ml_open_document($data, [
     'fallback_title' => $conversation ? 'Conversation' : 'Following',
     'og_type' => 'website',
     'body_class' => 'following-template',
-    'main_class' => 'site-main stream-shell timeline following-shell',
+    'main_class' => 'site-main stream-shell timeline ledger-stream-shell following-shell ledger-following-shell',
 ]);
 ?>
         <?= (string)($data['notice_html'] ?? '') ?>
 
-        <section class="following-intro stream-state-card">
+        <section class="following-intro stream-state-card ledger-panel ledger-following-intro">
           <div>
             <p class="eyebrow">Private federation</p>
             <h1><?= $conversation ? 'Conversation' : 'Following' ?></h1>
@@ -47,24 +47,23 @@ ml_open_document($data, [
               $announce = is_array($item['announce'] ?? null) ? $item['announce'] : [];
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
             ?>
-              <article class="following-card stream-card<?= $deleted ? ' is-deleted' : '' ?>">
-                <div class="following-card-inner">
-                  <div class="following-avatar" aria-hidden="true">
+              <article class="following-card stream-card ledger-stream-card<?= $deleted ? ' is-deleted' : '' ?>">
+                <div class="following-card-inner stream-card-inner">
+                  <div class="following-avatar stream-card-avatar" aria-hidden="true">
                     <?php if ((string)($item['actor_avatar_url'] ?? '') !== ''): ?>
-                      <img src="<?= $h((string)$item['actor_avatar_url']) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                      <img class="stream-author-image" src="<?= $h((string)$item['actor_avatar_url']) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
                     <?php else: ?>
-                      <span><?= $h(strtoupper(bms_text_substr((string)($item['actor_name'] ?? 'R'), 0, 1))) ?></span>
+                      <span class="stream-author-initials"><?= $h(strtoupper(bms_text_substr((string)($item['actor_name'] ?? 'R'), 0, 1))) ?></span>
                     <?php endif; ?>
                   </div>
-                  <div class="following-card-main">
-                    <header class="following-card-header">
-                      <div>
-                        <a class="following-actor" href="<?= $h((string)($item['actor_uri'] ?? '')) ?>" rel="nofollow noopener noreferrer">
-                          <?= $h((string)($item['actor_name'] ?? 'Remote actor')) ?>
-                        </a>
-                        <?php if ((string)($item['actor_handle'] ?? '') !== ''): ?><span class="following-handle"><?= $h((string)$item['actor_handle']) ?></span><?php endif; ?>
-                      </div>
-                      <a class="following-time" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">
+                  <div class="following-card-main stream-card-main">
+                    <header class="following-card-header stream-card-headerline">
+                      <a class="following-actor stream-card-author" href="<?= $h((string)($item['actor_uri'] ?? '')) ?>" rel="nofollow noopener noreferrer">
+                        <?= $h((string)($item['actor_name'] ?? 'Remote actor')) ?>
+                      </a>
+                      <?php if ((string)($item['actor_handle'] ?? '') !== ''): ?><span class="following-handle"><?= $h((string)$item['actor_handle']) ?></span><?php endif; ?>
+                      <span class="stream-card-separator" aria-hidden="true">&middot;</span>
+                      <a class="following-time stream-card-datetime stream-card-permalink stream-permalink" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">
                         <time<?= (string)($item['published_datetime'] ?? '') !== '' ? ' datetime="' . $h((string)$item['published_datetime']) . '"' : '' ?>><?= $h((string)($item['published_label'] ?? 'Time unavailable')) ?></time>
                       </a>
                     </header>
@@ -75,11 +74,11 @@ ml_open_document($data, [
                       <?php if (!empty($item['sensitive']) && (string)($item['summary'] ?? '') !== ''): ?>
                         <details class="following-sensitive">
                           <summary><?= $h((string)$item['summary']) ?></summary>
-                          <div class="following-content"><?= (string)($item['content_html'] ?? '') ?></div>
+                          <div class="following-content stream-card-content"><?= (string)($item['content_html'] ?? '') ?></div>
                         </details>
                       <?php else: ?>
                         <?php if ((string)($item['summary'] ?? '') !== ''): ?><p class="following-summary"><?= $h((string)$item['summary']) ?></p><?php endif; ?>
-                        <div class="following-content"><?= (string)($item['content_html'] ?? '') ?></div>
+                        <div class="following-content stream-card-content"><?= (string)($item['content_html'] ?? '') ?></div>
                       <?php endif; ?>
 
                       <?php if ($media): ?>
@@ -101,37 +100,40 @@ ml_open_document($data, [
                       <?php endif; ?>
                     <?php endif; ?>
 
-                    <div class="following-actions">
-                      <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
-                      <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
-                      <?php if (!$deleted): ?>
-                        <details class="following-reply-control">
-                          <summary class="stream-meta-pill">Reply</summary>
-                          <form method="post" class="following-reply-form">
+                    <div class="following-meta stream-card-meta">
+                      <div class="stream-card-tags"></div>
+                      <div class="following-actions stream-card-actions">
+                        <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
+                        <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
+                        <?php if (!$deleted): ?>
+                          <details class="following-reply-control">
+                            <summary class="stream-meta-pill">Reply</summary>
+                            <form method="post" class="following-reply-form">
+                              <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+                              <input type="hidden" name="following_action" value="reply">
+                              <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
+                              <label>Reply text<textarea name="reply_body" rows="5" maxlength="2097152" required></textarea></label>
+                              <button type="submit">Create Bonumark draft</button>
+                            </form>
+                          </details>
+
+                          <form method="post" class="following-action-form">
                             <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                            <input type="hidden" name="following_action" value="reply">
                             <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                            <label>Reply text<textarea name="reply_body" rows="5" maxlength="2097152" required></textarea></label>
-                            <button type="submit">Create Bonumark draft</button>
+                            <input type="hidden" name="following_action" value="<?= !empty($like['active']) ? 'unlike' : 'like' ?>">
+                            <?php if (!empty($like['active'])): ?><input type="hidden" name="interaction_id" value="<?= (int)($like['interaction_id'] ?? 0) ?>"><?php endif; ?>
+                            <button type="submit" class="stream-meta-pill<?= !empty($like['active']) ? ' is-active' : '' ?>"><?= !empty($like['active']) ? 'Unlike' : 'Like' ?></button>
                           </form>
-                        </details>
 
-                        <form method="post" class="following-action-form">
-                          <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                          <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                          <input type="hidden" name="following_action" value="<?= !empty($like['active']) ? 'unlike' : 'like' ?>">
-                          <?php if (!empty($like['active'])): ?><input type="hidden" name="interaction_id" value="<?= (int)($like['interaction_id'] ?? 0) ?>"><?php endif; ?>
-                          <button type="submit" class="stream-meta-pill<?= !empty($like['active']) ? ' is-active' : '' ?>"><?= !empty($like['active']) ? 'Unlike' : 'Like' ?></button>
-                        </form>
-
-                        <form method="post" class="following-action-form">
-                          <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                          <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                          <input type="hidden" name="following_action" value="<?= !empty($announce['active']) ? 'unboost' : 'boost' ?>">
-                          <?php if (!empty($announce['active'])): ?><input type="hidden" name="interaction_id" value="<?= (int)($announce['interaction_id'] ?? 0) ?>"><?php endif; ?>
-                          <button type="submit" class="stream-meta-pill<?= !empty($announce['active']) ? ' is-active' : '' ?>"><?= !empty($announce['active']) ? 'Unboost' : 'Boost' ?></button>
-                        </form>
-                      <?php endif; ?>
+                          <form method="post" class="following-action-form">
+                            <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+                            <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
+                            <input type="hidden" name="following_action" value="<?= !empty($announce['active']) ? 'unboost' : 'boost' ?>">
+                            <?php if (!empty($announce['active'])): ?><input type="hidden" name="interaction_id" value="<?= (int)($announce['interaction_id'] ?? 0) ?>"><?php endif; ?>
+                            <button type="submit" class="stream-meta-pill<?= !empty($announce['active']) ? ' is-active' : '' ?>"><?= !empty($announce['active']) ? 'Unboost' : 'Boost' ?></button>
+                          </form>
+                        <?php endif; ?>
+                      </div>
                     </div>
                     <?php if ((string)($like['error'] ?? '') !== ''): ?><p class="following-action-error">Like delivery: <?= $h((string)$like['error']) ?></p><?php endif; ?>
                     <?php if ((string)($announce['error'] ?? '') !== ''): ?><p class="following-action-error">Boost delivery: <?= $h((string)$announce['error']) ?></p><?php endif; ?>

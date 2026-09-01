@@ -82,8 +82,13 @@ bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following
 bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
 bms_ap_following_assert(str_contains($appearance, "'bonumark-public public-theme-'"), 'The public theme class contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($appearance, "' context-'"), 'The public theme context class contract changed unexpectedly.');
-bms_ap_following_assert(str_contains($followingCss, 'body.bonumark-public.context-following-page .following-card-inner'), 'Following styles do not target the actual core theme context class.');
+bms_ap_following_assert(str_contains($followingCss, 'body.bonumark-public.context-following-page .following-shell'), 'Following styles do not target the actual core theme context class.');
 bms_ap_following_assert(!str_contains($followingCss, 'body.bonumark-public.following-page '), 'Following styles retain the invalid pre-fix body selector.');
+bms_ap_following_assert(str_contains($template, 'following-card stream-card ledger-stream-card'), 'Following cards do not inherit the public Stream card surface.');
+bms_ap_following_assert(str_contains($template, 'following-card-inner stream-card-inner'), 'Following cards do not inherit the public Stream card layout.');
+bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
+bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
+bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
 
