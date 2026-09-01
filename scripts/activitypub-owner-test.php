@@ -74,8 +74,42 @@ try {
     bms_ap_stage6_assert(in_array($e->httpStatus(), [400, 403], true), 'A WebFinger SSRF destination returned the wrong status.');
 }
 $undoUri = bms_activitypub_owner_activity_url('undo-follow', 'https://local.example');
-$undo = bms_activitypub_owner_action_document('Undo', $undoUri, 'https://remote.example/actor', 'https://remote.example/actor', $followUri);
-bms_ap_stage6_assert(($undo['type'] ?? '') === 'Undo' && ($undo['object'] ?? '') === $followUri, 'Undo Follow does not reference the exact durable Follow.');
+$undo = bms_activitypub_owner_action_document('Undo', $undoUri, 'https://remote.example/actor', 'https://remote.example/actor', $follow);
+bms_ap_stage6_assert(
+    ($undo['type'] ?? '') === 'Undo'
+        && is_array($undo['object'] ?? null)
+        && ($undo['object']['id'] ?? '') === $followUri
+        && ($undo['object']['type'] ?? '') === 'Follow'
+        && ($undo['object']['object'] ?? '') === 'https://remote.example/actor',
+    'Undo Follow does not embed the exact durable Follow.'
+);
+$likeUri = bms_activitypub_owner_activity_url('like', 'https://local.example');
+$like = bms_activitypub_owner_action_document('Like', $likeUri, 'https://remote.example/actor', $target);
+$undoLike = bms_activitypub_owner_action_document(
+    'Undo',
+    bms_activitypub_owner_activity_url('undo-like', 'https://local.example'),
+    'https://remote.example/actor',
+    $target,
+    $like
+);
+bms_ap_stage6_assert(
+    is_array($undoLike['object'] ?? null)
+        && ($undoLike['object']['id'] ?? '') === $likeUri
+        && ($undoLike['object']['type'] ?? '') === 'Like'
+        && ($undoLike['object']['object'] ?? '') === $target,
+    'Undo Like does not embed the exact original Like for Mastodon interoperability.'
+);
+try {
+    bms_activitypub_owner_action_document(
+        'Undo',
+        bms_activitypub_owner_activity_url('undo-like', 'https://local.example'),
+        'https://remote.example/actor',
+        $target,
+        $likeUri
+    );
+    throw new RuntimeException('A reference-only owner Undo was accepted.');
+} catch (InvalidArgumentException) {
+}
 bms_ap_stage6_assert($followUri !== bms_activitypub_owner_activity_url('follow', 'https://local.example'), 'A later owner activity reused an immutable activity identity.');
 $announce = bms_activitypub_owner_action_document('Announce', bms_activitypub_owner_activity_url('announce', 'https://local.example'), 'https://remote.example/actor', $target, '', true);
 bms_ap_stage6_assert(($announce['to'][0] ?? '') === 'https://www.w3.org/ns/activitystreams#Public' && in_array('https://remote.example/actor', (array)($announce['cc'] ?? []), true), 'An owner Announce was not serialized as a public boost addressed to the remote actor.');

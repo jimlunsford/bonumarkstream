@@ -11,7 +11,7 @@ function bms_activitypub_owner_activity_url(string $kind, ?string $baseUrl = nul
     return bms_activitypub_absolute_url('/activitypub/activities/owner/' . $kind . '/' . bin2hex(random_bytes(16)), $baseUrl);
 }
 
-function bms_activitypub_owner_action_document(string $type, string $activityUri, string $actorUri, string $targetUri, string $objectActivityUri = '', bool $public = false): array
+function bms_activitypub_owner_action_document(string $type, string $activityUri, string $actorUri, string $targetUri, array|string|null $objectActivity = null, bool $public = false): array
 {
     $type = trim($type);
     if (!in_array($type, ['Follow', 'Undo', 'Like', 'Announce'], true)) {
@@ -19,7 +19,10 @@ function bms_activitypub_owner_action_document(string $type, string $activityUri
     }
     $object = $targetUri;
     if ($type === 'Undo') {
-        $object = $objectActivityUri;
+        if (!is_array($objectActivity) || array_is_list($objectActivity)) {
+            throw new InvalidArgumentException('Owner Undo activities must embed the original activity.');
+        }
+        $object = $objectActivity;
     }
     $document = [
         '@context' => bms_activitypub_context(),
@@ -123,6 +126,23 @@ function bms_activitypub_owner_activity_document(string $activityUri): ?array
     }
     $document = json_decode($payload, true, bms_activitypub_json_max_depth());
     return is_array($document) && !array_is_list($document) ? $document : null;
+}
+
+function bms_activitypub_owner_original_activity_document(string $activityUri, string $expectedType): array
+{
+    $activityUri = bms_activitypub_identifier_uri($activityUri, true);
+    $expectedType = trim($expectedType);
+    if (!in_array($expectedType, ['Follow', 'Like', 'Announce'], true)) {
+        throw new InvalidArgumentException('Unsupported original owner activity type.');
+    }
+    $document = bms_activitypub_owner_activity_document($activityUri);
+    if (!is_array($document)
+        || !hash_equals($activityUri, (string)($document['id'] ?? ''))
+        || !hash_equals($expectedType, (string)($document['type'] ?? ''))
+        || !hash_equals(bms_activitypub_actor_url(), (string)($document['actor'] ?? ''))) {
+        throw new RuntimeException('The original owner activity is unavailable or invalid.');
+    }
+    return $document;
 }
 
 function bms_activitypub_owner_reference_handle(string $reference): ?array
@@ -346,7 +366,9 @@ function bms_activitypub_unfollow_remote_actor(int $followingId, ?callable $fetc
             throw new BmsActivityPubSecurityException('The refreshed actor no longer matches the Following relationship.', 403);
         }
         $activityUri = bms_activitypub_owner_activity_url('undo-follow');
-        $document = bms_activitypub_owner_action_document('Undo', $activityUri, $actorUri, $actorUri, (string)$following['follow_activity_uri']);
+        $originalActivityUri = (string)$following['follow_activity_uri'];
+        $originalDocument = bms_activitypub_owner_original_activity_document($originalActivityUri, 'Follow');
+        $document = bms_activitypub_owner_action_document('Undo', $activityUri, $actorUri, $actorUri, $originalDocument);
         $payload = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (!is_string($payload)) {
             throw new RuntimeException('The Undo Follow activity could not be encoded.');
@@ -705,7 +727,12 @@ function bms_activitypub_owner_undo_interaction(int $interactionId, ?callable $f
         }
         $activityUri = bms_activitypub_owner_activity_url('undo-' . strtolower((string)$interaction['interaction_type']));
         $public = (string)$interaction['interaction_type'] === 'Announce';
-        $document = bms_activitypub_owner_action_document('Undo', $activityUri, (string)$interaction['actor_uri'], (string)$interaction['target_object_uri'], (string)$interaction['current_activity_uri'], $public);
+        $originalActivityUri = (string)$interaction['current_activity_uri'];
+        $originalDocument = bms_activitypub_owner_original_activity_document(
+            $originalActivityUri,
+            (string)$interaction['interaction_type']
+        );
+        $document = bms_activitypub_owner_action_document('Undo', $activityUri, (string)$interaction['actor_uri'], (string)$interaction['target_object_uri'], $originalDocument, $public);
         $payload = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (!is_string($payload)) {
             throw new RuntimeException('The owner Undo could not be encoded.');
