@@ -1445,13 +1445,28 @@ function bms_api_smoke_verify_activitypub_stage6(): void
         throw new RuntimeException('Unexpected Stage 6 fetch.');
     };
 
-    $follow = bms_activitypub_follow_remote_actor((string)$actors['owner-target']['uri'], $fetcher, $resolver);
+    $webfingerFetcher = static function (string $url, string $resource) use (&$actors): array {
+        if ($resource !== 'acct:owner-target@remote.example'
+            || !str_starts_with($url, 'https://remote.example/.well-known/webfinger?resource=')) {
+            throw new RuntimeException('Unexpected Stage 6 WebFinger request.');
+        }
+        return [
+            'subject' => $resource,
+            'links' => [[
+                'rel' => 'self',
+                'type' => 'application/activity+json',
+                'href' => (string)$actors['owner-target']['uri'],
+            ]],
+        ];
+    };
+
+    $follow = bms_activitypub_follow_remote_actor('@owner-target@remote.example', $fetcher, $resolver, $webfingerFetcher);
     if (!empty($follow['duplicate']) || (string)($follow['following']['state'] ?? '') !== 'pending' || (int)($follow['delivery_id'] ?? 0) < 1) {
-        throw new RuntimeException('Outbound Follow did not create one pending durable relationship.');
+        throw new RuntimeException('Handle-based outbound Follow did not create one pending durable relationship.');
     }
-    $duplicateFollow = bms_activitypub_follow_remote_actor((string)$actors['owner-target']['uri'], $fetcher, $resolver);
+    $duplicateFollow = bms_activitypub_follow_remote_actor('https://remote.example/@owner-target', $fetcher, $resolver, $webfingerFetcher);
     if (empty($duplicateFollow['duplicate']) || (int)$pdo->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_follow_log'))->fetchColumn() !== 1) {
-        throw new RuntimeException('Duplicate outbound Follow was not idempotent.');
+        throw new RuntimeException('A profile URL did not resolve to the existing canonical Following relationship.');
     }
     try {
         bms_activitypub_follow_remote_actor('https://127.0.0.1/actor', $fetcher, static fn(string $host): array => ['127.0.0.1']);

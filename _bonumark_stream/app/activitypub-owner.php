@@ -125,6 +125,120 @@ function bms_activitypub_owner_activity_document(string $activityUri): ?array
     return is_array($document) && !array_is_list($document) ? $document : null;
 }
 
+function bms_activitypub_owner_reference_handle(string $reference): ?array
+{
+    $reference = trim($reference);
+    if ($reference === '' || strlen($reference) > 2048 || preg_match('/[\x00-\x20\x7f]/', $reference) === 1) {
+        throw new BmsActivityPubSecurityException('The remote actor reference is invalid.', 400);
+    }
+
+    if (str_starts_with(strtolower($reference), 'acct:')) {
+        $reference = substr($reference, 5);
+    }
+    if (preg_match('/^@?([A-Za-z0-9._-]{1,190})@([^@]+)$/', $reference, $matches) === 1) {
+        $username = (string)$matches[1];
+        $domain = strtolower(rtrim((string)$matches[2], '.'));
+        if (preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))+$/', $domain) !== 1) {
+            throw new BmsActivityPubSecurityException('The fediverse handle domain is invalid.', 400);
+        }
+        return ['username' => $username, 'domain' => $domain];
+    }
+
+    $parts = parse_url($reference);
+    if (is_array($parts) && strtolower((string)($parts['scheme'] ?? '')) === 'https'
+        && trim((string)($parts['host'] ?? '')) !== '' && !isset($parts['user']) && !isset($parts['pass'])
+        && !isset($parts['fragment'])) {
+        $path = rawurldecode((string)($parts['path'] ?? ''));
+        if (preg_match('~^/@([A-Za-z0-9._-]{1,190})/?$~', $path, $matches) === 1) {
+            return ['username' => (string)$matches[1], 'domain' => strtolower(rtrim((string)$parts['host'], '.'))];
+        }
+        return null;
+    }
+
+    if (str_contains($reference, '@')) {
+        throw new BmsActivityPubSecurityException('Use a fediverse handle such as @name@example.com.', 400);
+    }
+    return null;
+}
+
+function bms_activitypub_owner_webfinger_actor_uri(
+    string $username,
+    string $domain,
+    ?callable $fetcher = null,
+    ?callable $resolver = null
+): string {
+    $resource = 'acct:' . $username . '@' . $domain;
+    $url = 'https://' . $domain . '/.well-known/webfinger?resource=' . rawurlencode($resource);
+    bms_activitypub_validate_remote_url($url, $resolver, false);
+
+    if ($fetcher !== null) {
+        $document = $fetcher($url, $resource);
+    } else {
+        $response = bms_activitypub_http_request($url, [
+            'method' => 'GET',
+            'max_bytes' => min(65536, bms_activitypub_remote_document_max_bytes()),
+            'max_redirects' => 2,
+            'headers' => ['Accept: application/jrd+json, application/json;q=0.9'],
+        ], null, $resolver);
+        if ((int)($response['status'] ?? 0) !== 200) {
+            throw new BmsActivityPubSecurityException('The fediverse handle was not available through WebFinger.', 502);
+        }
+        $contentTypes = $response['headers']['content-type'] ?? [];
+        $contentType = strtolower(is_array($contentTypes) ? (string)end($contentTypes) : (string)$contentTypes);
+        if ($contentType !== '' && !str_starts_with($contentType, 'application/jrd+json')
+            && !str_starts_with($contentType, 'application/json')) {
+            throw new BmsActivityPubSecurityException('The WebFinger response was not JSON.', 502);
+        }
+        $document = bms_activitypub_decode_json_document(
+            (string)($response['body'] ?? ''),
+            min(65536, bms_activitypub_remote_document_max_bytes())
+        );
+    }
+
+    if (!is_array($document) || array_is_list($document)) {
+        throw new BmsActivityPubSecurityException('The WebFinger document is invalid.', 502);
+    }
+    $subject = trim((string)($document['subject'] ?? ''));
+    if ($subject !== '' && strcasecmp($subject, $resource) !== 0) {
+        throw new BmsActivityPubSecurityException('The WebFinger subject does not match the requested handle.', 502);
+    }
+    $links = $document['links'] ?? [];
+    if (!is_array($links)) {
+        throw new BmsActivityPubSecurityException('The WebFinger document has no valid links.', 502);
+    }
+    foreach (array_slice($links, 0, 100) as $link) {
+        if (!is_array($link) || array_is_list($link) || strcasecmp(trim((string)($link['rel'] ?? '')), 'self') !== 0) {
+            continue;
+        }
+        $type = strtolower(trim((string)($link['type'] ?? '')));
+        if ($type !== '' && !str_starts_with($type, 'application/activity+json')
+            && !str_starts_with($type, 'application/ld+json')) {
+            continue;
+        }
+        $actorUri = bms_activitypub_identifier_uri((string)($link['href'] ?? ''), false);
+        bms_activitypub_validate_remote_url($actorUri, $resolver, false);
+        return $actorUri;
+    }
+    throw new BmsActivityPubSecurityException('The WebFinger document did not provide an ActivityPub actor.', 502);
+}
+
+function bms_activitypub_resolve_owner_actor_reference(
+    string $reference,
+    ?callable $webfingerFetcher = null,
+    ?callable $resolver = null
+): string {
+    $handle = bms_activitypub_owner_reference_handle($reference);
+    if (is_array($handle)) {
+        return bms_activitypub_owner_webfinger_actor_uri(
+            (string)$handle['username'],
+            (string)$handle['domain'],
+            $webfingerFetcher,
+            $resolver
+        );
+    }
+    return bms_activitypub_identifier_uri($reference, false);
+}
+
 function bms_activitypub_following_row_by_actor(string $actorUri, bool $forUpdate = false): ?array
 {
     $sql = 'SELECT f.*, a.preferred_username, a.display_name, a.inbox_url, a.shared_inbox_url, a.document_json FROM ' . bms_table('activitypub_following') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id WHERE f.actor_uri = :actor_uri LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
@@ -134,12 +248,22 @@ function bms_activitypub_following_row_by_actor(string $actorUri, bool $forUpdat
     return is_array($row) ? $row : null;
 }
 
-function bms_activitypub_follow_remote_actor(string $actorUri, ?callable $fetcher = null, ?callable $resolver = null): array
+function bms_activitypub_follow_remote_actor(
+    string $actorReference,
+    ?callable $fetcher = null,
+    ?callable $resolver = null,
+    ?callable $webfingerFetcher = null
+): array
 {
     if (!bms_activitypub_enabled()) {
         throw new RuntimeException('ActivityPub is disabled.');
     }
-    $actorUri = bms_activitypub_identifier_uri($actorUri, false);
+    $referenceHandle = bms_activitypub_owner_reference_handle($actorReference);
+    if (is_array($referenceHandle)
+        && bms_activitypub_actor_is_blocked('https://' . (string)$referenceHandle['domain'] . '/')) {
+        throw new BmsActivityPubSecurityException('The remote actor or domain is blocked.', 403);
+    }
+    $actorUri = bms_activitypub_resolve_owner_actor_reference($actorReference, $webfingerFetcher, $resolver);
     if (bms_activitypub_actor_is_blocked($actorUri)) {
         throw new BmsActivityPubSecurityException('The remote actor or domain is blocked.', 403);
     }

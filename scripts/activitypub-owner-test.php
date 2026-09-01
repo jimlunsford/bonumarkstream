@@ -26,6 +26,53 @@ bms_ap_stage6_assert($likeKey !== bms_activitypub_owner_interaction_key('Like', 
 $followUri = bms_activitypub_owner_activity_url('follow', 'https://local.example');
 $follow = bms_activitypub_owner_action_document('Follow', $followUri, 'https://remote.example/actor', 'https://remote.example/actor');
 bms_ap_stage6_assert(($follow['type'] ?? '') === 'Follow' && ($follow['object'] ?? '') === 'https://remote.example/actor', 'Outbound Follow serialization is invalid.');
+$publicResolver = static fn(string $host): array => ['93.184.216.34'];
+$webfingerRequests = [];
+$webfingerFetcher = static function (string $url, string $resource) use (&$webfingerRequests): array {
+    $webfingerRequests[] = ['url' => $url, 'resource' => $resource];
+    return [
+        'subject' => $resource,
+        'links' => [[
+            'rel' => 'self',
+            'type' => 'application/activity+json',
+            'href' => 'https://remote.example/users/owner',
+        ]],
+    ];
+};
+bms_ap_stage6_assert(
+    bms_activitypub_resolve_owner_actor_reference('@owner@remote.example', $webfingerFetcher, $publicResolver) === 'https://remote.example/users/owner',
+    'A normal fediverse handle did not resolve to its canonical actor URI.'
+);
+bms_ap_stage6_assert(
+    bms_activitypub_resolve_owner_actor_reference('https://remote.example/@owner', $webfingerFetcher, $publicResolver) === 'https://remote.example/users/owner',
+    'A normal fediverse profile URL did not resolve through WebFinger.'
+);
+bms_ap_stage6_assert(
+    bms_activitypub_resolve_owner_actor_reference('https://remote.example/users/owner', $webfingerFetcher, $publicResolver) === 'https://remote.example/users/owner',
+    'A canonical actor URI was changed during owner Follow discovery.'
+);
+bms_ap_stage6_assert(count($webfingerRequests) === 2, 'Canonical actor discovery unexpectedly used WebFinger.');
+bms_ap_stage6_assert(
+    ($webfingerRequests[0]['resource'] ?? '') === 'acct:owner@remote.example'
+        && str_contains((string)($webfingerRequests[0]['url'] ?? ''), '/.well-known/webfinger?resource='),
+    'Handle discovery did not request the expected bounded WebFinger resource.'
+);
+$wrongSubjectFetcher = static fn(string $url, string $resource): array => [
+    'subject' => 'acct:other@remote.example',
+    'links' => [['rel' => 'self', 'type' => 'application/activity+json', 'href' => 'https://remote.example/users/owner']],
+];
+try {
+    bms_activitypub_resolve_owner_actor_reference('@owner@remote.example', $wrongSubjectFetcher, $publicResolver);
+    throw new RuntimeException('A mismatched WebFinger subject was accepted.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage6_assert($e->httpStatus() === 502, 'A mismatched WebFinger subject returned the wrong status.');
+}
+try {
+    bms_activitypub_resolve_owner_actor_reference('@owner@evil.example', $webfingerFetcher, static fn(string $host): array => ['127.0.0.1']);
+    throw new RuntimeException('A WebFinger SSRF destination was accepted.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage6_assert(in_array($e->httpStatus(), [400, 403], true), 'A WebFinger SSRF destination returned the wrong status.');
+}
 $undoUri = bms_activitypub_owner_activity_url('undo-follow', 'https://local.example');
 $undo = bms_activitypub_owner_action_document('Undo', $undoUri, 'https://remote.example/actor', 'https://remote.example/actor', $followUri);
 bms_ap_stage6_assert(($undo['type'] ?? '') === 'Undo' && ($undo['object'] ?? '') === $followUri, 'Undo Follow does not reference the exact durable Follow.');
