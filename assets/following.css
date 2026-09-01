@@ -1,0 +1,260 @@
+body.bonumark-public.following-page .following-shell {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+body.bonumark-public.following-page .following-intro,
+body.bonumark-public.following-page .following-empty,
+body.bonumark-public.following-page .following-card {
+  background: var(--ledger-panel, #fff);
+  border: 1px solid var(--ledger-line, #d9dde5);
+  border-radius: var(--ledger-radius, 16px);
+  box-shadow: var(--ledger-shadow, 0 12px 30px rgba(15, 23, 42, .08));
+}
+
+body.bonumark-public.following-page .following-intro {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.6rem);
+}
+
+body.bonumark-public.following-page .following-intro h1,
+body.bonumark-public.following-page .following-empty h2 {
+  margin: 0;
+}
+
+body.bonumark-public.following-page .following-intro .meta {
+  margin: .45rem 0 0;
+  max-width: 70ch;
+}
+
+body.bonumark-public.following-page .following-feed {
+  display: grid;
+  gap: 1rem;
+}
+
+body.bonumark-public.following-page .following-card {
+  overflow: clip;
+}
+
+body.bonumark-public.following-page .following-card-inner {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: .9rem;
+  padding: clamp(1rem, 3vw, 1.35rem);
+}
+
+body.bonumark-public.following-page .following-avatar,
+body.bonumark-public.following-page .following-avatar img {
+  border-radius: 50%;
+  height: 3rem;
+  width: 3rem;
+}
+
+body.bonumark-public.following-page .following-avatar {
+  align-items: center;
+  background: var(--ledger-panel-soft, #eef1f6);
+  color: var(--ledger-muted, #5f6878);
+  display: flex;
+  font-weight: 800;
+  justify-content: center;
+  overflow: hidden;
+}
+
+body.bonumark-public.following-page .following-avatar img {
+  object-fit: cover;
+}
+
+body.bonumark-public.following-page .following-card-main {
+  min-width: 0;
+}
+
+body.bonumark-public.following-page .following-card-header {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+body.bonumark-public.following-page .following-actor {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+body.bonumark-public.following-page .following-handle,
+body.bonumark-public.following-page .following-time,
+body.bonumark-public.following-page .following-media-alt,
+body.bonumark-public.following-page .following-action-error {
+  color: var(--ledger-muted, #687386);
+  font-size: .84rem;
+}
+
+body.bonumark-public.following-page .following-handle {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-public.following-page .following-time {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+body.bonumark-public.following-page .following-content {
+  line-height: 1.65;
+  margin-top: .8rem;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-public.following-page .following-content > :first-child {
+  margin-top: 0;
+}
+
+body.bonumark-public.following-page .following-content > :last-child {
+  margin-bottom: 0;
+}
+
+body.bonumark-public.following-page .following-content pre {
+  max-width: 100%;
+  overflow: auto;
+}
+
+body.bonumark-public.following-page .following-content a {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-public.following-page .following-summary,
+body.bonumark-public.following-page .following-sensitive,
+body.bonumark-public.following-page .following-tombstone {
+  border-left: 3px solid var(--ledger-accent, #a56a43);
+  margin: .9rem 0 0;
+  padding: .6rem .8rem;
+}
+
+body.bonumark-public.following-page .following-tombstone p {
+  margin: .3rem 0 0;
+}
+
+body.bonumark-public.following-page .following-media {
+  display: grid;
+  gap: .4rem;
+  margin-top: 1rem;
+}
+
+body.bonumark-public.following-page .following-media.is-gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-public.following-page .following-media img,
+body.bonumark-public.following-page .following-media video {
+  aspect-ratio: 16 / 10;
+  background: #0b0d10;
+  border-radius: .65rem;
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+body.bonumark-public.following-page .following-media audio {
+  max-width: 100%;
+  width: 100%;
+}
+
+body.bonumark-public.following-page .following-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+body.bonumark-public.following-page .following-action-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+body.bonumark-public.following-page button.stream-meta-pill,
+body.bonumark-public.following-page summary.stream-meta-pill {
+  cursor: pointer;
+  font: inherit;
+}
+
+body.bonumark-public.following-page .stream-meta-pill.is-active {
+  border-color: var(--ledger-accent, #a56a43);
+}
+
+body.bonumark-public.following-page .following-reply-control {
+  position: relative;
+}
+
+body.bonumark-public.following-page .following-reply-control > summary {
+  list-style: none;
+}
+
+body.bonumark-public.following-page .following-reply-control > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-public.following-page .following-reply-form {
+  background: var(--ledger-panel-strong, #fff);
+  border: 1px solid var(--ledger-line, #d9dde5);
+  border-radius: .75rem;
+  display: grid;
+  gap: .65rem;
+  margin-top: .65rem;
+  min-width: min(32rem, 80vw);
+  padding: .85rem;
+}
+
+body.bonumark-public.following-page .following-reply-form label {
+  display: grid;
+  gap: .4rem;
+  font-weight: 700;
+}
+
+body.bonumark-public.following-page .following-reply-form textarea {
+  min-height: 7rem;
+  resize: vertical;
+  width: 100%;
+}
+
+body.bonumark-public.following-page .following-empty {
+  padding: clamp(1.2rem, 4vw, 2rem);
+}
+
+@media (max-width: 680px) {
+  body.bonumark-public.following-page .following-intro,
+  body.bonumark-public.following-page .following-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.bonumark-public.following-page .following-card-inner {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: .7rem;
+  }
+
+  body.bonumark-public.following-page .following-avatar,
+  body.bonumark-public.following-page .following-avatar img {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
+  body.bonumark-public.following-page .following-media.is-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  body.bonumark-public.following-page .following-reply-control,
+  body.bonumark-public.following-page .following-reply-form {
+    width: 100%;
+  }
+
+  body.bonumark-public.following-page .following-reply-form {
+    min-width: 0;
+  }
+}

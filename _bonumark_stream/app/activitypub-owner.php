@@ -374,6 +374,47 @@ function bms_activitypub_following_rows(int $limit = 200): array
     return $stmt ? ($stmt->fetchAll() ?: []) : [];
 }
 
+function bms_activitypub_remote_media_items(mixed $value): array
+{
+    $items = is_array($value) && array_is_list($value) ? $value : (is_array($value) ? [$value] : []);
+    $media = [];
+    foreach (array_slice($items, 0, 8) as $item) {
+        if (!is_array($item) || array_is_list($item)) {
+            continue;
+        }
+        $urlValue = $item['url'] ?? '';
+        if (is_array($urlValue)) {
+            $urlValue = is_string($urlValue['href'] ?? null) ? $urlValue['href'] : ($urlValue[0] ?? '');
+            if (is_array($urlValue)) {
+                $urlValue = $urlValue['href'] ?? '';
+            }
+        }
+        $url = is_string($urlValue) ? bms_activitypub_remote_link_url($urlValue) : '';
+        if ($url === '') {
+            continue;
+        }
+        $mediaType = strtolower(trim((string)($item['mediaType'] ?? '')));
+        $allowedTypes = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+            'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg', 'audio/wav',
+        ];
+        if (!in_array($mediaType, $allowedTypes, true)) {
+            continue;
+        }
+        $kind = str_starts_with($mediaType, 'image/') ? 'image'
+            : (str_starts_with($mediaType, 'video/') ? 'video' : 'audio');
+        $media[] = [
+            'kind' => $kind,
+            'media_type' => $mediaType,
+            'url' => $url,
+            'alt_text' => bms_activitypub_remote_plain_text((string)($item['name'] ?? ''), 1000),
+            'width' => max(0, min(10000, (int)($item['width'] ?? 0))),
+            'height' => max(0, min(10000, (int)($item['height'] ?? 0))),
+        ];
+    }
+    return $media;
+}
+
 function bms_activitypub_remote_note_data(array $note, string $actorUri): array
 {
     if (strcasecmp(trim((string)($note['type'] ?? '')), 'Note') !== 0) {
@@ -389,6 +430,7 @@ function bms_activitypub_remote_note_data(array $note, string $actorUri): array
         'inReplyTo' => is_string($note['inReplyTo'] ?? null) ? bms_activitypub_remote_link_url((string)$note['inReplyTo']) : '',
         'sensitive' => !empty($note['sensitive']),
         'summary' => bms_activitypub_remote_plain_text(is_string($note['summary'] ?? null) ? (string)$note['summary'] : '', 1000),
+        'media' => bms_activitypub_remote_media_items($note['attachment'] ?? []),
     ];
     $metadataJson = json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     return [
@@ -563,7 +605,7 @@ function bms_activitypub_process_followed_note_delete(array $activity, array $re
 function bms_activitypub_remote_inbox_rows(int $limit = 100): array
 {
     $limit = max(1, min(500, $limit));
-    $sql = 'SELECT o.*, a.preferred_username, a.display_name, i.id AS like_interaction_id, i.state AS like_state, i.last_error AS like_last_error, n.id AS announce_interaction_id, n.state AS announce_state, n.last_error AS announce_last_error FROM ' . bms_table('activitypub_remote_objects') . ' o INNER JOIN ' . bms_table('activitypub_following') . " f ON f.remote_actor_id = o.remote_actor_id AND f.state = 'accepted'" . ' INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = o.remote_actor_id LEFT JOIN ' . bms_table('activitypub_owner_interactions') . " i ON i.remote_actor_id = o.remote_actor_id AND i.target_object_uri = o.object_uri AND i.interaction_type = 'Like'" . ' LEFT JOIN ' . bms_table('activitypub_owner_interactions') . " n ON n.remote_actor_id = o.remote_actor_id AND n.target_object_uri = o.object_uri AND n.interaction_type = 'Announce'" . " WHERE o.lifecycle_state = 'active' ORDER BY COALESCE(o.remote_published_at, o.created_at) DESC, o.id DESC LIMIT " . $limit;
+    $sql = 'SELECT o.*, a.preferred_username, a.display_name, a.document_json, i.id AS like_interaction_id, i.state AS like_state, i.last_error AS like_last_error, n.id AS announce_interaction_id, n.state AS announce_state, n.last_error AS announce_last_error FROM ' . bms_table('activitypub_remote_objects') . ' o INNER JOIN ' . bms_table('activitypub_following') . " f ON f.remote_actor_id = o.remote_actor_id AND f.state = 'accepted'" . ' INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = o.remote_actor_id LEFT JOIN ' . bms_table('activitypub_owner_interactions') . " i ON i.remote_actor_id = o.remote_actor_id AND i.target_object_uri = o.object_uri AND i.interaction_type = 'Like'" . ' LEFT JOIN ' . bms_table('activitypub_owner_interactions') . " n ON n.remote_actor_id = o.remote_actor_id AND n.target_object_uri = o.object_uri AND n.interaction_type = 'Announce'" . " WHERE o.lifecycle_state = 'active' ORDER BY COALESCE(o.remote_published_at, o.created_at) DESC, o.id DESC LIMIT " . $limit;
     $stmt = bms_db()->query($sql);
     $rows = $stmt ? ($stmt->fetchAll() ?: []) : [];
     return array_values(array_filter($rows, static fn(array $row): bool => !bms_activitypub_actor_is_blocked((string)$row['actor_uri'])));

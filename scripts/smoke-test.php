@@ -2054,6 +2054,8 @@ $activityPubInteractionMigration = @file_get_contents($root . '/_bonumark_stream
 $activityPubInteractions = @file_get_contents($root . '/_bonumark_stream/app/activitypub-interactions.php') ?: '';
 $activityPubOwnerMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0026_activitypub_owner_participation.php') ?: '';
 $activityPubOwner = @file_get_contents($root . '/_bonumark_stream/app/activitypub-owner.php') ?: '';
+$activityPubFollowing = @file_get_contents($root . '/_bonumark_stream/app/following.php') ?: '';
+$activityPubFollowingTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/following.php') ?: '';
 $publicRoutesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
 if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
     || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
@@ -2090,7 +2092,14 @@ foreach (['bms_activitypub_follow_remote_actor', 'bms_activitypub_unfollow_remot
         bm_smoke_fail($failures, 'ActivityPub Stage 6 owner participation is missing: ' . $ownerFunction);
     }
 }
-
+if (!str_contains($activityPubFollowing, 'function bms_handle_activitypub_following_route')
+    || !str_contains($activityPubFollowing, 'bms_activitypub_following_private_headers')
+    || !str_contains($activityPubFollowing, "bms_current_user_can('view_admin')")
+    || !str_contains($activityPubFollowing, 'bms_verify_csrf()')
+    || !str_contains($activityPubFollowing, "'private_surface' => true")
+    || !str_contains($activityPubFollowingTemplate, 'following_action')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 6.5 private owner frontend boundaries are incomplete.');
+}
 $activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';
 $activityPubSerialization = @file_get_contents($root . '/_bonumark_stream/app/activitypub-serialization.php') ?: '';
 $activityPubSecurity = @file_get_contents($root . '/_bonumark_stream/app/activitypub-security.php') ?: '';
@@ -2099,6 +2108,9 @@ $activityPubInboxMigration = @file_get_contents($root . '/_bonumark_stream/migra
 $frontController = @file_get_contents($root . '/index.php') ?: '';
 $apacheRoutes = @file_get_contents($root . '/.htaccess') ?: '';
 $nginxRoutes = @file_get_contents($root . '/docs/server/bonumark-stream-nginx.conf') ?: '';
+if (!str_contains($apacheRoutes, 'following/conversation') || !str_contains($nginxRoutes, 'following/conversation')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 6.5 private Following routing is incomplete.');
+}
 if (!str_contains($activityPubRoutes, 'function bms_dispatch_activitypub_route')
     || !str_contains($activityPubSerialization, 'function bms_activitypub_actor_document')
     || !str_contains($activityPubSerialization, 'function bms_activitypub_outbox_document')) {

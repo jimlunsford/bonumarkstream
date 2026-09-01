@@ -142,6 +142,7 @@ function bms_api_smoke_run_child(string $scenario): void
     require_once $tempRoot . '/_bonumark_stream/app/api.php';
     require_once $tempRoot . '/_bonumark_stream/app/renderer.php';
     require_once $tempRoot . '/_bonumark_stream/app/importers.php';
+    require_once $tempRoot . '/_bonumark_stream/app/following.php';
 
     try {
         bms_install_schema(bms_db(), $prefix);
@@ -1420,6 +1421,7 @@ function bms_api_smoke_verify_activitypub_stage6(): void
             'document' => [
                 'id' => $uri, 'type' => 'Person', 'preferredUsername' => $name,
                 'name' => ucfirst($name), 'inbox' => 'https://93.184.216.34/inbox/' . $name,
+                'icon' => ['type' => 'Image', 'url' => 'https://93.184.216.34/media/' . $name . '.jpg'],
                 'publicKey' => ['id' => $uri . '#main-key', 'owner' => $uri, 'publicKeyPem' => is_array($details) ? (string)$details['key'] : ''],
             ],
         ];
@@ -1430,6 +1432,10 @@ function bms_api_smoke_verify_activitypub_stage6(): void
         'url' => 'https://93.184.216.34/@owner-target/stage-6',
         'published' => '2026-08-31T12:00:00Z',
         'content' => '<p>Stage 6 remote Note.</p><script>alert(1)</script>',
+        'attachment' => [
+            ['type' => 'Image', 'mediaType' => 'image/jpeg', 'url' => 'https://93.184.216.34/media/stage-6.jpg', 'name' => 'Stage 6 safe alt text.'],
+            ['type' => 'Image', 'mediaType' => 'image/svg+xml', 'url' => 'https://93.184.216.34/media/active.svg', 'name' => 'Rejected active media.'],
+        ],
     ];
     $fetchCounts = [];
     $fetcher = static function (string $url) use (&$actors, &$remoteNote, &$fetchCounts, $noteUri): array {
@@ -1535,6 +1541,14 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     $cached = bms_activitypub_fetch_remote_object($noteUri, false, $fetcher, $resolver);
     if ((string)$cached['actor_uri'] !== (string)$actors['owner-target']['uri'] || str_contains((string)$cached['content_html'], '<script') || count(bms_activitypub_remote_inbox_rows()) !== 1) {
         throw new RuntimeException('Remote Note identity, sanitation, or private Following visibility failed.');
+    }
+    $frontendRows = bms_activitypub_following_presentation_rows(bms_activitypub_remote_inbox_rows());
+    $frontendRow = $frontendRows[0] ?? null;
+    if (!is_array($frontendRow) || (string)$frontendRow['object_uri'] !== $noteUri
+        || (string)$frontendRow['actor_avatar_url'] === '' || count((array)$frontendRow['media']) !== 1
+        || (string)($frontendRow['media'][0]['alt_text'] ?? '') !== 'Stage 6 safe alt text.'
+        || array_key_exists('document_json', $frontendRow) || array_key_exists('metadata_json', $frontendRow)) {
+        throw new RuntimeException('The Stage 6.5 theme presentation model exposed invalid, unsafe, or raw remote state.');
     }
     $remoteNote['content'] = '<p>Stage 6 updated remote Note.</p>';
     $update = ['id' => $actors['owner-target']['uri'] . '/activities/update-note', 'type' => 'Update', 'actor' => $actors['owner-target']['uri'], 'object' => $remoteNote];
@@ -1662,6 +1676,11 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     $delete = ['id' => $actors['owner-target']['uri'] . '/activities/delete-note', 'type' => 'Delete', 'actor' => $actors['owner-target']['uri'], 'object' => $noteUri];
     if (($send($delete, 'owner-target')['result_code'] ?? '') !== 'remote_note_deleted' || bms_activitypub_remote_inbox_rows() !== []) {
         throw new RuntimeException('A remote Note Delete did not retire it from the private inbox.');
+    }
+    $deletedConversation = bms_activitypub_following_conversation($noteUri);
+    if (count($deletedConversation) !== 1 || (string)($deletedConversation[0]['lifecycle_state'] ?? '') !== 'deleted'
+        || (string)($deletedConversation[0]['content_html'] ?? '') !== '' || (array)($deletedConversation[0]['media'] ?? []) !== []) {
+        throw new RuntimeException('The private conversation view did not preserve a safe remote tombstone.');
     }
     $update['id'] = $actors['owner-target']['uri'] . '/activities/update-after-delete';
     if (($send($update, 'owner-target')['result_code'] ?? '') !== 'remote_note_update_after_delete') {

@@ -7,6 +7,7 @@ require_once __DIR__ . '/renderer.php';
 require_once __DIR__ . '/pages.php';
 require_once __DIR__ . '/sitemap.php';
 require_once __DIR__ . '/scheduler.php';
+require_once __DIR__ . '/following.php';
 
 
 function bms_run_public_scheduled_posts_check(string $context): void
@@ -507,6 +508,10 @@ function bms_dispatch_public_route(string $route): bool
     }
     if ($route === 'account') {
         bms_handle_account_route();
+        return true;
+    }
+    if ($route === 'following' || $route === 'following_conversation') {
+        bms_handle_activitypub_following_route($route === 'following_conversation');
         return true;
     }
     if ($route === 'stream') {

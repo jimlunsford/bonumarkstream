@@ -129,6 +129,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/activitypub-owner-test.php
 
+      - name: Run ActivityPub Stage 6.5 frontend federation test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/activitypub-following-test.php
+
       - name: Run migration/schema smoke test
         if: always()
         env:

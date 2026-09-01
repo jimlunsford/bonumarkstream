@@ -72,6 +72,8 @@ DirectoryIndex index.php index.html
   RewriteRule ^profile/([A-Za-z0-9._-]+)/?$ index.php?__bonumark_route=profile&user=$1 [L,QSA]
   RewriteRule ^account\.php$ index.php?__bonumark_route=account [L,QSA]
   RewriteRule ^account/?$ index.php?__bonumark_route=account [L,QSA]
+  RewriteRule ^following/?$ index.php?__bonumark_route=following [L,QSA]
+  RewriteRule ^following/conversation/?$ index.php?__bonumark_route=following_conversation [L,QSA]
   RewriteRule ^page\.php$ index.php?__bonumark_route=page [L,QSA]
   RewriteRule ^feed\.xml$ index.php?__bonumark_route=feed&feed_type=root [L,QSA]
   RewriteRule ^stream/feed\.xml$ index.php?__bonumark_route=feed&feed_type=stream [L,QSA]
