@@ -93,7 +93,6 @@ ml_open_document($data, [
                     <?php endif; ?>
 
                     <div class="following-meta stream-card-meta">
-                      <div class="stream-card-tags"></div>
                       <div class="following-actions stream-card-actions">
                         <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
                         <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
