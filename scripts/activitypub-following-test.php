@@ -75,6 +75,7 @@ $template = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/
 $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.php');
 $appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
 $themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.php');
+$templateHelpers = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/_helpers.php');
 $commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
 $followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
@@ -83,15 +84,16 @@ $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default
 bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
 bms_ap_following_assert(str_contains($routes, "'following_conversation'") && str_contains($routes, 'bms_handle_activitypub_following_route'), 'Private Following routes are not core-owned.');
 bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following'") && str_contains($appearance, "bms_current_user_can('view_admin')"), 'Owner-only Following navigation is incomplete.');
-bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
+bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, "bms_public_theme_template_path($template, 'default')") && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
 bms_ap_following_assert(str_contains($appearance, "'bonumark-public public-theme-'"), 'The public theme class contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($appearance, "' context-'"), 'The public theme context class contract changed unexpectedly.');
-bms_ap_following_assert(str_contains($followingCss, 'body.bonumark-public.context-following-page .following-shell'), 'Following styles do not target the actual core theme context class.');
-bms_ap_following_assert(!str_contains($followingCss, 'body.bonumark-public.following-page '), 'Following styles retain the invalid pre-fix body selector.');
-bms_ap_following_assert(str_contains($template, 'following-card stream-card ledger-stream-card'), 'Following cards do not inherit the public Stream card surface.');
+bms_ap_following_assert(str_contains($template, 'site-main stream-shell timeline following-shell'), 'Following does not expose the semantic public Stream shell contract.');
+bms_ap_following_assert(str_contains($template, 'following-card stream-card'), 'Following cards do not inherit the public Stream card surface.');
+bms_ap_following_assert(!str_contains($template, 'ledger-following-shell') && !str_contains($template, 'ledger-stream-card'), 'Following core markup depends on Midnight Ledger-specific card or shell classes.');
 bms_ap_following_assert(str_contains($template, 'following-card-inner stream-card-inner'), 'Following cards do not inherit the public Stream card layout.');
 bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
 bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
+bms_ap_following_assert(str_contains($template, 'following-media stream-card-media'), 'Following media does not reuse the public Stream media surface contract.');
 bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
 bms_ap_following_assert(str_contains($commentsTemplate, 'class="comment-form"') && str_contains($commentsTemplate, 'class="comment-form-actions"') && str_contains($commentsTemplate, '>Add a comment</label>'), 'The local comment-form presentation contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($template, 'class="following-reply-form comment-form"') && str_contains($template, 'class="comment-form-actions"'), 'Remote replies do not reuse the local comment-form presentation contract.');
@@ -101,14 +103,26 @@ bms_ap_following_assert(str_contains($template, 'for="<?= $h($replyFieldId) ?>"'
 bms_ap_following_assert(substr_count($template, 'class="following-reply-form comment-form"') === 1, 'Following timeline and conversation replies no longer share one rendering path.');
 bms_ap_following_assert(str_contains($followingCss, '.following-reply-control[open]') && str_contains($followingCss, 'display: contents;'), 'The expanded reply control does not preserve the stable action toolbar.');
 bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'flex: 0 0 100%;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow the Following card.');
-bms_ap_following_assert(!str_contains($followingCss, 'background: var(--ledger-panel-strong') && !str_contains($followingCss, 'padding: .85rem;'), 'The remote reply form retains its nested panel treatment.');
+bms_ap_following_assert(str_contains($followingCss, '.following-feed') && str_contains($followingCss, '.following-content pre') && str_contains($followingCss, '.following-media img') && str_contains($followingCss, 'flex-wrap: wrap;'), 'The neutral Following fallback no longer prevents common overflow or action-row failures.');
+bms_ap_following_assert(!str_contains($followingCss, '--ledger-') && !str_contains($followingCss, 'ledger-'), 'Core Following CSS depends on Midnight Ledger-specific visual tokens or classes.');
+bms_ap_following_assert(preg_match('/(?:^|\n)\s*(?:color|background|border|border-color|border-radius|border-left|box-shadow|font|font-size|font-weight|padding|margin|gap|aspect-ratio|object-fit|justify-content)\s*:/m', $followingCss) !== 1, 'Core Following CSS still owns theme appearance.');
 bms_ap_following_assert(!str_contains($followingCss, '.following-reply-form button'), 'The remote reply button overrides the local comment button treatment.');
 bms_ap_following_assert(str_contains($followingController, 'bms_activitypub_create_owner_reply_draft') && str_contains($followingController, "bms_admin_url('edit.php?type=draft&file='"), 'Remote replies no longer create a normal Bonumark draft.');
 bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
 bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
+$coreFollowingLink = strpos($templateHelpers, "data['head_preload_html']");
+$coreBaseLink = strpos($templateHelpers, "data['style_url']");
+$activeThemeLinks = strpos($templateHelpers, "data['theme_stylesheet_links']");
+bms_ap_following_assert($coreFollowingLink !== false && $coreBaseLink !== false && $activeThemeLinks !== false && $coreFollowingLink < $coreBaseLink && $coreBaseLink < $activeThemeLinks, 'The active theme stylesheet no longer loads after core Following and base CSS.');
+bms_ap_following_assert(str_contains($followingController, "bms_asset_url('assets/following.css')") && str_contains($followingController, 'bms_public_theme_stylesheet_links()'), 'Following no longer loads both the neutral core fallback and active theme stylesheet.');
 foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
-    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .ledger-following-shell'), 'Following does not share the public Stream content width.');
+    bms_ap_following_assert(str_contains($themeCss, 'Midnight Ledger Following presentation'), 'Midnight Ledger is missing its theme-owned Following presentation layer.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .following-shell'), 'Following does not share the Midnight Ledger public Stream content width.');
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .ledger-header'), 'Following masthead does not share the public Stream width.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .stream-card-media') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-media.is-gallery') && str_contains($themeCss, 'aspect-ratio: 16 / 10;'), 'Midnight Ledger does not own Following media composition.');
+    bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill') && str_contains($themeCss, 'var(--ledger-accent)'), 'Midnight Ledger does not own Following interaction presentation.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .comment-form') && str_contains($themeCss, 'body.bonumark-public .comment-form-actions') && !str_contains($themeCss, '.following-reply-form button'), 'Midnight Ledger no longer styles remote replies through the local comment-form contract.');
+    bms_ap_following_assert(!str_contains($themeCss, 'activitypub_remote_objects') && !str_contains($themeCss, 'following_action') && !str_contains($themeCss, 'inReplyTo'), 'ActivityPub behavior or protocol data moved into theme CSS.');
 }
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');

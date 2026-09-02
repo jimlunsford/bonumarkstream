@@ -1,176 +1,81 @@
-body.bonumark-public.context-following-page .following-shell {
-  gap: var(--ledger-gap, 1rem);
+/*
+ * Core Following structure and safety fallback.
+ *
+ * This stylesheet loads before the active theme. Keep it deliberately neutral:
+ * core prevents overflow and preserves interaction mechanics, while themes own
+ * color, type, spacing, cards, controls, media composition, and visual states.
+ */
+.following-feed,
+.following-card,
+.following-card-inner,
+.following-card-main {
+  max-width: 100%;
+  min-width: 0;
 }
 
-body.bonumark-public.context-following-page .following-conversation-nav {
-  display: flex;
-  justify-content: flex-start;
-}
-
-body.bonumark-public.context-following-page .following-feed {
+.following-feed {
   display: grid;
-  gap: .9rem;
 }
 
-body.bonumark-public.context-following-page .following-actor {
-  color: inherit;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-body.bonumark-public.context-following-page .following-handle,
-body.bonumark-public.context-following-page .following-media-alt,
-body.bonumark-public.context-following-page .following-action-error {
-  color: var(--ledger-dim, #687386);
-  font-size: inherit;
-}
-
-body.bonumark-public.context-following-page .following-handle {
+.following-handle,
+.following-content,
+.following-content a,
+.following-media-alt,
+.following-action-error {
   overflow-wrap: anywhere;
 }
 
-body.bonumark-public.context-following-page .following-time {
-  text-decoration: none;
-}
-
-body.bonumark-public.context-following-page .following-content {
-  overflow-wrap: anywhere;
-}
-
-body.bonumark-public.context-following-page .following-content > :first-child {
-  margin-top: 0;
-}
-
-body.bonumark-public.context-following-page .following-content > :last-child {
-  margin-bottom: 0;
-}
-
-body.bonumark-public.context-following-page .following-content pre {
+.following-content pre {
   max-width: 100%;
   overflow: auto;
 }
 
-body.bonumark-public.context-following-page .following-content a {
-  overflow-wrap: anywhere;
+.following-media,
+.following-media a {
+  max-width: 100%;
+  min-width: 0;
 }
 
-body.bonumark-public.context-following-page .following-summary,
-body.bonumark-public.context-following-page .following-sensitive,
-body.bonumark-public.context-following-page .following-tombstone {
-  border-left: 3px solid var(--ledger-accent, #a56a43);
-  margin: .9rem 0 0;
-  padding: .6rem .8rem;
-}
-
-body.bonumark-public.context-following-page .following-tombstone p {
-  margin: .3rem 0 0;
-}
-
-body.bonumark-public.context-following-page .following-media {
-  display: grid;
-  gap: .4rem;
-}
-
-body.bonumark-public.context-following-page .following-media.is-gallery {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-body.bonumark-public.context-following-page .following-media img,
-body.bonumark-public.context-following-page .following-media video {
-  aspect-ratio: 16 / 10;
-  background: #0b0d10;
-  border-radius: .65rem;
+.following-media a,
+.following-media img,
+.following-media video {
   display: block;
+}
+
+.following-media img,
+.following-media video {
   height: auto;
   max-width: 100%;
-  object-fit: cover;
-  width: 100%;
 }
 
-body.bonumark-public.context-following-page .following-media audio {
+.following-media audio {
   max-width: 100%;
-  width: 100%;
 }
 
-body.bonumark-public.context-following-page .following-actions {
-  justify-content: flex-end;
-  width: 100%;
+.following-actions {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
-body.bonumark-public.context-following-page .following-action-form {
+.following-action-form {
   display: inline-flex;
-  margin: 0;
 }
 
-body.bonumark-public.context-following-page button.stream-meta-pill,
-body.bonumark-public.context-following-page summary.stream-meta-pill {
+button.stream-meta-pill,
+summary.stream-meta-pill,
+.following-sensitive > summary {
   cursor: pointer;
-  font: inherit;
 }
 
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill,
-body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill {
-  min-height: 30px;
-  padding: .28rem .5rem;
-  border-color: transparent;
-  background: transparent;
-  color: var(--ledger-dim, #687386);
-  font-size: .72rem;
-}
-
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:hover,
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:focus-visible,
-body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:hover,
-body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:focus-visible {
-  border-color: color-mix(in srgb, var(--ledger-line, #d9dde5) 70%, transparent);
-  background: var(--ledger-panel-soft, rgba(18, 26, 37, .56));
-  color: var(--ledger-muted, #687386);
-}
-
-body.bonumark-public.context-following-page .stream-meta-pill.is-active {
-  border-color: var(--ledger-accent, #a56a43);
-}
-
-body.bonumark-public.context-following-page .following-reply-control {
-  position: relative;
-}
-
-body.bonumark-public.context-following-page .following-reply-control[open] {
+.following-reply-control[open] {
   display: contents;
 }
 
-body.bonumark-public.context-following-page .following-reply-control > summary {
-  list-style: none;
-}
-
-body.bonumark-public.context-following-page .following-reply-control > summary::-webkit-details-marker {
-  display: none;
-}
-
-body.bonumark-public.context-following-page .following-reply-form {
+.following-reply-form {
   box-sizing: border-box;
   flex: 0 0 100%;
   min-width: 0;
   order: 1;
   width: 100%;
-}
-
-body.bonumark-public.context-following-page .following-empty {
-  padding: clamp(1.2rem, 4vw, 2rem);
-}
-
-body.bonumark-public.context-following-page .following-empty h2 {
-  margin: 0;
-}
-
-@media (max-width: 680px) {
-  body.bonumark-public.context-following-page .following-media.is-gallery {
-    grid-template-columns: 1fr;
-  }
-
-  body.bonumark-public.context-following-page .following-reply-form {
-    flex-basis: 100%;
-    min-width: 0;
-    width: 100%;
-  }
 }

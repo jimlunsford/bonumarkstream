@@ -9,7 +9,7 @@ ml_open_document($data, [
     'fallback_title' => $conversation ? 'Conversation' : 'Following',
     'og_type' => 'website',
     'body_class' => 'following-template',
-    'main_class' => 'site-main stream-shell timeline ledger-stream-shell following-shell ledger-following-shell',
+    'main_class' => 'site-main stream-shell timeline following-shell',
 ]);
 ?>
         <?= (string)($data['notice_html'] ?? '') ?>
@@ -39,7 +39,7 @@ ml_open_document($data, [
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
               $replyFieldId = 'following_reply_body_' . substr(hash('sha256', (string)($item['object_uri'] ?? '')), 0, 12);
             ?>
-              <article class="following-card stream-card ledger-stream-card<?= $deleted ? ' is-deleted' : '' ?>">
+              <article class="following-card stream-card<?= $deleted ? ' is-deleted' : '' ?>">
                 <div class="following-card-inner stream-card-inner">
                   <div class="following-avatar stream-card-avatar" aria-hidden="true">
                     <?php if ((string)($item['actor_avatar_url'] ?? '') !== ''): ?>
@@ -74,7 +74,7 @@ ml_open_document($data, [
                       <?php endif; ?>
 
                       <?php if ($media): ?>
-                        <div class="following-media<?= count($media) > 1 ? ' is-gallery' : '' ?>">
+                        <div class="following-media stream-card-media<?= count($media) > 1 ? ' is-gallery' : '' ?>">
                           <?php foreach ($media as $attachment): ?>
                             <?php if ((string)($attachment['kind'] ?? '') === 'image'): ?>
                               <a href="<?= $h((string)$attachment['url']) ?>" rel="nofollow noopener noreferrer">
