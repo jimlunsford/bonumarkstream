@@ -76,6 +76,7 @@ $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.p
 $appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
 $themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.php');
 $commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
+$followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
@@ -102,7 +103,7 @@ bms_ap_following_assert(str_contains($followingCss, '.following-reply-control[op
 bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'flex: 0 0 100%;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow the Following card.');
 bms_ap_following_assert(!str_contains($followingCss, 'background: var(--ledger-panel-strong') && !str_contains($followingCss, 'padding: .85rem;'), 'The remote reply form retains its nested panel treatment.');
 bms_ap_following_assert(!str_contains($followingCss, '.following-reply-form button'), 'The remote reply button overrides the local comment button treatment.');
-bms_ap_following_assert(str_contains($routes, 'bms_activitypub_create_owner_reply_draft') && str_contains($routes, "bms_admin_url('edit.php?type=draft&file='"), 'Remote replies no longer create a normal Bonumark draft.');
+bms_ap_following_assert(str_contains($followingController, 'bms_activitypub_create_owner_reply_draft') && str_contains($followingController, "bms_admin_url('edit.php?type=draft&file='"), 'Remote replies no longer create a normal Bonumark draft.');
 bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
 bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
 foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
