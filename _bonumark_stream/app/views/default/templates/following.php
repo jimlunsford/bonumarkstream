@@ -39,6 +39,7 @@ ml_open_document($data, [
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
               $replyFieldId = 'following_reply_body_' . substr(hash('sha256', (string)($item['object_uri'] ?? '')), 0, 12);
             ?>
+              <div class="following-feed-item">
               <article class="following-card stream-card<?= $deleted ? ' is-deleted' : '' ?>">
                 <div class="following-card-inner stream-card-inner">
                   <div class="following-avatar stream-card-avatar" aria-hidden="true">
@@ -115,23 +116,26 @@ ml_open_document($data, [
                         <?php endif; ?>
                       </div>
                     </div>
-                    <?php if (!$deleted): ?>
-                      <form method="post" class="following-reply-form comment-form">
-                        <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                        <input type="hidden" name="following_action" value="reply">
-                        <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                        <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
-                        <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
-                        <div class="comment-form-actions">
-                          <button type="submit">Create Reply Draft</button>
-                        </div>
-                      </form>
-                    <?php endif; ?>
                     <?php if ((string)($like['error'] ?? '') !== ''): ?><p class="following-action-error">Like delivery: <?= $h((string)$like['error']) ?></p><?php endif; ?>
                     <?php if ((string)($announce['error'] ?? '') !== ''): ?><p class="following-action-error">Boost delivery: <?= $h((string)$announce['error']) ?></p><?php endif; ?>
                   </div>
                 </div>
               </article>
+              <?php if (!$deleted): ?>
+                <section class="following-reply-region stream-comments" aria-label="Reply to <?= $h((string)($item['actor_name'] ?? 'remote post')) ?>">
+                  <form method="post" class="following-reply-form comment-form">
+                    <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+                    <input type="hidden" name="following_action" value="reply">
+                    <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
+                    <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
+                    <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
+                    <div class="comment-form-actions">
+                      <button type="submit">Create Reply Draft</button>
+                    </div>
+                  </form>
+                </section>
+              <?php endif; ?>
+              </div>
             <?php endforeach; ?>
           </section>
         <?php endif; ?>

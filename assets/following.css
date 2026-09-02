@@ -6,9 +6,11 @@
  * color, type, spacing, cards, controls, media composition, and visual states.
  */
 .following-feed,
+.following-feed-item,
 .following-card,
 .following-card-inner,
-.following-card-main {
+.following-card-main,
+.following-reply-region {
   max-width: 100%;
   min-width: 0;
 }

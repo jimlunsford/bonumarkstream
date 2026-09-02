@@ -4399,6 +4399,15 @@ body.bonumark-public.context-following-page .following-feed {
   gap: 0.9rem;
 }
 
+body.bonumark-public.context-following-page .following-feed-item {
+  display: grid;
+  gap: 0.72rem;
+}
+
+body.bonumark-public.context-following-page .following-reply-region {
+  padding-top: 0.72rem;
+}
+
 body.bonumark-public.context-following-page .following-actor {
   color: inherit;
   font-weight: 800;
@@ -4510,6 +4519,14 @@ body.bonumark-public.context-following-page .following-empty h2 {
 }
 
 @media (max-width: 680px) {
+  body.bonumark-public.context-following-page .following-feed-item {
+    gap: 0.48rem;
+  }
+
+  body.bonumark-public.context-following-page .following-reply-region {
+    padding-top: 0.5rem;
+  }
+
   body.bonumark-public.context-following-page .following-media.is-gallery {
     grid-template-columns: 1fr;
   }
