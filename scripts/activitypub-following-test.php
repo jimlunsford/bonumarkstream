@@ -84,7 +84,7 @@ $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default
 bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
 bms_ap_following_assert(str_contains($routes, "'following_conversation'") && str_contains($routes, 'bms_handle_activitypub_following_route'), 'Private Following routes are not core-owned.');
 bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following'") && str_contains($appearance, "bms_current_user_can('view_admin')"), 'Owner-only Following navigation is incomplete.');
-bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, "bms_public_theme_template_path($template, 'default')") && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
+bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, 'bms_public_theme_template_path($template, \'default\')') && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
 bms_ap_following_assert(str_contains($appearance, "'bonumark-public public-theme-'"), 'The public theme class contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($appearance, "' context-'"), 'The public theme context class contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($template, 'site-main stream-shell timeline following-shell'), 'Following does not expose the semantic public Stream shell contract.');
