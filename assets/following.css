@@ -94,6 +94,7 @@ body.bonumark-public.context-following-page .following-media audio {
 
 body.bonumark-public.context-following-page .following-actions {
   justify-content: flex-end;
+  width: 100%;
 }
 
 body.bonumark-public.context-following-page .following-action-form {
@@ -134,6 +135,17 @@ body.bonumark-public.context-following-page .following-reply-control {
   position: relative;
 }
 
+body.bonumark-public.context-following-page .following-reply-control[open] {
+  flex: 0 0 100%;
+  order: 1;
+  width: 100%;
+}
+
+body.bonumark-public.context-following-page .following-reply-control[open] > summary {
+  margin-left: auto;
+  width: max-content;
+}
+
 body.bonumark-public.context-following-page .following-reply-control > summary {
   list-style: none;
 }
@@ -146,11 +158,13 @@ body.bonumark-public.context-following-page .following-reply-form {
   background: var(--ledger-panel-strong, #fff);
   border: 1px solid var(--ledger-line, #d9dde5);
   border-radius: .75rem;
+  box-sizing: border-box;
   display: grid;
   gap: .65rem;
   margin-top: .65rem;
-  min-width: min(32rem, 80vw);
+  min-width: 0;
   padding: .85rem;
+  width: 100%;
 }
 
 body.bonumark-public.context-following-page .following-reply-form label {

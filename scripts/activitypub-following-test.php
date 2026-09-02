@@ -91,6 +91,8 @@ bms_ap_following_assert(str_contains($template, 'following-card-inner stream-car
 bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
 bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
 bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
+bms_ap_following_assert(str_contains($followingCss, '.following-reply-control[open]') && str_contains($followingCss, 'flex: 0 0 100%;') && str_contains($followingCss, 'order: 1;'), 'The expanded reply composer does not leave the stable action toolbar.');
+bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow the Following card.');
 bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
 bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
 foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
