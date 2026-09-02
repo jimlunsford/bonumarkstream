@@ -47,7 +47,7 @@ ml_open_document($data, [
                 && hash_equals($conversationObjectUri, (string)($item['object_uri'] ?? ''));
             ?>
               <div class="following-feed-item">
-              <article class="following-card stream-card<?= !$conversation ? ' stream-card-clickable' : '' ?><?= $deleted ? ' is-deleted' : '' ?>" data-stream-card data-stream-url="<?= $h($conversationUrl) ?>">
+              <article class="following-card stream-card<?= !$conversation ? ' stream-card-clickable' : '' ?><?= $deleted ? ' is-deleted' : '' ?>"<?= !$conversation ? ' data-stream-card data-stream-url="' . $h($conversationUrl) . '"' : '' ?>>
                 <div class="following-card-inner stream-card-inner">
                   <div class="following-avatar stream-card-avatar" aria-hidden="true">
                     <?php if ((string)($item['actor_avatar_url'] ?? '') !== ''): ?>
