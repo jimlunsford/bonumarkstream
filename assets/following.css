@@ -64,19 +64,13 @@
 }
 
 button.stream-meta-pill,
-summary.stream-meta-pill,
 .following-sensitive > summary {
   cursor: pointer;
 }
 
-.following-reply-control[open] {
-  display: contents;
-}
-
 .following-reply-form {
   box-sizing: border-box;
-  flex: 0 0 100%;
+  max-width: 100%;
   min-width: 0;
-  order: 1;
   width: 100%;
 }

@@ -97,20 +97,6 @@ ml_open_document($data, [
                         <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
                         <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
                         <?php if (!$deleted): ?>
-                          <details class="following-reply-control">
-                            <summary class="stream-meta-pill">Reply</summary>
-                            <form method="post" class="following-reply-form comment-form">
-                              <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                              <input type="hidden" name="following_action" value="reply">
-                              <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                              <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
-                              <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
-                              <div class="comment-form-actions">
-                                <button type="submit">Create Reply Draft</button>
-                              </div>
-                            </form>
-                          </details>
-
                           <form method="post" class="following-action-form">
                             <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
                             <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
@@ -129,6 +115,18 @@ ml_open_document($data, [
                         <?php endif; ?>
                       </div>
                     </div>
+                    <?php if (!$deleted): ?>
+                      <form method="post" class="following-reply-form comment-form">
+                        <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+                        <input type="hidden" name="following_action" value="reply">
+                        <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
+                        <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
+                        <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
+                        <div class="comment-form-actions">
+                          <button type="submit">Create Reply Draft</button>
+                        </div>
+                      </form>
+                    <?php endif; ?>
                     <?php if ((string)($like['error'] ?? '') !== ''): ?><p class="following-action-error">Like delivery: <?= $h((string)$like['error']) ?></p><?php endif; ?>
                     <?php if ((string)($announce['error'] ?? '') !== ''): ?><p class="following-action-error">Boost delivery: <?= $h((string)$announce['error']) ?></p><?php endif; ?>
                   </div>
