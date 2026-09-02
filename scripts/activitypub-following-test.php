@@ -65,6 +65,8 @@ bms_ap_following_assert((string)$presented['actor_name'] === 'Remote Owner' && (
 bms_ap_following_assert((string)$presented['actor_avatar_url'] === 'https://media.remote.example/avatar.jpg', 'A safe remote avatar was not exposed through the presentation model.');
 bms_ap_following_assert(!empty($presented['like']['active']) && (int)$presented['like']['interaction_id'] === 15, 'Owner Like state did not survive a presentation reload.');
 bms_ap_following_assert((string)$presented['in_reply_to'] === 'https://remote.example/notes/parent', 'Conversation identity was not retained.');
+bms_ap_following_assert((string)$presented['conversation_url'] !== '' && str_starts_with((string)$presented['reply_url'], (string)$presented['conversation_url'] . '#following-reply-'), 'Following reply navigation does not target the private conversation reply area.');
+bms_ap_following_assert((string)$presented['reply_anchor_id'] !== '' && str_ends_with((string)$presented['reply_url'], '#' . (string)$presented['reply_anchor_id']), 'Following reply navigation and its reply anchor do not match.');
 bms_ap_following_assert(!array_key_exists('metadata_json', $presented) && !array_key_exists('document_json', $presented), 'Raw protocol cache fields escaped into the theme model.');
 
 $row['lifecycle_state'] = 'deleted';
@@ -79,6 +81,7 @@ $templateHelpers = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app
 $commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
 $followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
+$streamJs = (string)file_get_contents(__DIR__ . '/../assets/stream.js');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
 bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
@@ -101,10 +104,16 @@ bms_ap_following_assert(str_contains($template, 'class="following-reply-form com
 bms_ap_following_assert(str_contains($template, '>Add a reply</label>') && str_contains($template, '>Create Reply Draft</button>'), 'Remote reply labels do not match the approved frontend copy.');
 bms_ap_following_assert(!str_contains($template, '>Reply text<') && !str_contains($template, '>Create Bonumark draft</button>'), 'Obsolete remote reply labels remain in the template.');
 bms_ap_following_assert(str_contains($template, 'for="<?= $h($replyFieldId) ?>"') && str_contains($template, 'id="<?= $h($replyFieldId) ?>"') && str_contains($template, 'rows="4"'), 'The remote reply field lost its local-comment sizing or accessible label association.');
-bms_ap_following_assert(substr_count($template, 'class="following-reply-form comment-form"') === 1, 'Following timeline and conversation replies no longer share one rendering path.');
+bms_ap_following_assert(substr_count($template, 'class="following-reply-form comment-form"') === 1, 'Following conversation replies no longer use one focused rendering path.');
 bms_ap_following_assert(!str_contains($template, 'following-reply-control') && !str_contains($template, '>Reply</summary>'), 'A redundant disclosure still separates remote replies from the local comment-form experience.');
 bms_ap_following_assert(str_contains($template, 'class="following-feed-item"') && str_contains($template, 'class="following-reply-region stream-comments"'), 'Remote replies do not reuse the full-width local comments surface.');
-bms_ap_following_assert(preg_match('/<\/article>\s*<\?php if \(!\$deleted\): \?>\s*<section class="following-reply-region stream-comments".*?<form method="post" class="following-reply-form comment-form">/s', $template) === 1, 'The remote reply form remains inside the remote post card instead of following it as a discussion surface.');
+bms_ap_following_assert(str_contains($template, 'stream-card-clickable') && str_contains($template, 'data-stream-card') && str_contains($template, 'data-stream-url="<?= $h($conversationUrl) ?>"'), 'Following timeline cards do not open their private conversation view like local Stream cards.');
+bms_ap_following_assert(str_contains($followingController, "bms_asset_url('assets/stream.js')") && str_contains($streamJs, 'function setupCards(root)') && str_contains($streamJs, "window.location.href = url;"), 'Following cards do not retain the core Stream card-navigation behavior.');
+bms_ap_following_assert(str_contains($template, 'class="stream-meta-pill following-reply-link"') && str_contains($template, 'href="<?= $h($replyUrl) ?>">Reply</a>'), 'Following cards do not expose an explicit Reply path to the conversation composer.');
+bms_ap_following_assert(str_contains($template, '$replyTarget = $conversation') && str_contains($template, '$conversationObjectUri') && str_contains($template, 'if (!$deleted && $replyTarget)'), 'The reply composer is not restricted to the selected conversation object.');
+bms_ap_following_assert(preg_match('/<\/article>\s*<\?php if \(!\$deleted && \$replyTarget\): \?>\s*<section class="following-reply-region stream-comments".*?<form method="post" class="following-reply-form comment-form">/s', $template) === 1, 'The conversation reply form is not a post-card sibling discussion surface.');
+bms_ap_following_assert(str_contains($template, 'id="<?= $h($replyAnchorId) ?>"'), 'The conversation reply area cannot receive the timeline Reply anchor.');
+bms_ap_following_assert(str_contains($followingController, "'conversation_object_uri' => $conversation ? $objectUri : ''") && str_contains($followingController, "'reply_url' => $conversationUrl . '#' . $replyAnchorId"), 'Core does not supply the selected conversation identity and Reply destination.');
 bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'max-width: 100%;') && str_contains($followingCss, 'min-width: 0;') && str_contains($followingCss, 'width: 100%;'), 'The reply composer can overflow or collapse inside the Following card.');
 bms_ap_following_assert(str_contains($followingCss, '.following-feed') && str_contains($followingCss, '.following-content pre') && str_contains($followingCss, '.following-media img') && str_contains($followingCss, 'flex-wrap: wrap;'), 'The neutral Following fallback no longer prevents common overflow or action-row failures.');
 bms_ap_following_assert(preg_match('/\.following-actions\s*\{[^}]*width:\s*100%;/s', $followingCss) === 1, 'The neutral Following fallback allows the reply action region to collapse below the card width.');

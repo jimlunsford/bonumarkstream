@@ -108,6 +108,8 @@ function bms_activitypub_following_presentation_row(array $row): array
     $actorUri = bms_activitypub_remote_link_url((string)($row['actor_uri'] ?? ''));
     $humanUrl = bms_activitypub_remote_link_url((string)($row['human_url'] ?? ''));
     $time = bms_activitypub_following_timestamp((string)($row['remote_published_at'] ?? $row['created_at'] ?? ''));
+    $conversationUrl = bms_url_path('following/conversation/?object=' . rawurlencode($objectUri));
+    $replyAnchorId = 'following-reply-' . substr(hash('sha256', $objectUri), 0, 12);
     return [
         'id' => max(0, (int)($row['id'] ?? 0)),
         'object_uri' => $objectUri,
@@ -135,7 +137,9 @@ function bms_activitypub_following_presentation_row(array $row): array
             'interaction_id' => max(0, (int)($row['announce_interaction_id'] ?? 0)),
             'error' => bms_activitypub_remote_plain_text((string)($row['announce_last_error'] ?? ''), 500),
         ],
-        'conversation_url' => bms_url_path('following/conversation/?object=' . rawurlencode($objectUri)),
+        'conversation_url' => $conversationUrl,
+        'reply_url' => $conversationUrl . '#' . $replyAnchorId,
+        'reply_anchor_id' => $replyAnchorId,
     ];
 }
 
@@ -295,6 +299,7 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
     $conversationItems = [];
     if ($conversation) {
         try {
+            $objectUri = bms_activitypub_identifier_uri($objectUri, false);
             $conversationItems = bms_activitypub_following_conversation($objectUri);
             if ($conversationItems === []) {
                 http_response_code(404);
@@ -324,6 +329,7 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
         'items' => $conversation ? $conversationItems : $items,
         'timeline_count' => count($items),
         'conversation' => $conversation,
+        'conversation_object_uri' => $conversation ? $objectUri : '',
         'conversation_found' => !$conversation || $conversationItems !== [],
         'following_url' => bms_url_path('following/'),
     ]);

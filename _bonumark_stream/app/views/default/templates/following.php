@@ -3,6 +3,7 @@ require_once __DIR__ . '/_helpers.php';
 $data = ml_theme_data($bms_theme_data ?? []);
 $items = is_array($data['items'] ?? null) ? $data['items'] : [];
 $conversation = !empty($data['conversation']);
+$conversationObjectUri = (string)($data['conversation_object_uri'] ?? '');
 $csrf = (string)($data['csrf'] ?? '');
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ml_open_document($data, [
@@ -38,9 +39,15 @@ ml_open_document($data, [
               $announce = is_array($item['announce'] ?? null) ? $item['announce'] : [];
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
               $replyFieldId = 'following_reply_body_' . substr(hash('sha256', (string)($item['object_uri'] ?? '')), 0, 12);
+              $conversationUrl = (string)($item['conversation_url'] ?? '');
+              $replyUrl = (string)($item['reply_url'] ?? $conversationUrl);
+              $replyAnchorId = (string)($item['reply_anchor_id'] ?? '');
+              $replyTarget = $conversation
+                && $conversationObjectUri !== ''
+                && hash_equals($conversationObjectUri, (string)($item['object_uri'] ?? ''));
             ?>
               <div class="following-feed-item">
-              <article class="following-card stream-card<?= $deleted ? ' is-deleted' : '' ?>">
+              <article class="following-card stream-card<?= !$conversation ? ' stream-card-clickable' : '' ?><?= $deleted ? ' is-deleted' : '' ?>" data-stream-card data-stream-url="<?= $h($conversationUrl) ?>">
                 <div class="following-card-inner stream-card-inner">
                   <div class="following-avatar stream-card-avatar" aria-hidden="true">
                     <?php if ((string)($item['actor_avatar_url'] ?? '') !== ''): ?>
@@ -56,7 +63,7 @@ ml_open_document($data, [
                       </a>
                       <?php if ((string)($item['actor_handle'] ?? '') !== ''): ?><span class="following-handle"><?= $h((string)$item['actor_handle']) ?></span><?php endif; ?>
                       <span class="stream-card-separator" aria-hidden="true">&middot;</span>
-                      <a class="following-time stream-card-datetime stream-card-permalink stream-permalink" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">
+                      <a class="following-time stream-card-datetime stream-card-permalink stream-permalink" href="<?= $h($conversationUrl) ?>">
                         <time<?= (string)($item['published_datetime'] ?? '') !== '' ? ' datetime="' . $h((string)$item['published_datetime']) . '"' : '' ?>><?= $h((string)($item['published_label'] ?? 'Time unavailable')) ?></time>
                       </a>
                     </header>
@@ -98,6 +105,7 @@ ml_open_document($data, [
                         <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
                         <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
                         <?php if (!$deleted): ?>
+                          <a class="stream-meta-pill following-reply-link" href="<?= $h($replyUrl) ?>">Reply</a>
                           <form method="post" class="following-action-form">
                             <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
                             <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
@@ -121,8 +129,8 @@ ml_open_document($data, [
                   </div>
                 </div>
               </article>
-              <?php if (!$deleted): ?>
-                <section class="following-reply-region stream-comments" aria-label="Reply to <?= $h((string)($item['actor_name'] ?? 'remote post')) ?>">
+              <?php if (!$deleted && $replyTarget): ?>
+                <section class="following-reply-region stream-comments" id="<?= $h($replyAnchorId) ?>" aria-label="Reply to <?= $h((string)($item['actor_name'] ?? 'remote post')) ?>">
                   <form method="post" class="following-reply-form comment-form">
                     <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
                     <input type="hidden" name="following_action" value="reply">
