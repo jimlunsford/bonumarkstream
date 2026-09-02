@@ -37,6 +37,7 @@ ml_open_document($data, [
               $like = is_array($item['like'] ?? null) ? $item['like'] : [];
               $announce = is_array($item['announce'] ?? null) ? $item['announce'] : [];
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
+              $replyFieldId = 'following_reply_body_' . substr(hash('sha256', (string)($item['object_uri'] ?? '')), 0, 12);
             ?>
               <article class="following-card stream-card ledger-stream-card<?= $deleted ? ' is-deleted' : '' ?>">
                 <div class="following-card-inner stream-card-inner">
@@ -99,12 +100,15 @@ ml_open_document($data, [
                         <?php if (!$deleted): ?>
                           <details class="following-reply-control">
                             <summary class="stream-meta-pill">Reply</summary>
-                            <form method="post" class="following-reply-form">
+                            <form method="post" class="following-reply-form comment-form">
                               <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
                               <input type="hidden" name="following_action" value="reply">
                               <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                              <label>Reply text<textarea name="reply_body" rows="5" maxlength="2097152" required></textarea></label>
-                              <button type="submit">Create Bonumark draft</button>
+                              <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
+                              <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
+                              <div class="comment-form-actions">
+                                <button type="submit">Create Reply Draft</button>
+                              </div>
                             </form>
                           </details>
 

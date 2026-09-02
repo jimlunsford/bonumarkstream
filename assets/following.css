@@ -136,14 +136,7 @@ body.bonumark-public.context-following-page .following-reply-control {
 }
 
 body.bonumark-public.context-following-page .following-reply-control[open] {
-  flex: 0 0 100%;
-  order: 1;
-  width: 100%;
-}
-
-body.bonumark-public.context-following-page .following-reply-control[open] > summary {
-  margin-left: auto;
-  width: max-content;
+  display: contents;
 }
 
 body.bonumark-public.context-following-page .following-reply-control > summary {
@@ -155,27 +148,10 @@ body.bonumark-public.context-following-page .following-reply-control > summary::
 }
 
 body.bonumark-public.context-following-page .following-reply-form {
-  background: var(--ledger-panel-strong, #fff);
-  border: 1px solid var(--ledger-line, #d9dde5);
-  border-radius: .75rem;
   box-sizing: border-box;
-  display: grid;
-  gap: .65rem;
-  margin-top: .65rem;
+  flex: 0 0 100%;
   min-width: 0;
-  padding: .85rem;
-  width: 100%;
-}
-
-body.bonumark-public.context-following-page .following-reply-form label {
-  display: grid;
-  gap: .4rem;
-  font-weight: 700;
-}
-
-body.bonumark-public.context-following-page .following-reply-form textarea {
-  min-height: 7rem;
-  resize: vertical;
+  order: 1;
   width: 100%;
 }
 
@@ -192,12 +168,9 @@ body.bonumark-public.context-following-page .following-empty h2 {
     grid-template-columns: 1fr;
   }
 
-  body.bonumark-public.context-following-page .following-reply-control,
   body.bonumark-public.context-following-page .following-reply-form {
-    width: 100%;
-  }
-
-  body.bonumark-public.context-following-page .following-reply-form {
+    flex-basis: 100%;
     min-width: 0;
+    width: 100%;
   }
 }

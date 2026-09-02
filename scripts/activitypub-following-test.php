@@ -75,6 +75,7 @@ $template = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/
 $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.php');
 $appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
 $themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.php');
+$commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
@@ -91,8 +92,17 @@ bms_ap_following_assert(str_contains($template, 'following-card-inner stream-car
 bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
 bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
 bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
-bms_ap_following_assert(str_contains($followingCss, '.following-reply-control[open]') && str_contains($followingCss, 'flex: 0 0 100%;') && str_contains($followingCss, 'order: 1;'), 'The expanded reply composer does not leave the stable action toolbar.');
-bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow the Following card.');
+bms_ap_following_assert(str_contains($commentsTemplate, 'class="comment-form"') && str_contains($commentsTemplate, 'class="comment-form-actions"') && str_contains($commentsTemplate, '>Add a comment</label>'), 'The local comment-form presentation contract changed unexpectedly.');
+bms_ap_following_assert(str_contains($template, 'class="following-reply-form comment-form"') && str_contains($template, 'class="comment-form-actions"'), 'Remote replies do not reuse the local comment-form presentation contract.');
+bms_ap_following_assert(str_contains($template, '>Add a reply</label>') && str_contains($template, '>Create Reply Draft</button>'), 'Remote reply labels do not match the approved frontend copy.');
+bms_ap_following_assert(!str_contains($template, '>Reply text<') && !str_contains($template, '>Create Bonumark draft</button>'), 'Obsolete remote reply labels remain in the template.');
+bms_ap_following_assert(str_contains($template, 'for="<?= $h($replyFieldId) ?>"') && str_contains($template, 'id="<?= $h($replyFieldId) ?>"') && str_contains($template, 'rows="4"'), 'The remote reply field lost its local-comment sizing or accessible label association.');
+bms_ap_following_assert(substr_count($template, 'class="following-reply-form comment-form"') === 1, 'Following timeline and conversation replies no longer share one rendering path.');
+bms_ap_following_assert(str_contains($followingCss, '.following-reply-control[open]') && str_contains($followingCss, 'display: contents;'), 'The expanded reply control does not preserve the stable action toolbar.');
+bms_ap_following_assert(str_contains($followingCss, '.following-reply-form') && str_contains($followingCss, 'box-sizing: border-box;') && str_contains($followingCss, 'flex: 0 0 100%;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow the Following card.');
+bms_ap_following_assert(!str_contains($followingCss, 'background: var(--ledger-panel-strong') && !str_contains($followingCss, 'padding: .85rem;'), 'The remote reply form retains its nested panel treatment.');
+bms_ap_following_assert(!str_contains($followingCss, '.following-reply-form button'), 'The remote reply button overrides the local comment button treatment.');
+bms_ap_following_assert(str_contains($routes, 'bms_activitypub_create_owner_reply_draft') && str_contains($routes, "bms_admin_url('edit.php?type=draft&file='"), 'Remote replies no longer create a normal Bonumark draft.');
 bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
 bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
 foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
