@@ -232,6 +232,20 @@ $authorizedFetchTransport = static function (array $target, array $request) use 
 $authorizedDocument = bms_activitypub_fetch_json($authorizedFetchUrl, $authorizedFetchTransport, $publicResolver, $outboundKey);
 bms_ap_security_assert($authorizedFetchCalls === 2 && (string)($authorizedDocument['document']['id'] ?? '') === $authorizedFetchUrl, 'Authorized actor discovery should return the signed-fetch document after one bounded retry.');
 
+foreach ([404, 410] as $missingStatus) {
+    $missingTransport = static fn(array $target, array $request): array => [
+        'status' => $missingStatus,
+        'headers' => ['content-type' => ['application/activity+json']],
+        'body' => '',
+        'primary_ip' => '93.184.216.34',
+    ];
+    bms_ap_security_throws(
+        static fn() => bms_activitypub_fetch_json($authorizedFetchUrl, $missingTransport, $publicResolver),
+        $missingStatus,
+        'Remote HTTP ' . $missingStatus . ' must remain distinguishable for actor lifecycle handling.'
+    );
+}
+
 $rfcOutbound = $headerMap(bms_activitypub_sign_outbound_request('POST', $outboundUrl, $outboundPayload, $outboundKey, 'rfc9421'));
 $rfcMetadata = bms_activitypub_parse_rfc9421_signature_input((string)($rfcOutbound['signature-input'] ?? ''));
 $rfcOutboundRequest = [

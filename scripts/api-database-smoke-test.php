@@ -1670,6 +1670,22 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     if (!is_array($failedState) || (string)$failedState['state'] !== 'failed' || trim((string)$failedState['last_error']) === '') {
         throw new RuntimeException('A permanent Follow delivery error did not produce an auditable failed state.');
     }
+    $failedDeliveryId = (int)$pdo->query('SELECT id FROM ' . bms_table('activitypub_deliveries') . ' WHERE activity_uri = ' . $pdo->quote((string)$failedFollow['following']['follow_activity_uri']) . " AND status = 'dead' ORDER BY id DESC LIMIT 1")->fetchColumn();
+    if ($failedDeliveryId < 1 || !bms_activitypub_retry_delivery($failedDeliveryId)
+        || (string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $failedDeliveryId)->fetchColumn() !== 'retry'
+        || !bms_activitypub_cancel_delivery($failedDeliveryId)
+        || (string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $failedDeliveryId)->fetchColumn() !== 'cancelled') {
+        throw new RuntimeException('Admin-safe immutable retry and permanent cancellation did not preserve a terminal delivery audit row.');
+    }
+    $stalePayload = json_encode(['id' => 'https://local.example/activitypub/activities/owner/stale/00000000000000000000000000000000', 'type' => 'Follow', 'actor' => bms_activitypub_actor_url(), 'object' => (string)$actors['wrong-actor']['uri']], JSON_UNESCAPED_SLASHES);
+    $stale = $pdo->prepare("INSERT INTO " . bms_table('activitypub_deliveries') . " (delivery_type, event_id, publication_generation, object_uri, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES ('owner_activity', NULL, NULL, NULL, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, 'legacy', 'processing', 1, UTC_TIMESTAMP(), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 20 MINUTE), NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+    $stale->execute(['activity_uri' => 'https://local.example/activitypub/activities/owner/stale/00000000000000000000000000000000', 'payload_json' => $stalePayload, 'dedupe_key' => hash('sha256', 'stage7-stale-worker'), 'inbox_url' => (string)$actors['wrong-actor']['document']['inbox'], 'actor_ids' => json_encode([(int)$wrongActor['id'])]);
+    $staleId = (int)$pdo->lastInsertId();
+    $reconciliation = bms_activitypub_reconcile_queue();
+    if ((int)$reconciliation['recovered'] < 1 || (string)$pdo->query('SELECT status FROM ' . bms_table('activitypub_deliveries') . ' WHERE id = ' . $staleId)->fetchColumn() !== 'retry') {
+        throw new RuntimeException('Queue reconciliation did not recover a stale processing claim without replacing its immutable activity.');
+    }
+    bms_activitypub_cancel_delivery($staleId);
 
     $wrongDelete = ['id' => $actors['wrong-actor']['uri'] . '/activities/delete-wrong', 'type' => 'Delete', 'actor' => $actors['wrong-actor']['uri'], 'object' => $noteUri];
     bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongDelete, 'wrong-actor'));
@@ -1712,6 +1728,16 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     $blockedPending->execute(['recipient_actor_ids_json' => json_encode([(int)$follow['following']['remote_actor_id']], JSON_UNESCAPED_SLASHES)]);
     if ((int)$blockedPending->fetchColumn() !== 0) {
         throw new RuntimeException('Blocking an actor left queued owner actions eligible for delivery.');
+    }
+    $remoteActorDelete = ['id' => $actors['wrong-actor']['uri'] . '/activities/delete-actor', 'type' => 'Delete', 'actor' => $actors['wrong-actor']['uri'], 'object' => $actors['wrong-actor']['uri']];
+    if (($send($remoteActorDelete, 'wrong-actor')['result_code'] ?? '') !== 'remote_actor_deleted') {
+        throw new RuntimeException('An authenticated remote Actor Delete was not processed.');
+    }
+    $deletedActorState = $pdo->query('SELECT lifecycle_state FROM ' . bms_table('activitypub_remote_actors') . ' WHERE actor_uri = ' . $pdo->quote((string)$actors['wrong-actor']['uri']))->fetchColumn();
+    $deletedFollowerState = $pdo->query('SELECT state FROM ' . bms_table('activitypub_followers') . ' WHERE actor_uri = ' . $pdo->quote((string)$actors['wrong-actor']['uri']))->fetchColumn();
+    if ((string)$deletedActorState !== 'deleted' || (string)$deletedFollowerState !== 'removed'
+        || bms_activitypub_cached_remote_actor((string)$actors['wrong-actor']['uri'], true) !== null) {
+        throw new RuntimeException('Remote Actor Delete did not retain a non-resurrectable actor tombstone and retire active relationships.');
     }
     $blockedDomain = bms_activitypub_block_domain_for_actor((string)$actors['failed-target']['uri'], 'Stage 6 domain block fixture.');
     if ($blockedDomain !== '93.184.216.34' || !bms_activitypub_actor_is_blocked((string)$actors['wrong-actor']['uri'])) {
