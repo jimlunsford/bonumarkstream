@@ -246,7 +246,7 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'activitypub_local_objects' => ['post_id', 'object_uri', 'content_hash', 'last_object_json', 'publication_generation', 'transition_sequence', 'deleted_at'],
         'activitypub_publication_events' => ['post_id', 'publication_generation', 'object_uri', 'event_type', 'activity_uri', 'state_json', 'payload_json', 'transition_fingerprint', 'status'],
         'activitypub_deliveries' => ['delivery_type', 'event_id', 'publication_generation', 'object_uri', 'activity_uri', 'payload_json', 'dedupe_key', 'inbox_url', 'recipient_actor_ids_json', 'signature_mode', 'attempt_count', 'available_at'],
-        'activitypub_remote_actors' => ['actor_uri', 'inbox_url', 'public_key_id', 'public_key_pem', 'expires_at'],
+        'activitypub_remote_actors' => ['actor_uri', 'lifecycle_state', 'inbox_url', 'public_key_id', 'public_key_pem', 'expires_at', 'last_fetch_status', 'last_fetch_error', 'failure_count', 'last_failed_at', 'deleted_at'],
         'activitypub_inbox_receipts' => ['activity_uri', 'activity_type', 'actor_uri', 'body_hash', 'status'],
         'activitypub_signature_replays' => ['fingerprint', 'key_id', 'expires_at'],
         'activitypub_followers' => ['actor_uri', 'follow_activity_uri', 'follow_receipt_id', 'state'],

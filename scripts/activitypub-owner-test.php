@@ -137,6 +137,7 @@ bms_ap_stage6_assert(
 
 $ownerSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-owner.php');
 $operationsSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-operations.php');
+$inboxSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-inbox.php');
 $adminSource = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $routeSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-routes.php');
 bms_ap_stage6_assert(substr_count($ownerSource, "bms_activitypub_owner_activity_url('delete-actor')") === 1, 'Actor Delete must only originate from explicit permanent deactivation.');
@@ -144,6 +145,24 @@ bms_ap_stage6_assert(
     str_contains($ownerSource, "['owner_activity', 'actor_delete']")
         && str_contains($ownerSource, '$deliveryType === \'actor_delete\' ? [\'Delete\']'),
     'The retired-actor worker must permit only the durable Actor Delete through the owner delivery boundary.'
+);
+bms_ap_stage6_assert(
+    str_contains($inboxSource, "return 'remote_actor_deleted'")
+        && str_contains($inboxSource, "lifecycle_state = 'deleted'")
+        && str_contains($inboxSource, "state = 'removed'")
+        && str_contains($inboxSource, "The remote actor is permanently deleted."),
+    'Authenticated remote Actor Delete must retire cached actor identity and active relationships without permitting rediscovery resurrection.'
+);
+bms_ap_stage6_assert(
+    str_contains($inboxSource, 'if ($status === 410)')
+        && str_contains($inboxSource, "WHEN :http_status = 404 THEN 'unavailable'"),
+    'Remote actor dereference must distinguish permanent HTTP 410 deletion from recoverable HTTP 404 unavailability.'
+);
+bms_ap_stage6_assert(
+    str_contains($operationsSource, "o.lifecycle_state = 'active'")
+        && str_contains($operationsSource, 'f.id IS NULL AND i.id IS NULL AND r.id IS NULL')
+        && !str_contains($operationsSource, "DELETE FROM ' . bms_table('activitypub_remote_actors')"),
+    'Remote cache cleanup must remove only expired unreferenced active objects and retain remote actor audit identity.'
 );
 bms_ap_stage6_assert(str_contains($adminSource, 'PERMANENTLY DELETE FEDERATED ACTOR'), 'Permanent deactivation must require exact irreversible confirmation text.');
 bms_ap_stage6_assert(str_contains($routeSource, 'bms_activitypub_actor_tombstone_document') && str_contains($routeSource, "'activitypub_webfinger'"), 'Retired actor routing must serve an actor Tombstone and stop live WebFinger discovery.');

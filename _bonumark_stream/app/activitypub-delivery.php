@@ -649,6 +649,7 @@ function bms_activitypub_run_publication_deliveries(int $limit = 20, ?callable $
             }
             $response = bms_activitypub_deliver_publication_row($row, $key, $transport, $resolver);
             $statusCode = (int)($response['status'] ?? 0);
+            bms_activitypub_record_delivery_recipient_outcome($row, $statusCode);
             if ($statusCode >= 200 && $statusCode < 300) {
                 $update = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'delivered', delivered_at = UTC_TIMESTAMP(), http_status = :http_status, last_error = NULL, signature_mode = CASE WHEN :fallback = 'legacy' THEN 'legacy' ELSE signature_mode END, updated_at = UTC_TIMESTAMP() WHERE id = :id AND delivery_type = 'publication' AND event_id IS NOT NULL");
                 $update->execute(['http_status' => $statusCode, 'fallback' => (string)($response['signature_fallback'] ?? ''), 'id' => (int)$row['id']]);

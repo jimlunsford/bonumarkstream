@@ -331,8 +331,9 @@ function bms_activitypub_fetch_json(string $url, ?callable $transport = null, ?c
             ], $transport, $resolver);
         }
     }
-    if ((int)($response['status'] ?? 0) !== 200) {
-        throw new BmsActivityPubSecurityException('The remote actor document was not available.', 502);
+    $status = (int)($response['status'] ?? 0);
+    if ($status !== 200) {
+        throw new BmsActivityPubSecurityException('The remote actor document was not available.', in_array($status, [404, 410], true) ? $status : 502);
     }
     $contentTypes = $response['headers']['content-type'] ?? [];
     $contentType = strtolower(is_array($contentTypes) ? (string)end($contentTypes) : (string)$contentTypes);

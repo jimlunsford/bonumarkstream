@@ -90,6 +90,31 @@ function bms_activitypub_sync_delivery_parent(array $row): void
     }
 }
 
+function bms_activitypub_record_delivery_recipient_outcome(array $delivery, int $httpStatus): void
+{
+    $actorIds = json_decode((string)($delivery['recipient_actor_ids_json'] ?? '[]'), true);
+    $actorIds = is_array($actorIds) ? array_values(array_unique(array_filter(array_map('intval', $actorIds)))) : [];
+    if ($actorIds === []) {
+        return;
+    }
+    $pdo = bms_db();
+    $placeholders = implode(',', array_fill(0, count($actorIds), '?'));
+    if ($httpStatus >= 200 && $httpStatus < 300) {
+        $stmt = $pdo->prepare("UPDATE " . bms_table('activitypub_remote_actors') . " SET lifecycle_state = CASE WHEN lifecycle_state = 'unavailable' THEN 'active' ELSE lifecycle_state END, last_fetch_status = NULL, last_fetch_error = NULL, failure_count = 0, last_failed_at = NULL, updated_at = UTC_TIMESTAMP() WHERE id IN (" . $placeholders . ") AND lifecycle_state <> 'deleted'");
+        $stmt->execute($actorIds);
+        return;
+    }
+    $terminalInbox = in_array($httpStatus, [404, 410], true);
+    $stmt = $pdo->prepare("UPDATE " . bms_table('activitypub_remote_actors') . " SET lifecycle_state = CASE WHEN ? = 1 AND last_fetch_status IN (404, 410) AND failure_count >= 2 THEN 'unavailable' ELSE lifecycle_state END, failure_count = CASE WHEN ? = 1 THEN CASE WHEN last_fetch_status IN (404, 410) THEN failure_count + 1 ELSE 1 END ELSE failure_count + 1 END, last_fetch_status = ?, last_fetch_error = ?, last_failed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id IN (" . $placeholders . ") AND lifecycle_state <> 'deleted'");
+    $stmt->execute(array_merge([$terminalInbox ? 1 : 0, $terminalInbox ? 1 : 0, $httpStatus > 0 ? $httpStatus : null, 'Remote inbox delivery returned HTTP ' . $httpStatus . '.'], $actorIds));
+    if ($terminalInbox) {
+        $pdo->exec("UPDATE " . bms_table('activitypub_followers') . " f INNER JOIN " . bms_table('activitypub_remote_actors') . " a ON a.id = f.remote_actor_id SET f.state = 'removed', f.moderated_at = UTC_TIMESTAMP(), f.updated_at = UTC_TIMESTAMP() WHERE a.lifecycle_state = 'unavailable' AND f.state <> 'removed'");
+        if (bms_database_table_exists($pdo, bms_table('activitypub_following'))) {
+            $pdo->exec("UPDATE " . bms_table('activitypub_following') . " f INNER JOIN " . bms_table('activitypub_remote_actors') . " a ON a.id = f.remote_actor_id SET f.state = 'removed', f.state_changed_at = UTC_TIMESTAMP(), f.removed_at = COALESCE(f.removed_at, UTC_TIMESTAMP()), f.last_error = 'Remote inbox repeatedly returned a permanent failure.', f.updated_at = UTC_TIMESTAMP() WHERE a.lifecycle_state = 'unavailable' AND f.state <> 'removed'");
+        }
+    }
+}
+
 function bms_activitypub_recover_stale_processing(): int
 {
     $stmt = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), last_error = 'Recovered from stale processing state.', updated_at = UTC_TIMESTAMP() WHERE status = 'processing' AND last_attempt_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND (:retired = 0 OR delivery_type = 'actor_delete')");
@@ -177,4 +202,21 @@ function bms_activitypub_reconcile_queue(): array
         }
     }
     return ['recovered' => $recovered, 'cancelled' => $cancelled, 'remaining_issues' => count(bms_activitypub_queue_issues(500))];
+}
+
+function bms_activitypub_cleanup_remote_cache(int $limit = 200): array
+{
+    $limit = max(1, min(1000, $limit));
+    $pdo = bms_db();
+    $blocked = $pdo->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', content_html = '', content_text = '', metadata_json = '{}', updated_at = UTC_TIMESTAMP() WHERE lifecycle_state = 'blocked' OR (lifecycle_state = 'active' AND actor_uri IN (SELECT block_value FROM " . bms_table('activitypub_blocks') . " WHERE block_type = 'actor')) LIMIT " . $limit);
+    $blocked->execute();
+    $candidates = $pdo->query("SELECT o.id FROM " . bms_table('activitypub_remote_objects') . " o LEFT JOIN " . bms_table('activitypub_following') . " f ON f.remote_actor_id = o.remote_actor_id AND f.state = 'accepted' LEFT JOIN " . bms_table('activitypub_owner_interactions') . " i ON i.target_object_uri = o.object_uri LEFT JOIN " . bms_table('activitypub_reply_targets') . " r ON r.remote_object_id = o.id WHERE o.lifecycle_state = 'active' AND o.expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND f.id IS NULL AND i.id IS NULL AND r.id IS NULL ORDER BY o.id ASC LIMIT " . $limit);
+    $ids = array_values(array_unique(array_filter(array_map('intval', $candidates ? ($candidates->fetchAll(PDO::FETCH_COLUMN) ?: []) : []))));
+    $removed = 0;
+    if ($ids !== []) {
+        $purge = $pdo->prepare('DELETE FROM ' . bms_table('activitypub_remote_objects') . ' WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ") AND lifecycle_state = 'active'");
+        $purge->execute($ids);
+        $removed = $purge->rowCount();
+    }
+    return ['blocked_content_cleared' => $blocked->rowCount(), 'unreferenced_objects_removed' => $removed];
 }

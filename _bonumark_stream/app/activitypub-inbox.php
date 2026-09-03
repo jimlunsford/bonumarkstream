@@ -111,6 +111,9 @@ function bms_activitypub_cached_remote_actor(string $actorUri, bool $allowExpire
     if (!is_array($actor)) {
         return null;
     }
+    if ((string)($actor['lifecycle_state'] ?? 'active') !== 'active') {
+        return null;
+    }
     if (!$allowExpired) {
         try {
             $expiresAt = (new DateTimeImmutable((string)($actor['expires_at'] ?? ''), bms_utc_timezone()))->getTimestamp();
@@ -126,6 +129,42 @@ function bms_activitypub_cached_remote_actor(string $actorUri, bool $allowExpire
     return $actor;
 }
 
+function bms_activitypub_mark_remote_actor_deleted(string $actorUri, string $reason, ?int $httpStatus = null): bool
+{
+    $actorUri = bms_activitypub_identifier_uri($actorUri, false);
+    $pdo = bms_db();
+    $known = $pdo->prepare('SELECT id FROM ' . bms_table('activitypub_remote_actors') . ' WHERE actor_uri = :actor_uri LIMIT 1');
+    $known->execute(['actor_uri' => $actorUri]);
+    if ((int)$known->fetchColumn() < 1) {
+        return false;
+    }
+    $stmt = $pdo->prepare("UPDATE " . bms_table('activitypub_remote_actors') . " SET lifecycle_state = 'deleted', last_fetch_status = :http_status, last_fetch_error = :reason, failure_count = failure_count + 1, last_failed_at = UTC_TIMESTAMP(), deleted_at = COALESCE(deleted_at, UTC_TIMESTAMP()), expires_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state <> 'deleted'");
+    $stmt->execute(['http_status' => $httpStatus, 'reason' => bms_text_substr($reason, 0, 1000), 'actor_uri' => $actorUri]);
+    $changed = $stmt->rowCount() > 0;
+    $pdo->prepare("UPDATE " . bms_table('activitypub_followers') . " SET state = 'removed', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['actor_uri' => $actorUri]);
+    if (bms_database_table_exists($pdo, bms_table('activitypub_following'))) {
+        $pdo->prepare("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = COALESCE(removed_at, UTC_TIMESTAMP()), last_error = :reason, updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['reason' => bms_text_substr($reason, 0, 1000), 'actor_uri' => $actorUri]);
+        $pdo->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'deleted', content_html = '', content_text = '', metadata_json = '{}', deleted_at = COALESCE(deleted_at, UTC_TIMESTAMP()), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state <> 'deleted'")->execute(['actor_uri' => $actorUri]);
+        $pdo->prepare("UPDATE " . bms_table('activitypub_owner_interactions') . " SET state = 'retired', last_error = :reason, updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state NOT IN ('undone', 'retired')")->execute(['reason' => bms_text_substr($reason, 0, 1000), 'actor_uri' => $actorUri]);
+    }
+    if (bms_database_table_exists($pdo, bms_table('activitypub_remote_replies'))) {
+        $pdo->prepare("UPDATE " . bms_table('activitypub_remote_replies') . " SET moderation_state = 'hidden', lifecycle_state = 'deleted', content_html = '', content_text = '', deleted_at = COALESCE(deleted_at, UTC_TIMESTAMP()), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state <> 'deleted'")->execute(['actor_uri' => $actorUri]);
+        $pdo->prepare("UPDATE " . bms_table('activitypub_remote_interactions') . " SET state = 'undone', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state = 'active'")->execute(['actor_uri' => $actorUri]);
+    }
+    return $changed;
+}
+
+function bms_activitypub_mark_remote_actor_fetch_failure(string $actorUri, Throwable $error): void
+{
+    $status = $error instanceof BmsActivityPubSecurityException ? $error->httpStatus() : 0;
+    if ($status === 410) {
+        bms_activitypub_mark_remote_actor_deleted($actorUri, 'Remote actor dereference returned HTTP 410.', 410);
+        return;
+    }
+    $stmt = bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_actors') . " SET lifecycle_state = CASE WHEN :http_status = 404 THEN 'unavailable' ELSE lifecycle_state END, last_fetch_status = :stored_status, last_fetch_error = :last_error, failure_count = failure_count + 1, last_failed_at = UTC_TIMESTAMP(), expires_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state <> 'deleted'");
+    $stmt->execute(['http_status' => $status, 'stored_status' => $status > 0 ? $status : null, 'last_error' => bms_text_substr($error->getMessage(), 0, 1000), 'actor_uri' => $actorUri]);
+}
+
 function bms_activitypub_store_remote_actor(array $actor): array
 {
     $documentJson = json_encode($actor['document'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -134,7 +173,7 @@ function bms_activitypub_store_remote_actor(array $actor): array
     }
     $sql = 'INSERT INTO ' . bms_table('activitypub_remote_actors') . ' (actor_uri, actor_type, preferred_username, display_name, inbox_url, shared_inbox_url, public_key_id, public_key_pem, key_owner_uri, document_json, fetched_at, expires_at, created_at, updated_at) '
         . 'VALUES (:actor_uri, :actor_type, :preferred_username, :display_name, :inbox_url, :shared_inbox_url, :public_key_id, :public_key_pem, :key_owner_uri, :document_json, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR), UTC_TIMESTAMP(), UTC_TIMESTAMP()) '
-        . 'ON DUPLICATE KEY UPDATE actor_type = VALUES(actor_type), preferred_username = VALUES(preferred_username), display_name = VALUES(display_name), inbox_url = VALUES(inbox_url), shared_inbox_url = VALUES(shared_inbox_url), public_key_id = VALUES(public_key_id), public_key_pem = VALUES(public_key_pem), key_owner_uri = VALUES(key_owner_uri), document_json = VALUES(document_json), fetched_at = UTC_TIMESTAMP(), expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR), updated_at = UTC_TIMESTAMP()';
+        . 'ON DUPLICATE KEY UPDATE actor_type = VALUES(actor_type), lifecycle_state = IF(lifecycle_state = \'deleted\', \'deleted\', \'active\'), preferred_username = VALUES(preferred_username), display_name = VALUES(display_name), inbox_url = VALUES(inbox_url), shared_inbox_url = VALUES(shared_inbox_url), public_key_id = VALUES(public_key_id), public_key_pem = VALUES(public_key_pem), key_owner_uri = VALUES(key_owner_uri), document_json = VALUES(document_json), fetched_at = UTC_TIMESTAMP(), expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR), last_fetch_status = NULL, last_fetch_error = NULL, failure_count = 0, last_failed_at = NULL, updated_at = UTC_TIMESTAMP()';
     $stmt = bms_db()->prepare($sql);
     $stmt->execute([
         'actor_uri' => (string)$actor['actor_uri'],
@@ -165,7 +204,17 @@ function bms_activitypub_discover_remote_actor(string $actorUri, bool $force = f
             return $cached;
         }
     }
-    $fetched = $fetcher !== null ? $fetcher($actorUri) : bms_activitypub_fetch_json($actorUri, null, $resolver);
+    $state = bms_db()->prepare('SELECT lifecycle_state FROM ' . bms_table('activitypub_remote_actors') . ' WHERE actor_uri = :actor_uri LIMIT 1');
+    $state->execute(['actor_uri' => $actorUri]);
+    if ((string)$state->fetchColumn() === 'deleted') {
+        throw new BmsActivityPubSecurityException('The remote actor is permanently deleted.', 410);
+    }
+    try {
+        $fetched = $fetcher !== null ? $fetcher($actorUri) : bms_activitypub_fetch_json($actorUri, null, $resolver);
+    } catch (Throwable $e) {
+        bms_activitypub_mark_remote_actor_fetch_failure($actorUri, $e);
+        throw $e;
+    }
     $document = is_array($fetched) && is_array($fetched['document'] ?? null) ? $fetched['document'] : $fetched;
     if (!is_array($document) || array_is_list($document)) {
         throw new BmsActivityPubSecurityException('The remote actor fetch returned an invalid document.', 502);
@@ -479,6 +528,10 @@ function bms_activitypub_process_update_or_cache(array $activity, array $remoteA
 function bms_activitypub_process_delete_or_cache(array $activity, array $remoteActor, int $receiptId): string
 {
     $objectUri = bms_activitypub_target_object_id($activity['object'] ?? null);
+    if ($objectUri !== '' && hash_equals((string)$remoteActor['actor_uri'], $objectUri)) {
+        bms_activitypub_mark_remote_actor_deleted((string)$remoteActor['actor_uri'], 'Authenticated remote Actor Delete received.');
+        return 'remote_actor_deleted';
+    }
     if ($objectUri !== '' && is_array(bms_activitypub_remote_reply_by_uri($objectUri, true))) {
         return bms_activitypub_process_reply_delete($activity, $receiptId);
     }

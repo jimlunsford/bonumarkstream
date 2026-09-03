@@ -438,7 +438,7 @@ function bms_activitypub_block_actor(string $actorUri, string $reason = ''): voi
     bms_db()->prepare("UPDATE " . bms_table('activitypub_followers') . " SET state = 'blocked', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'blocked'")->execute(['actor_uri' => $actorUri]);
     if (bms_database_table_exists(bms_db(), bms_table('activitypub_remote_objects'))) {
         bms_db()->prepare("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = UTC_TIMESTAMP(), last_error = 'Actor blocked locally.', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['actor_uri' => $actorUri]);
-        bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $actorUri]);
+        bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', content_html = '', content_text = '', metadata_json = '{}', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $actorUri]);
         bms_activitypub_cancel_blocked_owner_deliveries($actorUri, 'Actor blocked locally.');
     }
 }
@@ -461,7 +461,7 @@ function bms_activitypub_block_domain_for_actor(string $actorUri, string $reason
             bms_db()->prepare("UPDATE " . bms_table('activitypub_followers') . " SET state = 'blocked', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'blocked'")->execute(['actor_uri' => $candidate]);
             if (bms_database_table_exists(bms_db(), bms_table('activitypub_remote_objects'))) {
                 bms_db()->prepare("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = UTC_TIMESTAMP(), last_error = 'Domain blocked locally.', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND state <> 'removed'")->execute(['actor_uri' => $candidate]);
-                bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $candidate]);
+                bms_db()->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', content_html = '', content_text = '', metadata_json = '{}', updated_at = UTC_TIMESTAMP() WHERE actor_uri = :actor_uri AND lifecycle_state = 'active'")->execute(['actor_uri' => $candidate]);
                 bms_activitypub_cancel_blocked_owner_deliveries($candidate, 'Domain blocked locally.');
             }
         }

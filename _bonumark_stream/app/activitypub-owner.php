@@ -1021,6 +1021,9 @@ function bms_activitypub_run_owner_deliveries(int $limit = 20, ?callable $transp
         try {
             $response = bms_activitypub_deliver_owner_row($row, $key, $transport, $resolver);
             $status = (int)($response['status'] ?? 0);
+            if (!$retiredDelivery) {
+                bms_activitypub_record_delivery_recipient_outcome($row, $status);
+            }
             if ($status >= 200 && $status < 300) {
                 $update = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'delivered', delivered_at = UTC_TIMESTAMP(), http_status = :http_status, last_error = NULL, signature_mode = CASE WHEN :fallback = 'legacy' THEN 'legacy' ELSE signature_mode END, updated_at = UTC_TIMESTAMP() WHERE id = :id");
                 $update->execute(['http_status' => $status, 'fallback' => (string)($response['signature_fallback'] ?? ''), 'id' => (int)$row['id']]);
