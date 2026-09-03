@@ -141,6 +141,7 @@ $inboxSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/act
 $adminSource = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $routeSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-routes.php');
 $activityPubDocumentation = (string)file_get_contents(__DIR__ . '/../docs/ACTIVITYPUB.md');
+$nginxExample = (string)file_get_contents(__DIR__ . '/../docs/server/bonumark-stream-nginx.conf');
 bms_ap_stage6_assert(substr_count($ownerSource, "bms_activitypub_owner_activity_url('delete-actor')") === 1, 'Actor Delete must only originate from explicit permanent deactivation.');
 bms_ap_stage6_assert(
     str_contains($ownerSource, "['owner_activity', 'actor_delete']")
@@ -150,6 +151,10 @@ bms_ap_stage6_assert(
 foreach (['publishing system first', 'publication generations', 'Permanently deactivated', 'queue operations', 'Signing keys', 'Hosting requirements', 'Misskey.io', 'NodeInfo is intentionally not implemented'] as $documentedContract) {
     bms_ap_stage6_assert(str_contains($activityPubDocumentation, $documentedContract), 'ActivityPub operator documentation is missing: ' . $documentedContract);
 }
+bms_ap_stage6_assert(
+    str_contains($nginxExample, 'rewrite "^/activitypub/activities/owner/([a-z0-9-]+)/([a-f0-9]{32})/?$"'),
+    'The Nginx owner-activity route must quote its regex so the fixed-length token quantifier parses safely.'
+);
 bms_ap_stage6_assert(
     str_contains($inboxSource, "return 'remote_actor_deleted'")
         && str_contains($inboxSource, "lifecycle_state = 'deleted'")
