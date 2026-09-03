@@ -170,11 +170,22 @@ function bms_activitypub_recent_durable_task_history(array $history, int $thresh
 function bms_activitypub_system_check_items(): array
 {
     if (bms_activitypub_actor_is_retired()) {
-        return [[
-            'label' => 'ActivityPub actor identity',
-            'status' => 'warn',
-            'message' => 'The site actor URI is permanently retired. It cannot be re-enabled, and actor discovery now returns a Tombstone.',
-        ]];
+        $retirement = bms_activitypub_actor_retirement();
+        $pending = 0;
+        if (is_array($retirement)) {
+            $stmt = bms_db()->prepare("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'actor_delete' AND activity_uri = :activity_uri AND status IN ('pending', 'retry', 'processing', 'dead')");
+            $stmt->execute(['activity_uri' => (string)$retirement['delete_activity_uri']]);
+            $pending = (int)$stmt->fetchColumn();
+        }
+        $keyHealth = bms_activitypub_signing_key_health();
+        $runner = bms_activitypub_scheduled_runner_capability();
+        return [
+            ['label' => 'ActivityPub actor identity', 'status' => 'warn', 'message' => 'The site actor URI is permanently retired. It cannot be re-enabled, and actor discovery now returns a Tombstone.'],
+            ['label' => 'Actor Delete delivery', 'status' => $pending === 0 ? 'pass' : 'warn', 'message' => $pending === 0 ? 'Final Actor Delete delivery has no unfinished or dead targets.' : $pending . ' final Actor Delete target(s) remain unfinished or require review.'],
+            ['label' => 'Retired actor signing key', 'status' => !empty($keyHealth['ok']) ? 'pass' : 'fail', 'message' => (string)$keyHealth['message']],
+            ['label' => 'Retired actor outbound HTTP', 'status' => function_exists('curl_init') ? 'pass' : 'fail', 'message' => function_exists('curl_init') ? 'PHP cURL remains available for final Actor Delete delivery.' : 'PHP cURL is required to finish Actor Delete delivery.'],
+            ['label' => 'Retired actor scheduled delivery', 'status' => $pending === 0 || !empty($runner['ok']) ? 'pass' : 'warn', 'message' => $pending === 0 ? 'No final Actor Delete work remains.' : (string)$runner['message']],
+        ];
     }
     if (!bms_activitypub_enabled()) {
         return [[
@@ -200,6 +211,7 @@ function bms_activitypub_system_check_items(): array
     $keyHealth = bms_activitypub_signing_key_health();
     $operationalState = bms_activitypub_operational_state();
     $deliverySuspended = bms_activitypub_delivery_suspended();
+    $queueIssues = function_exists('bms_activitypub_queue_issues') ? bms_activitypub_queue_issues(500) : [];
 
     return [
         ['label' => 'ActivityPub canonical URL', 'status' => !empty($url['ok']) ? 'pass' : 'fail', 'message' => (string)$url['message']],
@@ -209,7 +221,9 @@ function bms_activitypub_system_check_items(): array
         ['label' => 'ActivityPub cryptography', 'status' => $openssl && strlen($salt) >= 32 ? 'pass' : 'fail', 'message' => $openssl && strlen($salt) >= 32 ? 'OpenSSL and the installation secret are available for protected signing keys.' : 'ActivityPub requires OpenSSL and a high-entropy installation security salt.'],
         ['label' => 'ActivityPub signing identity', 'status' => !empty($keyHealth['ok']) ? 'pass' : 'warn', 'message' => (string)$keyHealth['message']],
         ['label' => 'ActivityPub outbound HTTP', 'status' => function_exists('curl_init') ? 'pass' : 'fail', 'message' => function_exists('curl_init') ? 'PHP cURL is available for signed federation requests.' : 'ActivityPub requires PHP cURL for outbound federation requests.'],
+        ['label' => 'ActivityPub request headers', 'status' => function_exists('getallheaders') || isset($_SERVER) ? 'pass' : 'warn', 'message' => 'Bonumark reads Signature, Signature-Input, Digest, Content-Digest, Authorization, Host, Content-Type, and Content-Length from the PHP request environment. Reverse proxies must forward them unchanged.'],
         ['label' => 'ActivityPub scheduled delivery', 'status' => !empty($runner['ok']) ? 'pass' : 'warn', 'message' => (string)$runner['message']],
+        ['label' => 'ActivityPub queue consistency', 'status' => $queueIssues === [] ? 'pass' : 'warn', 'message' => $queueIssues === [] ? 'No stuck, orphaned, malformed, unsafe, or duplicate delivery rows were detected.' : count($queueIssues) . ' delivery consistency finding(s) require review in Admin ActivityPub operations.'],
     ];
 }
 

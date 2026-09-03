@@ -160,6 +160,13 @@ bms_activitypub_test_assert(
 
 $activityPubSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub.php');
 bms_activitypub_test_assert(
+    str_contains($activityPubSource, 'ActivityPub request headers')
+        && str_contains($activityPubSource, 'ActivityPub queue consistency')
+        && str_contains($activityPubSource, 'Actor Delete delivery')
+        && str_contains($activityPubSource, 'Retired actor scheduled delivery'),
+    'System Check must report inbound header expectations, queue health, and unfinished retired-actor delivery requirements.'
+);
+bms_activitypub_test_assert(
     str_contains($activityPubSource, "SET status = 'retired', retired_at = UTC_TIMESTAMP() WHERE status = 'active'")
         && str_contains($activityPubSource, "'status' => 'active'"),
     'Signing-key rotation must retain retired-key history and activate the verified replacement transactionally.'

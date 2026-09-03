@@ -53,7 +53,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://example.com/feed.xml
 
 The home page and `/stream` should return HTTP 200 on a working site. Feed behavior depends on site state but must route through Bonumark rather than an Nginx filesystem 404.
 
-## Authorization header
+## Authentication and federation headers
 
 The Remote Posting API uses bearer authentication. The example explicitly forwards the incoming `Authorization` header to PHP-FPM:
 
@@ -62,6 +62,17 @@ fastcgi_param HTTP_AUTHORIZATION $http_authorization;
 ```
 
 Keep this directive if Remote Posting is used.
+
+ActivityPub inbox verification also depends on `Signature` or `Signature-Input`, plus `Digest` or `Content-Digest`. The example explicitly forwards those headers to PHP-FPM:
+
+```nginx
+fastcgi_param HTTP_SIGNATURE $http_signature;
+fastcgi_param HTTP_SIGNATURE_INPUT $http_signature_input;
+fastcgi_param HTTP_DIGEST $http_digest;
+fastcgi_param HTTP_CONTENT_DIGEST $http_content_digest;
+```
+
+Keep the original `Host`, `Content-Type`, and `Content-Length` request values as well. Nginx normally passes them through the standard FastCGI parameters, but a reverse proxy or customized include must not remove or rewrite them. Bonumark rejects an inbox request when the signed host, body length, or digest no longer matches what PHP receives.
 
 ## File permissions
 
