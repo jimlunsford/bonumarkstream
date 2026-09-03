@@ -1,6 +1,6 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.7.2 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
+Bonumark Stream v0.8.0 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
 ## Upgrade paths
 
@@ -17,19 +17,19 @@ A locked-down application tree is not a broken Bonumark installation. Do not mak
 On a locked-down server with shell access, run the upgrade as the operating-system account that owns/deploys the Bonumark application tree:
 
 ```sh
-php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.7.2.zip
-php scripts/deploy-update.php /path/to/bonumark-stream-v0.7.2.zip
+php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.8.0.zip
+php scripts/deploy-update.php /path/to/bonumark-stream-v0.8.0.zip
 ```
 
 The owner-run helper uses the same core upgrade engine as Admin → Upgrade. It does not invoke `sudo`, install a privileged daemon, use setuid behavior, or give the web/PHP process additional filesystem rights.
 
 ### First transition from an older locked-down release
 
-Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.7.2 without performing a full manual overlay first, extract the v0.7.2 release outside the live site and run the helper from that extracted release while targeting the live installation:
+Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.8.0 without performing a full manual overlay first, extract the v0.8.0 release outside the live site and run the helper from that extracted release while targeting the live installation:
 
 ```sh
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.7.2.zip
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.7.2.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.8.0.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.8.0.zip
 ```
 
 After the upgrade succeeds, the helper exists inside the live installation for future owner-run upgrades.
@@ -37,6 +37,57 @@ After the upgrade succeeds, the helper exists inside the live installation for f
 ### No-shell fallback
 
 When PHP cannot replace the application code and shell access is unavailable, use the documented manual/hosting-layer workflow in [`server/MANUAL-DEPLOYMENT.md`](server/MANUAL-DEPLOYMENT.md). Preserve Bonumark owner/runtime data and complete the documented deployment and migration checks before treating the upgrade as finished.
+
+## v0.8.0 - ActivityPub Federation
+
+v0.8.0 adds optional, disabled-by-default ActivityPub federation around the existing single-owner Bonumark publishing system. Normal local publishing remains authoritative. Federation adds discovery, follower relationships, generation-aware publication delivery, inbound interactions, owner participation, private Following, moderation, security, and operational lifecycle controls.
+
+### Before upgrading
+
+1. Back up the database.
+2. Back up the complete site files, especially `_bonumark_stream/config.php`, `installed.lock`, media/uploads, imports, exports, runtime storage, and custom themes.
+3. Confirm the ZIP is named `bonumark-stream-v0.8.0.zip` and passes the Admin or owner-run package precheck.
+4. Do not interrupt package replacement or migrations.
+5. After the upgrade, run `php scripts/deployment-check.php` and open **Admin > System Check**.
+
+### Database changes
+
+The v0.8.0 package adds eleven sequential migrations:
+
+- `0018_activitypub_foundation.php`
+- `0019_activitypub_observed_events.php`
+- `0020_activitypub_inbox_followers.php`
+- `0021_durable_post_identity.php`
+- `0022_activitypub_publication_delivery.php`
+- `0023_activitypub_permalink_aliases.php`
+- `0024_activitypub_publication_generations.php`
+- `0025_activitypub_remote_interactions.php`
+- `0026_activitypub_owner_participation.php`
+- `0027_activitypub_actor_retirement.php`
+- `0028_activitypub_remote_actor_lifecycle.php`
+
+These migrations create ActivityPub keys, object and publication history, queued delivery, remote actor cache, follower and Following relationships, inbound and owner interaction state, blocks, actor retirement, and remote lifecycle state. Migration `0021` also formalizes durable local post identity so reversible post transitions keep the same database post ID.
+
+The migrations do not rewrite existing post bodies or replace existing posts, Pages, profiles, comments, local Likes, media, themes, imports, exports, runtime files, accounts, settings, analytics, API state, or other owner data. Package replacement continues to preserve configuration, installed state, media/uploads, backups, imports, content versions, runtime data, and custom themes.
+
+### ActivityPub state after upgrade
+
+ActivityPub remains disabled after a normal upgrade unless it was already explicitly enabled on a prerelease test installation. With ActivityPub disabled, publication transitions do not create federation delivery work and federation routes remain unavailable.
+
+An existing prerelease ActivityPub test installation retains its federation settings and ActivityPub database state through the package upgrade. Before resuming delivery, confirm signing-key health, cron health, the canonical actor URL, queue state, and every ActivityPub item in **Admin > System Check**.
+
+Do not reset or reuse a permanently retired actor identity. Permanent Actor Delete remains irreversible.
+
+### After upgrading
+
+- Confirm `php scripts/run-migrations.php --check` reports zero pending migrations.
+- Confirm existing posts, Pages, profiles, comments, Likes, media, custom themes, imports, exports, and settings remain present.
+- Verify the public Stream, a single post, the owner Profile, comments, local Likes, media, theme rendering, scheduled tasks, and the Remote Posting API as applicable.
+- Leave ActivityPub disabled unless the site satisfies the root-level HTTPS, WebFinger, OpenSSL, cURL, private-storage, header-forwarding, and cron requirements.
+- If enabling ActivityPub, provision or verify the signing key before enabling delivery.
+- Use pause or delivery suspension for reversible maintenance. Permanent federation deactivation retires the actor URI forever and cannot currently be reversed.
+
+See [ActivityPub in Bonumark Stream](ACTIVITYPUB.md) and the [v0.8.0 release notes](releases/v0.8.0.md) for the complete owner and operator guidance.
 
 ## v0.7.2 - Hosting Portability & Upgrade Workflow
 

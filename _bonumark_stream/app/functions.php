@@ -62,7 +62,7 @@ function bms_default_config(): array
         'analytics_enabled' => '0',
         'analytics_retention_days' => '90',
         'analytics_last_cleanup_date' => '',
-        'version' => '0.7.2',
+        'version' => '0.8.0',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',

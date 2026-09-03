@@ -4,6 +4,12 @@ ActivityPub is an optional, default-off federation layer around Bonumark Stream.
 
 ActivityPub does not create a multi-user social server, a public federated timeline, or a second federation-only post store. Remote users never become Bonumark accounts. The public site remains centered on the owner's own publishing.
 
+## Discovery and public federation routes
+
+Remote platforms discover the owner through domain-root WebFinger at `/.well-known/webfinger`. WebFinger advertises the one stable owner actor at `/activitypub/actor`. The actor document publishes the owner's public identity, inbox, outbox, follower and Following collections, and active public signing key.
+
+The outbox and generation-aware object routes are read-only views of already published Bonumark state. They do not create a second post store and do not scan old posts into new delivery work. Human-facing Bonumark Profile and Stream Post URLs remain the normal presentation addresses.
+
 ## Owner experience
 
 When ActivityPub is enabled, the authenticated Admin owner sees **Following** in the frontend navigation. `/following/` and its conversation views are private, use `no-store` and `noindex` controls, and are unavailable to logged-out visitors and Commenter accounts.
@@ -11,6 +17,14 @@ When ActivityPub is enabled, the authenticated Admin owner sees **Following** in
 Following is chronological and contains only sanitized cached content from accepted outbound Following relationships. It has no ranking, recommendations, or public fediverse timeline. A remote card opens a private conversation. Reply creates a normal Bonumark draft with an ActivityPub reply target. Like, Unlike, Boost, and Unboost are direct owner actions backed by immutable ActivityPub activity history.
 
 Admin is the management surface for configuration, keys, followers, moderation, delivery history, queue repair, cache cleanup, and permanent deactivation. Themes remain code-free and receive only core-prepared semantic presentation data. Core owns routing, federation logic, security, privacy, sanitation, permissions, and structural safety.
+
+## Publishing and media
+
+The first federated publication of a Stream Post sends `Create`. A material edit or slug change sends `Update`. Unpublish, trash, or permanent deletion of an active generation sends `Delete`. These activities are recorded only after the local Bonumark transition commits.
+
+Published image posts include ActivityStreams image attachments. Bonumark preserves the image order and sends the stored media alt text as the attachment name when alt text is available. Remote delivery does not expose private media or turn remote media into local Media Library records.
+
+v0.8.0 does not implement followers-only or private federation, direct messages, or another private-post visibility model. Federated Bonumark Stream Posts are public posts.
 
 ## Local identity and publication generations
 
@@ -55,6 +69,8 @@ The following states are deliberately different:
 Pause and delivery suspension are fully reversible and never send Actor Delete.
 
 Permanent deactivation requires the exact Admin confirmation phrase `PERMANENTLY DELETE FEDERATED ACTOR`. The transaction records durable retirement state, stores one immutable Actor Delete payload, queues it to the accepted follower targets known at retirement, cancels unrelated unfinished federation work, and marks relationships inactive. The actor URI then returns `410 Gone`, WebFinger stops advertising it, and it cannot be re-enabled. Bonumark does not manufacture a replacement actor URI. Posts, comments, local likes, media, Profile data, Pages, themes, imports, exports, and other non-federation content are untouched.
+
+**Permanent federation deactivation cannot currently be reversed. Use pause or delivery suspension if there is any possibility that this actor identity will be needed again.**
 
 ## Delivery and recovery
 
@@ -104,6 +120,16 @@ The shipped root `.htaccess` contains Apache routes. The example Nginx configura
 
 Do not give the web process ownership of package-managed application code. Only the documented runtime paths need web-process write access.
 
+Before enabling ActivityPub:
+
+1. Open **Admin > System Check** and resolve every ActivityPub requirement failure.
+2. Confirm the canonical site URL is the permanent root-level HTTPS identity you intend to federate.
+3. Confirm domain-root WebFinger reaches this Bonumark installation.
+4. Configure dependable server cron or protected web cron.
+5. Open **Admin > ActivityPub**, provision the signing key, review the key health result, and then enable ActivityPub.
+
+Changing the canonical domain after federation begins is not an automatic migration. Do not move or retire the actor identity without a separate migration plan.
+
 ## Troubleshooting
 
 Start with **Admin > System Check** and **Admin > ActivityPub**.
@@ -126,3 +152,14 @@ Live publishing interoperability was accepted with Mastodon, GoToSocial, and Mis
 Misskey.io accepted a correctly formed Update delivery during acceptance testing but did not apply the changed Note text. No Bonumark payload defect was found, so this remains a documented Misskey limitation. Sharkey.world connection failures observed during testing were server or connection specific and were not treated as a Bonumark protocol defect.
 
 NodeInfo is intentionally not implemented. Its common usage and user-count fields are designed around social-server deployments and could misrepresent Bonumark's single-owner publishing model or leak private participation data. WebFinger and ActivityPub actor discovery provide the interoperability Bonumark currently needs. A future NodeInfo implementation requires a concrete consumer need and a privacy-safe single-owner reporting contract.
+
+## Deliberately unsupported in v0.8.0
+
+- NodeInfo;
+- automatic domain migration;
+- replacement actor identities after permanent retirement;
+- multi-user federation;
+- public federated timelines;
+- algorithmic Following;
+- followers-only or private federation;
+- direct messages.

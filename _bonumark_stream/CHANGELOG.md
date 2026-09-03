@@ -1,3 +1,16 @@
+## 0.8.0 - ActivityPub Federation
+
+- Integrates the completed ActivityPub Stages 1 through 7 and Stage 6.5 subsystem as the v0.8.0 release candidate.
+- Keeps ActivityPub optional, default-off, single-owner, and subordinate to Bonumark's existing personal publishing model.
+- Adds WebFinger, stable actor/outbox/object discovery, encrypted signing keys, key rotation, legacy RSA and RFC 9421 signatures, digest validation, replay protection, SSRF-safe remote access, and actor/key/activity consistency checks.
+- Adds authenticated follower handling, moderation, owner Follow and Unfollow, inbound replies, Likes, Announces and Undo, owner Reply, Like, Unlike, Boost and Unboost, actor/domain blocking, and remote identity lifecycle handling.
+- Adds generation-aware Create, Update, and Delete delivery with media, alt text, shared-inbox deduplication, asynchronous retries, dead letters, immutable payload reuse, queue repair, pause, delivery suspension, and irreversible Actor Delete.
+- Adds the private frontend Following timeline and conversation views while keeping ordinary participation controls out of Admin and preserving the core/theme responsibility boundary.
+- Adds migrations `0018_activitypub_foundation.php` through `0028_activitypub_remote_actor_lifecycle.php` without renumbering or rewriting historical migrations.
+- Preserves existing posts, Pages, profiles, comments, local Likes, media, themes, imports, exports, runtime data, configuration, accounts, settings, API state, and other owner data.
+- Updates all current version surfaces, user/operator documentation, package metadata, OpenAPI metadata, service-worker cache identity, and release notes for v0.8.0.
+- Expands release-candidate verification so release-branch compatibility jobs enforce the final manifest and validate a freshly built and extracted distributable package.
+
 ## 0.7.2 - Database Smoke Test Correctness Pass
 
 - Supersedes the unreleased v0.7.1 candidate while keeping the public milestone name **Hosting Portability & Upgrade Workflow** and the same runtime feature set.

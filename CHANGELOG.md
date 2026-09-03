@@ -2,6 +2,39 @@
 
 This file tracks public GitHub release milestones. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
+## 0.8.0 - ActivityPub Federation
+
+Bonumark Stream v0.8.0 adds optional ActivityPub federation while preserving Bonumark as a self-hosted, single-owner personal publishing system first.
+
+### Highlights
+
+- Publishes normal Bonumark Stream Posts to followers on Mastodon, GoToSocial, Misskey, and compatible ActivityPub platforms.
+- Adds stable single-owner WebFinger and actor discovery plus read-only outbox and object routes.
+- Supports follower requests, approval or rejection, Follow and Unfollow, inbound replies, Likes, boosts, and exact Undo behavior.
+- Adds a private, chronological, non-algorithmic frontend Following timeline with private conversation views and owner Reply, Like, Unlike, Boost, and Unboost actions.
+- Keeps remote actors separate from local accounts and remote content separate from Bonumark's public Stream and archive.
+- Preserves durable local post identity while assigning each federated publication lifetime its own immutable object generation.
+- Permanently Tombstones a deleted generation and gives a republished post a new ActivityPub object identity.
+- Delivers multiple images and alt text through generation-aware Create and Update activities.
+- Adds encrypted signing-key storage and rotation, legacy RSA and RFC 9421 signature support, digest and replay protection, SSRF-safe fetching, and bounded remote data handling.
+- Adds asynchronous delivery, retries, dead letters, queue inspection and repair, actor/domain blocking, remote cache lifecycle controls, federation pause, and delivery suspension.
+- Adds irreversible permanent Actor Delete with explicit confirmation and permanent non-resurrection of the retired actor URI.
+- Keeps ActivityPub optional and disabled by default.
+
+### Database changes
+
+v0.8.0 adds migrations `0018` through `0028` for ActivityPub identity, keys, publications, delivery, followers, Following, interactions, blocks, actor retirement, and remote-actor lifecycle state.
+
+The migrations do not rewrite existing post bodies or replace existing posts, profiles, media, comments, Likes, themes, imports, exports, runtime state, or other owner data.
+
+### Hosting and compatibility
+
+ActivityPub requires a canonical root-level HTTPS site, domain-root WebFinger routing, OpenSSL, cURL with outbound HTTPS access, protected private storage, and dependable server cron or protected web cron. Subdirectory installs need explicit hosting-level domain-root WebFinger routing.
+
+Compatibility is verified across PHP 8.1 and 8.3 with MySQL 8.0/8.4 and MariaDB 10.6/11.4. Live interoperability testing covered Mastodon, GoToSocial, and Misskey.io. Misskey.io accepted Update activities but did not apply changed Note text during testing; no Bonumark payload defect was identified.
+
+See the [v0.8.0 release notes](docs/releases/v0.8.0.md) and [ActivityPub guide](docs/ACTIVITYPUB.md) for the complete owner and operator summary.
+
 ## 0.7.2 - Hosting Portability & Upgrade Workflow
 
 Bonumark Stream v0.7.2 is the next intended public GitHub release after v0.6.0. It consolidates the completed v0.6.1 through v0.6.8 development line and supersedes the unreleased v0.7.0 and v0.7.1 release candidates.

@@ -7,7 +7,7 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.7.2**
+- Current version: **0.8.0**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -34,45 +34,17 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.7.2
+## What's new in v0.8.0
 
-v0.7.2 is the next intended public release after v0.6.0. It supersedes the unreleased v0.7.0 and v0.7.1 candidates and brings together the hosting-portability, deployment, upgrade, and compatibility work completed across the v0.6.1 through v0.6.8 development builds. Release-candidate testing also tightened the GitHub verification path before publication: CI now tests a clean tracked source tree, the Remote Stream Posts API route is present in repository source, and database verification distinguishes a current fresh install from historical v0.4.x migration replay.
+Bonumark Stream can now remain the owner's publishing home while also participating in the fediverse. ActivityPub is optional and disabled by default. When enabled, normal Bonumark publication transitions can reach followers on Mastodon, GoToSocial, Misskey, and other compatible platforms without making remote delivery part of the local save transaction.
 
-Compared with v0.6.0, v0.7.2 adds no new database migration. Installations older than v0.6.0 may still have earlier pending migrations when they move directly to the current release.
+The owner can follow remote accounts, read a private chronological Following timeline, open private conversation views, reply with normal Bonumark posts, and Like, Unlike, Boost, or Unboost remote posts. Inbound replies, Likes, and boosts remain separate from local accounts and local anonymous Likes, with moderation and blocking under the owner's control.
 
-### Locked-down hosting is a supported operating model
+Bonumark preserves durable local post identity while giving each federated publication lifetime its own ActivityPub object identity. After a federated object is deleted, that identity remains permanently Tombstoned. Republishing keeps the local post but creates a new ActivityPub generation instead of resurrecting a retired object.
 
-Bonumark Stream now treats runtime writability and application-code replacement as separate capabilities. A site can publish, upload media, import content, run scheduled work, and use normal runtime storage even when the web/PHP process is intentionally unable to replace package-managed application files.
+Federation delivery is asynchronous, signed, retryable, and isolated from local publishing. The release adds encrypted signing-key storage and rotation, legacy RSA and RFC 9421 signature support, replay and digest protection, SSRF-safe remote fetching, queue repair, pause, delivery suspension, and irreversible permanent Actor Delete.
 
-System Check reports optional capabilities such as web-based upgrades, theme ZIP installation, cURL, ZipArchive, GD/Imagick, upload ceilings, and web-server detection without turning every unavailable convenience into a core application failure.
-
-ActivityPub development architecture, lifecycle, security, hosting, and operations are documented in [docs/ACTIVITYPUB.md](docs/ACTIVITYPUB.md). ActivityPub remains unreleased and disabled by default.
-
-### Owner-run upgrades use the same core upgrade engine
-
-On hosts where PHP can safely replace application code, **Admin → Upgrade** remains the normal ZIP upgrade path. Locked-down servers with shell access can instead run `php scripts/deploy-update.php /path/to/release.zip` as the application owner.
-
-Both paths use the same core upgrade engine for release-manifest validation, owner-data preservation, private software backups, selective pre-migration rollback, obsolete package-file cleanup, migration recovery, and upgrade-history recording. The CLI helper does not invoke `sudo`, install a privileged daemon, use setuid behavior, or grant the web runtime additional filesystem rights.
-
-For an older locked-down installation that does not yet contain the helper, an extracted newer release can target the live installation with `--site-root=/path/to/live/site` for the first transition.
-
-### Deployment verification is part of the workflow
-
-The release adds and hardens read-only deployment checks for package-managed file integrity, obsolete package files, runtime-directory presence, database compatibility, pending migrations, and migration-recovery state. Admin → System Check remains authoritative for checks that depend on the web/PHP identity and live HTTP behavior.
-
-Public URL mode now performs a real read-only request to Bonumark's clean `/api/v1/status` route. Private-folder protection is checked with a known private marker instead of writing a temporary probe file. Shipped top-level PHP tools under `/scripts` are CLI-only.
-
-### Broader hosting and database compatibility
-
-Bonumark Stream documents PHP 8.1+, MySQL 8.0+, and MariaDB 10.6+ as the current floors, with optional capabilities detected separately. Nginx now has maintained deployment guidance and a reference configuration while Apache and LiteSpeed continue to use the shipped `.htaccess` rules.
-
-The repository compatibility workflow exercises PHP 8.1 and 8.3 across MySQL 8.0/8.4 and MariaDB 10.6/11.4. Each job first creates a clean tracked source snapshot, excluding Git checkout metadata, and then runs PHP lint, the clean-package smoke test, database verification for both the current fresh-install path and the historical supported-upgrade path, and the Remote Posting API database smoke test.
-
-### Safer upgrade and recovery boundaries
-
-Owner data remains outside normal package replacement. Configuration, installed state, database content, runtime data, media, uploads, backups, imports, content versions, settings, and custom themes remain protected by the upgrade contract.
-
-If a file replacement fails before migrations begin, rollback is limited to the software actually changed by that attempt. Once migration work may have begun, recovery continues toward the same target release instead of casually rolling application code backward against a newer schema state.
+ActivityPub requires a root-level HTTPS site, domain-root WebFinger routing, OpenSSL, cURL, protected private storage, and dependable server cron or protected web cron. See the [ActivityPub guide](docs/ACTIVITYPUB.md) and [v0.8.0 release notes](docs/releases/v0.8.0.md) before enabling federation.
 
 ## Major features
 
@@ -127,6 +99,21 @@ If a file replacement fails before migrations begin, rollback is limited to the 
 - Read-only Stream API catalog
 - Remote draft, publish, schedule, media upload, media import, and gallery workflows
 - OpenAPI schema and client examples
+
+### Optional ActivityPub federation
+
+- Single-owner WebFinger, actor, outbox, and object discovery
+- Signed Create, Update, Delete, Follow, Accept, Reject, Undo, Like, and Announce behavior
+- Generation-aware republishing that never resurrects deleted object identities
+- Multiple-image ActivityStreams attachments with alt text
+- Inbound reply moderation plus separate inbound Like and boost state
+- Private owner-only Following timeline and conversation views
+- Chronological, non-algorithmic remote-post presentation
+- Owner Follow, Unfollow, Reply, Like, Unlike, Boost, and Unboost actions
+- Actor and domain blocking
+- Encrypted signing keys, key rotation, delivery retries, dead letters, and queue repair
+- Reversible pause and delivery suspension
+- Irreversible permanent Actor Delete
 
 ### Ownership and portability
 
@@ -269,6 +256,8 @@ Project documentation is included under `docs/`:
 - [Upgrading](docs/UPGRADING.md)
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [ActivityPub](docs/ACTIVITYPUB.md)
+- [v0.8.0 release notes](docs/releases/v0.8.0.md)
 - [Theming](docs/THEMING.md)
 - [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
 - [Admin UI Guidelines](docs/ADMIN-UI-GUIDELINES.md)
@@ -297,7 +286,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project rules and the release verific
 
 ## Project status
 
-Bonumark Stream is under active pre-1.0 development. v0.7.x is the current development line, so APIs, internals, installer behavior, and other pre-1.0 details may still change before 1.0.
+Bonumark Stream is under active pre-1.0 development. v0.8.x is the current development line, so APIs, internals, installer behavior, and other pre-1.0 details may still change before 1.0.
 
 Use appropriate backups and testing before running pre-1.0 software on a mission-critical site.
 
