@@ -94,21 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'unfollow_actor') {
             bms_activitypub_unfollow_remote_actor(max(0, (int)($_POST['following_id'] ?? 0)));
             bms_flash('The Following relationship was removed and its exact Undo Follow is queued.', 'success');
-        } elseif ($action === 'owner_like' || $action === 'owner_announce') {
-            $type = $action === 'owner_like' ? 'Like' : 'Announce';
-            bms_activitypub_owner_interact($type, (string)($_POST['object_uri'] ?? ''));
-            bms_flash($type . ' queued for signed delivery.', 'success');
-        } elseif ($action === 'undo_owner_interaction') {
-            bms_activitypub_owner_undo_interaction(max(0, (int)($_POST['interaction_id'] ?? 0)));
-            bms_flash('The exact owner interaction Undo is queued.', 'success');
-        } elseif ($action === 'owner_reply') {
-            $reply = bms_activitypub_create_owner_reply_draft(
-                (string)($_POST['object_uri'] ?? ''),
-                (string)($_POST['reply_body'] ?? ''),
-                (string)($_POST['reply_title'] ?? '')
-            );
-            bms_flash('A normal Bonumark Stream draft was created with its remote reply target attached.', 'success');
-            bms_redirect(bms_admin_url('edit.php?type=draft&file=' . rawurlencode((string)$reply['filename'])));
         } else {
             throw new RuntimeException('The ActivityPub action was not recognized.');
         }
@@ -131,7 +116,6 @@ $followers = bms_activitypub_follower_rows('', 200);
 $remoteReplies = bms_activitypub_remote_reply_rows('', 200);
 $publicationDeliveries = bms_activitypub_publication_delivery_rows(200);
 $following = bms_activitypub_following_rows(200);
-$remoteInbox = bms_activitypub_remote_inbox_rows(100);
 $checks = bms_activitypub_system_check_items();
 $queueSummary = bms_activitypub_queue_summary();
 $queueIssues = bms_activitypub_queue_issues();
@@ -161,21 +145,10 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
 </section>
 
 <section class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Owner participation</p><h2>Following</h2><p class="meta">Follow discovery and delivery use the existing bounded federation transport. Remote actors never become Bonumark accounts.</p></div><span class="static-pill draft"><?= count($following) ?> RECORD<?= count($following) === 1 ? '' : 'S' ?></span></div>
+  <div class="settings-record-heading"><div><p class="eyebrow">Relationship management</p><h2>Following</h2><p class="meta">Manage Follow and Unfollow relationships here. Read and interact with remote posts through the private frontend Following experience.</p></div><span class="static-pill draft"><?= count($following) ?> RECORD<?= count($following) === 1 ? '' : 'S' ?></span></div>
   <form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="follow_actor"><label for="actor_uri">Fediverse handle or actor URL</label><input id="actor_uri" name="actor_uri" type="text" required maxlength="2048" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@name@example.com"><button type="submit" class="button-link secondary">Follow actor</button></form>
   <?php if (!$following): ?><div class="settings-empty-state"><h3>The owner is not following a remote actor.</h3></div><?php else: ?><div class="settings-record-list"><?php foreach ($following as $relationship): ?>
     <article class="settings-history-record"><div class="settings-record-cell"><strong><?= htmlspecialchars(trim((string)$relationship['display_name']) ?: trim((string)$relationship['preferred_username']) ?: 'Remote actor', ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)$relationship['actor_uri'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill <?= (string)$relationship['state'] === 'accepted' ? 'generated' : ((string)$relationship['state'] === 'pending' ? 'warning' : 'draft') ?>"><?= htmlspecialchars(strtoupper((string)$relationship['state']), ENT_QUOTES, 'UTF-8') ?></span><small><?= htmlspecialchars((string)($relationship['last_error'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><?php if ((string)$relationship['state'] !== 'removed'): ?><form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="unfollow_actor"><input type="hidden" name="following_id" value="<?= (int)$relationship['id'] ?>"><button type="submit" class="button-link secondary danger">Unfollow</button></form><?php endif; ?></div></article>
-  <?php endforeach; ?></div><?php endif; ?>
-</section>
-
-<section class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Private owner inbox</p><h2>Remote content</h2><p class="meta">Only sanitized cached Notes from accepted Following relationships appear here. This view is private Admin state and never becomes a public timeline.</p></div><span class="static-pill draft"><?= count($remoteInbox) ?> NOTE<?= count($remoteInbox) === 1 ? '' : 'S' ?></span></div>
-  <?php if (!$remoteInbox): ?><div class="settings-empty-state"><h3>No followed-actor Note is cached.</h3></div><?php else: ?><div class="settings-record-list"><?php foreach ($remoteInbox as $remoteNote): ?>
-    <article class="settings-history-record">
-      <div class="settings-record-cell"><strong><?= htmlspecialchars(trim((string)$remoteNote['display_name']) ?: trim((string)$remoteNote['preferred_username']) ?: 'Remote actor', ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)$remoteNote['actor_uri'], ENT_QUOTES, 'UTF-8') ?></small><p><?= nl2br(htmlspecialchars((string)$remoteNote['content_text'], ENT_QUOTES, 'UTF-8')) ?></p><small><?= htmlspecialchars((string)$remoteNote['object_uri'], ENT_QUOTES, 'UTF-8') ?></small></div>
-      <div class="settings-record-cell"><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="owner_reply"><input type="hidden" name="object_uri" value="<?= htmlspecialchars((string)$remoteNote['object_uri'], ENT_QUOTES, 'UTF-8') ?>"><label>Reply title <input name="reply_title" maxlength="255"></label><label>Reply text <textarea name="reply_body" required maxlength="2097152"></textarea></label><button type="submit" class="button-link secondary">Create reply draft</button></form></div>
-      <div class="settings-record-cell"><div class="settings-inline-actions"><?php if ((string)($remoteNote['like_state'] ?? '') === 'active'): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="undo_owner_interaction"><input type="hidden" name="interaction_id" value="<?= (int)($remoteNote['like_interaction_id'] ?? 0) ?>"><button type="submit" class="button-link secondary">Unlike</button></form><?php else: ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="owner_like"><input type="hidden" name="object_uri" value="<?= htmlspecialchars((string)$remoteNote['object_uri'], ENT_QUOTES, 'UTF-8') ?>"><button type="submit" class="button-link secondary">Like</button></form><?php endif; ?><?php if ((string)($remoteNote['announce_state'] ?? '') === 'active'): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="undo_owner_interaction"><input type="hidden" name="interaction_id" value="<?= (int)($remoteNote['announce_interaction_id'] ?? 0) ?>"><button type="submit" class="button-link secondary">Unboost</button></form><?php else: ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="owner_announce"><input type="hidden" name="object_uri" value="<?= htmlspecialchars((string)$remoteNote['object_uri'], ENT_QUOTES, 'UTF-8') ?>"><button type="submit" class="button-link secondary">Boost</button></form><?php endif; ?></div><?php if (trim((string)($remoteNote['like_last_error'] ?? '')) !== ''): ?><small>Like delivery: <?= htmlspecialchars((string)$remoteNote['like_last_error'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?><?php if (trim((string)($remoteNote['announce_last_error'] ?? '')) !== ''): ?><small>Boost delivery: <?= htmlspecialchars((string)$remoteNote['announce_last_error'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?></div>
-    </article>
   <?php endforeach; ?></div><?php endif; ?>
 </section>
 

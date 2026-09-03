@@ -81,6 +81,7 @@ $templateHelpers = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app
 $commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
 $followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
+$activityPubAdmin = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $streamJs = (string)file_get_contents(__DIR__ . '/../assets/stream.js');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
@@ -140,5 +141,6 @@ foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
 }
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
+bms_ap_following_assert(!str_contains($activityPubAdmin, 'Private owner inbox') && !str_contains($activityPubAdmin, "'owner_reply'") && !str_contains($activityPubAdmin, "'owner_like'") && !str_contains($activityPubAdmin, "'owner_announce'") && !str_contains($activityPubAdmin, "'undo_owner_interaction'"), 'Normal remote-content participation drifted back into Admin instead of remaining in Following.');
 
 fwrite(STDOUT, "ActivityPub Stage 6.5 frontend federation unit test passed.\n");
