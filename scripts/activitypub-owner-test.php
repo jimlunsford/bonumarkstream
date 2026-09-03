@@ -140,12 +140,16 @@ $operationsSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/ap
 $inboxSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-inbox.php');
 $adminSource = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $routeSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-routes.php');
+$activityPubDocumentation = (string)file_get_contents(__DIR__ . '/../docs/ACTIVITYPUB.md');
 bms_ap_stage6_assert(substr_count($ownerSource, "bms_activitypub_owner_activity_url('delete-actor')") === 1, 'Actor Delete must only originate from explicit permanent deactivation.');
 bms_ap_stage6_assert(
     str_contains($ownerSource, "['owner_activity', 'actor_delete']")
         && str_contains($ownerSource, '$deliveryType === \'actor_delete\' ? [\'Delete\']'),
     'The retired-actor worker must permit only the durable Actor Delete through the owner delivery boundary.'
 );
+foreach (['publishing system first', 'publication generations', 'Permanently deactivated', 'queue operations', 'Signing keys', 'Hosting requirements', 'Misskey.io', 'NodeInfo is intentionally not implemented'] as $documentedContract) {
+    bms_ap_stage6_assert(str_contains($activityPubDocumentation, $documentedContract), 'ActivityPub operator documentation is missing: ' . $documentedContract);
+}
 bms_ap_stage6_assert(
     str_contains($inboxSource, "return 'remote_actor_deleted'")
         && str_contains($inboxSource, "lifecycle_state = 'deleted'")

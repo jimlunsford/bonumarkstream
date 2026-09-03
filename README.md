@@ -46,6 +46,8 @@ Bonumark Stream now treats runtime writability and application-code replacement 
 
 System Check reports optional capabilities such as web-based upgrades, theme ZIP installation, cURL, ZipArchive, GD/Imagick, upload ceilings, and web-server detection without turning every unavailable convenience into a core application failure.
 
+ActivityPub development architecture, lifecycle, security, hosting, and operations are documented in [docs/ACTIVITYPUB.md](docs/ACTIVITYPUB.md). ActivityPub remains unreleased and disabled by default.
+
 ### Owner-run upgrades use the same core upgrade engine
 
 On hosts where PHP can safely replace application code, **Admin → Upgrade** remains the normal ZIP upgrade path. Locked-down servers with shell access can instead run `php scripts/deploy-update.php /path/to/release.zip` as the application owner.

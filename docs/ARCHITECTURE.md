@@ -92,6 +92,8 @@ Profile covers and Profile photos use dedicated responsive candidate sets becaus
 
 ## ActivityPub boundary
 
+The complete operator and lifecycle contract is documented in [ACTIVITYPUB.md](ACTIVITYPUB.md).
+
 ActivityPub is an optional core protocol capability. The Bonumark database remains the source of truth, human-facing Profile and Stream Post URLs remain canonical presentation URLs, and themes do not own federation routes or behavior.
 
 The signed inbox accepts two explicitly separated authentication formats:
