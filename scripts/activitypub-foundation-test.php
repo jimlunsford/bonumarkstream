@@ -128,4 +128,26 @@ try {
 }
 bms_activitypub_test_assert($wrongKeyRejected, 'An encrypted private key must reject the wrong installation-derived key.');
 
+$generatedKey = bms_activitypub_generate_signing_key();
+$probe = random_bytes(32);
+$probeSignature = '';
+bms_activitypub_test_assert(
+    openssl_sign($probe, $probeSignature, (string)$generatedKey['private_key_pem'], OPENSSL_ALGO_SHA256)
+        && openssl_verify($probe, $probeSignature, (string)$generatedKey['public_key_pem'], OPENSSL_ALGO_SHA256) === 1,
+    'A generated ActivityPub signing key must contain a usable matching RSA key pair.'
+);
+
+$activityPubSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub.php');
+bms_activitypub_test_assert(
+    str_contains($activityPubSource, "SET status = 'retired', retired_at = UTC_TIMESTAMP() WHERE status = 'active'")
+        && str_contains($activityPubSource, "'status' => 'active'"),
+    'Signing-key rotation must retain retired-key history and activate the verified replacement transactionally.'
+);
+$serializationSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub-serialization.php');
+$securitySource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub-security.php');
+bms_activitypub_test_assert(
+    str_contains($serializationSource, "'#main-key'") && str_contains($securitySource, "'#main-key'"),
+    'Actor discovery and outbound signatures must keep the stable #main-key identifier across rotation.'
+);
+
 fwrite(STDOUT, "ActivityPub Stage 1 foundation test passed.\n");

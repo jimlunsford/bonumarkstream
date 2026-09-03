@@ -126,18 +126,14 @@ function bms_activitypub_system_check_items(): array
     } catch (Throwable $e) {
         $owner = null;
     }
-    try {
-        $signingKey = bms_activitypub_active_signing_key(false);
-    } catch (Throwable $e) {
-        $signingKey = null;
-    }
+    $keyHealth = bms_activitypub_signing_key_health();
 
     return [
         ['label' => 'ActivityPub canonical URL', 'status' => !empty($url['ok']) ? 'pass' : 'fail', 'message' => (string)$url['message']],
         ['label' => 'ActivityPub WebFinger routing', 'status' => !empty($routing['ok']) ? 'pass' : 'fail', 'message' => (string)$routing['message']],
         ['label' => 'ActivityPub owner identity', 'status' => is_array($owner) ? 'pass' : 'fail', 'message' => is_array($owner) ? 'The public Admin profile is available as the stable site actor.' : 'ActivityPub requires an active Admin account with a public Profile.'],
         ['label' => 'ActivityPub cryptography', 'status' => $openssl && strlen($salt) >= 32 ? 'pass' : 'fail', 'message' => $openssl && strlen($salt) >= 32 ? 'OpenSSL and the installation secret are available for protected signing keys.' : 'ActivityPub requires OpenSSL and a high-entropy installation security salt.'],
-        ['label' => 'ActivityPub signing identity', 'status' => is_array($signingKey) ? 'pass' : 'warn', 'message' => is_array($signingKey) ? 'An active public signing key is available for the owner actor.' : 'No signing key is active yet. Discovery remains available, but inbox responses and publication deliveries will wait without claiming work.'],
+        ['label' => 'ActivityPub signing identity', 'status' => !empty($keyHealth['ok']) ? 'pass' : 'warn', 'message' => (string)$keyHealth['message']],
         ['label' => 'ActivityPub outbound HTTP', 'status' => function_exists('curl_init') ? 'pass' : 'fail', 'message' => function_exists('curl_init') ? 'PHP cURL is available for signed federation requests.' : 'ActivityPub requires PHP cURL for outbound federation requests.'],
         ['label' => 'ActivityPub scheduled delivery', 'status' => !empty($runner['ok']) ? 'pass' : 'warn', 'message' => (string)$runner['message']],
     ];
@@ -233,6 +229,12 @@ function bms_activitypub_generate_signing_key(): array
     if ($publicKey === '') {
         throw new RuntimeException('The ActivityPub public key could not be exported.');
     }
+    $probe = random_bytes(32);
+    $signature = '';
+    if (!openssl_sign($probe, $signature, $privateKey, OPENSSL_ALGO_SHA256)
+        || openssl_verify($probe, $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+        throw new RuntimeException('The generated ActivityPub signing key did not pass its cryptographic self-test.');
+    }
     return ['algorithm' => 'rsa-sha256', 'public_key_pem' => $publicKey, 'private_key_pem' => $privateKey];
 }
 
@@ -275,6 +277,35 @@ function bms_activitypub_active_signing_key(bool $includePrivate = false): ?arra
     }
     unset($key['private_key_encrypted']);
     return $key;
+}
+
+function bms_activitypub_signing_key_health(): array
+{
+    try {
+        $key = bms_activitypub_active_signing_key(true);
+        if (!is_array($key)) {
+            return ['ok' => false, 'code' => 'missing', 'message' => 'No active ActivityPub signing key exists.'];
+        }
+        $privateKey = trim((string)($key['private_key_pem'] ?? ''));
+        $publicKey = trim((string)($key['public_key_pem'] ?? ''));
+        $probe = random_bytes(32);
+        $signature = '';
+        if ($privateKey === '' || $publicKey === ''
+            || !openssl_sign($probe, $signature, $privateKey, OPENSSL_ALGO_SHA256)
+            || openssl_verify($probe, $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+            return ['ok' => false, 'code' => 'unusable', 'message' => 'The active ActivityPub signing key is unusable or its key pair does not match. Rotate it to recover delivery.'];
+        }
+        return ['ok' => true, 'code' => 'healthy', 'message' => 'The active ActivityPub signing key decrypted successfully and passed a sign/verify self-test.'];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'code' => 'unusable', 'message' => 'The active ActivityPub signing key cannot be decrypted or used. Rotate it to recover delivery.'];
+    }
+}
+
+function bms_activitypub_signing_key_rows(int $limit = 20): array
+{
+    $limit = max(1, min(100, $limit));
+    $stmt = bms_db()->query('SELECT id, key_token, algorithm, status, created_at, retired_at FROM ' . bms_table('activitypub_keys') . ' ORDER BY id DESC LIMIT ' . $limit);
+    return $stmt ? ($stmt->fetchAll() ?: []) : [];
 }
 
 function bms_activitypub_public_owner_user(): ?array

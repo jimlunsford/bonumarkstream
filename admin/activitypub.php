@@ -87,6 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $enabled = bms_activitypub_enabled();
 $policy = bms_activitypub_follow_policy();
 $key = bms_activitypub_active_signing_key(false);
+$keyHealth = bms_activitypub_signing_key_health();
+$keyHistory = bms_activitypub_signing_key_rows();
 $followers = bms_activitypub_follower_rows('', 200);
 $remoteReplies = bms_activitypub_remote_reply_rows('', 200);
 $publicationDeliveries = bms_activitypub_publication_delivery_rows(200);
@@ -154,8 +156,10 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
 </section>
 
 <section class="panel settings-section-panel">
-  <div class="settings-section-header"><div><p class="eyebrow">Signing identity</p><h2>HTTP signing key</h2><p class="meta">The private key stays encrypted in application storage and is never displayed. Provisioning a new key retires the previous key.</p></div><span class="static-pill <?= is_array($key) ? 'generated' : 'warning' ?>"><?= is_array($key) ? 'ACTIVE' : 'MISSING' ?></span></div>
+  <div class="settings-section-header"><div><p class="eyebrow">Signing identity</p><h2>HTTP signing key</h2><p class="meta">The private key stays encrypted in application storage and is never displayed. Rotation creates and verifies the replacement before atomically retiring the prior key. The stable actor key ID remains unchanged so existing relationships do not need to follow a new identity.</p></div><span class="static-pill <?= !empty($keyHealth['ok']) ? 'generated' : 'warning' ?>"><?= !empty($keyHealth['ok']) ? 'HEALTHY' : 'RECOVERY NEEDED' ?></span></div>
+  <p class="meta"><?= htmlspecialchars((string)$keyHealth['message'], ENT_QUOTES, 'UTF-8') ?></p>
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="provision_key"><button type="submit" class="button-link secondary"><?= is_array($key) ? 'Rotate Signing Key' : 'Provision Signing Key' ?></button></form>
+  <?php if ($keyHistory): ?><div class="settings-record-list"><?php foreach ($keyHistory as $historyKey): ?><article class="settings-history-record"><div class="settings-record-cell"><strong>Key <?= (int)$historyKey['id'] ?></strong><small><?= htmlspecialchars((string)$historyKey['algorithm'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill <?= (string)$historyKey['status'] === 'active' ? 'generated' : 'draft' ?>"><?= htmlspecialchars(strtoupper((string)$historyKey['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><small>Created <?= htmlspecialchars((string)$historyKey['created_at'], ENT_QUOTES, 'UTF-8') ?></small><?php if (!empty($historyKey['retired_at'])): ?><small>Retired <?= htmlspecialchars((string)$historyKey['retired_at'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?></div></article><?php endforeach; ?></div><?php endif; ?>
 </section>
 
 <section class="panel settings-section-panel">
