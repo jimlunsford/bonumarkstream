@@ -57,6 +57,7 @@ $scenarios = [
     'activitypub_stage5_disabled',
     'activitypub_stage6',
     'activitypub_stage6_disabled',
+    'deployment_check',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -478,6 +479,11 @@ function bms_api_smoke_run_scenario(string $scenario): void
             bms_api_smoke_verify_activitypub_stage6_disabled();
             return;
 
+        case 'deployment_check':
+            bms_ensure_runtime_directories();
+            bms_api_smoke_verify_deployment_check((string)($GLOBALS['bms_api_smoke_temp_root'] ?? ''));
+            return;
+
         case 'draft_create':
             $tokenData = bms_api_create_token('Draft token', ['status:read', 'stream:draft'], null, 1);
             $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . (string)$tokenData['plain_token'];
@@ -553,6 +559,42 @@ function bms_api_smoke_run_scenario(string $scenario): void
     }
 
     throw new RuntimeException('Unknown API smoke scenario: ' . $scenario);
+}
+
+function bms_api_smoke_verify_deployment_check(string $tempRoot): void
+{
+    $script = rtrim($tempRoot, '/\\') . '/scripts/deployment-check.php';
+    if ($tempRoot === '' || !is_file($script)) {
+        throw new RuntimeException('The installed-site deployment-check fixture is missing.');
+    }
+
+    $process = proc_open(
+        [PHP_BINARY, $script],
+        [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ],
+        $pipes,
+        $tempRoot,
+        array_merge($_ENV, getenv())
+    );
+    if (!is_resource($process)) {
+        throw new RuntimeException('Could not start the installed-site deployment check.');
+    }
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $status = proc_close($process);
+
+    if ($status !== 0
+        || !str_contains((string)$stdout, 'Deployment check passed.')
+        || !str_contains((string)$stdout, 'Pending database migrations: PASS (0)')
+        || !str_contains((string)$stdout, 'Obsolete package files: PASS (0 found)')) {
+        throw new RuntimeException('Installed-site deployment check failed. ' . trim((string)$stdout . "\n" . (string)$stderr));
+    }
 }
 
 function bms_api_smoke_verify_durable_post_lifecycle(): void

@@ -2,7 +2,10 @@ name: Compatibility
 
 on:
   push:
-    branches: [main, feature/activitypub]
+    branches:
+      - main
+      - feature/activitypub
+      - 'release/**'
   pull_request:
   workflow_dispatch:
 
@@ -82,12 +85,34 @@ jobs:
             php -l "$file" >/dev/null
           done < <(find . -type f -name '*.php' -print0)
 
-      - name: Run clean-package smoke test
+      - name: Check JavaScript syntax and JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          while IFS= read -r -d '' file; do
+            node --check "$file" >/dev/null
+          done < <(find . -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do
+            jq empty "$file"
+          done < <(find . -type f -name '*.json' -print0)
+          node scripts/markdown-link-test.js
+
+      - name: Run development source-tree smoke test
+        if: ${{ !startsWith(github.ref, 'refs/heads/release/') && !startsWith(github.head_ref, 'release/') }}
         shell: bash
         run: |
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/smoke-test.php --source-tree
+
+      - name: Run strict release source-tree smoke test
+        if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/smoke-test.php
 
       - name: Run ActivityPub foundation test
         if: always()
@@ -137,6 +162,14 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/activitypub-following-test.php
 
+      - name: Run Admin comments runtime test
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/admin-comments-runtime-test.php
+
       - name: Run migration/schema smoke test
         if: always()
         env:
@@ -178,3 +211,78 @@ jobs:
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/api-database-smoke-test.php
+
+      - name: Build and extract canonical release package
+        if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_version="$(tr -d '\r\n' < VERSION)"
+          package_name="bonumark-stream-v${release_version}"
+          package_zip="$RUNNER_TEMP/${package_name}.zip"
+          package_extract="$RUNNER_TEMP/${package_name}-extracted"
+          mkdir -p "$package_extract"
+          git archive --format=zip --prefix="${package_name}/" HEAD -o "$package_zip"
+          unzip -q "$package_zip" -d "$package_extract"
+          test -d "$package_extract/$package_name"
+          test "$(find "$package_extract" -mindepth 1 -maxdepth 1 | wc -l)" -eq 1
+          echo "BMS_PACKAGE_NAME=$package_name" >> "$GITHUB_ENV"
+          echo "BMS_PACKAGE_ZIP=$package_zip" >> "$GITHUB_ENV"
+          echo "BMS_PACKAGE_ROOT=$package_extract/$package_name" >> "$GITHUB_ENV"
+
+      - name: Validate extracted release package
+        if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_PACKAGE_ROOT"
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find . -type f -name '*.php' -print0)
+          while IFS= read -r -d '' file; do
+            node --check "$file" >/dev/null
+          done < <(find . -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do
+            jq empty "$file"
+          done < <(find . -type f -name '*.json' -print0)
+          node scripts/markdown-link-test.js
+          php scripts/smoke-test.php
+          php scripts/activitypub-foundation-test.php
+          php scripts/activitypub-read-only-test.php
+          php scripts/activitypub-security-test.php
+          php scripts/activitypub-interactions-test.php
+          php scripts/activitypub-owner-test.php
+          php scripts/activitypub-following-test.php
+          php scripts/admin-comments-runtime-test.php
+
+      - name: Run extracted release database and migration tests
+        if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASS: bonumark_ci_password
+          BMS_DB_PASSWORD: bonumark_ci_password
+          BMS_DB_DANGER_RESET: '1'
+          BMS_DB_TEST_ALLOW_DESTRUCTIVE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_PACKAGE_ROOT"
+          php scripts/database-smoke-test.php
+          php scripts/migration-recovery-smoke-test.php
+          php scripts/api-database-smoke-test.php
+
+      - name: Record release package checksum
+        if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
+        shell: bash
+        run: sha256sum "$BMS_PACKAGE_ZIP"
+
+      - name: Upload release-candidate package
+        if: ${{ matrix.php == '8.3' && matrix.database_image == 'mysql:8.4' && (startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BMS_PACKAGE_NAME }}
+          path: ${{ env.BMS_PACKAGE_ZIP }}
+          if-no-files-found: error
+          retention-days: 14

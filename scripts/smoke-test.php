@@ -141,6 +141,20 @@ if ($rootVersion !== '' && !str_contains($changelog, '## ' . $rootVersion . ' - 
     bm_smoke_fail($failures, 'CHANGELOG.md does not include the current version heading.');
 }
 
+$publicChangelog = @file_get_contents($root . '/CHANGELOG.md') ?: '';
+$releaseNotesPath = $root . '/docs/releases/v' . $rootVersion . '.md';
+$releaseNotes = is_file($releaseNotesPath) ? (string)file_get_contents($releaseNotesPath) : '';
+$serviceWorkerSource = @file_get_contents($root . '/sw.js') ?: '';
+if ($rootVersion !== '' && !str_contains($publicChangelog, '## ' . $rootVersion . ' - ')) {
+    bm_smoke_fail($failures, 'Public CHANGELOG.md does not include the current version heading.');
+}
+if ($rootVersion !== '' && ($releaseNotes === '' || !str_contains($releaseNotes, '# Bonumark Stream v' . $rootVersion . ':'))) {
+    bm_smoke_fail($failures, 'Current-version GitHub release notes are missing or stale.');
+}
+if ($rootVersion !== '' && !str_contains($serviceWorkerSource, "bonumark-stream-static-v{$rootVersion}")) {
+    bm_smoke_fail($failures, 'Service-worker cache identity does not contain the current version.');
+}
+
 $installerSource = @file_get_contents($root . '/install.php') ?: '';
 $upgradeSourceEarly = @file_get_contents($root . '/admin/upgrade.php') ?: '';
 $upgraderSource = @file_get_contents($root . '/_bonumark_stream/app/upgrader.php') ?: '';
@@ -2154,12 +2168,29 @@ $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($mani
 if ($checkReleaseManifest && (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files']))) {
     bm_smoke_fail($failures, 'Release manifest is missing or invalid.');
 } elseif ($checkReleaseManifest) {
+    if (($manifest['name'] ?? '') !== 'bonumark-stream') {
+        bm_smoke_fail($failures, 'Release manifest package name is invalid.');
+    }
+    if (($manifest['version'] ?? '') !== $rootVersion) {
+        bm_smoke_fail($failures, 'Release manifest version does not match VERSION.');
+    }
+    if (trim((string)($manifest['generated_at'] ?? '')) === '') {
+        bm_smoke_fail($failures, 'Release manifest generated_at is missing.');
+    }
     $manifestFiles = [];
     foreach ($manifest['files'] as $entry) {
         $relative = str_replace('\\', '/', (string)($entry['path'] ?? ''));
         $hash = strtolower((string)($entry['sha256'] ?? ''));
-        if ($relative === '' || !preg_match('/^[a-f0-9]{64}$/', $hash)) {
+        if ($relative === ''
+            || $relative === '_bonumark_stream/RELEASE-MANIFEST.json'
+            || str_starts_with($relative, '/')
+            || preg_match('#(^|/)\.\.(/|$)#', $relative) === 1
+            || !preg_match('/^[a-f0-9]{64}$/', $hash)) {
             bm_smoke_fail($failures, 'Release manifest contains an invalid entry.');
+            continue;
+        }
+        if (isset($manifestFiles[$relative])) {
+            bm_smoke_fail($failures, 'Release manifest contains a duplicate path: ' . $relative);
             continue;
         }
         $path = $root . '/' . $relative;
@@ -3363,6 +3394,30 @@ $forbiddenPaths = [
 foreach ($forbiddenPaths as $relative) {
     if (file_exists($root . '/' . $relative)) {
         bm_smoke_fail($failures, 'Runtime file should not be packaged: ' . $relative);
+    }
+}
+
+$runtimeDataPattern = '#^(?:media/(?!\.gitkeep$)|uploads/|exports/|_bonumark_stream/(?:tmp|import-staging|content)/|_bonumark_stream/data/(?!\.gitkeep$)|_bonumark_stream/backups/(?!\.gitkeep$|upgrades/\.gitkeep$))#i';
+$sensitiveNamePattern = '#(^|/)(?:\.env(?:\..*)?|id_(?:rsa|ed25519)|[^/]+\.(?:sql|sqlite|sqlite3|db|log|pem|key))$#i';
+$privateKeyPattern = '/-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----\s+[A-Za-z0-9+\/=\r\n]{80,}-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/';
+foreach (bm_smoke_files($root) as $path) {
+    $relative = bm_smoke_relative($root, $path);
+    if (is_link($path)) {
+        bm_smoke_fail($failures, 'Package must not contain symbolic links: ' . $relative);
+        continue;
+    }
+    if (preg_match($runtimeDataPattern, $relative) === 1) {
+        bm_smoke_fail($failures, 'Package contains runtime or owner data: ' . $relative);
+    }
+    if (preg_match($sensitiveNamePattern, $relative) === 1) {
+        bm_smoke_fail($failures, 'Package contains a sensitive file type or name: ' . $relative);
+    }
+    $contents = (string)file_get_contents($path);
+    if (str_contains($contents, 'activitypub-test' . '.bonumark.org')) {
+        bm_smoke_fail($failures, 'Package contains the permanently retired ActivityPub test identity: ' . $relative);
+    }
+    if (preg_match($privateKeyPattern, $contents) === 1) {
+        bm_smoke_fail($failures, 'Package contains private key material: ' . $relative);
     }
 }
 

@@ -9,7 +9,9 @@
  *    does today, including the current cumulative 0001 baseline and all bundled
  *    migrations through the idempotent migration helper.
  * 2. Supported upgrade: start from the historical v0.4.x public baseline and
- *    replay only the migrations that follow that baseline.
+ *    replay only the migrations that follow that baseline while preserving
+ *    representative owner, profile, post, media, comment, Like, and setting
+ *    records.
  *
  * Keeping these paths separate prevents a current cumulative fresh-install
  * schema from being mistaken for an old install and then having historical DDL
@@ -80,6 +82,7 @@ $upgradePrefix = 'bms_ci_upgrade_' . strtolower(bin2hex(random_bytes(4))) . '_';
 try {
     bms_install_schema($pdo, $freshPrefix);
     bms_database_smoke_verify_schema($pdo, $freshPrefix, $migrationNames, 'fresh install');
+    bms_database_smoke_verify_activitypub_default_off($pdo, $freshPrefix, 'fresh install');
     fwrite(STDOUT, "Fresh-install schema smoke test passed with prefix {$freshPrefix}.\n");
 
     $fixturePath = $root . '/scripts/fixtures/v0.4.x-initial-schema.php';
@@ -96,6 +99,7 @@ try {
         }
         bms_exec_migration_statement($pdo, $statement, $upgradePrefix);
     }
+    bms_database_smoke_seed_owner_data($pdo, $upgradePrefix);
 
     $ledger = $pdo->prepare("INSERT INTO `{$upgradePrefix}migrations` (`migration`, `ran_at`) VALUES (:migration, NOW()) ON DUPLICATE KEY UPDATE ran_at = ran_at");
     $ledger->execute(['migration' => '0001_initial_schema']);
@@ -122,15 +126,104 @@ try {
     }
 
     bms_database_smoke_verify_schema($pdo, $upgradePrefix, $migrationNames, 'v0.4.x upgrade');
+    bms_database_smoke_verify_owner_data($pdo, $upgradePrefix);
     bms_database_smoke_verify_legacy_generation_repair($pdo, $upgradePrefix);
+    bms_database_smoke_verify_activitypub_enabled_state($pdo, $upgradePrefix);
     fwrite(STDOUT, "Supported-upgrade schema smoke test passed with prefix {$upgradePrefix}. Migrations verified: " . count($migrationNames) . "\n");
 } finally {
     bms_database_smoke_drop_tables($pdo, $freshPrefix);
     bms_database_smoke_drop_tables($pdo, $upgradePrefix);
 }
 
+function bms_database_smoke_seed_owner_data(PDO $pdo, string $prefix): void
+{
+    $timestamp = '2026-07-01 12:00:00';
+    $user = $pdo->prepare("INSERT INTO `{$prefix}users` (`id`, `username`, `display_name`, `email`, `bio`, `website`, `social_links`, `password_hash`, `created_at`, `updated_at`) VALUES (700, 'owner', 'Upgrade Owner', 'owner@example.test', 'Owner biography survives upgrade.', 'https://owner.example', :social_links, :password_hash, :created_at, :updated_at)");
+    $user->execute([
+        'social_links' => json_encode([['label' => 'Owner site', 'url' => 'https://owner.example']], JSON_UNESCAPED_SLASHES),
+        'password_hash' => password_hash('not-a-real-password', PASSWORD_DEFAULT),
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $setting = $pdo->prepare("INSERT INTO `{$prefix}settings` (`setting_key`, `setting_value`, `updated_at`) VALUES ('upgrade_owner_marker', 'preserve-me', :updated_at)");
+    $setting->execute(['updated_at' => $timestamp]);
+
+    $post = $pdo->prepare("INSERT INTO `{$prefix}posts` (`id`, `author_id`, `title`, `slug`, `status`, `post_type`, `description`, `content_body`, `category`, `category_slug`, `date_published`, `created_at`, `updated_at`, `published_at`) VALUES (701, 700, 'Upgrade preservation post', 'upgrade-preservation-post', 'published', 'stream', 'Historical owner post.', 'Owner publication survives upgrade.', 'Stream', 'stream', '2026-07-01', :created_at, :updated_at, :published_at)");
+    $post->execute(['created_at' => $timestamp, 'updated_at' => $timestamp, 'published_at' => $timestamp]);
+
+    $media = $pdo->prepare("INSERT INTO `{$prefix}media` (`id`, `filename`, `original_filename`, `public_path`, `mime_type`, `file_size`, `alt_text`, `caption`, `uploaded_by`, `file_hash`, `created_at`, `updated_at`) VALUES (702, 'upgrade-preservation.jpg', 'Upgrade Preservation.jpg', 'media/upgrade-preservation.jpg', 'image/jpeg', 1234, 'Historical owner media', 'Owner media survives upgrade.', 700, :file_hash, :created_at, :updated_at)");
+    $media->execute(['file_hash' => hash('sha256', 'upgrade-preservation-media'), 'created_at' => $timestamp, 'updated_at' => $timestamp]);
+
+    $comment = $pdo->prepare("INSERT INTO `{$prefix}comments` (`id`, `post_slug`, `post_id`, `user_id`, `body`, `status`, `created_at`, `updated_at`, `approved_at`) VALUES (703, 'upgrade-preservation-post', 701, 700, 'Owner comment survives upgrade.', 'approved', :created_at, :updated_at, :approved_at)");
+    $comment->execute(['created_at' => $timestamp, 'updated_at' => $timestamp, 'approved_at' => $timestamp]);
+
+    $like = $pdo->prepare("INSERT INTO `{$prefix}stream_likes` (`id`, `post_id`, `post_slug`, `visitor_hash`, `created_at`) VALUES (704, 701, 'upgrade-preservation-post', :visitor_hash, :created_at)");
+    $like->execute(['visitor_hash' => hash('sha256', 'upgrade-preservation-like'), 'created_at' => $timestamp]);
+}
+
+function bms_database_smoke_verify_owner_data(PDO $pdo, string $prefix): void
+{
+    $owner = $pdo->query("SELECT `display_name`, `bio`, `website`, `social_links` FROM `{$prefix}users` WHERE `id` = 700")->fetch();
+    $profile = $pdo->query("SELECT `links_json` FROM `{$prefix}user_profiles` WHERE `user_id` = 700")->fetch();
+    $post = $pdo->query("SELECT `author_id`, `title`, `content_body`, `status` FROM `{$prefix}posts` WHERE `id` = 701")->fetch();
+    $media = $pdo->query("SELECT `uploaded_by`, `public_path`, `alt_text`, `caption` FROM `{$prefix}media` WHERE `id` = 702")->fetch();
+    $comment = $pdo->query("SELECT `post_id`, `user_id`, `body`, `status` FROM `{$prefix}comments` WHERE `id` = 703")->fetch();
+    $like = $pdo->query("SELECT `post_id`, `post_slug`, `visitor_hash` FROM `{$prefix}stream_likes` WHERE `id` = 704")->fetch();
+    $setting = $pdo->query("SELECT `setting_value` FROM `{$prefix}settings` WHERE `setting_key` = 'upgrade_owner_marker'")->fetchColumn();
+
+    if (!is_array($owner)
+        || (string)$owner['display_name'] !== 'Upgrade Owner'
+        || (string)$owner['bio'] !== 'Owner biography survives upgrade.'
+        || (string)$owner['website'] !== 'https://owner.example'
+        || !is_array(json_decode((string)$owner['social_links'], true))
+        || !is_array($profile)
+        || json_decode((string)$profile['links_json'], true) !== json_decode((string)$owner['social_links'], true)
+        || !is_array($post)
+        || (int)$post['author_id'] !== 700
+        || (string)$post['title'] !== 'Upgrade preservation post'
+        || (string)$post['content_body'] !== 'Owner publication survives upgrade.'
+        || (string)$post['status'] !== 'published'
+        || !is_array($media)
+        || (int)$media['uploaded_by'] !== 700
+        || (string)$media['public_path'] !== 'media/upgrade-preservation.jpg'
+        || (string)$media['alt_text'] !== 'Historical owner media'
+        || (string)$media['caption'] !== 'Owner media survives upgrade.'
+        || !is_array($comment)
+        || (int)$comment['post_id'] !== 701
+        || (int)$comment['user_id'] !== 700
+        || (string)$comment['body'] !== 'Owner comment survives upgrade.'
+        || (string)$comment['status'] !== 'approved'
+        || !is_array($like)
+        || (int)$like['post_id'] !== 701
+        || (string)$like['post_slug'] !== 'upgrade-preservation-post'
+        || (string)$like['visitor_hash'] !== hash('sha256', 'upgrade-preservation-like')
+        || (string)$setting !== 'preserve-me') {
+        throw new RuntimeException('The supported upgrade did not preserve representative owner, profile, post, media, comment, like, or setting data.');
+    }
+}
+
+function bms_database_smoke_verify_activitypub_default_off(PDO $pdo, string $prefix, string $label): void
+{
+    $setting = $pdo->query("SELECT `setting_value` FROM `{$prefix}settings` WHERE `setting_key` = 'activitypub_enabled'")->fetchColumn();
+    if ((string)$setting === '1') {
+        throw new RuntimeException("{$label} unexpectedly enabled ActivityPub.");
+    }
+}
+
+function bms_database_smoke_verify_activitypub_enabled_state(PDO $pdo, string $prefix): void
+{
+    $setting = $pdo->query("SELECT `setting_value` FROM `{$prefix}settings` WHERE `setting_key` = 'activitypub_enabled'")->fetchColumn();
+    if ((string)$setting !== '1') {
+        throw new RuntimeException('The supported upgrade did not preserve a pre-existing enabled ActivityPub setting through later migrations.');
+    }
+}
+
 function bms_database_smoke_seed_legacy_generation_reuse(PDO $pdo, string $prefix): void
 {
+    $activityPubSetting = $pdo->prepare("INSERT INTO `{$prefix}settings` (`setting_key`, `setting_value`, `updated_at`) VALUES ('activitypub_enabled', '1', UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`), `updated_at` = VALUES(`updated_at`)");
+    $activityPubSetting->execute();
+
     $objectUri = 'https://example.test/activitypub/objects/900';
     $object = ['id' => $objectUri, 'type' => 'Note', 'content' => '<p>Legacy generation reuse fixture.</p>'];
     $objectJson = json_encode($object, JSON_UNESCAPED_SLASHES);

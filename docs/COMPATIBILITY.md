@@ -29,11 +29,21 @@ Each matrix job first creates a clean tracked source snapshot with `git archive 
 Each matrix job then runs:
 
 - PHP syntax checks
+- JavaScript syntax checks
+- JSON validation
+- Markdown relative-link validation
 - the clean-package smoke test
+- all ActivityPub Stages 1 through 7 and Stage 6.5 regression suites
+- the Admin comments runtime regression test
 - the disposable database smoke test covering both current fresh-install schema creation and historical supported-upgrade migration replay
+- the migration-recovery smoke test
 - the disposable Remote Posting API database smoke test
 
-The database smoke tests create only randomly prefixed temporary tables inside the CI database and remove them afterward. The schema test deliberately keeps two paths separate: it runs the current fresh-install path through `bms_install_schema()`, then independently starts from a verified historical v0.4.x baseline and applies only the migrations that follow that baseline. This prevents the cumulative current `0001_initial_schema.php` from being misused as an old installation state.
+Release-branch pushes are held to the strict package boundary. The workflow does not allow the source-branch manifest exemption on `release/**`. It verifies the final release manifest, builds the canonical versioned ZIP from the commit, extracts it into a clean directory, and repeats PHP, JavaScript, JSON, package, ActivityPub, migration, and Remote API validation against the extracted archive on all four matrix combinations. The PHP 8.3/MySQL 8.4 job also retains the validated ZIP as a short-lived workflow artifact for release-candidate inspection.
+
+The database smoke tests create only randomly prefixed temporary tables inside the CI database and remove them afterward. The schema test deliberately keeps two paths separate: it runs the current fresh-install path through `bms_install_schema()`, then independently starts from a verified historical v0.4.x baseline and applies only the migrations that follow that baseline. This prevents the cumulative current `0001_initial_schema.php` from being misused as an old installation state. The upgrade fixture retains representative owner, migrated Profile, post, media, comment, local Like, and setting records. It also checks the normal default-off ActivityPub state and preservation of a deliberately enabled prerelease ActivityPub state through the later federation migrations.
+
+The Remote Posting API database suite builds a disposable installed site for each scenario. Its release path also runs the read-only installed-site deployment check and requires matching version markers, package hashes, zero obsolete managed files, zero pending migrations, supported database status, and clear migration-recovery state.
 
 ## Web servers
 
