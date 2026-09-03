@@ -151,7 +151,21 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/database-smoke-test.php
 
-      - name: Run Remote API database smoke test
+            - name: Run migration recovery smoke test
+        if: always()
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASSWORD: bonumark_ci_password
+          BMS_DB_TEST_ALLOW_DESTRUCTIVE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/migration-recovery-smoke-test.php
+
+- name: Run Remote API database smoke test
         if: always()
         env:
           BMS_DB_HOST: 127.0.0.1

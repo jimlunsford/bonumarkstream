@@ -397,8 +397,9 @@ if (!str_contains($compatibilityDocs, 'PHP 8.1')
     || !str_contains($compatibilityWorkflow, "mysql:8.0")
     || !str_contains($compatibilityWorkflow, "mariadb:10.6")
     || !str_contains($compatibilityWorkflow, 'php scripts/database-smoke-test.php')
-    || !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')) {
-    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke tests.');
+        || !str_contains($compatibilityWorkflow, 'php scripts/migration-recovery-smoke-test.php')
+|| !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')) {
+    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke and recovery tests.');
 }
 if (!str_contains($installDocsEarly, 'Fresh install on a locked-down application tree')
     || !str_contains($manualDeployDocs, 'php scripts/run-migrations.php --check')
