@@ -24,6 +24,10 @@ function bms_activitypub_test_assert(bool $condition, string $message): void
 }
 
 bms_activitypub_test_assert(!bms_activitypub_enabled(), 'ActivityPub must be disabled by default.');
+bms_activitypub_test_assert(bms_activitypub_operational_state() === 'disabled', 'An unused default-off installation must report disabled state.');
+bms_activitypub_test_assert(!bms_activitypub_accepts_inbox(), 'A disabled installation must not accept inbox traffic.');
+bms_activitypub_test_assert(!bms_activitypub_records_publications(), 'A disabled installation must not record federation publication work.');
+bms_activitypub_test_assert(!bms_activitypub_runs_deliveries(), 'A disabled installation must not run federation deliveries.');
 
 $activityPubAdminSource = (string)file_get_contents($root . '/admin/activitypub.php');
 $systemCheckAdminSource = (string)file_get_contents($root . '/admin/system-check.php');
@@ -32,6 +36,14 @@ bms_activitypub_test_assert(
     str_contains($activityPubAdminSource, $schedulerRequire),
     'The ActivityPub Admin readiness check must load scheduled-task health before reporting delivery capability.'
 );
+
+foreach (['_bonumark_stream/app/activitypub-delivery.php', '_bonumark_stream/app/activitypub-inbox.php', '_bonumark_stream/app/activitypub-owner.php'] as $workerFile) {
+    $workerSource = (string)file_get_contents($root . '/' . $workerFile);
+    bms_activitypub_test_assert(
+        str_contains($workerSource, 'bms_activitypub_runs_deliveries()'),
+        $workerFile . ' must honor both the federation pause and outbound delivery suspension boundaries.'
+    );
+}
 bms_activitypub_test_assert(
     str_contains($systemCheckAdminSource, $schedulerRequire),
     'System Check must load scheduled-task health before reporting ActivityPub delivery capability.'

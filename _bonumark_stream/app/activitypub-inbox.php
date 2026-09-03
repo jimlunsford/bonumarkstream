@@ -509,6 +509,9 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     if (!bms_activitypub_enabled()) {
         throw new BmsActivityPubSecurityException('Not found.', 404);
     }
+    if (!bms_activitypub_accepts_inbox()) {
+        throw new BmsActivityPubSecurityException('Federation is temporarily paused.', 503);
+    }
     $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
     if (!bms_activitypub_inbox_content_type_is_supported((string)($headers['content-type'] ?? ''))) {
         throw new BmsActivityPubSecurityException('The inbox requires ActivityPub JSON.', 415);
@@ -688,8 +691,8 @@ function bms_activitypub_deliver_response_row(array $delivery, ?callable $transp
 
 function bms_activitypub_run_response_deliveries(int $limit = 20, ?callable $transport = null, ?callable $resolver = null): array
 {
-    if (!bms_activitypub_enabled()) {
-        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub response delivery is disabled.'];
+    if (!bms_activitypub_runs_deliveries()) {
+        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub response delivery is paused or suspended.'];
     }
     try {
         if (!is_array(bms_activitypub_active_signing_key(false))) {

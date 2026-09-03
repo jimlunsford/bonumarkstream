@@ -617,8 +617,8 @@ function bms_activitypub_update_publication_event_status(int $eventId): void
 
 function bms_activitypub_run_publication_deliveries(int $limit = 20, ?callable $transport = null, ?callable $resolver = null, ?callable $fetcher = null): array
 {
-    if (!bms_activitypub_enabled()) {
-        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub publication delivery is disabled.'];
+    if (!bms_activitypub_runs_deliveries()) {
+        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub publication delivery is paused or suspended.'];
     }
     try {
         $key = bms_activitypub_active_signing_key(true);

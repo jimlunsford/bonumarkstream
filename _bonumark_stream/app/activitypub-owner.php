@@ -878,8 +878,8 @@ function bms_activitypub_mark_owner_delivery_result(array $delivery, string $sta
 
 function bms_activitypub_run_owner_deliveries(int $limit = 20, ?callable $transport = null, ?callable $resolver = null): array
 {
-    if (!bms_activitypub_enabled()) {
-        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub owner activity delivery is disabled.'];
+    if (!bms_activitypub_runs_deliveries()) {
+        return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub owner activity delivery is paused or suspended.'];
     }
     $key = bms_activitypub_active_signing_key(true);
     if (!is_array($key)) {

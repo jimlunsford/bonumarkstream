@@ -19,6 +19,47 @@ function bms_activitypub_enabled(): bool
     return (string)bms_setting_or_config('activitypub_enabled', '0') === '1';
 }
 
+function bms_activitypub_operational_state(): string
+{
+    if (!bms_activitypub_enabled()) {
+        return (string)bms_setting_or_config('activitypub_deactivated', '0') === '1' ? 'deactivated' : 'disabled';
+    }
+    return (string)bms_setting_or_config('activitypub_paused', '0') === '1' ? 'paused' : 'active';
+}
+
+function bms_activitypub_delivery_suspended(): bool
+{
+    return (string)bms_setting_or_config('activitypub_delivery_suspended', '0') === '1';
+}
+
+function bms_activitypub_accepts_inbox(): bool
+{
+    return bms_activitypub_enabled() && bms_activitypub_operational_state() === 'active';
+}
+
+function bms_activitypub_records_publications(): bool
+{
+    return bms_activitypub_enabled() && bms_activitypub_operational_state() === 'active';
+}
+
+function bms_activitypub_runs_deliveries(): bool
+{
+    return bms_activitypub_enabled()
+        && bms_activitypub_operational_state() === 'active'
+        && !bms_activitypub_delivery_suspended();
+}
+
+function bms_activitypub_has_federation_history(): bool
+{
+    foreach (['activitypub_publication_events', 'activitypub_followers', 'activitypub_following', 'activitypub_inbox_receipts'] as $table) {
+        $stmt = bms_db()->query('SELECT 1 FROM ' . bms_table($table) . ' LIMIT 1');
+        if ($stmt && $stmt->fetchColumn() !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function bms_activitypub_configured_base_url(?string $baseUrl = null): array
 {
     $baseUrl = trim($baseUrl ?? (string)bms_setting_or_config('base_url', ''));
@@ -127,9 +168,12 @@ function bms_activitypub_system_check_items(): array
         $owner = null;
     }
     $keyHealth = bms_activitypub_signing_key_health();
+    $operationalState = bms_activitypub_operational_state();
+    $deliverySuspended = bms_activitypub_delivery_suspended();
 
     return [
         ['label' => 'ActivityPub canonical URL', 'status' => !empty($url['ok']) ? 'pass' : 'fail', 'message' => (string)$url['message']],
+        ['label' => 'ActivityPub operational state', 'status' => $operationalState === 'active' && !$deliverySuspended ? 'pass' : 'warn', 'message' => $operationalState === 'paused' ? 'Federation is paused. Identity remains discoverable, but inbox processing, publication recording, and delivery are stopped.' : ($deliverySuspended ? 'Outbound federation delivery is suspended. Discovery, inbox processing, and durable local activity recording continue.' : 'Federation is active.')],
         ['label' => 'ActivityPub WebFinger routing', 'status' => !empty($routing['ok']) ? 'pass' : 'fail', 'message' => (string)$routing['message']],
         ['label' => 'ActivityPub owner identity', 'status' => is_array($owner) ? 'pass' : 'fail', 'message' => is_array($owner) ? 'The public Admin profile is available as the stable site actor.' : 'ActivityPub requires an active Admin account with a public Profile.'],
         ['label' => 'ActivityPub cryptography', 'status' => $openssl && strlen($salt) >= 32 ? 'pass' : 'fail', 'message' => $openssl && strlen($salt) >= 32 ? 'OpenSSL and the installation secret are available for protected signing keys.' : 'ActivityPub requires OpenSSL and a high-entropy installation security salt.'],
@@ -369,7 +413,7 @@ function bms_activitypub_find_published_stream_post(int $postId): ?array
 
 function bms_activitypub_record_publication_transition(array $transition): void
 {
-    if (!bms_activitypub_enabled() || (string)($transition['post_type'] ?? '') !== 'stream') {
+    if (!bms_activitypub_records_publications() || (string)($transition['post_type'] ?? '') !== 'stream') {
         return;
     }
     bms_activitypub_record_actionable_publication_transition($transition);

@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'save') {
             $enabled = isset($_POST['activitypub_enabled']);
+            $paused = isset($_POST['activitypub_paused']);
+            $deliverySuspended = isset($_POST['activitypub_delivery_suspended']);
             $policy = (string)($_POST['activitypub_follow_policy'] ?? 'manual');
             if (!in_array($policy, ['manual', 'automatic'], true)) {
                 $policy = 'manual';
@@ -21,9 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($url['ok']) || empty($routing['ok']) || !is_array(bms_activitypub_public_owner_user())) {
                     throw new RuntimeException('ActivityPub cannot be enabled until the canonical HTTPS URL, root WebFinger routing, and public owner Profile are ready.');
                 }
+            } elseif (bms_activitypub_enabled() && bms_activitypub_has_federation_history()) {
+                throw new RuntimeException('An established federation identity cannot be disabled as though it were unused. Pause federation instead, or use deliberate permanent deactivation.');
             }
             bms_set_setting('activitypub_follow_policy', $policy);
             bms_set_setting('activitypub_enabled', $enabled ? '1' : '0');
+            bms_set_setting('activitypub_paused', $enabled && $paused ? '1' : '0');
+            bms_set_setting('activitypub_delivery_suspended', $enabled && $deliverySuspended ? '1' : '0');
+            if ($enabled) {
+                bms_set_setting('activitypub_deactivated', '0');
+            }
             bms_flash('ActivityPub settings saved.', 'success');
         } elseif ($action === 'provision_key') {
             bms_activitypub_create_signing_key();
@@ -85,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $enabled = bms_activitypub_enabled();
+$operationalState = bms_activitypub_operational_state();
+$deliverySuspended = bms_activitypub_delivery_suspended();
 $policy = bms_activitypub_follow_policy();
 $key = bms_activitypub_active_signing_key(false);
 $keyHealth = bms_activitypub_signing_key_health();
@@ -100,7 +111,7 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
 ?>
 <section class="panel settings-workflow-hero">
   <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Committed public Stream Post transitions are recorded locally, then delivered asynchronously without delaying or rolling back Bonumark publishing.</p></div>
-  <span class="static-pill <?= $enabled ? 'generated' : 'draft' ?>"><?= $enabled ? 'ENABLED' : 'DISABLED' ?></span>
+  <span class="static-pill <?= $operationalState === 'active' && !$deliverySuspended ? 'generated' : ($operationalState === 'disabled' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper($deliverySuspended && $operationalState === 'active' ? 'delivery suspended' : $operationalState), ENT_QUOTES, 'UTF-8') ?></span>
 </section>
 
 <section class="panel settings-section-panel">
@@ -149,7 +160,7 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
   <form method="post">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="activitypub_action" value="save">
-    <div class="settings-option-list"><label class="settings-option-card"><input type="checkbox" name="activitypub_enabled" value="1" <?= $enabled ? 'checked' : '' ?>><span class="settings-option-copy"><strong>Enable ActivityPub</strong><small>When disabled, federation routes return not found and no response delivery work runs.</small></span></label></div>
+    <div class="settings-option-list"><label class="settings-option-card"><input type="checkbox" name="activitypub_enabled" value="1" <?= $enabled ? 'checked' : '' ?>><span class="settings-option-copy"><strong>Enable ActivityPub</strong><small>Use this for initial activation. Once federation history exists, use pause or deliberate deactivation instead of silently removing an established actor.</small></span></label><label class="settings-option-card"><input type="checkbox" name="activitypub_paused" value="1" <?= $operationalState === 'paused' ? 'checked' : '' ?> <?= !$enabled ? 'disabled' : '' ?>><span class="settings-option-copy"><strong>Pause federation</strong><small>Keep actor discovery and existing identity available, reject new inbox work with a temporary response, stop new publication activities, and leave relationships intact.</small></span></label><label class="settings-option-card"><input type="checkbox" name="activitypub_delivery_suspended" value="1" <?= $deliverySuspended ? 'checked' : '' ?> <?= !$enabled ? 'disabled' : '' ?>><span class="settings-option-copy"><strong>Suspend outbound delivery</strong><small>Continue discovery, inbox processing, and local activity recording, but leave all queued deliveries unclaimed until resumed.</small></span></label></div>
     <div class="settings-field-grid"><div class="settings-field-card"><label for="activitypub_follow_policy">Follower approval</label><select id="activitypub_follow_policy" name="activitypub_follow_policy"><option value="manual" <?= $policy === 'manual' ? 'selected' : '' ?>>Manual approval</option><option value="automatic" <?= $policy === 'automatic' ? 'selected' : '' ?>>Automatic approval</option></select></div></div>
     <div class="settings-save-bar"><div><strong>Save federation settings</strong><p class="meta">Changing this setting does not publish, import, export, or deliver posts.</p></div><button type="submit">Save ActivityPub Settings</button></div>
   </form>
