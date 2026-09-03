@@ -151,7 +151,7 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/database-smoke-test.php
 
-            - name: Run migration recovery smoke test
+      - name: Run migration recovery smoke test
         if: always()
         env:
           BMS_DB_HOST: 127.0.0.1
@@ -165,7 +165,7 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/migration-recovery-smoke-test.php
 
-- name: Run Remote API database smoke test
+      - name: Run Remote API database smoke test
         if: always()
         env:
           BMS_DB_HOST: 127.0.0.1
