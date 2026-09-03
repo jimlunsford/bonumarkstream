@@ -46,7 +46,7 @@ foreach (['_bonumark_stream/app/activitypub-delivery.php', '_bonumark_stream/app
 }
 $ownerSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub-owner.php');
 bms_activitypub_test_assert(
-    !str_contains($ownerSource, "activitypub_paused', '1') && !str_contains($ownerSource, "activitypub_delivery_suspended', '1'"),
+    !str_contains($ownerSource, "activitypub_paused', '1'") && !str_contains($ownerSource, "activitypub_delivery_suspended', '1'"),
     'Pause and delivery suspension must not enter the permanent Actor Delete path.'
 );
 bms_activitypub_test_assert(
