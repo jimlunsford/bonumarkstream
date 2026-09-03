@@ -40,6 +40,99 @@ function bms_activitypub_owner_action_document(string $type, string $activityUri
     return $document;
 }
 
+function bms_activitypub_actor_delete_document(string $activityUri, ?string $baseUrl = null): array
+{
+    $actorUri = bms_activitypub_actor_url($baseUrl);
+    return [
+        '@context' => bms_activitypub_context(),
+        'id' => $activityUri,
+        'type' => 'Delete',
+        'actor' => $actorUri,
+        'object' => $actorUri,
+        'to' => ['https://www.w3.org/ns/activitystreams#Public'],
+        'cc' => [bms_activitypub_followers_url($baseUrl)],
+    ];
+}
+
+function bms_activitypub_queue_actor_delete(array $document, array $targets): int
+{
+    $activityUri = bms_activitypub_identifier_uri((string)($document['id'] ?? ''), true);
+    $payload = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if (!is_string($payload) || strlen($payload) > bms_activitypub_publication_payload_max_bytes()) {
+        throw new RuntimeException('The Actor Delete activity could not be encoded safely.');
+    }
+    $count = 0;
+    foreach ($targets as $target) {
+        $inboxUrl = trim((string)($target['inbox_url'] ?? ''));
+        if (!bms_activitypub_delivery_url_is_structurally_safe($inboxUrl)) {
+            continue;
+        }
+        $actorIds = array_values(array_unique(array_filter(array_map('intval', (array)($target['actor_ids'] ?? [])))));
+        sort($actorIds, SORT_NUMERIC);
+        $actorJson = json_encode($actorIds, JSON_UNESCAPED_SLASHES);
+        $dedupeKey = hash('sha256', "actor_delete\n" . $activityUri . "\n" . $inboxUrl);
+        $stmt = bms_db()->prepare("INSERT IGNORE INTO " . bms_table('activitypub_deliveries') . " (delivery_type, event_id, publication_generation, object_uri, activity_uri, payload_json, dedupe_key, inbox_url, recipient_actor_ids_json, signature_mode, status, attempt_count, available_at, last_attempt_at, delivered_at, http_status, last_error, created_at, updated_at) VALUES ('actor_delete', NULL, NULL, :object_uri, :activity_uri, :payload_json, :dedupe_key, :inbox_url, :actor_ids, :signature_mode, 'pending', 0, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $stmt->execute([
+            'object_uri' => bms_activitypub_actor_url(), 'activity_uri' => $activityUri,
+            'payload_json' => $payload, 'dedupe_key' => $dedupeKey, 'inbox_url' => $inboxUrl,
+            'actor_ids' => is_string($actorJson) ? $actorJson : '[]',
+            'signature_mode' => !empty($target['rfc9421']) ? 'rfc9421' : 'legacy',
+        ]);
+        $count += $stmt->rowCount() > 0 ? 1 : 0;
+    }
+    return $count;
+}
+
+function bms_activitypub_permanently_deactivate(): array
+{
+    $existing = bms_activitypub_actor_retirement();
+    if (is_array($existing)) {
+        return ['status' => 'retired', 'activity_uri' => (string)$existing['delete_activity_uri'], 'idempotent' => true];
+    }
+    if (!bms_activitypub_enabled()) {
+        throw new RuntimeException('Only an active, paused, or delivery-suspended federation identity can be permanently deactivated.');
+    }
+    $health = bms_activitypub_signing_key_health();
+    if (empty($health['ok'])) {
+        throw new RuntimeException('A usable signing key is required to commit and deliver permanent Actor Delete.');
+    }
+    $actorUri = bms_activitypub_actor_url();
+    $activityUri = bms_activitypub_owner_activity_url('delete-actor');
+    $document = bms_activitypub_actor_delete_document($activityUri);
+    $payload = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if (!is_string($payload)) {
+        throw new RuntimeException('The Actor Delete activity could not be encoded.');
+    }
+    $targets = bms_activitypub_publication_targets();
+    $pdo = bms_db();
+    $pdo->beginTransaction();
+    try {
+        $insert = $pdo->prepare("INSERT INTO " . bms_table('activitypub_local_actor_lifecycle') . " (actor_uri, lifecycle_state, delete_activity_uri, delete_payload_json, retired_at, delivery_completed_at, created_at, updated_at) VALUES (:actor_uri, 'retired', :activity_uri, :payload_json, UTC_TIMESTAMP(), NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $insert->execute(['actor_uri' => $actorUri, 'activity_uri' => $activityUri, 'payload_json' => $payload]);
+        bms_activitypub_queue_actor_delete($document, $targets);
+        $cancel = $pdo->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'cancelled', last_error = 'Cancelled by permanent local actor retirement.', updated_at = UTC_TIMESTAMP() WHERE status IN ('pending', 'retry', 'processing') AND activity_uri <> :activity_uri");
+        $cancel->execute(['activity_uri' => $activityUri]);
+        $pdo->exec("UPDATE " . bms_table('activitypub_followers') . " SET state = 'removed', moderated_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE state <> 'removed'");
+        $pdo->exec("UPDATE " . bms_table('activitypub_following') . " SET state = 'removed', state_changed_at = UTC_TIMESTAMP(), removed_at = COALESCE(removed_at, UTC_TIMESTAMP()), last_error = 'Local actor permanently retired.', updated_at = UTC_TIMESTAMP() WHERE state <> 'removed'");
+        $pdo->exec("UPDATE " . bms_table('activitypub_owner_interactions') . " SET state = 'retired', last_error = 'Local actor permanently retired.', updated_at = UTC_TIMESTAMP() WHERE state IN ('active', 'queued')");
+        bms_set_setting('activitypub_enabled', '0');
+        bms_set_setting('activitypub_paused', '0');
+        bms_set_setting('activitypub_delivery_suspended', '0');
+        bms_set_setting('activitypub_deactivated', '1');
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $raced = bms_activitypub_actor_retirement();
+        if (is_array($raced)) {
+            return ['status' => 'retired', 'activity_uri' => (string)$raced['delete_activity_uri'], 'idempotent' => true];
+        }
+        throw $e;
+    }
+    return ['status' => 'retired', 'activity_uri' => $activityUri, 'idempotent' => false];
+}
+
 function bms_activitypub_queue_owner_action(array $remoteActor, array $document, bool $fanoutFollowers = false): int
 {
     $actorId = (int)($remoteActor['id'] ?? 0);
@@ -878,7 +971,9 @@ function bms_activitypub_mark_owner_delivery_result(array $delivery, string $sta
 
 function bms_activitypub_run_owner_deliveries(int $limit = 20, ?callable $transport = null, ?callable $resolver = null): array
 {
-    if (!bms_activitypub_runs_deliveries()) {
+    $retirement = bms_activitypub_actor_retirement();
+    $retiredDelivery = is_array($retirement);
+    if (!bms_activitypub_runs_deliveries() && !$retiredDelivery) {
         return ['ok' => true, 'count' => 0, 'message' => 'ActivityPub owner activity delivery is paused or suspended.'];
     }
     $key = bms_activitypub_active_signing_key(true);
@@ -886,18 +981,19 @@ function bms_activitypub_run_owner_deliveries(int $limit = 20, ?callable $transp
         return ['ok' => false, 'count' => 0, 'message' => 'Owner activities are waiting for an active signing key.'];
     }
     $limit = max(1, min(100, $limit));
-    bms_db()->exec("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE delivery_type = 'owner_activity' AND event_id IS NULL AND status = 'processing' AND last_attempt_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)");
-    $stmt = bms_db()->query("SELECT * FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'owner_activity' AND event_id IS NULL AND status IN ('pending', 'retry') AND available_at <= UTC_TIMESTAMP() ORDER BY available_at, id LIMIT " . $limit);
+    $deliveryType = $retiredDelivery ? 'actor_delete' : 'owner_activity';
+    bms_db()->exec("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'retry', available_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE delivery_type = '" . $deliveryType . "' AND event_id IS NULL AND status = 'processing' AND last_attempt_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)");
+    $stmt = bms_db()->query("SELECT * FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = '" . $deliveryType . "' AND event_id IS NULL AND status IN ('pending', 'retry') AND available_at <= UTC_TIMESTAMP() ORDER BY available_at, id LIMIT " . $limit);
     $rows = $stmt ? ($stmt->fetchAll() ?: []) : [];
     $delivered = 0;
     foreach ($rows as $row) {
-        $claim = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'processing', attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id AND delivery_type = 'owner_activity' AND status IN ('pending', 'retry')");
-        $claim->execute(['id' => (int)$row['id']]);
+        $claim = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'processing', attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = :id AND delivery_type = :delivery_type AND status IN ('pending', 'retry')");
+        $claim->execute(['id' => (int)$row['id'], 'delivery_type' => $deliveryType]);
         if ($claim->rowCount() < 1) {
             continue;
         }
         $row['attempt_count'] = (int)$row['attempt_count'] + 1;
-        if (bms_activitypub_owner_delivery_has_blocked_actor($row)) {
+        if (!$retiredDelivery && bms_activitypub_owner_delivery_has_blocked_actor($row)) {
             $error = 'The owner activity recipient is blocked or unavailable.';
             $update = bms_db()->prepare("UPDATE " . bms_table('activitypub_deliveries') . " SET status = 'dead', last_error = :last_error, updated_at = UTC_TIMESTAMP() WHERE id = :id AND status = 'processing'");
             $update->execute(['last_error' => $error, 'id' => (int)$row['id']]);
@@ -932,6 +1028,14 @@ function bms_activitypub_run_owner_deliveries(int $limit = 20, ?callable $transp
             if ($permanent) {
                 bms_activitypub_mark_owner_delivery_result($row, 'failed', $error);
             }
+        }
+    }
+    if ($retiredDelivery && is_array($retirement)) {
+        $pending = bms_db()->prepare("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'actor_delete' AND activity_uri = :activity_uri AND status IN ('pending', 'retry', 'processing')");
+        $pending->execute(['activity_uri' => (string)$retirement['delete_activity_uri']]);
+        if ((int)$pending->fetchColumn() === 0) {
+            $complete = bms_db()->prepare("UPDATE " . bms_table('activitypub_local_actor_lifecycle') . " SET delivery_completed_at = COALESCE(delivery_completed_at, UTC_TIMESTAMP()), updated_at = UTC_TIMESTAMP() WHERE id = :id");
+            $complete->execute(['id' => (int)$retirement['id']]);
         }
     }
     return ['ok' => true, 'count' => $delivered, 'message' => $delivered > 0 ? 'Delivered ' . $delivered . ' owner activit' . ($delivered === 1 ? 'y' : 'ies') . '.' : 'No owner activities were delivered.'];

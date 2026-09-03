@@ -114,6 +114,37 @@ bms_ap_stage6_assert($followUri !== bms_activitypub_owner_activity_url('follow',
 $announce = bms_activitypub_owner_action_document('Announce', bms_activitypub_owner_activity_url('announce', 'https://local.example'), 'https://remote.example/actor', $target, '', true);
 bms_ap_stage6_assert(($announce['to'][0] ?? '') === 'https://www.w3.org/ns/activitystreams#Public' && in_array('https://remote.example/actor', (array)($announce['cc'] ?? []), true), 'An owner Announce was not serialized as a public boost addressed to the remote actor.');
 
+$actorDeleteUri = bms_activitypub_owner_activity_url('delete-actor', 'https://local.example');
+$actorDelete = bms_activitypub_actor_delete_document($actorDeleteUri, 'https://local.example');
+bms_ap_stage6_assert(
+    ($actorDelete['id'] ?? '') === $actorDeleteUri
+        && ($actorDelete['type'] ?? '') === 'Delete'
+        && ($actorDelete['actor'] ?? '') === 'https://local.example/activitypub/actor'
+        && ($actorDelete['object'] ?? '') === 'https://local.example/activitypub/actor'
+        && in_array('https://www.w3.org/ns/activitystreams#Public', (array)($actorDelete['to'] ?? []), true),
+    'Permanent deactivation must serialize one explicit public Actor Delete for the stable actor URI.'
+);
+
+$retirementFixture = ['retired_at' => '2026-09-03 03:00:00'];
+$actorTombstone = bms_activitypub_actor_tombstone_document($retirementFixture, 'https://local.example');
+bms_ap_stage6_assert(
+    ($actorTombstone['id'] ?? '') === 'https://local.example/activitypub/actor'
+        && ($actorTombstone['type'] ?? '') === 'Tombstone'
+        && ($actorTombstone['formerType'] ?? '') === 'Person'
+        && ($actorTombstone['deleted'] ?? '') === '2026-09-03T03:00:00Z',
+    'A retired actor must dereference as a generation-independent Person Tombstone.'
+);
+
+$ownerSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-owner.php');
+$adminSource = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
+$routeSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-routes.php');
+bms_ap_stage6_assert(substr_count($ownerSource, "bms_activitypub_owner_activity_url('delete-actor')") === 1, 'Actor Delete must only originate from explicit permanent deactivation.');
+bms_ap_stage6_assert(str_contains($adminSource, 'PERMANENTLY DELETE FEDERATED ACTOR'), 'Permanent deactivation must require exact irreversible confirmation text.');
+bms_ap_stage6_assert(str_contains($routeSource, 'bms_activitypub_actor_tombstone_document') && str_contains($routeSource, "'activitypub_webfinger'"), 'Retired actor routing must serve an actor Tombstone and stop live WebFinger discovery.');
+foreach (['posts', 'comments', 'likes', 'media', 'pages', 'themes'] as $localTable) {
+    bms_ap_stage6_assert(!preg_match('/(?:DELETE FROM|UPDATE)\s+[^;\n]*' . preg_quote($localTable, '/') . '/i', $ownerSource), 'Permanent federation deactivation must not mutate local ' . $localTable . ' content.');
+}
+
 $note = [
     'id' => $target,
     'type' => 'Note',

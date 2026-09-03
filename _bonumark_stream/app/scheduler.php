@@ -431,7 +431,7 @@ function bms_scheduled_task_handlers(): array
             },
             ['label' => 'Scheduled posts']
         );
-        if (bms_activitypub_enabled()) {
+        if (bms_activitypub_enabled() || bms_activitypub_actor_is_retired()) {
             bms_register_scheduled_task_handler(
                 'activitypub_publications',
                 static function (array $context): array {

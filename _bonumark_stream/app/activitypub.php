@@ -19,8 +19,30 @@ function bms_activitypub_enabled(): bool
     return (string)bms_setting_or_config('activitypub_enabled', '0') === '1';
 }
 
+function bms_activitypub_actor_retirement(): ?array
+{
+    if (!bms_is_installed() || !bms_has_database_config()) {
+        return null;
+    }
+    try {
+        $stmt = bms_db()->query("SELECT * FROM " . bms_table('activitypub_local_actor_lifecycle') . " WHERE lifecycle_state = 'retired' ORDER BY id DESC LIMIT 1");
+        $row = $stmt ? $stmt->fetch() : false;
+        return is_array($row) ? $row : null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function bms_activitypub_actor_is_retired(): bool
+{
+    return is_array(bms_activitypub_actor_retirement());
+}
+
 function bms_activitypub_operational_state(): string
 {
+    if (bms_activitypub_actor_is_retired()) {
+        return 'retired';
+    }
     if (!bms_activitypub_enabled()) {
         return (string)bms_setting_or_config('activitypub_deactivated', '0') === '1' ? 'deactivated' : 'disabled';
     }
@@ -146,6 +168,13 @@ function bms_activitypub_recent_durable_task_history(array $history, int $thresh
 
 function bms_activitypub_system_check_items(): array
 {
+    if (bms_activitypub_actor_is_retired()) {
+        return [[
+            'label' => 'ActivityPub actor identity',
+            'status' => 'warn',
+            'message' => 'The site actor URI is permanently retired. It cannot be re-enabled, and actor discovery now returns a Tombstone.',
+        ]];
+    }
     if (!bms_activitypub_enabled()) {
         return [[
             'label' => 'ActivityPub',
@@ -284,6 +313,9 @@ function bms_activitypub_generate_signing_key(): array
 
 function bms_activitypub_create_signing_key(): array
 {
+    if (bms_activitypub_actor_is_retired()) {
+        throw new RuntimeException('The retired ActivityPub actor cannot receive a new signing key.');
+    }
     $key = bms_activitypub_generate_signing_key();
     $token = bin2hex(random_bytes(16));
     $pdo = bms_db();

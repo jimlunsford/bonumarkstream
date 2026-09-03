@@ -17,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($policy, ['manual', 'automatic'], true)) {
                 $policy = 'manual';
             }
+            if ($enabled && bms_activitypub_actor_is_retired()) {
+                throw new RuntimeException('This ActivityPub actor URI is permanently retired and cannot be re-enabled.');
+            }
             if ($enabled) {
                 $url = bms_activitypub_configured_base_url();
                 $routing = bms_activitypub_webfinger_routing_capability();
@@ -34,6 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 bms_set_setting('activitypub_deactivated', '0');
             }
             bms_flash('ActivityPub settings saved.', 'success');
+        } elseif ($action === 'permanent_deactivation') {
+            $confirmation = trim((string)($_POST['permanent_deactivation_confirmation'] ?? ''));
+            if (!hash_equals('PERMANENTLY DELETE FEDERATED ACTOR', $confirmation)) {
+                throw new RuntimeException('The permanent-deactivation confirmation text did not match.');
+            }
+            $result = bms_activitypub_permanently_deactivate();
+            bms_flash(!empty($result['idempotent']) ? 'The ActivityPub actor was already permanently retired.' : 'The ActivityPub actor is permanently retired. Its signed Actor Delete is queued for former followers.', 'success');
         } elseif ($action === 'provision_key') {
             bms_activitypub_create_signing_key();
             bms_flash('A new ActivityPub signing key is active. The prior key, if any, was retired.', 'success');
@@ -96,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $enabled = bms_activitypub_enabled();
 $operationalState = bms_activitypub_operational_state();
 $deliverySuspended = bms_activitypub_delivery_suspended();
+$retirement = bms_activitypub_actor_retirement();
 $policy = bms_activitypub_follow_policy();
 $key = bms_activitypub_active_signing_key(false);
 $keyHealth = bms_activitypub_signing_key_health();
@@ -112,6 +123,13 @@ bms_admin_header('ActivityPub', [bms_view_site_action()]);
 <section class="panel settings-workflow-hero">
   <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Committed public Stream Post transitions are recorded locally, then delivered asynchronously without delaying or rolling back Bonumark publishing.</p></div>
   <span class="static-pill <?= $operationalState === 'active' && !$deliverySuspended ? 'generated' : ($operationalState === 'disabled' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper($deliverySuspended && $operationalState === 'active' ? 'delivery suspended' : $operationalState), ENT_QUOTES, 'UTF-8') ?></span>
+</section>
+
+<section class="panel settings-section-panel">
+  <div class="settings-section-header"><div><p class="eyebrow">Irreversible identity action</p><h2>Permanent federation deactivation</h2><p class="meta">This permanently retires the current actor URI, queues a signed Actor Delete for accepted followers, cancels remaining outbound federation work, and prevents this identity from ever being enabled again. It does not delete Bonumark posts, comments, local likes, media, Profile data, Pages, themes, imports, or exports.</p></div><span class="static-pill <?= is_array($retirement) ? 'draft' : 'warning' ?>"><?= is_array($retirement) ? 'ACTOR RETIRED' : 'IRREVERSIBLE' ?></span></div>
+  <?php if (is_array($retirement)): ?><p class="meta">Retired <?= htmlspecialchars((string)$retirement['retired_at'], ENT_QUOTES, 'UTF-8') ?>. Actor URI: <?= htmlspecialchars((string)$retirement['actor_uri'], ENT_QUOTES, 'UTF-8') ?></p><?php else: ?>
+  <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="permanent_deactivation"><label for="permanent_deactivation_confirmation">Type <strong>PERMANENTLY DELETE FEDERATED ACTOR</strong> to confirm</label><input id="permanent_deactivation_confirmation" name="permanent_deactivation_confirmation" type="text" required autocomplete="off" spellcheck="false"><button type="submit" class="button-link secondary danger">Permanently Delete Federated Actor</button></form>
+  <?php endif; ?>
 </section>
 
 <section class="panel settings-section-panel">

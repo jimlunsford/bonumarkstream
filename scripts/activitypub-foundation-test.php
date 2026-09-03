@@ -44,6 +44,15 @@ foreach (['_bonumark_stream/app/activitypub-delivery.php', '_bonumark_stream/app
         $workerFile . ' must honor both the federation pause and outbound delivery suspension boundaries.'
     );
 }
+$ownerSource = (string)file_get_contents($root . '/_bonumark_stream/app/activitypub-owner.php');
+bms_activitypub_test_assert(
+    !str_contains($ownerSource, "activitypub_paused', '1') && !str_contains($ownerSource, "activitypub_delivery_suspended', '1'"),
+    'Pause and delivery suspension must not enter the permanent Actor Delete path.'
+);
+bms_activitypub_test_assert(
+    str_contains($ownerSource, "delivery_type = 'actor_delete'") && str_contains($ownerSource, "status = 'cancelled'"),
+    'A retired actor must isolate final Actor Delete delivery and cancel stale queued federation work.'
+);
 bms_activitypub_test_assert(
     str_contains($systemCheckAdminSource, $schedulerRequire),
     'System Check must load scheduled-task health before reporting ActivityPub delivery capability.'

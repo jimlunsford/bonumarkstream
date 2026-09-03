@@ -184,7 +184,38 @@ function bms_dispatch_activitypub_route(string $route): bool
         return false;
     }
 
-    if (!bms_activitypub_enabled()) {
+    $retirement = bms_activitypub_actor_retirement();
+    if (is_array($retirement)) {
+        $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        if (!in_array($method, ['GET', 'HEAD'], true)) {
+            bms_activitypub_emit_error(410, 'The ActivityPub actor is permanently retired.');
+        }
+        $isWebfinger = $route === 'activitypub_webfinger';
+        $contentType = bms_activitypub_negotiate_content_type((string)($_SERVER['HTTP_ACCEPT'] ?? ''), $isWebfinger);
+        if ($contentType === null) {
+            bms_activitypub_emit_error(406, 'No acceptable protocol representation is available.');
+        }
+        $baseUrl = trim((string)bms_setting_or_config('base_url', ''));
+        if ($route === 'activitypub_actor') {
+            bms_activitypub_emit_json(bms_activitypub_actor_tombstone_document($retirement, $baseUrl), 410, $contentType);
+        }
+        if ($route === 'activitypub_owner_activity') {
+            $kind = is_scalar($_GET['owner_kind'] ?? null) ? (string)$_GET['owner_kind'] : '';
+            $token = is_scalar($_GET['owner_token'] ?? null) ? (string)$_GET['owner_token'] : '';
+            $activityUri = bms_activitypub_absolute_url('/activitypub/activities/owner/' . $kind . '/' . $token, $baseUrl);
+            if (hash_equals((string)$retirement['delete_activity_uri'], $activityUri)) {
+                $document = json_decode((string)$retirement['delete_payload_json'], true, bms_activitypub_json_max_depth());
+                if (is_array($document) && !array_is_list($document)) {
+                    bms_activitypub_emit_json($document, 200, $contentType);
+                }
+            }
+        }
+        if (in_array($route, ['activitypub_webfinger', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following'], true)) {
+            bms_activitypub_emit_error(410, $isWebfinger ? 'The requested ActivityPub identity is permanently retired.' : 'The ActivityPub actor is permanently retired.', $isWebfinger ? ['Access-Control-Allow-Origin: *'] : []);
+        }
+    }
+
+    if (!bms_activitypub_enabled() && !is_array($retirement)) {
         bms_activitypub_emit_error(404, 'Not found.');
     }
 

@@ -237,6 +237,17 @@ function bms_activitypub_actor_document(array $owner, array $identity = [], ?arr
     return $actor;
 }
 
+function bms_activitypub_actor_tombstone_document(array $retirement, ?string $baseUrl = null): array
+{
+    return [
+        '@context' => bms_activitypub_context(),
+        'id' => bms_activitypub_actor_url($baseUrl),
+        'type' => 'Tombstone',
+        'formerType' => 'Person',
+        'deleted' => bms_activitypub_datetime((string)($retirement['retired_at'] ?? '')),
+    ];
+}
+
 function bms_activitypub_post_attachments(array $page, ?string $baseUrl = null): array
 {
     $featured = (string)($page['featured_media'] ?? $page['front_matter']['featured_media'] ?? '');
