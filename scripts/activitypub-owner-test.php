@@ -136,14 +136,31 @@ bms_ap_stage6_assert(
 );
 
 $ownerSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-owner.php');
+$operationsSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-operations.php');
 $adminSource = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $routeSource = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/activitypub-routes.php');
 bms_ap_stage6_assert(substr_count($ownerSource, "bms_activitypub_owner_activity_url('delete-actor')") === 1, 'Actor Delete must only originate from explicit permanent deactivation.');
+bms_ap_stage6_assert(
+    str_contains($ownerSource, "['owner_activity', 'actor_delete']")
+        && str_contains($ownerSource, '$deliveryType === \'actor_delete\' ? [\'Delete\']'),
+    'The retired-actor worker must permit only the durable Actor Delete through the owner delivery boundary.'
+);
 bms_ap_stage6_assert(str_contains($adminSource, 'PERMANENTLY DELETE FEDERATED ACTOR'), 'Permanent deactivation must require exact irreversible confirmation text.');
 bms_ap_stage6_assert(str_contains($routeSource, 'bms_activitypub_actor_tombstone_document') && str_contains($routeSource, "'activitypub_webfinger'"), 'Retired actor routing must serve an actor Tombstone and stop live WebFinger discovery.');
 foreach (['posts', 'comments', 'likes', 'media', 'pages', 'themes'] as $localTable) {
     bms_ap_stage6_assert(!preg_match('/(?:DELETE FROM|UPDATE)\s+[^;\n]*' . preg_quote($localTable, '/') . '/i', $ownerSource), 'Permanent federation deactivation must not mutate local ' . $localTable . ' content.');
 }
+bms_ap_stage6_assert(
+    str_contains($operationsSource, "delivery_type <> 'actor_delete'")
+        && str_contains($operationsSource, 'bms_activitypub_actor_is_retired() && $type !== \'actor_delete\'')
+        && str_contains($operationsSource, 'bms_activitypub_validate_delivery_for_retry'),
+    'Queue repair must protect Actor Delete from cancellation and prevent retired identities from retrying ordinary work.'
+);
+bms_ap_stage6_assert(
+    str_contains($operationsSource, 'bms_activitypub_update_publication_event_status')
+        && str_contains($operationsSource, 'bms_activitypub_mark_owner_delivery_result'),
+    'Queue repair must reconcile delivery changes back to their durable publication or owner-action parent state.'
+);
 
 $note = [
     'id' => $target,

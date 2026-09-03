@@ -72,6 +72,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('The publication delivery is not eligible for manual retry.');
             }
             bms_flash('Publication delivery queued for a safe retry.', 'success');
+        } elseif ($action === 'retry_delivery') {
+            if (!bms_activitypub_retry_delivery(max(0, (int)($_POST['delivery_id'] ?? 0)))) {
+                throw new RuntimeException('The delivery is not eligible for safe retry.');
+            }
+            bms_flash('The immutable delivery was queued for retry.', 'success');
+        } elseif ($action === 'cancel_delivery') {
+            if (!bms_activitypub_cancel_delivery(max(0, (int)($_POST['delivery_id'] ?? 0)))) {
+                throw new RuntimeException('The delivery is not eligible for permanent cancellation.');
+            }
+            bms_flash('The delivery was permanently cancelled. Its audit row was preserved.', 'success');
+        } elseif ($action === 'reconcile_queue') {
+            $result = bms_activitypub_reconcile_queue();
+            bms_flash('Queue reconciliation recovered ' . (int)$result['recovered'] . ' stale row(s) and cancelled ' . (int)$result['cancelled'] . ' unsafe or orphaned row(s).', 'success');
         } elseif ($action === 'follow_actor') {
             bms_activitypub_follow_remote_actor((string)($_POST['actor_uri'] ?? ''));
             bms_flash('The signed Follow is queued. The relationship remains pending until the remote actor accepts or rejects it.', 'success');
@@ -117,12 +130,23 @@ $publicationDeliveries = bms_activitypub_publication_delivery_rows(200);
 $following = bms_activitypub_following_rows(200);
 $remoteInbox = bms_activitypub_remote_inbox_rows(100);
 $checks = bms_activitypub_system_check_items();
+$queueSummary = bms_activitypub_queue_summary();
+$queueIssues = bms_activitypub_queue_issues();
+$operationalDeliveries = bms_activitypub_operational_delivery_rows(200);
 
 bms_admin_header('ActivityPub', [bms_view_site_action()]);
 ?>
 <section class="panel settings-workflow-hero">
   <div class="settings-workflow-hero-copy"><p class="eyebrow">Federation</p><h2>Keep Bonumark as the source of truth.</h2><p class="meta">ActivityPub is optional. Committed public Stream Post transitions are recorded locally, then delivered asynchronously without delaying or rolling back Bonumark publishing.</p></div>
   <span class="static-pill <?= $operationalState === 'active' && !$deliverySuspended ? 'generated' : ($operationalState === 'disabled' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper($deliverySuspended && $operationalState === 'active' ? 'delivery suspended' : $operationalState), ENT_QUOTES, 'UTF-8') ?></span>
+</section>
+
+<section class="panel settings-section-panel">
+  <div class="settings-record-heading"><div><p class="eyebrow">Operations</p><h2>Federation queue health</h2><p class="meta">Inspection and repair preserve immutable payloads and audit rows. Reconciliation recovers stale workers and cancels unsafe or orphaned work without deleting history.</p></div><span class="static-pill <?= $queueIssues ? 'warning' : 'generated' ?>"><?= count($queueIssues) ?> ISSUE<?= count($queueIssues) === 1 ? '' : 'S' ?></span></div>
+  <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="reconcile_queue"><button type="submit" class="button-link secondary">Reconcile Queue Safely</button></form>
+  <?php if ($queueSummary): ?><div class="settings-record-list"><?php foreach ($queueSummary as $summary): ?><article class="settings-history-record"><div class="settings-record-cell"><strong><?= htmlspecialchars((string)$summary['delivery_type'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="settings-record-cell"><span class="static-pill <?= (string)$summary['status'] === 'delivered' ? 'generated' : ((string)$summary['status'] === 'dead' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper((string)$summary['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><small><?= (int)$summary['total'] ?> row(s)</small><small>Oldest available: <?= htmlspecialchars((string)($summary['oldest_available_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></div></article><?php endforeach; ?></div><?php endif; ?>
+  <?php if ($queueIssues): ?><h3>Consistency findings</h3><div class="settings-record-list"><?php foreach ($queueIssues as $issue): ?><article class="settings-history-record"><div class="settings-record-cell"><strong>Delivery #<?= (int)$issue['id'] ?></strong><small><?= htmlspecialchars((string)$issue['delivery_type'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill warning"><?= htmlspecialchars(strtoupper(str_replace('_', ' ', (string)$issue['issue_code'])), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><small><?= htmlspecialchars((string)$issue['activity_uri'], ENT_QUOTES, 'UTF-8') ?></small></div></article><?php endforeach; ?></div><?php endif; ?>
+  <?php if ($operationalDeliveries): ?><h3>Active, failed, and cancelled delivery records</h3><div class="settings-record-list"><?php foreach ($operationalDeliveries as $delivery): $deliveryStatus = (string)$delivery['status']; $deliveryType = (string)$delivery['delivery_type']; ?><article class="settings-history-record"><div class="settings-record-cell"><strong>Delivery #<?= (int)$delivery['id'] ?></strong><small><?= htmlspecialchars($deliveryType, ENT_QUOTES, 'UTF-8') ?></small><small><?= htmlspecialchars((string)$delivery['activity_uri'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill <?= $deliveryStatus === 'dead' || $deliveryStatus === 'cancelled' ? 'draft' : 'warning' ?>"><?= htmlspecialchars(strtoupper($deliveryStatus), ENT_QUOTES, 'UTF-8') ?></span><small>Attempts: <?= (int)$delivery['attempt_count'] ?><?php if ((int)($delivery['http_status'] ?? 0) > 0): ?> · HTTP <?= (int)$delivery['http_status'] ?><?php endif; ?></small><?php if (trim((string)($delivery['last_error'] ?? '')) !== ''): ?><small><?= htmlspecialchars((string)$delivery['last_error'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?></div><div class="settings-record-cell"><div class="settings-inline-actions"><?php if (in_array($deliveryStatus, ['retry', 'dead'], true) && (!is_array($retirement) || $deliveryType === 'actor_delete')): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="retry_delivery"><input type="hidden" name="delivery_id" value="<?= (int)$delivery['id'] ?>"><button type="submit" class="button-link secondary">Retry Safely</button></form><?php endif; ?><?php if ($deliveryType !== 'actor_delete' && in_array($deliveryStatus, ['pending', 'retry', 'processing', 'dead'], true)): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="cancel_delivery"><input type="hidden" name="delivery_id" value="<?= (int)$delivery['id'] ?>"><button type="submit" class="button-link secondary danger">Cancel Permanently</button></form><?php endif; ?></div></div></article><?php endforeach; ?></div><?php else: ?><div class="settings-empty-state"><h3>No active or failed delivery records.</h3></div><?php endif; ?>
 </section>
 
 <section class="panel settings-section-panel">

@@ -896,16 +896,29 @@ function bms_activitypub_reply_target_for_post(int $postId): ?array
 
 function bms_activitypub_deliver_owner_row(array $delivery, array $key, ?callable $transport = null, ?callable $resolver = null): array
 {
-    if ((string)($delivery['delivery_type'] ?? '') !== 'owner_activity' || $delivery['event_id'] !== null) {
+    $deliveryType = (string)($delivery['delivery_type'] ?? '');
+    if (!in_array($deliveryType, ['owner_activity', 'actor_delete'], true) || $delivery['event_id'] !== null) {
         throw new RuntimeException('The delivery is not an owner activity.');
     }
     $payload = (string)($delivery['payload_json'] ?? '');
     $document = bms_activitypub_decode_json_document($payload, bms_activitypub_publication_payload_max_bytes());
-    if (!in_array((string)($document['type'] ?? ''), ['Follow', 'Undo', 'Like', 'Announce'], true)) {
+    $allowedTypes = $deliveryType === 'actor_delete' ? ['Delete'] : ['Follow', 'Undo', 'Like', 'Announce'];
+    if (!in_array((string)($document['type'] ?? ''), $allowedTypes, true)) {
         throw new RuntimeException('The owner activity type is not deliverable.');
     }
     if (!hash_equals((string)($document['id'] ?? ''), (string)$delivery['activity_uri'])) {
         throw new RuntimeException('The owner delivery payload identity changed.');
+    }
+    if ($deliveryType === 'actor_delete') {
+        $retirement = bms_activitypub_actor_retirement();
+        $objectUri = is_array($document['object'] ?? null)
+            ? trim((string)($document['object']['id'] ?? ''))
+            : trim((string)($document['object'] ?? ''));
+        if (!is_array($retirement)
+            || !hash_equals((string)$retirement['delete_activity_uri'], (string)$delivery['activity_uri'])
+            || !hash_equals((string)$retirement['actor_uri'], $objectUri)) {
+            throw new RuntimeException('The Actor Delete delivery does not match the durable retired identity.');
+        }
     }
     $url = (string)$delivery['inbox_url'];
     $mode = (string)($delivery['signature_mode'] ?? 'legacy') === 'rfc9421' ? 'rfc9421' : 'legacy';
@@ -949,21 +962,26 @@ function bms_activitypub_owner_delivery_has_blocked_actor(array $delivery): bool
 function bms_activitypub_mark_owner_delivery_result(array $delivery, string $state, string $error = ''): void
 {
     $activityUri = (string)$delivery['activity_uri'];
-    $counts = bms_db()->prepare("SELECT SUM(CASE WHEN status IN ('pending', 'retry', 'processing') THEN 1 ELSE 0 END) AS unfinished_count, SUM(CASE WHEN status = 'dead' THEN 1 ELSE 0 END) AS dead_count, SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered_count, MAX(CASE WHEN status = 'dead' THEN last_error ELSE NULL END) AS dead_error FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'owner_activity' AND event_id IS NULL AND activity_uri = :activity_uri");
+    $counts = bms_db()->prepare("SELECT SUM(CASE WHEN status IN ('pending', 'retry', 'processing') THEN 1 ELSE 0 END) AS unfinished_count, SUM(CASE WHEN status = 'dead' THEN 1 ELSE 0 END) AS dead_count, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count, SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered_count, MAX(CASE WHEN status IN ('dead', 'cancelled') THEN last_error ELSE NULL END) AS terminal_error FROM " . bms_table('activitypub_deliveries') . " WHERE delivery_type = 'owner_activity' AND event_id IS NULL AND activity_uri = :activity_uri");
     $counts->execute(['activity_uri' => $activityUri]);
     $aggregate = $counts->fetch() ?: [];
     $unfinished = (int)($aggregate['unfinished_count'] ?? 0);
     $dead = (int)($aggregate['dead_count'] ?? 0);
+    $cancelled = (int)($aggregate['cancelled_count'] ?? 0);
     $delivered = (int)($aggregate['delivered_count'] ?? 0);
-    $state = $unfinished > 0 ? 'queued' : ($dead > 0 ? ($delivered > 0 ? 'partial_failed' : 'failed') : 'delivered');
-    $error = trim((string)($aggregate['dead_error'] ?? $error));
+    $state = $unfinished > 0
+        ? 'queued'
+        : ($dead > 0
+            ? ($delivered > 0 ? 'partial_failed' : 'failed')
+            : ($cancelled > 0 ? ($delivered > 0 ? 'partial_cancelled' : 'cancelled') : 'delivered'));
+    $error = trim((string)($aggregate['terminal_error'] ?? $error));
     $stmt = bms_db()->prepare('UPDATE ' . bms_table('activitypub_owner_action_log') . ' SET state = :state, updated_at = UTC_TIMESTAMP() WHERE activity_uri = :activity_uri');
     $stmt->execute(['state' => $state, 'activity_uri' => $activityUri]);
     $follow = bms_db()->prepare('UPDATE ' . bms_table('activitypub_follow_log') . ' SET state = :state, updated_at = UTC_TIMESTAMP() WHERE activity_uri = :activity_uri');
     $follow->execute(['state' => $state, 'activity_uri' => $activityUri]);
     $interaction = bms_db()->prepare('UPDATE ' . bms_table('activitypub_owner_interactions') . ' i INNER JOIN ' . bms_table('activitypub_owner_action_log') . ' l ON l.owner_interaction_id = i.id SET i.last_error = :last_error, i.updated_at = UTC_TIMESTAMP() WHERE l.activity_uri = :activity_uri');
-    $interaction->execute(['last_error' => in_array($state, ['failed', 'partial_failed'], true) ? bms_text_substr($error, 0, 1000) : null, 'activity_uri' => $activityUri]);
-    if ($state === 'failed') {
+    $interaction->execute(['last_error' => in_array($state, ['failed', 'partial_failed', 'cancelled', 'partial_cancelled'], true) ? bms_text_substr($error, 0, 1000) : null, 'activity_uri' => $activityUri]);
+    if (in_array($state, ['failed', 'cancelled'], true)) {
         $following = bms_db()->prepare("UPDATE " . bms_table('activitypub_following') . " f INNER JOIN " . bms_table('activitypub_follow_log') . " l ON l.following_id = f.id SET f.state = CASE WHEN l.activity_type = 'Follow' AND f.follow_activity_uri = l.activity_uri THEN 'failed' ELSE f.state END, f.state_changed_at = UTC_TIMESTAMP(), f.last_error = :last_error, f.updated_at = UTC_TIMESTAMP() WHERE l.activity_uri = :activity_uri");
         $following->execute(['last_error' => bms_text_substr($error, 0, 1000), 'activity_uri' => $activityUri]);
     }

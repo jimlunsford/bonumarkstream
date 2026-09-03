@@ -5,6 +5,7 @@ require_once __DIR__ . '/activitypub-serialization.php';
 require_once __DIR__ . '/activitypub-delivery.php';
 require_once __DIR__ . '/activitypub-interactions.php';
 require_once __DIR__ . '/activitypub-owner.php';
+require_once __DIR__ . '/activitypub-operations.php';
 
 /**
  * ActivityPub foundation.
