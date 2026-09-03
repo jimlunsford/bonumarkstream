@@ -100,6 +100,10 @@ The stream composer schedules new Stream Posts. The full editor reschedules save
 
 Open **Admin → Settings → Scheduled Tasks** after install. Server cron is the recommended runner. Shared-hosting and external services can use the protected web cron endpoint. Public traffic and signed-in browser heartbeat checks remain optional fallback paths. The same shared task runner handles every path and records health plus manual/cron history.
 
+## Optional ActivityPub hosting
+
+ActivityPub is disabled by default. Before enabling it, confirm **Admin → System Check** reports a canonical root-level HTTPS URL, domain-root WebFinger routing, OpenSSL, cURL, a protected signing-key secret, and dependable server cron or protected web cron. Reverse proxies must forward the signed federation and digest headers listed in [ACTIVITYPUB.md](ACTIVITYPUB.md). Subdirectory installs require hosting-level domain-root WebFinger mapping and are not automatically accepted. Keep package-managed application code read-only to PHP and grant write access only to the normal Bonumark runtime paths.
+
 ## Locked-down deployments
 
 If System Check later reports that PHP cannot replace application files, keep the code tree locked and use the owner-run `php scripts/deploy-update.php /path/to/release.zip` workflow when shell access is available. Use the supported [manual software deployment](server/MANUAL-DEPLOYMENT.md) fallback when shell access is unavailable. If PHP cannot install theme ZIPs, use the [manual theme deployment](server/MANUAL-THEME-DEPLOYMENT.md) workflow. The read-only `php scripts/deployment-check.php` helper remains available for independent installed-site verification.

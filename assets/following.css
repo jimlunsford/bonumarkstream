@@ -1,0 +1,78 @@
+/*
+ * Core Following structure and safety fallback.
+ *
+ * This stylesheet loads before the active theme. Keep it deliberately neutral:
+ * core prevents overflow and preserves interaction mechanics, while themes own
+ * color, type, spacing, cards, controls, media composition, and visual states.
+ */
+.following-feed,
+.following-feed-item,
+.following-card,
+.following-card-inner,
+.following-card-main,
+.following-reply-region {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.following-feed {
+  display: grid;
+}
+
+.following-handle,
+.following-content,
+.following-content a,
+.following-media-alt,
+.following-action-error {
+  overflow-wrap: anywhere;
+}
+
+.following-content pre {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.following-media,
+.following-media a {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.following-media a,
+.following-media img,
+.following-media video {
+  display: block;
+}
+
+.following-media img,
+.following-media video {
+  height: auto;
+  max-width: 100%;
+}
+
+.following-media audio {
+  max-width: 100%;
+}
+
+.following-actions {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  width: 100%;
+}
+
+.following-action-form {
+  display: inline-flex;
+}
+
+button.stream-meta-pill,
+.following-sensitive > summary {
+  cursor: pointer;
+}
+
+.following-reply-form {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}

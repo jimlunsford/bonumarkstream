@@ -411,6 +411,22 @@ function bms_public_navigation_items(bool $includeAccountItems = true): array
         }
     }
 
+    $followingVisible = $includeAccountItems
+        && function_exists('bms_activitypub_enabled') && bms_activitypub_enabled()
+        && function_exists('bms_current_user_can') && bms_current_user_can('view_admin')
+        && !(function_exists('bms_static_site_export_rendering') && bms_static_site_export_rendering());
+    if ($followingVisible && !bms_navigation_has_url($items, bms_url_path('following/'))) {
+        $normalized = bms_normalize_navigation_item([
+            'label' => 'Following',
+            'url' => bms_url_path('following/'),
+            'target' => '_self',
+            'source' => 'system-following',
+        ], count($items));
+        if ($normalized !== null) {
+            $items[] = $normalized;
+        }
+    }
+
     if ($includeAccountItems && bms_public_navigation_account_links_enabled()) {
         foreach (bms_public_navigation_account_items() as $accountItem) {
             $normalized = bms_normalize_navigation_item($accountItem, count($items));

@@ -79,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fields = bms_stream_prepare_metadata_fields($fields, (string)($page['body'] ?? ''), (string)($page['slug'] ?? ''));
         $raw = bms_build_markdown_document($fields, (string)($page['body'] ?? ''));
         $updated = bms_parse_markdown_string($raw);
+        $updated['post_id'] = (int)($page['post_id'] ?? $page['id'] ?? 0);
+        $updated['id'] = $updated['post_id'];
         $newFilename = $updated['slug'] . '.md';
         $oldSlug = bms_slugify((string)($page['slug'] ?? pathinfo($file, PATHINFO_FILENAME)));
         $newSlug = bms_slugify((string)($updated['slug'] ?? pathinfo($newFilename, PATHINFO_FILENAME)));
@@ -99,9 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_record_revision_from_page($page, 'published', $file, $originalAuthorId);
         }
 
-        if (function_exists('bms_delete_post_metadata_by_filename') && ($targetSection !== $section || $newFilename !== $file)) {
-            bms_delete_post_metadata_by_filename($section, $file);
-        }
         if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
             bms_schedule_post_page($updated, 'scheduled', $newFilename, $originalAuthorId, (string)$scheduledAtUtc);
         } elseif (function_exists('bms_sync_stream_metadata')) {

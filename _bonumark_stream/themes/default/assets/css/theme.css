@@ -3291,7 +3291,8 @@ body.bonumark-public .stream-site-shell {
 body.bonumark-public .ledger-home-shell,
 body.bonumark-public .ledger-single-shell,
 body.bonumark-public .ledger-archive-shell,
-body.bonumark-public .ledger-search-shell {
+body.bonumark-public .ledger-search-shell,
+body.bonumark-public .following-shell {
   width: min(100%, 860px);
   justify-self: center;
 }
@@ -4237,7 +4238,8 @@ body.bonumark-public .ledger-single-shell .stream-comments-mount {
 body.bonumark-public.context-home-stream-home .ledger-header,
 body.bonumark-public.context-stream-single .ledger-header,
 body.bonumark-public.context-stream-archive .ledger-header,
-body.bonumark-public.context-search-page .ledger-header {
+body.bonumark-public.context-search-page .ledger-header,
+body.bonumark-public.context-following-page .ledger-header {
   width: min(100%, 860px);
   justify-self: center;
 }
@@ -4381,3 +4383,151 @@ body.bonumark-public.context-profile-page .bms-layout-group-midnight-profile-con
   }
 }
 
+/* Midnight Ledger Following presentation.
+   Core supplies sanitized semantic markup and neutral containment only. */
+body.bonumark-public.context-following-page .following-shell {
+  gap: var(--ledger-gap);
+}
+
+body.bonumark-public.context-following-page .following-conversation-nav {
+  display: flex;
+  justify-content: flex-start;
+}
+
+body.bonumark-public.context-following-page .following-feed {
+  display: grid;
+  gap: 0.9rem;
+}
+
+body.bonumark-public.context-following-page .following-feed-item {
+  display: grid;
+  gap: 0.72rem;
+}
+
+body.bonumark-public.context-following-page .following-reply-region {
+  padding-top: 0.72rem;
+}
+
+body.bonumark-public.context-following-page .following-actor {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+body.bonumark-public.context-following-page .following-handle,
+body.bonumark-public.context-following-page .following-media-alt,
+body.bonumark-public.context-following-page .following-action-error {
+  color: var(--ledger-dim);
+  font-size: inherit;
+}
+
+body.bonumark-public.context-following-page .following-time {
+  text-decoration: none;
+}
+
+body.bonumark-public.context-following-page .following-content > :first-child {
+  margin-top: 0;
+}
+
+body.bonumark-public.context-following-page .following-content > :last-child {
+  margin-bottom: 0;
+}
+
+body.bonumark-public.context-following-page .following-summary,
+body.bonumark-public.context-following-page .following-sensitive,
+body.bonumark-public.context-following-page .following-tombstone {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--ledger-accent);
+}
+
+body.bonumark-public.context-following-page .following-tombstone p {
+  margin: 0.3rem 0 0;
+}
+
+body.bonumark-public.context-following-page .following-media {
+  display: grid;
+  gap: 0.4rem;
+}
+
+body.bonumark-public.context-following-page .following-media.is-gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.bonumark-public.context-following-page .following-media img,
+body.bonumark-public.context-following-page .following-media video {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+body.bonumark-public.context-following-page .following-media audio {
+  width: 100%;
+}
+
+body.bonumark-public.context-following-page .following-actions {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+body.bonumark-public.context-following-page .following-action-form {
+  margin: 0;
+}
+
+body.bonumark-public.context-following-page button.stream-meta-pill,
+body.bonumark-public.context-following-page summary.stream-meta-pill {
+  font: inherit;
+}
+
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill {
+  min-height: 30px;
+  padding: 0.28rem 0.5rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ledger-dim);
+  font-size: 0.72rem;
+}
+
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:hover,
+body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:focus-visible,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:hover,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--ledger-line) 70%, transparent);
+  background: var(--ledger-panel-soft);
+  color: var(--ledger-muted);
+}
+
+body.bonumark-public.context-following-page .stream-meta-pill.is-active {
+  border-color: var(--ledger-accent);
+}
+
+body.bonumark-public.context-following-page .following-reply-control > summary {
+  list-style: none;
+}
+
+body.bonumark-public.context-following-page .following-reply-control > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.bonumark-public.context-following-page .following-empty {
+  padding: clamp(1.2rem, 4vw, 2rem);
+}
+
+body.bonumark-public.context-following-page .following-empty h2 {
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  body.bonumark-public.context-following-page .following-feed-item {
+    gap: 0.48rem;
+  }
+
+  body.bonumark-public.context-following-page .following-reply-region {
+    padding-top: 0.5rem;
+  }
+
+  body.bonumark-public.context-following-page .following-media.is-gallery {
+    grid-template-columns: 1fr;
+  }
+}

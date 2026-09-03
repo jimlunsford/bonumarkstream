@@ -21,6 +21,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $root = dirname(__DIR__);
+$checkReleaseManifest = !in_array('--source-tree', $argv ?? [], true);
 
 if (is_file($root . '/_bonumark_stream/installed.lock') || is_file($root . '/_bonumark_stream/config.php')) {
     fwrite(STDERR, "Bonumark package smoke test is for a clean source/release tree, not an installed site. Use Admin > System Check for live installation diagnostics.\n");
@@ -396,8 +397,9 @@ if (!str_contains($compatibilityDocs, 'PHP 8.1')
     || !str_contains($compatibilityWorkflow, "mysql:8.0")
     || !str_contains($compatibilityWorkflow, "mariadb:10.6")
     || !str_contains($compatibilityWorkflow, 'php scripts/database-smoke-test.php')
+    || !str_contains($compatibilityWorkflow, 'php scripts/migration-recovery-smoke-test.php')
     || !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')) {
-    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke tests.');
+    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke and recovery tests.');
 }
 if (!str_contains($installDocsEarly, 'Fresh install on a locked-down application tree')
     || !str_contains($manualDeployDocs, 'php scripts/run-migrations.php --check')
@@ -2017,11 +2019,141 @@ if ($locationTemplate === '' || str_contains($locationTemplate, 'latitude') || s
     bm_smoke_fail($failures, 'Public Local Places template is missing or exposes coordinates.');
 }
 
+$activityPubSource = @file_get_contents($root . '/_bonumark_stream/app/activitypub.php') ?: '';
+$publicationSource = @file_get_contents($root . '/_bonumark_stream/app/publication.php') ?: '';
+$schedulerSource = @file_get_contents($root . '/_bonumark_stream/app/scheduler.php') ?: '';
+$activityPubMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0018_activitypub_foundation.php') ?: '';
+if (!str_contains($functionDefaults, "'activitypub_enabled' => '0'")
+    || !str_contains($configSample, "'activitypub_enabled' => '0'")
+    || !str_contains($activityPubSource, 'function bms_activitypub_enabled(): bool')
+    || !str_contains($activityPubSource, 'if (!bms_activitypub_enabled()')
+    || !str_contains($activityPubSource, 'bms_activitypub_encrypt_private_key_with_key')
+    || !str_contains($activityPubSource, 'bms_register_publication_transition_handler')) {
+    bm_smoke_fail($failures, 'The default-off ActivityPub capability and protected signing-key foundation is incomplete.');
+}
+if (!str_contains($publicationSource, 'function bms_dispatch_publication_transition')
+    || !str_contains($databaseSource, "['source' => 'database_upsert']")
+    || !str_contains($schedulerSource, "['source' => 'scheduled_tasks']")) {
+    bm_smoke_fail($failures, 'The core publication-transition seam is incomplete.');
+}
+if (!str_contains($schedulerSource, 'function bms_register_scheduled_task_handler')
+    || !str_contains($schedulerSource, 'function bms_run_registered_scheduled_tasks')
+    || !str_contains($schedulerSource, "'task_results' =>")) {
+    bm_smoke_fail($failures, 'The generic scheduled-task handler registry is incomplete.');
+}
+foreach (['activitypub_keys', 'activitypub_local_objects', 'activitypub_publication_events', 'activitypub_deliveries'] as $activityPubTable) {
+    if (!str_contains($activityPubMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub foundation migration is missing table: ' . $activityPubTable);
+    }
+}
+
+$activityPubDelivery = @file_get_contents($root . '/_bonumark_stream/app/activitypub-delivery.php') ?: '';
+$activityPubDeliveryMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0022_activitypub_publication_delivery.php') ?: '';
+$activityPubPermalinkMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0023_activitypub_permalink_aliases.php') ?: '';
+$activityPubGenerationMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0024_activitypub_publication_generations.php') ?: '';
+$activityPubInteractionMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0025_activitypub_remote_interactions.php') ?: '';
+$activityPubInteractions = @file_get_contents($root . '/_bonumark_stream/app/activitypub-interactions.php') ?: '';
+$activityPubOwnerMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0026_activitypub_owner_participation.php') ?: '';
+$activityPubOwner = @file_get_contents($root . '/_bonumark_stream/app/activitypub-owner.php') ?: '';
+$activityPubFollowing = @file_get_contents($root . '/_bonumark_stream/app/following.php') ?: '';
+$activityPubFollowingTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/default/templates/following.php') ?: '';
+$publicRoutesSource = @file_get_contents($root . '/_bonumark_stream/app/routes.php') ?: '';
+if (!str_contains($activityPubDelivery, "delivery_type = 'publication'")
+    || !str_contains($activityPubDelivery, 'event_id IS NOT NULL')
+    || !str_contains($activityPubDelivery, 'bms_activitypub_queue_publication_fanout')
+    || !str_contains($activityPubDeliveryMigration, 'transition_fingerprint')
+    || !str_contains($activityPubPermalinkMigration, 'activitypub_permalink_aliases')
+    || !str_contains($activityPubGenerationMigration, 'post_generation')
+    || !str_contains($activityPubDelivery, 'bms_activitypub_highest_publication_generation')
+    || !str_contains($activityPubDelivery, 'function bms_activitypub_permalink_alias_target')
+    || !str_contains($publicRoutesSource, 'bms_activitypub_permalink_alias_target')) {
+    $failures[] = 'Stage 4 durable publication activity and delivery isolation are incomplete.';
+}
+foreach (['activitypub_blocks', 'activitypub_remote_replies', 'activitypub_remote_interactions', 'activitypub_interaction_log'] as $activityPubTable) {
+    if (!str_contains($activityPubInteractionMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub Stage 5 migration is missing table: ' . $activityPubTable);
+    }
+}
+if (!str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_create')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_update')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_reply_delete')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_remote_interaction')
+    || !str_contains($activityPubInteractions, 'function bms_activitypub_process_interaction_undo')
+    || !str_contains($activityPubInteractions, 'target_publication_generation')
+    || !str_contains($activityPubInteractions, 'bms_activitypub_sanitize_remote_html')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 5 generation-aware inbound interaction handling is incomplete.');
+}
+foreach (['activitypub_follow_log', 'activitypub_remote_objects', 'activitypub_owner_interactions', 'activitypub_owner_action_log', 'activitypub_reply_targets'] as $activityPubTable) {
+    if (!str_contains($activityPubOwnerMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub Stage 6 migration is missing table: ' . $activityPubTable);
+    }
+}
+foreach (['bms_activitypub_follow_remote_actor', 'bms_activitypub_unfollow_remote_actor', 'bms_activitypub_fetch_remote_object', 'bms_activitypub_create_owner_reply_draft', 'bms_activitypub_owner_interact', 'bms_activitypub_owner_undo_interaction', 'bms_activitypub_run_owner_deliveries'] as $ownerFunction) {
+    if (!str_contains($activityPubOwner, 'function ' . $ownerFunction)) {
+        bm_smoke_fail($failures, 'ActivityPub Stage 6 owner participation is missing: ' . $ownerFunction);
+    }
+}
+if (!str_contains($activityPubFollowing, 'function bms_handle_activitypub_following_route')
+    || !str_contains($activityPubFollowing, 'bms_activitypub_following_private_headers')
+    || !str_contains($activityPubFollowing, "bms_current_user_can('view_admin')")
+    || !str_contains($activityPubFollowing, 'bms_verify_csrf()')
+    || !str_contains($activityPubFollowing, "'private_surface' => true")
+    || !str_contains($activityPubFollowingTemplate, 'following_action')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 6.5 private owner frontend boundaries are incomplete.');
+}
+$activityPubRoutes = @file_get_contents($root . '/_bonumark_stream/app/activitypub-routes.php') ?: '';
+$activityPubSerialization = @file_get_contents($root . '/_bonumark_stream/app/activitypub-serialization.php') ?: '';
+$activityPubSecurity = @file_get_contents($root . '/_bonumark_stream/app/activitypub-security.php') ?: '';
+$activityPubInbox = @file_get_contents($root . '/_bonumark_stream/app/activitypub-inbox.php') ?: '';
+$activityPubInboxMigration = @file_get_contents($root . '/_bonumark_stream/migrations/0020_activitypub_inbox_followers.php') ?: '';
+$frontController = @file_get_contents($root . '/index.php') ?: '';
+$apacheRoutes = @file_get_contents($root . '/.htaccess') ?: '';
+$nginxRoutes = @file_get_contents($root . '/docs/server/bonumark-stream-nginx.conf') ?: '';
+if (!str_contains($apacheRoutes, 'following/conversation') || !str_contains($nginxRoutes, 'following/conversation')) {
+    bm_smoke_fail($failures, 'ActivityPub Stage 6.5 private Following routing is incomplete.');
+}
+if (!str_contains($activityPubRoutes, 'function bms_dispatch_activitypub_route')
+    || !str_contains($activityPubSerialization, 'function bms_activitypub_actor_document')
+    || !str_contains($activityPubSerialization, 'function bms_activitypub_outbox_document')) {
+    bm_smoke_fail($failures, 'ActivityPub read-only identity and serialization are incomplete.');
+}
+foreach (['activitypub_webfinger', 'activitypub_actor', 'activitypub_inbox', 'activitypub_outbox', 'activitypub_followers', 'activitypub_following', 'activitypub_object', 'activitypub_create_activity', 'activitypub_event_activity', 'activitypub_owner_activity'] as $activityPubRoute) {
+    if (!str_contains($frontController . $apacheRoutes . $nginxRoutes, $activityPubRoute)) {
+        bm_smoke_fail($failures, 'ActivityPub routing is incomplete: ' . $activityPubRoute);
+    }
+}
+if (!str_contains($apacheRoutes, 'activitypub/objects/([1-9][0-9]*)/generations/([1-9][0-9]*)')
+    || !str_contains($nginxRoutes, 'activitypub/objects/([1-9][0-9]*)/generations/([1-9][0-9]*)')) {
+    bm_smoke_fail($failures, 'ActivityPub generation-aware object routing is incomplete.');
+}
+if (str_contains($activityPubRoutes, 'curl_')
+    || !str_contains($activityPubSecurity, 'CURLOPT_RESOLVE')
+    || !str_contains($activityPubSecurity, 'CURLOPT_FOLLOWLOCATION => false')
+    || !str_contains($activityPubSecurity, 'function bms_activitypub_verify_rfc9421_http_signature')
+    || !str_contains($activityPubSecurity, "'format' => 'rfc9421'")
+    || !str_contains($activityPubInbox, "delivery_type = 'follower_response'")
+    || !str_contains($activityPubInbox, 'event_id IS NULL')) {
+    bm_smoke_fail($failures, 'The Stage 3 inbox and response-delivery security boundary is incomplete.');
+}
+foreach (['activitypub_remote_actors', 'activitypub_inbox_receipts', 'activitypub_signature_replays', 'activitypub_followers', 'activitypub_following'] as $activityPubTable) {
+    if (!str_contains($activityPubInboxMigration, '{{prefix}}' . $activityPubTable)) {
+        bm_smoke_fail($failures, 'ActivityPub inbox migration is missing table: ' . $activityPubTable);
+    }
+}
+foreach ([
+    "RewriteRule ^profile/([A-Za-z0-9._-]+)/?$",
+    "RewriteRule ^stream/([A-Za-z0-9._-]+)/?$",
+] as $humanRoute) {
+    if (!str_contains($apacheRoutes, $humanRoute)) {
+        bm_smoke_fail($failures, 'ActivityPub changed or removed an existing human-facing route: ' . $humanRoute);
+    }
+}
+
 $manifestPath = $root . '/_bonumark_stream/RELEASE-MANIFEST.json';
 $manifest = is_file($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
-if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
+if ($checkReleaseManifest && (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files']))) {
     bm_smoke_fail($failures, 'Release manifest is missing or invalid.');
-} else {
+} elseif ($checkReleaseManifest) {
     $manifestFiles = [];
     foreach ($manifest['files'] as $entry) {
         $relative = str_replace('\\', '/', (string)($entry['path'] ?? ''));
