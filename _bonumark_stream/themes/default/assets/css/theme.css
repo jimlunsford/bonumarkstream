@@ -4499,8 +4499,15 @@ body.bonumark-public.context-following-page .following-actions > .following-acti
   color: var(--ledger-muted);
 }
 
-body.bonumark-public.context-following-page .stream-meta-pill.is-active {
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill.is-active,
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill.is-active:hover,
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill.is-active:focus-visible,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill.is-active,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill.is-active:hover,
+body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill.is-active:focus-visible {
   border-color: var(--ledger-accent);
+  background: color-mix(in srgb, var(--ledger-accent) 14%, var(--ledger-panel-soft));
+  color: var(--ledger-accent);
 }
 
 body.bonumark-public.context-following-page .following-empty {

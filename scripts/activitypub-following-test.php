@@ -17,6 +17,29 @@ function bms_ap_following_assert(bool $condition, string $message): void
     }
 }
 
+function bms_ap_following_render_composer(array $viewData): string
+{
+    $bms_theme_data = $viewData;
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/composer.php';
+    return (string)ob_get_clean();
+}
+
+function bms_ap_following_primary_composer_control(string $html): array
+{
+    if (preg_match('/<button\b(?=[^>]*\bdata-stream-primary-submit\b)([^>]*)>([^<]*)<\/button>/i', $html, $button) !== 1) {
+        throw new RuntimeException('The rendered composer is missing its primary control.');
+    }
+    $control = ['text' => html_entity_decode(trim((string)$button[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8')];
+    foreach (['data-ready-label', 'data-busy-label', 'data-publish-label', 'data-publish-busy-label', 'data-schedule-label', 'data-schedule-busy-label'] as $attribute) {
+        if (preg_match('/\b' . preg_quote($attribute, '/') . '="([^"]*)"/i', (string)$button[1], $value) !== 1) {
+            throw new RuntimeException('The rendered composer primary control is missing ' . $attribute . '.');
+        }
+        $control[$attribute] = html_entity_decode((string)$value[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return $control;
+}
+
 bms_ap_following_assert(bms_activitypub_following_access_state(false, true, true, false) === 'not_found', 'Disabled ActivityPub exposed Following.');
 bms_ap_following_assert(bms_activitypub_following_access_state(true, false, false, false) === 'login', 'Logged-out Following did not require authentication.');
 bms_ap_following_assert(bms_activitypub_following_access_state(true, true, false, false) === 'not_found', 'A Commenter received Following access.');
@@ -88,6 +111,13 @@ $renderer = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/render
 $quickPost = (string)file_get_contents(__DIR__ . '/../admin/quick-post.php');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
+$themeManifest = json_decode((string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/theme.json'), true);
+$ordinaryComposerControl = bms_ap_following_primary_composer_control(bms_ap_following_render_composer(['can_publish' => true]));
+$replyComposerControl = bms_ap_following_primary_composer_control(bms_ap_following_render_composer([
+    'can_publish' => true,
+    'submit_label' => 'Reply',
+    'busy_label' => 'Replying...',
+]));
 bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
 bms_ap_following_assert(str_contains($routes, "'following_conversation'") && str_contains($routes, 'bms_handle_activitypub_following_route'), 'Private Following routes are not core-owned.');
 bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following'") && str_contains($appearance, "bms_current_user_can('view_admin')"), 'Owner-only Following navigation is incomplete.');
@@ -106,6 +136,25 @@ bms_ap_following_assert(!str_contains($template, '<div class="stream-card-tags">
 bms_ap_following_assert(str_contains($commentsTemplate, 'class="comment-form"') && str_contains($commentsTemplate, 'class="comment-form-actions"') && str_contains($commentsTemplate, '>Add a comment</label>'), 'The local comment-form presentation contract changed unexpectedly.');
 bms_ap_following_assert(str_contains($template, '<?= $replyComposerHtml ?>') && !str_contains($template, 'Create Reply Draft'), 'Following does not render the established frontend Stream composer for replies.');
 bms_ap_following_assert(str_contains($composerTemplate, 'name="activitypub_reply_object_uri"') && str_contains($composerTemplate, '$textareaLabel'), 'The shared frontend composer cannot carry accessible reply context.');
+bms_ap_following_assert($ordinaryComposerControl === [
+    'text' => 'Post',
+    'data-ready-label' => 'Post',
+    'data-busy-label' => 'Posting...',
+    'data-publish-label' => 'Post',
+    'data-publish-busy-label' => 'Posting...',
+    'data-schedule-label' => 'Schedule',
+    'data-schedule-busy-label' => 'Scheduling...',
+], 'The ordinary frontend composer no longer exposes the expected ready, publish, busy, and schedule labels.');
+bms_ap_following_assert($replyComposerControl === [
+    'text' => 'Reply',
+    'data-ready-label' => 'Reply',
+    'data-busy-label' => 'Replying...',
+    'data-publish-label' => 'Reply',
+    'data-publish-busy-label' => 'Replying...',
+    'data-schedule-label' => 'Schedule',
+    'data-schedule-busy-label' => 'Scheduling...',
+], 'The reply composer does not preserve its caller-supplied labels across publish and schedule state.');
+bms_ap_following_assert(str_contains($streamJs, "submit.getAttribute('data-publish-label')") && str_contains($streamJs, "submit.getAttribute('data-publish-busy-label')") && str_contains($streamJs, 'scheduleSubmitLabel(isActive)'), 'Scheduling no longer restores the shared composer publish labels supplied by its caller.');
 bms_ap_following_assert(str_contains($renderer, "'reply_object_uri'") && str_contains($renderer, "'textarea_label'"), 'Frontend composer overrides do not expose the bounded reply contract.');
 bms_ap_following_assert(str_contains($quickPost, 'bms_activitypub_save_owner_reply_post') && str_contains($quickPost, "\$_POST['activitypub_reply_object_uri']"), 'Quick Post does not preserve remote reply metadata through normal frontend publishing.');
 bms_ap_following_assert(!str_contains($template, 'following-reply-control') && !str_contains($template, '>Reply</summary>'), 'A redundant disclosure still separates remote replies from the frontend composer experience.');
@@ -141,10 +190,14 @@ foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .ledger-header'), 'Following masthead does not share the public Stream width.');
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .stream-card-media') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-media.is-gallery') && str_contains($themeCss, 'aspect-ratio: 16 / 10;'), 'Midnight Ledger does not own Following media composition.');
     bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill') && str_contains($themeCss, 'min-height: 44px;') && str_contains($themeCss, 'var(--ledger-accent)'), 'Midnight Ledger does not own phone-friendly Following interaction presentation.');
+    bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-actions > \.following-action-form > \.stream-meta-pill\.is-active:focus-visible\s*\{([^}]*)\}/s', $themeCss, $activeRule) === 1, 'Midnight Ledger active Following controls do not outrank the neutral action rule through keyboard focus.');
+    $activeDeclarations = (string)($activeRule[1] ?? '');
+    bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill.is-active:hover') && str_contains($activeDeclarations, 'border-color: var(--ledger-accent);') && str_contains($activeDeclarations, 'background: color-mix(in srgb, var(--ledger-accent) 14%, var(--ledger-panel-soft));') && str_contains($activeDeclarations, 'color: var(--ledger-accent);'), 'Midnight Ledger active Like and Boost controls lack distinct theme-token border, background, or text states.');
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .stream-compose') && !str_contains($themeCss, '.following-reply-form button'), 'Midnight Ledger no longer styles remote replies through the native Stream composer contract.');
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .following-feed-item') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-reply-region'), 'Midnight Ledger does not align the remote reply discussion surface with local comments.');
     bms_ap_following_assert(!str_contains($themeCss, 'activitypub_remote_objects') && !str_contains($themeCss, 'following_action') && !str_contains($themeCss, 'inReplyTo'), 'ActivityPub behavior or protocol data moved into theme CSS.');
 }
+bms_ap_following_assert(is_array($themeManifest) && (string)($themeManifest['version'] ?? '') === '1.9.3', 'Midnight Ledger did not advance its cache revision for the corrected Following CSS.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
 bms_ap_following_assert(!str_contains($activityPubAdmin, 'Private owner inbox') && !str_contains($activityPubAdmin, "'owner_reply'") && !str_contains($activityPubAdmin, "'owner_like'") && !str_contains($activityPubAdmin, "'owner_announce'") && !str_contains($activityPubAdmin, "'undo_owner_interaction'"), 'Normal remote-content participation drifted back into Admin instead of remaining in Following.');

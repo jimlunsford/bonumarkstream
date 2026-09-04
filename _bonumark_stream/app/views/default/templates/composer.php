@@ -16,6 +16,8 @@ $locationPickerHtml = (string)($data['location_picker_html'] ?? '');
 $sectionLabel = trim((string)($data['section_label'] ?? '')) ?: 'Create a Stream Post';
 $textareaLabel = trim((string)($data['textarea_label'] ?? '')) ?: 'Write a stream post';
 $replyObjectUri = trim((string)($data['reply_object_uri'] ?? ''));
+$primaryReadyLabel = (string)($data['submit_label'] ?? ($canPublish ? 'Post' : 'Save draft'));
+$primaryBusyLabel = (string)($data['busy_label'] ?? ($canPublish ? 'Posting...' : 'Saving...'));
 ?>
 <section id="stream-composer" class="stream-compose" aria-label="<?= htmlspecialchars($sectionLabel, ENT_QUOTES, 'UTF-8') ?>">
   <form id="stream-composer-form" class="stream-compose-form" method="post" action="<?= htmlspecialchars((string)($data['action_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-stream-form data-stream-scheduled-runner-url="<?= htmlspecialchars((string)($data['scheduled_runner_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -109,7 +111,7 @@ $replyObjectUri = trim((string)($data['reply_object_uri'] ?? ''));
             </div>
           </details>
         </div>
-        <button type="submit" class="stream-compose-submit" data-stream-submit data-stream-primary-submit data-stream-action="<?= $canPublish ? 'publish' : 'draft' ?>" name="stream_submit_action_button" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-ready-label="<?= htmlspecialchars((string)($data['submit_label'] ?? ($canPublish ? 'Post' : 'Save draft')), ENT_QUOTES, 'UTF-8') ?>" data-busy-label="<?= htmlspecialchars((string)($data['busy_label'] ?? ($canPublish ? 'Posting...' : 'Saving...')), ENT_QUOTES, 'UTF-8') ?>" data-publish-label="Post" data-publish-busy-label="Posting..." data-schedule-label="Schedule" data-schedule-busy-label="Scheduling..."><?= htmlspecialchars((string)($data['submit_label'] ?? ($canPublish ? 'Post' : 'Save draft')), ENT_QUOTES, 'UTF-8') ?></button>
+        <button type="submit" class="stream-compose-submit" data-stream-submit data-stream-primary-submit data-stream-action="<?= $canPublish ? 'publish' : 'draft' ?>" name="stream_submit_action_button" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-ready-label="<?= htmlspecialchars($primaryReadyLabel, ENT_QUOTES, 'UTF-8') ?>" data-busy-label="<?= htmlspecialchars($primaryBusyLabel, ENT_QUOTES, 'UTF-8') ?>" data-publish-label="<?= htmlspecialchars($primaryReadyLabel, ENT_QUOTES, 'UTF-8') ?>" data-publish-busy-label="<?= htmlspecialchars($primaryBusyLabel, ENT_QUOTES, 'UTF-8') ?>" data-schedule-label="Schedule" data-schedule-busy-label="Scheduling..."><?= htmlspecialchars($primaryReadyLabel, ENT_QUOTES, 'UTF-8') ?></button>
       </div>
 
 
