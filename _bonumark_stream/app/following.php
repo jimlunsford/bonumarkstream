@@ -270,11 +270,6 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
             bms_verify_csrf();
             $action = strtolower(trim((string)($_POST['following_action'] ?? '')));
             $objectUri = bms_activitypub_identifier_uri((string)($_POST['object_uri'] ?? ''), false);
-            if ($action === 'reply') {
-                $reply = bms_activitypub_create_owner_reply_draft($objectUri, (string)($_POST['reply_body'] ?? ''), '');
-                bms_flash('A normal Bonumark Stream reply draft was created.', 'success');
-                bms_redirect(bms_admin_url('edit.php?type=draft&file=' . rawurlencode((string)$reply['filename'])));
-            }
             if ($action === 'like' || $action === 'boost') {
                 $type = $action === 'like' ? 'Like' : 'Announce';
                 bms_activitypub_owner_interact($type, $objectUri);
@@ -310,6 +305,35 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
         }
     }
 
+    $noticeHtml = bms_render_public_flash_notices();
+    $replyComposerHtml = '';
+    if ($conversation && $conversationItems !== []) {
+        foreach ($conversationItems as $conversationItem) {
+            if (!hash_equals($objectUri, (string)($conversationItem['object_uri'] ?? ''))
+                || (string)($conversationItem['lifecycle_state'] ?? '') === 'deleted') {
+                continue;
+            }
+            $actorLabel = trim((string)($conversationItem['actor_handle'] ?? ''));
+            if ($actorLabel === '') {
+                $actorLabel = trim((string)($conversationItem['actor_name'] ?? 'remote post'));
+            }
+            $replyComposerHtml = bms_render_stream_composer(
+                bms_activitypub_following_redirect_url($objectUri),
+                [
+                    'section_label' => 'Reply to ' . $actorLabel,
+                    'textarea_label' => 'Write a reply',
+                    'placeholder' => 'Write a reply...',
+                    'submit_label' => 'Reply',
+                    'busy_label' => 'Replying...',
+                    'draft_label' => 'Save reply draft',
+                    'draft_busy_label' => 'Saving reply...',
+                    'reply_object_uri' => $objectUri,
+                ]
+            );
+            break;
+        }
+    }
+
     $siteName = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
     echo bms_render_public_theme_template('following', [
         'private_surface' => true,
@@ -325,12 +349,13 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
         'header_html' => bms_render_public_header('following', null, bms_url_path('following/')),
         'footer_html' => bms_render_public_footer(bms_url_path('following/')),
         'csrf' => bms_csrf_token(),
-        'notice_html' => bms_render_public_flash_notices(),
+        'notice_html' => $noticeHtml,
         'items' => $conversation ? $conversationItems : $items,
         'timeline_count' => count($items),
         'conversation' => $conversation,
         'conversation_object_uri' => $conversation ? $objectUri : '',
         'conversation_found' => !$conversation || $conversationItems !== [],
         'following_url' => bms_url_path('following/'),
+        'reply_composer_html' => $replyComposerHtml,
     ]);
 }

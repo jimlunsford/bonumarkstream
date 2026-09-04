@@ -849,7 +849,7 @@ function bms_activitypub_owner_undo_interaction(int $interactionId, ?callable $f
     }
 }
 
-function bms_activitypub_create_owner_reply_draft(string $targetUri, string $body, string $title = ''): array
+function bms_activitypub_owner_reply_remote_object(string $targetUri): array
 {
     if (!bms_activitypub_enabled()) {
         throw new RuntimeException('ActivityPub is disabled.');
@@ -858,6 +858,80 @@ function bms_activitypub_create_owner_reply_draft(string $targetUri, string $bod
     if (bms_activitypub_actor_is_blocked((string)$object['actor_uri'])) {
         throw new BmsActivityPubSecurityException('The target actor is blocked.', 403);
     }
+    return $object;
+}
+
+function bms_activitypub_attach_owner_reply_target(int $postId, array $object): array
+{
+    if ($postId < 1) {
+        throw new InvalidArgumentException('The reply post identity is invalid.');
+    }
+    $objectUri = bms_activitypub_identifier_uri((string)($object['object_uri'] ?? ''), false);
+    $actorUri = bms_activitypub_identifier_uri((string)($object['actor_uri'] ?? ''), false);
+    $remoteObjectId = max(0, (int)($object['id'] ?? 0));
+    $remoteActorId = max(0, (int)($object['remote_actor_id'] ?? 0));
+    if ($remoteObjectId < 1 || $remoteActorId < 1) {
+        throw new RuntimeException('The remote reply target is unavailable.');
+    }
+    $post = bms_db()->prepare('SELECT post_type FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+    $post->execute(['id' => $postId]);
+    if ((string)$post->fetchColumn() !== 'stream') {
+        throw new RuntimeException('The reply must remain a normal Stream Post.');
+    }
+    $existing = bms_activitypub_reply_target_for_post($postId);
+    if (is_array($existing)) {
+        if (!hash_equals((string)$existing['in_reply_to_uri'], $objectUri)
+            || !hash_equals((string)$existing['actor_uri'], $actorUri)) {
+            throw new RuntimeException('The Stream Post is already attached to a different remote reply target.');
+        }
+        return $existing;
+    }
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_reply_targets') . ' (post_id, remote_object_id, remote_actor_id, actor_uri, in_reply_to_uri, created_at, updated_at) VALUES (:post_id, :remote_object_id, :remote_actor_id, :actor_uri, :in_reply_to_uri, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
+    $stmt->execute(['post_id' => $postId, 'remote_object_id' => $remoteObjectId, 'remote_actor_id' => $remoteActorId, 'actor_uri' => $actorUri, 'in_reply_to_uri' => $objectUri]);
+    return bms_activitypub_reply_target_for_post($postId) ?? [];
+}
+
+function bms_activitypub_save_owner_reply_post(array $page, string $section, string $filename, ?int $authorId, string $targetUri): int
+{
+    if (!in_array($section, ['drafts', 'scheduled', 'published'], true)) {
+        throw new InvalidArgumentException('The reply post status is invalid.');
+    }
+    $object = bms_activitypub_owner_reply_remote_object($targetUri);
+    $pdo = bms_db();
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    }
+    try {
+        $draft = bms_database_content_page_for_status($page, 'draft', 'stream');
+        $postId = bms_upsert_database_content($draft, 'drafts', $filename, $authorId);
+        bms_activitypub_attach_owner_reply_target($postId, $object);
+        if ($section === 'scheduled') {
+            $scheduled = bms_database_content_page_for_status($page, 'scheduled', 'stream');
+            $scheduled['post_id'] = $postId;
+            $scheduled['id'] = $postId;
+            $postId = bms_upsert_database_content($scheduled, 'scheduled', $filename, $authorId);
+        } elseif ($section === 'published') {
+            $published = bms_database_content_page_for_status($page, 'published', 'stream');
+            $published['post_id'] = $postId;
+            $published['id'] = $postId;
+            $postId = bms_upsert_database_content($published, 'published', $filename, $authorId);
+        }
+        if ($ownsTransaction) {
+            $pdo->commit();
+        }
+        return $postId;
+    } catch (Throwable $e) {
+        if ($ownsTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function bms_activitypub_create_owner_reply_draft(string $targetUri, string $body, string $title = ''): array
+{
+    $object = bms_activitypub_owner_reply_remote_object($targetUri);
     $body = trim(str_replace(["\r\n", "\r"], "\n", $body));
     if ($body === '' || strlen($body) > 2 * 1024 * 1024) {
         throw new InvalidArgumentException('The reply body is empty or too large.');
@@ -877,9 +951,7 @@ function bms_activitypub_create_owner_reply_draft(string $targetUri, string $bod
         'stream_created_at' => gmdate('Y-m-d H:i:s'),
     ], $body);
     $page = bms_parse_markdown_string($raw);
-    $postId = bms_upsert_database_content($page, 'drafts', $slug . '.md', bms_current_user_id());
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_reply_targets') . ' (post_id, remote_object_id, remote_actor_id, actor_uri, in_reply_to_uri, created_at, updated_at) VALUES (:post_id, :remote_object_id, :remote_actor_id, :actor_uri, :in_reply_to_uri, UTC_TIMESTAMP(), UTC_TIMESTAMP())');
-    $stmt->execute(['post_id' => $postId, 'remote_object_id' => (int)$object['id'], 'remote_actor_id' => (int)$object['remote_actor_id'], 'actor_uri' => (string)$object['actor_uri'], 'in_reply_to_uri' => (string)$object['object_uri']]);
+    $postId = bms_activitypub_save_owner_reply_post($page, 'drafts', $slug . '.md', bms_current_user_id(), (string)$object['object_uri']);
     return ['post_id' => $postId, 'slug' => $slug, 'filename' => $slug . '.md', 'in_reply_to_uri' => (string)$object['object_uri']];
 }
 

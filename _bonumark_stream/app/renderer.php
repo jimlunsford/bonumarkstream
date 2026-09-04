@@ -155,7 +155,7 @@ function bms_render_stream_composer_mount(): string
 }
 
 
-function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
+function bms_stream_composer_view_data(?string $returnToOverride = null, array $overrides = []): ?array
 {
     $canEdit = function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
     $canPublish = function_exists('bms_current_user_can') && bms_current_user_can('publish_content');
@@ -193,7 +193,7 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
 
     $returnSource = $returnToOverride !== null ? $returnToOverride : (string)($_SERVER['REQUEST_URI'] ?? bms_url_path());
 
-    return [
+    $view = [
         'action_url' => bms_admin_url('quick-post.php'),
         'csrf' => function_exists('bms_csrf_token') ? bms_csrf_token() : '',
         'return_to' => bms_stream_safe_return_url($returnSource),
@@ -221,11 +221,24 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         'timezone_label' => function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : 'UTC',
         'flashes' => $flashes,
     ];
+
+    $allowedOverrides = [
+        'section_label', 'textarea_label', 'placeholder', 'submit_label', 'busy_label',
+        'draft_label', 'draft_busy_label', 'continue_label',
+        'continue_busy_label', 'help_text', 'reply_object_uri',
+    ];
+    foreach ($allowedOverrides as $key) {
+        if (array_key_exists($key, $overrides)) {
+            $view[$key] = (string)$overrides[$key];
+        }
+    }
+
+    return $view;
 }
 
-function bms_render_stream_composer(?string $returnToOverride = null): string
+function bms_render_stream_composer(?string $returnToOverride = null, array $overrides = []): string
 {
-    $view = bms_stream_composer_view_data($returnToOverride);
+    $view = bms_stream_composer_view_data($returnToOverride, $overrides);
     if ($view === null) {
         return '';
     }

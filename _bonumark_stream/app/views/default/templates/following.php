@@ -4,6 +4,7 @@ $data = ml_theme_data($bms_theme_data ?? []);
 $items = is_array($data['items'] ?? null) ? $data['items'] : [];
 $conversation = !empty($data['conversation']);
 $conversationObjectUri = (string)($data['conversation_object_uri'] ?? '');
+$replyComposerHtml = (string)($data['reply_composer_html'] ?? '');
 $csrf = (string)($data['csrf'] ?? '');
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ml_open_document($data, [
@@ -28,8 +29,7 @@ ml_open_document($data, [
           </section>
         <?php elseif (!$items): ?>
           <section class="following-empty stream-state-card">
-            <h2>No remote posts are cached yet</h2>
-            <p>Posts delivered by actors you follow will appear here after their signed activities pass Bonumark’s federation boundary.</p>
+            <h2>New posts from people you follow will appear here.</h2>
           </section>
         <?php else: ?>
           <section class="following-feed" aria-label="<?= $conversation ? 'Remote conversation' : 'Following timeline' ?>">
@@ -38,7 +38,6 @@ ml_open_document($data, [
               $like = is_array($item['like'] ?? null) ? $item['like'] : [];
               $announce = is_array($item['announce'] ?? null) ? $item['announce'] : [];
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
-              $replyFieldId = 'following_reply_body_' . substr(hash('sha256', (string)($item['object_uri'] ?? '')), 0, 12);
               $conversationUrl = (string)($item['conversation_url'] ?? '');
               $replyUrl = (string)($item['reply_url'] ?? $conversationUrl);
               $replyAnchorId = (string)($item['reply_anchor_id'] ?? '');
@@ -63,13 +62,15 @@ ml_open_document($data, [
                       </a>
                       <?php if ((string)($item['actor_handle'] ?? '') !== ''): ?><span class="following-handle"><?= $h((string)$item['actor_handle']) ?></span><?php endif; ?>
                       <span class="stream-card-separator" aria-hidden="true">&middot;</span>
-                      <a class="following-time stream-card-datetime stream-card-permalink stream-permalink" href="<?= $h($conversationUrl) ?>">
-                        <time<?= (string)($item['published_datetime'] ?? '') !== '' ? ' datetime="' . $h((string)$item['published_datetime']) . '"' : '' ?>><?= $h((string)($item['published_label'] ?? 'Time unavailable')) ?></time>
-                      </a>
+                      <?php if ($conversation): ?>
+                        <span class="following-time stream-card-datetime"><time<?= (string)($item['published_datetime'] ?? '') !== '' ? ' datetime="' . $h((string)$item['published_datetime']) . '"' : '' ?>><?= $h((string)($item['published_label'] ?? 'Time unavailable')) ?></time></span>
+                      <?php else: ?>
+                        <a class="following-time stream-card-datetime stream-card-permalink stream-permalink" href="<?= $h($conversationUrl) ?>"><time<?= (string)($item['published_datetime'] ?? '') !== '' ? ' datetime="' . $h((string)$item['published_datetime']) . '"' : '' ?>><?= $h((string)($item['published_label'] ?? 'Time unavailable')) ?></time></a>
+                      <?php endif; ?>
                     </header>
 
                     <?php if ($deleted): ?>
-                      <div class="following-tombstone"><strong>Deleted remote post</strong><p>This object remains tombstoned and cannot be revived by a stale Create or Update.</p></div>
+                      <div class="following-tombstone"><p>This post was deleted and is no longer available.</p></div>
                     <?php else: ?>
                       <?php if (!empty($item['sensitive']) && (string)($item['summary'] ?? '') !== ''): ?>
                         <details class="following-sensitive">
@@ -102,7 +103,7 @@ ml_open_document($data, [
 
                     <div class="following-meta stream-card-meta">
                       <div class="following-actions stream-card-actions">
-                        <a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a>
+                        <?php if (!$conversation): ?><a class="stream-meta-pill" href="<?= $h((string)($item['conversation_url'] ?? '')) ?>">Conversation</a><?php endif; ?>
                         <a class="stream-meta-pill" href="<?= $h((string)($item['permalink'] ?? '')) ?>" rel="nofollow noopener noreferrer">Remote post</a>
                         <?php if (!$deleted): ?>
                           <a class="stream-meta-pill following-reply-link" href="<?= $h($replyUrl) ?>">Reply</a>
@@ -131,16 +132,7 @@ ml_open_document($data, [
               </article>
               <?php if (!$deleted && $replyTarget): ?>
                 <section class="following-reply-region stream-comments" id="<?= $h($replyAnchorId) ?>" aria-label="Reply to <?= $h((string)($item['actor_name'] ?? 'remote post')) ?>">
-                  <form method="post" class="following-reply-form comment-form">
-                    <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
-                    <input type="hidden" name="following_action" value="reply">
-                    <input type="hidden" name="object_uri" value="<?= $h((string)$item['object_uri']) ?>">
-                    <label for="<?= $h($replyFieldId) ?>">Add a reply</label>
-                    <textarea id="<?= $h($replyFieldId) ?>" name="reply_body" rows="4" maxlength="2097152" required></textarea>
-                    <div class="comment-form-actions">
-                      <button type="submit">Create Reply Draft</button>
-                    </div>
-                  </form>
+                  <?= $replyComposerHtml ?>
                 </section>
               <?php endif; ?>
               </div>

@@ -12,6 +12,7 @@ Bonumark Stream v0.8.0 adds optional ActivityPub federation while preserving Bon
 - Adds stable single-owner WebFinger and actor discovery plus read-only outbox and object routes.
 - Supports follower requests, approval or rejection, Follow and Unfollow, inbound replies, Likes, boosts, and exact Undo behavior.
 - Adds a private, chronological, non-algorithmic frontend Following timeline with private conversation views and owner Reply, Like, Unlike, Boost, and Unboost actions.
+- Keeps replies inside the native frontend Stream composer, removes redundant conversation self-links, uses plain-language empty and deleted states, and enlarges Following actions for dependable touch use.
 - Keeps remote actors separate from local accounts and remote content separate from Bonumark's public Stream and archive.
 - Preserves durable local post identity while assigning each federated publication lifetime its own immutable object generation.
 - Permanently Tombstones a deleted generation and gives a republished post a new ActivityPub object identity.

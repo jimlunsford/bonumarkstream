@@ -1,7 +1,7 @@
 {
   "name": "Midnight Ledger",
   "slug": "default",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "author": "Bonumark",
   "description": "The bundled Bonumark Stream default theme. Midnight Ledger uses validated Declarative Layout Schema 1 composition across Profile, Stream Card, Site Header, and Home with a refined dark editorial presentation, responsive polish, surface-aligned canvases, and a content-resilient Profile that keeps About/supporting information balanced above full-width Featured and Photos sections while Bonumark Stream core owns all application behavior.",
   "screenshot": "assets/images/screenshot.svg",

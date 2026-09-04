@@ -54,6 +54,7 @@ if (!in_array($robots, ['', 'index,follow', 'noindex,follow'], true)) {
 
 $targetStatus = $submitAction === 'schedule' ? 'scheduled' : (in_array($submitAction, ['draft', 'continue'], true) ? 'draft' : 'published');
 $targetSection = $targetStatus === 'scheduled' ? 'scheduled' : ($targetStatus === 'draft' ? 'drafts' : 'published');
+$replyObjectUri = trim((string)($_POST['activitypub_reply_object_uri'] ?? ''));
 $featuredMedia = '';
 $mediaGallery = [];
 $uploadedMedia = [];
@@ -141,25 +142,27 @@ try {
     }
 
     $filename = $slug . '.md';
-    if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
+    if ($replyObjectUri !== '') {
+        bms_activitypub_save_owner_reply_post($page, $targetSection, $filename, bms_current_user_id(), $replyObjectUri);
+    } elseif ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
         bms_schedule_post_page($page, 'scheduled', $filename, bms_current_user_id(), (string)$scheduledAtUtc);
     } elseif (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($page, $targetSection, $filename, bms_current_user_id());
     }
 
     if ($submitAction === 'continue') {
-        bms_flash('Draft created. Continue in the full editor for formatting, media-library insertion, preview, revisions, or longer writing.', 'success');
+        bms_flash(($replyObjectUri !== '' ? 'Reply draft created.' : 'Draft created.') . ' Continue in the full editor for formatting, media-library insertion, preview, revisions, or longer writing.', 'success');
         bms_redirect(bms_admin_url('edit.php?type=draft&file=' . rawurlencode($filename)));
     }
 
     if ($targetStatus === 'scheduled') {
-        bms_flash('Stream post scheduled for ' . bms_format_scheduled_datetime((string)$scheduledAtUtc) . '.', 'success');
+        bms_flash(($replyObjectUri !== '' ? 'Reply' : 'Stream post') . ' scheduled for ' . bms_format_scheduled_datetime((string)$scheduledAtUtc) . '.', 'success');
     } elseif ($targetStatus === 'draft') {
-        bms_flash('Draft saved. Open Drafts in Admin when you are ready to continue editing or publish it.', 'success');
+        bms_flash(($replyObjectUri !== '' ? 'Reply draft saved.' : 'Draft saved.') . ' Open Drafts in Admin when you are ready to continue editing or publish it.', 'success');
     } elseif (count($mediaGallery) > 1 && $body === '') {
         bms_flash(count($mediaGallery) . ' photos posted to the stream.', 'success');
     } else {
-        bms_flash($featuredMedia !== '' && $body === '' ? 'Media posted to the stream.' : 'Posted to the stream.', 'success');
+        bms_flash($replyObjectUri !== '' ? 'Reply posted.' : ($featuredMedia !== '' && $body === '' ? 'Media posted to the stream.' : 'Posted to the stream.'), 'success');
     }
 } catch (Throwable $e) {
     foreach (array_reverse($uploadedMedia) as $uploadedItem) {

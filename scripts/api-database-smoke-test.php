@@ -1678,6 +1678,27 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     if ((int)$replyTargets->fetchColumn() < 1) {
         throw new RuntimeException('Owner reply publication did not include its exact remote target actor.');
     }
+    $frontendReplyPage = bms_parse_markdown_string(bms_build_markdown_document([
+        'title' => 'Stage 6.5 frontend owner reply', 'slug' => 'stage-6-5-frontend-owner-reply',
+        'status' => 'published', 'content_type' => 'stream', 'date' => '2026-09-03',
+        'description' => '', 'category' => 'Stream', 'tags' => [],
+        'stream_created_at' => gmdate('Y-m-d H:i:s'),
+    ], 'Frontend owner reply body.'));
+    $frontendReplyId = bms_activitypub_save_owner_reply_post(
+        $frontendReplyPage,
+        'published',
+        'stage-6-5-frontend-owner-reply.md',
+        1,
+        $noteUri
+    );
+    $frontendReplyPost = bms_activitypub_find_stream_post($frontendReplyId);
+    $frontendGeneration = bms_activitypub_local_object_generation($frontendReplyId, 1);
+    $frontendPayload = is_array($frontendGeneration) ? json_decode((string)$frontendGeneration['last_object_json'], true) : null;
+    if (!is_array($frontendReplyPost) || (string)$frontendReplyPost['status'] !== 'published'
+        || !is_array($frontendGeneration) || (string)($frontendPayload['inReplyTo'] ?? '') !== $noteUri
+        || (string)(bms_activitypub_reply_target_for_post($frontendReplyId)['in_reply_to_uri'] ?? '') !== $noteUri) {
+        throw new RuntimeException('Frontend owner reply publishing did not bind inReplyTo before the normal publication transition.');
+    }
     $publishedReply = bms_activitypub_find_stream_post((int)$reply['post_id']);
     bms_update_stream_post_body((array)$publishedReply, 'Owner reply changed.');
     $latestType = (string)$pdo->query('SELECT event_type FROM ' . bms_table('activitypub_publication_events') . ' WHERE post_id = ' . (int)$reply['post_id'] . ' ORDER BY id DESC LIMIT 1')->fetchColumn();

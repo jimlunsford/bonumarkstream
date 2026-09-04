@@ -10,6 +10,9 @@
 - Preserves existing posts, Pages, profiles, comments, local Likes, media, themes, imports, exports, runtime data, configuration, accounts, settings, API state, and other owner data.
 - Updates all current version surfaces, user/operator documentation, package metadata, OpenAPI metadata, service-worker cache identity, and release notes for v0.8.0.
 - Expands release-candidate verification so release-branch compatibility jobs enforce the final manifest and validate a freshly built and extracted distributable package.
+- Rewrites deleted-post and Following empty-state copy in normal product language, removes redundant Conversation and timestamp self-links from conversation views, and gives Midnight Ledger's Following actions phone-friendly 44px targets.
+- Keeps owner replies frontend-facing by reusing the established Stream composer in Conversation and binding the remote `inReplyTo` target before normal draft, scheduled, or published post transitions.
+- Bumps Midnight Ledger to theme version 1.9.2 so the corrected interaction targets receive a fresh theme-owned asset cache revision.
 
 ## 0.7.2 - Database Smoke Test Correctness Pass
 

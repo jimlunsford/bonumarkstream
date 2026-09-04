@@ -13,11 +13,14 @@ $schedulePanelId = 'stream-compose-schedule-panel';
 $scheduleInputId = 'stream_scheduled_at_front';
 $flashes = is_array($data['flashes'] ?? null) ? $data['flashes'] : [];
 $locationPickerHtml = (string)($data['location_picker_html'] ?? '');
+$sectionLabel = trim((string)($data['section_label'] ?? '')) ?: 'Create a Stream Post';
+$textareaLabel = trim((string)($data['textarea_label'] ?? '')) ?: 'Write a stream post';
+$replyObjectUri = trim((string)($data['reply_object_uri'] ?? ''));
 ?>
-<section id="stream-composer" class="stream-compose" aria-label="Create a Stream Post">
+<section id="stream-composer" class="stream-compose" aria-label="<?= htmlspecialchars($sectionLabel, ENT_QUOTES, 'UTF-8') ?>">
   <form id="stream-composer-form" class="stream-compose-form" method="post" action="<?= htmlspecialchars((string)($data['action_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" enctype="multipart/form-data" data-stream-form data-stream-scheduled-runner-url="<?= htmlspecialchars((string)($data['scheduled_runner_url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <div class="stream-compose-inner">
-      <label for="<?= htmlspecialchars($textareaId, ENT_QUOTES, 'UTF-8') ?>" class="screen-reader-text">Write a stream post</label>
+      <label for="<?= htmlspecialchars($textareaId, ENT_QUOTES, 'UTF-8') ?>" class="screen-reader-text"><?= htmlspecialchars($textareaLabel, ENT_QUOTES, 'UTF-8') ?></label>
       <textarea id="<?= htmlspecialchars($textareaId, ENT_QUOTES, 'UTF-8') ?>" name="stream_body" class="stream-compose-textarea" rows="3" maxlength="5000" placeholder="<?= htmlspecialchars((string)($data['placeholder'] ?? 'What is happening?'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="<?= htmlspecialchars($helpId . ' ' . $previewId, ENT_QUOTES, 'UTF-8') ?>" data-stream-body><?= htmlspecialchars((string)($data['body_value'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
 
       <?php if ($canPublish): ?>
@@ -115,6 +118,7 @@ $locationPickerHtml = (string)($data['location_picker_html'] ?? '');
       <div id="<?= htmlspecialchars($linkPreviewId, ENT_QUOTES, 'UTF-8') ?>" class="stream-link-preview-composer" role="status" aria-live="polite" aria-atomic="true" data-link-preview data-link-preview-endpoint="<?= htmlspecialchars($linkPreviewEndpoint, ENT_QUOTES, 'UTF-8') ?>" hidden></div>
     </div>
     <?php if ((string)($data['csrf'] ?? '') !== ''): ?><input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$data['csrf'], ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
+    <?php if ($replyObjectUri !== ''): ?><input type="hidden" name="activitypub_reply_object_uri" value="<?= htmlspecialchars($replyObjectUri, ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
     <input type="hidden" name="return_to" value="<?= htmlspecialchars((string)($data['return_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="stream_submit_action" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-stream-submit-action>
     <input type="hidden" name="stream_schedule_enabled" value="0" data-stream-schedule-enabled>

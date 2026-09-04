@@ -4550,18 +4550,19 @@ body.bonumark-public.context-following-page summary.stream-meta-pill {
   font: inherit;
 }
 
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill,
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill,
 body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill {
-  min-height: 30px;
-  padding: 0.28rem 0.5rem;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0.5rem 0.68rem;
   border-color: transparent;
   background: transparent;
   color: var(--ledger-dim);
   font-size: 0.72rem;
 }
 
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:hover,
-body.bonumark-public.context-following-page .following-actions > .following-reply-control > .stream-meta-pill:focus-visible,
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill:hover,
+body.bonumark-public.context-following-page .following-actions > .stream-meta-pill:focus-visible,
 body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:hover,
 body.bonumark-public.context-following-page .following-actions > .following-action-form > .stream-meta-pill:focus-visible {
   border-color: color-mix(in srgb, var(--ledger-line) 70%, transparent);
@@ -4571,14 +4572,6 @@ body.bonumark-public.context-following-page .following-actions > .following-acti
 
 body.bonumark-public.context-following-page .stream-meta-pill.is-active {
   border-color: var(--ledger-accent);
-}
-
-body.bonumark-public.context-following-page .following-reply-control > summary {
-  list-style: none;
-}
-
-body.bonumark-public.context-following-page .following-reply-control > summary::-webkit-details-marker {
-  display: none;
 }
 
 body.bonumark-public.context-following-page .following-empty {
