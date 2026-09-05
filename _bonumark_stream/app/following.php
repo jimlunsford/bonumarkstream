@@ -359,3 +359,69 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
         'reply_composer_html' => $replyComposerHtml,
     ]);
 }
+
+/** Read-only, generation-scoped reactions for the owner's local post view. */
+function bms_activitypub_post_reaction_rows(int $postId, int $generation): array
+{
+    if ($postId < 1 || $generation < 1) {
+        return [];
+    }
+    $stmt = bms_db()->prepare("SELECT i.interaction_type, i.actor_uri, i.state, a.preferred_username, a.display_name
+        FROM " . bms_table('activitypub_remote_interactions') . " i
+        INNER JOIN " . bms_table('activitypub_remote_actors') . " a ON a.id = i.remote_actor_id AND a.deleted_at IS NULL
+        INNER JOIN " . bms_table('activitypub_local_objects') . " o ON o.post_id = i.target_post_id AND o.publication_generation = i.target_publication_generation AND o.object_uri = i.target_object_uri AND o.deleted_at IS NULL
+        WHERE i.target_post_id = :post_id AND i.target_publication_generation = :generation AND i.state = 'active'
+          AND i.interaction_type IN ('Like', 'Announce')
+        ORDER BY i.updated_at DESC, i.id DESC LIMIT 100");
+    $stmt->execute(['post_id' => $postId, 'generation' => $generation]);
+    $rows = [];
+    $blocked = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $actor = (string)$row['actor_uri'];
+        $blocked[$actor] ??= bms_activitypub_actor_is_blocked($actor);
+        if (!$blocked[$actor]) {
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+
+function bms_activitypub_post_reaction_presentation(array $rows): array
+{
+    $groups = ['likes' => [], 'boosts' => []];
+    foreach (array_slice($rows, 0, 100) as $row) {
+        if ((string)($row['state'] ?? '') !== 'active' || !in_array($row['interaction_type'] ?? '', ['Like', 'Announce'], true)) {
+            continue;
+        }
+        try {
+            $actor = bms_activitypub_identifier_uri((string)($row['actor_uri'] ?? ''), false);
+        } catch (Throwable $e) {
+            continue;
+        }
+        $username = bms_activitypub_remote_plain_text((string)($row['preferred_username'] ?? ''), 190);
+        $name = bms_activitypub_remote_plain_text((string)($row['display_name'] ?? ''), 255);
+        $domain = bms_activitypub_actor_domain($actor);
+        $key = $row['interaction_type'] === 'Like' ? 'likes' : 'boosts';
+        $groups[$key][$actor] = [
+            'name' => $name !== '' ? $name : ($username !== '' ? $username : 'Remote participant'),
+            'handle' => $username !== '' ? '@' . $username . '@' . $domain : $actor,
+        ];
+    }
+    return $groups['likes'] || $groups['boosts']
+        ? ['likes' => array_values($groups['likes']), 'boosts' => array_values($groups['boosts'])]
+        : [];
+}
+
+function bms_activitypub_post_reactions_view_data(array $page): array
+{
+    if (bms_public_preview_mode() || bms_static_site_export_rendering()
+        || !bms_is_logged_in() || !bms_current_user_can('view_admin')
+        || !bms_activitypub_enabled() || !bms_is_stream_post($page)
+        || (string)($page['section'] ?? '') !== 'published') {
+        return [];
+    }
+    $generation = bms_activitypub_current_local_generation_for_post((int)($page['id'] ?? 0));
+    return is_array($generation)
+        ? bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows((int)$page['id'], (int)$generation['publication_generation']))
+        : [];
+}

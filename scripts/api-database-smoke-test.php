@@ -1371,11 +1371,17 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (($send($likeDuplicate)['result_code'] ?? '') !== 'like_duplicate' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 1) {
         throw new RuntimeException('A duplicate semantic Like created duplicate visible state.');
     }
+    if (!(count(bms_activitypub_post_reaction_rows($postId, 2)) === 1 && bms_activitypub_post_reaction_rows($postId, 1) === [])) {
+        throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
+    }
     $wrongUndoLike = ['id' => $betaUri . '/activities/undo-like-wrong', 'type' => 'Undo', 'actor' => $betaUri, 'object' => ['id' => $like1['id'], 'type' => 'Like', 'actor' => $betaUri, 'object' => $currentUri]];
     bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongUndoLike, 'beta'));
     $undoLike = ['id' => $alphaUri . '/activities/undo-like-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $like1];
     if (($send($undoLike)['result_code'] ?? '') !== 'like_undone' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 0) {
         throw new RuntimeException('Undo Like did not remove only the exact owning interaction.');
+    }
+    if (!(bms_activitypub_post_reaction_rows($postId, 2) === [])) {
+        throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
     }
     $likeAgain = $like1;
     $likeAgain['id'] = $alphaUri . '/activities/like-again';
@@ -1396,11 +1402,17 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (($send($announceDuplicate)['result_code'] ?? '') !== 'announce_duplicate') {
         throw new RuntimeException('A duplicate Announce was not idempotent.');
     }
+    if (!(count(bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['likes']) === 1 && count(bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['boosts']) === 1)) {
+        throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
+    }
     $undoAnnounce = ['id' => $alphaUri . '/activities/undo-announce-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $announce];
     if (($send($undoAnnounce)['result_code'] ?? '') !== 'announce_undone' || bms_activitypub_federated_interaction_count($postId, 2, 'Announce') !== 0) {
         throw new RuntimeException('Undo Announce did not remove the exact owning interaction.');
     }
 
+    if (!(count(bms_activitypub_post_reaction_rows($postId, 2)) === 1 && bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['boosts'] === [])) {
+        throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
+    }
     $retiredLike = ['id' => $alphaUri . '/activities/like-retired', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $retiredUri];
     if (($send($retiredLike)['result_code'] ?? '') !== 'like_target_retired') {
         throw new RuntimeException('A Like against a retired generation was not isolated.');
@@ -1439,6 +1451,44 @@ function bms_api_smoke_verify_activitypub_stage5(): void
 
     if (bms_comment_count_for_slug('stage-5-target') !== $localCommentCount || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount) {
         throw new RuntimeException('Stage 5 changed local comments or anonymous local likes.');
+    }
+    $reactionPage = ['id' => $postId, 'content_type' => 'stream', 'section' => 'published'];
+    $savedSession = $_SESSION ?? [];
+    try {
+        $_SESSION['bms_logged_in'] = true;
+        $_SESSION['bms_user_id'] = 1;
+        if (bms_activitypub_post_reactions_view_data($reactionPage) === []) {
+            throw new RuntimeException('The owner cannot see current incoming reactions.');
+        }
+        bms_set_static_site_export_rendering(true);
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+            throw new RuntimeException('Static export exposes owner reactions.');
+        }
+        bms_set_static_site_export_rendering(false);
+        bms_set_public_preview_mode(true);
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+            throw new RuntimeException('Preview exposes owner reactions.');
+        }
+        bms_set_public_preview_mode(false);
+        $_SESSION = [];
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+            throw new RuntimeException('An anonymous visitor can see owner reactions.');
+        }
+        $pdo->exec("UPDATE " . bms_table('users') . " SET role = 'commenter' WHERE id = 1");
+        $_SESSION['bms_logged_in'] = true;
+        $_SESSION['bms_user_id'] = 1;
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+            throw new RuntimeException('A Commenter can see owner reactions.');
+        }
+    } finally {
+        $pdo->exec("UPDATE " . bms_table('users') . " SET role = 'admin' WHERE id = 1");
+        $_SESSION = $savedSession;
+        bms_set_static_site_export_rendering(false);
+        bms_set_public_preview_mode(false);
+    }
+    $pdo->prepare('INSERT INTO ' . bms_table('activitypub_blocks') . " (block_type, block_value, reason, created_at, updated_at) VALUES ('domain', :domain, '', UTC_TIMESTAMP(), UTC_TIMESTAMP())")->execute(['domain' => bms_activitypub_actor_domain($alphaUri)]);
+    if (bms_activitypub_post_reaction_rows($postId, 2) !== []) {
+        throw new RuntimeException('A blocked domain remains visible in owner reactions.');
     }
 }
 

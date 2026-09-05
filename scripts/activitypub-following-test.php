@@ -176,6 +176,25 @@ foreach ([false, true] as $conversationView) {
     }
 }
 
+// Prepared owner reactions are distinct, sanitized, and separate from local Likes.
+$reactionRow = ['interaction_type' => 'Like', 'state' => 'active', 'actor_uri' => 'https://remote.example/users/owner', 'display_name' => '<b>Remote Owner</b>', 'preferred_username' => 'owner', 'current_activity_uri' => 'private-audit-value'];
+$reactionGroups = bms_activitypub_post_reaction_presentation([$reactionRow, $reactionRow, array_merge($reactionRow, ['interaction_type' => 'Announce']), array_merge($reactionRow, ['state' => 'undone']), array_merge($reactionRow, ['state' => 'blocked']), array_merge($reactionRow, ['actor_uri' => 'javascript:alert(1)'])]);
+bms_ap_following_assert(count($reactionGroups['likes']) === 1 && count($reactionGroups['boosts']) === 1, 'Owner reactions conflate types or expose duplicate, inactive, or invalid actors.');
+bms_ap_following_assert($reactionGroups['likes'][0] === ['name' => 'Remote Owner', 'handle' => '@owner@remote.example'], 'Owner reactions expose raw protocol fields or unsanitized identity.');
+bms_ap_following_assert(bms_activitypub_post_reaction_presentation([]) === [], 'Empty owner reactions must not create a public placeholder.');
+$renderSingle = static function (array $reactions): string {
+    $bms_theme_data = ['remote_reactions' => $reactions, 'card_html' => '<article>Local post</article>', 'comments_html' => '<section>Local comments</section>'];
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/single.php';
+    return (string)ob_get_clean();
+};
+$reactionHtml = $renderSingle($reactionGroups);
+bms_ap_following_assert(str_contains($reactionHtml, '<h3>Likes</h3>') && str_contains($reactionHtml, '<h3>Boosts</h3>') && str_contains($reactionHtml, '@owner@remote.example'), 'The local post view does not distinguish incoming Likes and boosts.');
+bms_ap_following_assert(strpos($reactionHtml, 'Local post') < strpos($reactionHtml, 'remote-reactions-title') && strpos($reactionHtml, 'remote-reactions-title') < strpos($reactionHtml, 'Local comments'), 'Owner reactions displaced the local post or its comments.');
+$unsafeReactionHtml = $renderSingle(['likes' => [['name' => '<img src=x onerror=alert(1)>', 'handle' => '<script>alert(1)</script>']], 'boosts' => []]);
+bms_ap_following_assert(!str_contains($unsafeReactionHtml, '<script>') && str_contains($unsafeReactionHtml, '&lt;img'), 'The owner reaction template does not escape prepared text defensively.');
+bms_ap_following_assert(!str_contains($renderSingle([]), 'From the fediverse'), 'A public post exposes the owner-only section without authorized data.');
+
 $template = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/following.php');
 $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.php');
 $appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
@@ -190,6 +209,8 @@ $activityPubAdmin = (string)file_get_contents(__DIR__ . '/../admin/activitypub.p
 $streamJs = (string)file_get_contents(__DIR__ . '/../assets/stream.js');
 $composerTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/composer.php');
 $renderer = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php');
+bms_ap_following_assert(str_contains($followingController, "!bms_current_user_can('view_admin')") && str_contains($followingController, 'bms_public_preview_mode() || bms_static_site_export_rendering()'), 'Owner reaction data is missing permission, preview, or export gates.');
+bms_ap_following_assert(str_contains($renderer, "header('Cache-Control: no-store, private, max-age=0');") && str_contains($renderer, "header('Vary: Cookie', false);"), 'Owner reaction responses are missing private cache protection.');
 $quickPost = (string)file_get_contents(__DIR__ . '/../admin/quick-post.php');
 $sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
 $publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');

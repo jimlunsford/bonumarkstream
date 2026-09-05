@@ -5,6 +5,7 @@ require_once __DIR__ . '/appearance.php';
 require_once __DIR__ . '/interactions.php';
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/comments.php';
+require_once __DIR__ . '/following.php';
 require_once __DIR__ . '/link-preview.php';
 require_once __DIR__ . '/analytics.php';
 require_once __DIR__ . '/places.php';
@@ -903,6 +904,16 @@ function bms_stream_media_absolute_url(array $page): string
 
 function bms_render_stream_single(array $page): string
 {
+    $remoteReactions = bms_activitypub_post_reactions_view_data($page);
+    if ($remoteReactions && headers_sent() && PHP_SAPI !== 'cli') {
+        $remoteReactions = [];
+    }
+    if ($remoteReactions && !headers_sent()) {
+        header('Cache-Control: no-store, private, max-age=0');
+        header('Pragma: no-cache');
+        header('Vary: Cookie', false);
+    }
+
     $siteNameRaw = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
     $titleRaw = bms_stream_seo_title($page);
     $descriptionRaw = bms_stream_seo_description($page);
@@ -953,6 +964,7 @@ function bms_render_stream_single(array $page): string
         'header_html' => bms_render_public_header($previewMode ? 'preview' : 'stream-single', null, $previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
         'footer_html' => bms_render_public_footer($previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
         'card_html' => bms_render_stream_card($page, true),
+        'remote_reactions' => $remoteReactions,
         'comments_html' => function_exists('bms_render_comments_mount') ? bms_render_comments_mount($page) : '',
         'page' => $page,
     ];
