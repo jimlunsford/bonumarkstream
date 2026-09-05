@@ -4532,6 +4532,16 @@ body.bonumark-public.context-following-page .following-media video {
   object-fit: cover;
 }
 
+/* Single images retain their full frame; galleries keep their existing crop. */
+body.bonumark-public.context-following-page .following-media:not(.is-gallery) img {
+  height: auto;
+  max-height: min(640px, 70vh);
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
+  background: var(--ledger-bg-3);
+}
+
 body.bonumark-public.context-following-page .following-media audio {
   width: 100%;
 }
