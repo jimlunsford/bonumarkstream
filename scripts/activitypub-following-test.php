@@ -183,6 +183,8 @@ $themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.p
 $templateHelpers = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/_helpers.php');
 $commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
 $followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
+bms_ap_following_assert(str_contains($followingController, "bms_flash(\$type === 'Like' ? 'Post liked.' : 'Post boosted.', 'success');"), 'Following Like and Boost success notices must use plain product language.');
+bms_ap_following_assert(str_contains($followingController, "bms_flash(\$type === 'Like' ? 'Like removed.' : 'Boost removed.', 'success');") && !str_contains($followingController, 'queued for signed delivery'), 'Following Undo success notices must use plain product language.');
 $followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
 $activityPubAdmin = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
 $streamJs = (string)file_get_contents(__DIR__ . '/../assets/stream.js');

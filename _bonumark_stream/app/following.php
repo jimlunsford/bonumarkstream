@@ -273,13 +273,13 @@ function bms_handle_activitypub_following_route(bool $conversation = false): voi
             if ($action === 'like' || $action === 'boost') {
                 $type = $action === 'like' ? 'Like' : 'Announce';
                 bms_activitypub_owner_interact($type, $objectUri);
-                bms_flash(($type === 'Like' ? 'Like' : 'Boost') . ' queued for signed delivery.', 'success');
+                bms_flash($type === 'Like' ? 'Post liked.' : 'Post boosted.', 'success');
             } elseif ($action === 'unlike' || $action === 'unboost') {
                 $type = $action === 'unlike' ? 'Like' : 'Announce';
                 $interactionId = max(0, (int)($_POST['interaction_id'] ?? 0));
                 bms_activitypub_following_validate_undo($interactionId, $type, $objectUri);
                 bms_activitypub_owner_undo_interaction($interactionId);
-                bms_flash(($type === 'Like' ? 'Unlike' : 'Unboost') . ' queued for signed delivery.', 'success');
+                bms_flash($type === 'Like' ? 'Like removed.' : 'Boost removed.', 'success');
             } else {
                 throw new RuntimeException('The Following action was not recognized.');
             }
