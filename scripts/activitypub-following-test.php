@@ -223,7 +223,13 @@ foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
     foreach (['height: auto;', 'max-height: min(640px, 70vh);', 'aspect-ratio: auto;', 'object-fit: contain;', 'object-position: center;', 'background: var(--ledger-bg-3);'] as $declaration) {
         bms_ap_following_assert(str_contains($singleImageDeclarations, $declaration), 'Single remote images lost their full-frame, bounded theme presentation: ' . $declaration);
     }
-    bms_ap_following_assert(preg_match('/\.following-media img,\s*body\.bonumark-public\.context-following-page \.following-media video\s*\{([^}]*)\}/s', $themeCss, $sharedMediaRule) === 1 && str_contains((string)($sharedMediaRule[1] ?? ''), 'aspect-ratio: 16 / 10;') && str_contains((string)($sharedMediaRule[1] ?? ''), 'object-fit: cover;'), 'The single-image correction changed the existing gallery or video treatment.');
+    bms_ap_following_assert(preg_match('/\.following-media img,\s*body\.bonumark-public\.context-following-page \.following-media video\s*\{([^}]*)\}/s', $themeCss, $sharedMediaRule) === 1 && str_contains((string)($sharedMediaRule[1] ?? ''), 'aspect-ratio: 16 / 10;') && str_contains((string)($sharedMediaRule[1] ?? ''), 'object-fit: cover;'), 'The shared media rule no longer preserves tile geometry and video treatment.');
+    bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-media\.is-gallery img\s*\{([^}]*)\}/s', $themeCss, $galleryImageRule) === 1, 'Full-frame gallery presentation must be restricted to Following and Conversation images.');
+    $galleryImageDeclarations = (string)($galleryImageRule[1] ?? '');
+    foreach (['object-fit: contain;', 'object-position: center;', 'background: var(--ledger-bg-3);'] as $declaration) {
+        bms_ap_following_assert(str_contains($galleryImageDeclarations, $declaration), 'Gallery images lost their complete, centered theme presentation: ' . $declaration);
+    }
+    bms_ap_following_assert(preg_match('/(?:height|width|aspect-ratio|grid-template-columns)\s*:/', $galleryImageDeclarations) !== 1, 'The gallery image correction changed tile geometry.');
     bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill') && str_contains($themeCss, 'min-height: 44px;') && str_contains($themeCss, 'var(--ledger-accent)'), 'Midnight Ledger does not own phone-friendly Following interaction presentation.');
     bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-actions > \.following-action-form > \.stream-meta-pill\.is-active:focus-visible\s*\{([^}]*)\}/s', $themeCss, $activeRule) === 1, 'Midnight Ledger active Following controls do not outrank the neutral action rule through keyboard focus.');
     $activeDeclarations = (string)($activeRule[1] ?? '');
@@ -232,7 +238,7 @@ foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
     bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .following-feed-item') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-reply-region'), 'Midnight Ledger does not align the remote reply discussion surface with local comments.');
     bms_ap_following_assert(!str_contains($themeCss, 'activitypub_remote_objects') && !str_contains($themeCss, 'following_action') && !str_contains($themeCss, 'inReplyTo'), 'ActivityPub behavior or protocol data moved into theme CSS.');
 }
-bms_ap_following_assert(is_array($themeManifest) && (string)($themeManifest['version'] ?? '') === '1.9.4', 'Midnight Ledger did not advance its cache revision for the corrected Following CSS.');
+bms_ap_following_assert(is_array($themeManifest) && (string)($themeManifest['version'] ?? '') === '1.9.5', 'Midnight Ledger did not advance its cache revision for the corrected Following CSS.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
 bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
 bms_ap_following_assert(!str_contains($activityPubAdmin, 'Private owner inbox') && !str_contains($activityPubAdmin, "'owner_reply'") && !str_contains($activityPubAdmin, "'owner_like'") && !str_contains($activityPubAdmin, "'owner_announce'") && !str_contains($activityPubAdmin, "'undo_owner_interaction'"), 'Normal remote-content participation drifted back into Admin instead of remaining in Following.');

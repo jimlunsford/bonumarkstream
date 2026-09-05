@@ -4532,7 +4532,14 @@ body.bonumark-public.context-following-page .following-media video {
   object-fit: cover;
 }
 
-/* Single images retain their full frame; galleries keep their existing crop. */
+/* Gallery tiles keep their compact geometry while showing each full image. */
+body.bonumark-public.context-following-page .following-media.is-gallery img {
+  object-fit: contain;
+  object-position: center;
+  background: var(--ledger-bg-3);
+}
+
+/* Single images retain their full frame within a bounded height. */
 body.bonumark-public.context-following-page .following-media:not(.is-gallery) img {
   height: auto;
   max-height: min(640px, 70vh);

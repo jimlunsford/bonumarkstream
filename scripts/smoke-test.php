@@ -2787,8 +2787,8 @@ if (!is_file($themeLayoutsPath)) {
     $defaultThemeProbe = bms_read_theme_manifest('default');
     $defaultThemeAssetUrl = bms_public_theme_asset_url('assets/css/theme.css', 'default');
     if (!is_array($defaultThemeProbe)
-        || ($defaultThemeProbe['version'] ?? '') !== '1.9.4'
-        || !str_contains($defaultThemeAssetUrl, 'v=1.9.4')
+        || ($defaultThemeProbe['version'] ?? '') !== '1.9.5'
+        || !str_contains($defaultThemeAssetUrl, 'v=1.9.5')
         || str_contains($defaultThemeAssetUrl, 'v=' . rawurlencode($rootVersion))) {
         bm_smoke_fail($failures, 'Public theme assets must use the theme manifest version as their cache revision.');
     }
