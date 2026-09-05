@@ -38,6 +38,7 @@ ml_open_document($data, [
               $like = is_array($item['like'] ?? null) ? $item['like'] : [];
               $announce = is_array($item['announce'] ?? null) ? $item['announce'] : [];
               $media = is_array($item['media'] ?? null) ? $item['media'] : [];
+              $hasContentWarning = !empty($item['sensitive']) && (string)($item['summary'] ?? '') !== '';
               $conversationUrl = (string)($item['conversation_url'] ?? '');
               $replyUrl = (string)($item['reply_url'] ?? $conversationUrl);
               $replyAnchorId = (string)($item['reply_anchor_id'] ?? '');
@@ -72,15 +73,13 @@ ml_open_document($data, [
                     <?php if ($deleted): ?>
                       <div class="following-tombstone"><p>This post was deleted and is no longer available.</p></div>
                     <?php else: ?>
-                      <?php if (!empty($item['sensitive']) && (string)($item['summary'] ?? '') !== ''): ?>
+                      <?php if ($hasContentWarning): ?>
                         <details class="following-sensitive">
                           <summary><?= $h((string)$item['summary']) ?></summary>
-                          <div class="following-content stream-card-content"><?= (string)($item['content_html'] ?? '') ?></div>
-                        </details>
                       <?php else: ?>
                         <?php if ((string)($item['summary'] ?? '') !== ''): ?><p class="following-summary"><?= $h((string)$item['summary']) ?></p><?php endif; ?>
-                        <div class="following-content stream-card-content"><?= (string)($item['content_html'] ?? '') ?></div>
                       <?php endif; ?>
+                      <div class="following-content stream-card-content"><?= (string)($item['content_html'] ?? '') ?></div>
 
                       <?php if ($media): ?>
                         <div class="following-media stream-card-media<?= count($media) > 1 ? ' is-gallery' : '' ?>">
@@ -99,6 +98,7 @@ ml_open_document($data, [
                           <?php endforeach; ?>
                         </div>
                       <?php endif; ?>
+                      <?php if ($hasContentWarning): ?></details><?php endif; ?>
                     <?php endif; ?>
 
                     <div class="following-meta stream-card-meta">

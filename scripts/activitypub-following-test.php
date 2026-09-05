@@ -25,6 +25,14 @@ function bms_ap_following_render_composer(array $viewData): string
     return (string)ob_get_clean();
 }
 
+function bms_ap_following_render_page(array $viewData): string
+{
+    $bms_theme_data = $viewData;
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/following.php';
+    return (string)ob_get_clean();
+}
+
 function bms_ap_following_primary_composer_control(string $html): array
 {
     if (preg_match('/<button\b(?=[^>]*\bdata-stream-primary-submit\b)([^>]*)>([^<]*)<\/button>/i', $html, $button) !== 1) {
@@ -124,6 +132,49 @@ foreach ([1, 2, 4] as $imageCount) {
 $row['lifecycle_state'] = 'deleted';
 $deleted = bms_activitypub_following_presentation_row($row);
 bms_ap_following_assert((string)$deleted['content_html'] === '' && $deleted['media'] === [] && (string)$deleted['lifecycle_state'] === 'deleted', 'A tombstoned remote object remained visibly active.');
+
+// Exercise the actual shared template, including image-only and non-image media.
+$warningMediaCases = ['text-only' => [], 'video' => [['kind' => 'video', 'url' => 'https://media.remote.example/movie.mp4', 'media_type' => 'video/mp4', 'alt_text' => 'Video description']], 'audio' => [['kind' => 'audio', 'url' => 'https://media.remote.example/sound.mp3', 'media_type' => 'audio/mpeg', 'alt_text' => 'Audio description']]];
+foreach ([1, 2, 4] as $imageCount) {
+    $warningMediaCases['images-' . $imageCount] = [];
+    for ($imageIndex = 1; $imageIndex <= $imageCount; $imageIndex++) {
+        $warningMediaCases['images-' . $imageCount][] = ['kind' => 'image', 'url' => 'https://media.remote.example/warning-' . $imageIndex . '.png', 'alt_text' => 'Distinct image ' . $imageIndex];
+    }
+}
+foreach ([false, true] as $conversationView) {
+    foreach ($warningMediaCases as $case => $caseMedia) {
+        foreach (['<p>Concealed body.</p>', ''] as $body) {
+            $warningItem = array_merge($presented, ['sensitive' => true, 'summary' => 'Warning & <test>', 'content_html' => $body, 'media' => $caseMedia, 'actor_avatar_url' => '']);
+            $viewData = ['items' => [$warningItem], 'conversation' => $conversationView, 'conversation_found' => true, 'conversation_object_uri' => $warningItem['object_uri'], 'reply_composer_html' => '<form data-test-reply-composer></form>'];
+            $warningHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(preg_match('/<details\b([^>]*)>(.*?)<\/details>/s', $warningHtml, $disclosure) === 1, 'A warned post is missing its disclosure: ' . $case);
+            bms_ap_following_assert(preg_match('/\bopen(?:\s|=|$)/', (string)$disclosure[1]) !== 1, 'A content warning starts expanded.');
+            bms_ap_following_assert(str_contains((string)$disclosure[2], '<summary>Warning &amp; &lt;test&gt;</summary>') && str_contains((string)$disclosure[2], '<div class="following-content stream-card-content">' . $body . '</div>'), 'The warning summary or body escaped its disclosure.');
+            $outsideDisclosure = str_replace((string)$disclosure[0], '', $warningHtml);
+            bms_ap_following_assert(!str_contains($outsideDisclosure, 'following-content stream-card-content') && !str_contains($outsideDisclosure, 'following-media stream-card-media'), 'Warned text or media is rendered outside its disclosure.');
+            foreach ($caseMedia as $attachment) {
+                bms_ap_following_assert(str_contains((string)$disclosure[2], $attachment['url']) && !str_contains($outsideDisclosure, $attachment['url']), 'A warned attachment escaped the disclosure: ' . $case);
+                bms_ap_following_assert(str_contains((string)$disclosure[2], $attachment['alt_text']), 'A warned attachment lost its description.');
+                if ($attachment['kind'] === 'image') {
+                    bms_ap_following_assert(str_contains((string)$disclosure[2], 'alt="' . $attachment['alt_text'] . '"') && !str_contains((string)$disclosure[2], 'following-media-alt'), 'Image alt text is missing or rendered as unwanted visible text.');
+                }
+            }
+            bms_ap_following_assert(str_contains($outsideDisclosure, 'following-actions stream-card-actions') && !str_contains((string)$disclosure[2], 'following-action-form'), 'Action forms moved inside the warning.');
+            if ($conversationView) {
+                bms_ap_following_assert(str_contains($outsideDisclosure, 'data-test-reply-composer'), 'The Conversation reply composer moved inside the warning.');
+            }
+            $viewData['items'][0]['sensitive'] = false;
+            $ordinaryHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(!str_contains($ordinaryHtml, '<details') && str_contains($ordinaryHtml, 'following-content stream-card-content'), 'An ordinary post was concealed by the warning correction.');
+            foreach ($caseMedia as $attachment) {
+                bms_ap_following_assert(str_contains($ordinaryHtml, $attachment['url']), 'An ordinary attachment disappeared.');
+            }
+            $viewData['items'][0]['lifecycle_state'] = 'deleted';
+            $deletedHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(!str_contains($deletedHtml, '<details') && !str_contains($deletedHtml, 'following-media stream-card-media') && !str_contains($deletedHtml, 'Concealed body.'), 'Deleted post content was restored by the warning correction.');
+        }
+    }
+}
 
 $template = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/following.php');
 $routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.php');
