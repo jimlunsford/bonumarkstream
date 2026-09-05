@@ -107,13 +107,16 @@ function bms_activitypub_sanitize_remote_html_fallback(string $html, string $tex
     return $safe !== '' ? '<p>' . $safe . '</p>' : '<p>' . nl2br(htmlspecialchars($text, ENT_QUOTES, 'UTF-8'), false) . '</p>';
 }
 
-function bms_activitypub_sanitize_remote_html(string $html): array
+function bms_activitypub_sanitize_remote_html(string $html, bool $allowEmpty = false): array
 {
     if (strlen($html) > 65536) {
         throw new BmsActivityPubSecurityException('The remote Note content is too large.', 413);
     }
     $text = bms_activitypub_remote_plain_text($html, 10000);
     if ($text === '') {
+        if ($allowEmpty) {
+            return ['html' => '', 'text' => ''];
+        }
         throw new BmsActivityPubSecurityException('The remote Note content is empty.', 400);
     }
     if (!class_exists('DOMDocument')) {

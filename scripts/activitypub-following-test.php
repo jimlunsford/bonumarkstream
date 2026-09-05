@@ -92,6 +92,35 @@ bms_ap_following_assert((string)$presented['conversation_url'] !== '' && str_sta
 bms_ap_following_assert((string)$presented['reply_anchor_id'] !== '' && str_ends_with((string)$presented['reply_url'], '#' . (string)$presented['reply_anchor_id']), 'Following reply navigation and its reply anchor do not match.');
 bms_ap_following_assert(!array_key_exists('metadata_json', $presented) && !array_key_exists('document_json', $presented), 'Raw protocol cache fields escaped into the theme model.');
 
+// Followed media-only Notes must reach the same private presentation model.
+foreach ([1, 2, 4] as $imageCount) {
+    $mediaOnlyNote = $note;
+    $mediaOnlyNote['content'] = '';
+    $mediaOnlyNote['attachment'] = [];
+    for ($imageIndex = 1; $imageIndex <= $imageCount; $imageIndex++) {
+        $mediaOnlyNote['attachment'][] = [
+            'type' => 'Document', 'mediaType' => 'image/png',
+            'url' => 'https://media.remote.example/chart-' . $imageIndex . '.png',
+            'name' => '<b>Chart ' . $imageIndex . ' edge markers</b>',
+            'width' => $imageIndex % 2 ? 900 : 1350,
+            'height' => $imageIndex % 2 ? 1350 : 900,
+        ];
+    }
+    $mediaOnlyData = bms_activitypub_remote_note_data($mediaOnlyNote, 'https://remote.example/users/owner');
+    $mediaOnlyRow = array_merge($row, $mediaOnlyData);
+    $mediaOnlyPresentation = bms_activitypub_following_presentation_row($mediaOnlyRow);
+    bms_ap_following_assert($mediaOnlyPresentation['content_html'] === '' && count($mediaOnlyPresentation['media']) === $imageCount, 'Media-only content did not reach Following without fake body text.');
+    bms_ap_following_assert($mediaOnlyPresentation['sensitive'] && $mediaOnlyPresentation['summary'] === 'Content warning', 'A media-only content warning was lost.');
+    foreach ($mediaOnlyPresentation['media'] as $index => $image) {
+        bms_ap_following_assert($image['alt_text'] === 'Chart ' . ($index + 1) . ' edge markers' && $image['url'] === $mediaOnlyNote['attachment'][$index]['url'], 'Gallery ordering or distinct alt text was lost.');
+        bms_ap_following_assert($image['width'] === $mediaOnlyNote['attachment'][$index]['width'] && $image['height'] === $mediaOnlyNote['attachment'][$index]['height'], 'Mixed-orientation gallery dimensions changed.');
+    }
+    $mediaOnlyRow['lifecycle_state'] = 'deleted';
+    bms_ap_following_assert(bms_activitypub_following_presentation_row($mediaOnlyRow)['media'] === [], 'A deleted media-only Note exposed its images.');
+    $mediaOnlyRow['lifecycle_state'] = 'blocked';
+    bms_ap_following_assert(bms_activitypub_following_presentation_row($mediaOnlyRow)['media'] === [], 'A blocked media-only Note exposed its images.');
+}
+
 $row['lifecycle_state'] = 'deleted';
 $deleted = bms_activitypub_following_presentation_row($row);
 bms_ap_following_assert((string)$deleted['content_html'] === '' && $deleted['media'] === [] && (string)$deleted['lifecycle_state'] === 'deleted', 'A tombstoned remote object remained visibly active.');

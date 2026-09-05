@@ -539,13 +539,19 @@ function bms_activitypub_remote_note_data(array $note, string $actorUri): array
     if (!hash_equals($actorUri, bms_activitypub_note_actor($note))) {
         throw new BmsActivityPubSecurityException('The remote actor does not own the Note.', 403);
     }
-    $content = bms_activitypub_sanitize_remote_html(is_string($note['content'] ?? null) ? (string)$note['content'] : '');
+    // Only supported, safe attachments can make an otherwise textless Note usable.
+    // Keep the shared sanitizer's strict default for text-only inbound replies.
+    $media = bms_activitypub_remote_media_items($note['attachment'] ?? []);
+    $content = bms_activitypub_sanitize_remote_html(
+        is_string($note['content'] ?? null) ? (string)$note['content'] : '',
+        $media !== []
+    );
     $humanUrl = bms_activitypub_remote_link_url(is_string($note['url'] ?? null) ? (string)$note['url'] : $objectUri);
     $metadata = [
         'inReplyTo' => is_string($note['inReplyTo'] ?? null) ? bms_activitypub_remote_link_url((string)$note['inReplyTo']) : '',
         'sensitive' => !empty($note['sensitive']),
         'summary' => bms_activitypub_remote_plain_text(is_string($note['summary'] ?? null) ? (string)$note['summary'] : '', 1000),
-        'media' => bms_activitypub_remote_media_items($note['attachment'] ?? []),
+        'media' => $media,
     ];
     $metadataJson = json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     return [

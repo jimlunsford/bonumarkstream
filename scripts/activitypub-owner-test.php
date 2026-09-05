@@ -210,6 +210,83 @@ $maliciousData = bms_activitypub_remote_note_data($maliciousNote, 'https://remot
 $maliciousMetadata = json_decode((string)$maliciousData['metadata_json'], true);
 bms_ap_stage6_assert($maliciousData['human_url'] === null && (string)($maliciousMetadata['inReplyTo'] ?? '') === '', 'Unsafe remote object links entered the owner inbox cache.');
 
+$mediaNote = $note;
+$mediaNote['content'] = '';
+$mediaNote['attachment'] = [[
+    'type' => 'Document',
+    'mediaType' => 'image/png',
+    'url' => 'https://media.remote.example/portrait.png',
+    'name' => '<b>Portrait chart with colored edges and corner circles.</b>',
+    'width' => 900,
+    'height' => 1350,
+]];
+foreach (['', " \n\t ", '<p><br></p>', '<img src="https://remote.example/tracker" onerror="evil()">', null] as $emptyContent) {
+    $mediaNote['content'] = $emptyContent;
+    $mediaData = bms_activitypub_remote_note_data($mediaNote, 'https://remote.example/actor');
+    $mediaMetadata = json_decode($mediaData['metadata_json'], true);
+    bms_ap_stage6_assert($mediaData['content_html'] === '' && $mediaData['content_text'] === '', 'A media-only Note acquired fake text or unsanitized markup.');
+    bms_ap_stage6_assert($mediaData['content_hash'] === hash('sha256', ''), 'A media-only Note has an inconsistent content hash.');
+    bms_ap_stage6_assert(count($mediaMetadata['media']) === 1 && $mediaMetadata['media'][0] === [
+        'kind' => 'image', 'media_type' => 'image/png',
+        'url' => 'https://media.remote.example/portrait.png',
+        'alt_text' => 'Portrait chart with colored edges and corner circles.',
+        'width' => 900, 'height' => 1350,
+    ], 'A media-only Note lost its supported attachment, dimensions, or sanitized alt text.');
+}
+unset($mediaNote['content']);
+bms_ap_stage6_assert(bms_activitypub_remote_note_data($mediaNote, 'https://remote.example/actor')['content_html'] === '', 'A missing text body rejected supported media.');
+foreach (['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg', 'audio/wav'] as $mediaType) {
+    $supportedNote = $mediaNote;
+    $supportedNote['attachment'][0]['mediaType'] = $mediaType;
+    $supportedMetadata = json_decode(bms_activitypub_remote_note_data($supportedNote, 'https://remote.example/actor')['metadata_json'], true);
+    bms_ap_stage6_assert(count($supportedMetadata['media']) === 1 && $supportedMetadata['media'][0]['media_type'] === $mediaType, 'An already supported media type required a caption.');
+}
+foreach ([
+    [],
+    [['mediaType' => 'image/svg+xml', 'url' => 'https://media.remote.example/active.svg']],
+    [['mediaType' => 'image/png', 'url' => 'javascript:alert(1)']],
+    [['mediaType' => 'image/png', 'url' => 'file:///etc/passwd']],
+    [['mediaType' => 'image/png', 'url' => 'https://127.0.0.1/private']],
+    [['mediaType' => 'image/png', 'url' => 'https://user:pass@remote.example/private']],
+    [['name' => 'Alt text alone is not media']],
+] as $invalidAttachments) {
+    $emptyNote = $mediaNote;
+    $emptyNote['attachment'] = $invalidAttachments;
+    try {
+        bms_activitypub_remote_note_data($emptyNote, 'https://remote.example/actor');
+        throw new RuntimeException('An empty Note with absent or rejected media was accepted.');
+    } catch (BmsActivityPubSecurityException $e) {
+        bms_ap_stage6_assert($e->httpStatus() === 400, 'An empty Note returned the wrong status.');
+    }
+}
+foreach (['', '<p><br></p>'] as $emptyHtml) {
+    try {
+        bms_activitypub_sanitize_remote_html($emptyHtml);
+        throw new RuntimeException('The shared sanitizer no longer rejects empty text by default.');
+    } catch (BmsActivityPubSecurityException $e) {
+        bms_ap_stage6_assert($e->httpStatus() === 400, 'Strict empty-text rejection returned the wrong status.');
+    }
+}
+$oversizedNote = $mediaNote;
+$oversizedNote['content'] = str_repeat(' ', 65537);
+try {
+    bms_activitypub_remote_note_data($oversizedNote, 'https://remote.example/actor');
+    throw new RuntimeException('A media attachment bypassed the text size limit.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage6_assert($e->httpStatus() === 413, 'Oversized media-only Note content returned the wrong status.');
+}
+$captionNote = $mediaNote;
+$captionNote['content'] = $note['content'];
+$captionData = bms_activitypub_remote_note_data($captionNote, 'https://remote.example/actor');
+bms_ap_stage6_assert($captionData['content_html'] === $data['content_html'] && $captionData['content_text'] === $data['content_text'], 'Adding media changed existing text sanitization.');
+
+try {
+    bms_activitypub_remote_note_data($mediaNote, 'https://other.example/actor');
+    throw new RuntimeException('A media-only Note bypassed actor ownership.');
+} catch (BmsActivityPubSecurityException $e) {
+    bms_ap_stage6_assert($e->httpStatus() === 403, 'A spoofed media-only Note returned the wrong status.');
+}
+
 try {
     bms_activitypub_remote_note_data($note, 'https://other.example/actor');
     throw new RuntimeException('A spoofed remote Note actor was accepted.');
