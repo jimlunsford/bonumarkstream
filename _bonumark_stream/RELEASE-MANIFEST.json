@@ -1,7 +1,7 @@
 {
   "name": "bonumark-stream",
-  "version": "0.8.0",
-  "generated_at": "2026-09-03T07:10:48.424Z",
+  "version": "0.8.1",
+  "generated_at": "2026-09-06T14:52:07.464Z",
   "files": [
     {
       "path": ".github/workflows/compatibility.yml",
@@ -17,7 +17,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "89d81b83cf2461435b6004577f993bd9125ecd7c648e19f9d118cbbf5a2659d1"
+      "sha256": "6dd9466487bd98879261e92ccac0f946198c49af40a1f57587dc4fa1a0f7089b"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -29,7 +29,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "d5fa5d52f6f57ae9d4da5874cde4ee1dcba24d1da3fd15ed612d1f26e43bad4c"
+      "sha256": "a0cb5c0012c17b2a185b3d74ab975bda18b3534f65033668064327f946103e69"
     },
     {
       "path": "SECURITY.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "a66780da23103beaf12432b418508966b31a2a3a787f9468a5b6cdaa8667c1ef"
+      "sha256": "aaf6721dc37c40b4233accfc081f25776ff3bd1d2a4b9d5cea760d1c2cf86665"
     },
     {
       "path": "_bonumark_stream/.htaccess",
@@ -45,15 +45,15 @@
     },
     {
       "path": "_bonumark_stream/CHANGELOG.md",
-      "sha256": "7e87fa9215802b1b570a9516de99c1988dafb8d1067fe3c404bcff8afb2b61ee"
+      "sha256": "091d47812e5123afc4b04da261844345f069bcd58055d526ca413e86b86a4bd5"
     },
     {
       "path": "_bonumark_stream/PACKAGE.json",
-      "sha256": "d462772f5ab9a8c694f383221d84236623b1a21a97319670b2a3bfa1e9e87e7a"
+      "sha256": "7fca43b61673e4ef2dd83b7902ad07fb08117c7deeb54dd1c157d71ce44fe5a7"
     },
     {
       "path": "_bonumark_stream/VERSION",
-      "sha256": "a66780da23103beaf12432b418508966b31a2a3a787f9468a5b6cdaa8667c1ef"
+      "sha256": "aaf6721dc37c40b4233accfc081f25776ff3bd1d2a4b9d5cea760d1c2cf86665"
     },
     {
       "path": "_bonumark_stream/app/activitypub-delivery.php",
@@ -65,7 +65,7 @@
     },
     {
       "path": "_bonumark_stream/app/activitypub-interactions.php",
-      "sha256": "9a583a732134b95d5bf75914a543dc1adcda4e4d49ae1496239a1bbae62465a6"
+      "sha256": "390ae3473aa77e4a99d0091f8e7372e421c91735027b9e63baede5ad3a33a0f7"
     },
     {
       "path": "_bonumark_stream/app/activitypub-operations.php",
@@ -73,7 +73,7 @@
     },
     {
       "path": "_bonumark_stream/app/activitypub-owner.php",
-      "sha256": "694a43b7638bec8d332e55945e5b78721ab6e86d68b83e81b293ca41d3b21233"
+      "sha256": "8c7e77628c2222a622bbd95a96ac037013f7d9db5f4e23511acf8c04a6f054bc"
     },
     {
       "path": "_bonumark_stream/app/activitypub-routes.php",
@@ -121,11 +121,11 @@
     },
     {
       "path": "_bonumark_stream/app/following.php",
-      "sha256": "442e8e5787bcfd6c9d10261535755f1358b8d263e7ddf8315d7364831f1b12a8"
+      "sha256": "c8da7b45efee289402c1cff0830b8e76a3ccc5bef2e42968dd41d092943c7ea9"
     },
     {
       "path": "_bonumark_stream/app/functions.php",
-      "sha256": "6e36c7abb2cd7e88fc81bcbd4a3e800dc83f341154c30a29317510072bc2e92a"
+      "sha256": "935621c6a2794bf4f42a8e7cd00373e479ad075b8341ed59485a9b1c83a01e9d"
     },
     {
       "path": "_bonumark_stream/app/import-media.php",
@@ -229,7 +229,7 @@
     },
     {
       "path": "_bonumark_stream/app/renderer.php",
-      "sha256": "1077d3f406f3262aefdc6799fc4ac710cd48fdb50b917cfc2ec27c590c6ded11"
+      "sha256": "3fb0029fbaa0e438b2d07fce8a5e632ff3a35edce2114de980f81b34409b9828"
     },
     {
       "path": "_bonumark_stream/app/routes.php",
@@ -393,7 +393,7 @@
     },
     {
       "path": "_bonumark_stream/app/views/default/templates/composer.php",
-      "sha256": "4e9382b80573a8303f2b05e643ba34eddbe7188abab82c6857cf8ae3db178700"
+      "sha256": "bb0ec6ff4c4fcf8d8f57c37789e2a5147ca77846ba73ada7352e4cd8d27ddfbf"
     },
     {
       "path": "_bonumark_stream/app/views/default/templates/empty.php",
@@ -401,7 +401,7 @@
     },
     {
       "path": "_bonumark_stream/app/views/default/templates/following.php",
-      "sha256": "bd181434b37e115874a04eb43ab3e4d97a78952ca8affe8f1adc05c883f17a0c"
+      "sha256": "6269a7f73bcaff7f8af33ee4d005e681edb5618a2e69de5f83d28cb88565abae"
     },
     {
       "path": "_bonumark_stream/app/views/default/templates/footer.php",
@@ -449,7 +449,7 @@
     },
     {
       "path": "_bonumark_stream/app/views/default/templates/single.php",
-      "sha256": "b269573d24356ef897781f2eaee30142ae9d247a7e9a1f96b91222e11e23bef1"
+      "sha256": "493d67c4fa2ef67f15e8fd33375503f6b6c91ff673751d694241fc3255645a77"
     },
     {
       "path": "_bonumark_stream/backups/.gitkeep",
@@ -461,7 +461,7 @@
     },
     {
       "path": "_bonumark_stream/config.sample.php",
-      "sha256": "31133c6820773af1d24c8cb3ea9e413e1b4a5903087c4d7c0c9c3f3628ffbf1c"
+      "sha256": "37540269901ae25644288906e2f940bd9c5f7b2544d4aee119bb38e7e3cd0b77"
     },
     {
       "path": "_bonumark_stream/data/.gitkeep",
@@ -597,7 +597,7 @@
     },
     {
       "path": "_bonumark_stream/themes/default/assets/css/theme.css",
-      "sha256": "d1900bc16aa8498258effd660c0d899cd3651473a36d45a59cf4a7fe6d453a86"
+      "sha256": "dc7fdd995e79dcc154b7c565c30837605872bd81e7e0507897fbed91b44da1cf"
     },
     {
       "path": "_bonumark_stream/themes/default/assets/images/screenshot.svg",
@@ -621,7 +621,7 @@
     },
     {
       "path": "_bonumark_stream/themes/default/theme.json",
-      "sha256": "46a1bd5807f0ed18af351c66eee8d9728fffb259a0fc70a8d68c65731a271ca7"
+      "sha256": "8cfa5750ca22a3d48c41a6d05cdf69dc56b28cb6bcf84064d234bf995f159f59"
     },
     {
       "path": "_bonumark_stream/tools/make-password-hash.php",
@@ -817,7 +817,7 @@
     },
     {
       "path": "admin/quick-post.php",
-      "sha256": "47f8b92cdc6816e252bdc025cbb2e63e00eae7ac67bbaac91c74cd8955519f60"
+      "sha256": "2dcdf84760868673aaeb9d27e40d33217f7d53082cd44a78cf669a77a51920e1"
     },
     {
       "path": "admin/registration.php",
@@ -1065,7 +1065,7 @@
     },
     {
       "path": "assets/themes/default/assets/css/theme.css",
-      "sha256": "40fbd8355119ef89d4bfe8c8326413b4c5de0592b81a29c1f9093c778b06b08e"
+      "sha256": "21f6e72803776a8beeda2237a4c9c5878ed00c0bf7b6460dacba6bbc510f48c1"
     },
     {
       "path": "assets/themes/default/assets/images/screenshot.svg",
@@ -1077,7 +1077,7 @@
     },
     {
       "path": "docs/ACTIVITYPUB.md",
-      "sha256": "683aea15edabaa14ed9a729ac988c487eea889d46ed1695aef68271beb6e847b"
+      "sha256": "ef73f333a6157783d673ce39b0bae95c7cfe9316947c713970286e530b3376e1"
     },
     {
       "path": "docs/ADMIN-UI-GUIDELINES.md",
@@ -1089,7 +1089,7 @@
     },
     {
       "path": "docs/API.md",
-      "sha256": "5fefaa6974430ee1148a30327eb3e7d720b39e1f47b1a0519bdc8b515204ca2a"
+      "sha256": "a2db437e7702af02f5db19475941924f82cd0cff86eebee8ae19f8d5898f4f09"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -1117,7 +1117,7 @@
     },
     {
       "path": "docs/INSTALL.md",
-      "sha256": "7bf2eb4c37972adedaadd4c28387bc31e3972a2f94f69c27b2a9ed03aae0eab6"
+      "sha256": "c190aa850ac2c61dc746c08af76f1f7406f70bba1ea9b8fca9e8e9c880519243"
     },
     {
       "path": "docs/MEDIA-PRIVACY.md",
@@ -1129,7 +1129,7 @@
     },
     {
       "path": "docs/REMOTE-POSTING.md",
-      "sha256": "1733a972480dd24a216b37d2f5d1f52e87d85ef873536ec3cae2142bd8995f1b"
+      "sha256": "e29f068358ecc22c8aba5e55d7492243972342776519c6429428d51db00bda67"
     },
     {
       "path": "docs/SCHEDULED-TASKS.md",
@@ -1141,15 +1141,19 @@
     },
     {
       "path": "docs/UPGRADING.md",
-      "sha256": "f1c504d020136f9fcc71bc83a94f0c0bc125182be709766b126860e0f6859936"
+      "sha256": "65dea1b159f38b2431daebebe2f252ff15cabb1b3a5e56d23bf00b9884b458a5"
     },
     {
       "path": "docs/openapi/bonumark-stream-api.json",
-      "sha256": "287570fee4ed9b1c7db32ae63ab0c07801f283621f9550befb0bf01274571e8c"
+      "sha256": "1f6c55e49a6f31e93a12fb0ec77df5a34a9a305a9de62ee823791619d349c7f3"
     },
     {
       "path": "docs/releases/v0.8.0.md",
       "sha256": "c8cea53cdd5309a465ad6b4347c8f5c99f321015d667f0c297b3930b70e4c375"
+    },
+    {
+      "path": "docs/releases/v0.8.1.md",
+      "sha256": "e5b416d44d9e31f17a0c35bb521de7f7cf78e201ca85230c34db4ff0d839b262"
     },
     {
       "path": "docs/server/MANUAL-DEPLOYMENT.md",
@@ -1205,7 +1209,7 @@
     },
     {
       "path": "scripts/activitypub-following-test.php",
-      "sha256": "c7e5c513f767019a796ab72acd9e8295fdaea2273bc680b8f54ef3b743189ba8"
+      "sha256": "03f676fb5ae6cd4712354c194ffc07d21ffc4a8409015a3a5bc03990a5a0a2c3"
     },
     {
       "path": "scripts/activitypub-foundation-test.php",
@@ -1217,7 +1221,7 @@
     },
     {
       "path": "scripts/activitypub-owner-test.php",
-      "sha256": "fd723bf8eefc5f8a2c3db2e75ad7f9dd36a0808ba5aa8a71a76cbf268ab20af3"
+      "sha256": "aa3d354c0b247560ece402534a6dd3440b719e931668b36c173976e15e17cbc1"
     },
     {
       "path": "scripts/activitypub-read-only-test.php",
@@ -1233,7 +1237,7 @@
     },
     {
       "path": "scripts/api-database-smoke-test.php",
-      "sha256": "17b818a0ba99ce98293ac18edc37e70e101a71362dcb493c979552e2053c8faf"
+      "sha256": "789f68d1907dddc1589f3ecdca8b9e359ffeccbc071590df68d0b773a45df635"
     },
     {
       "path": "scripts/database-smoke-test.php",
@@ -1333,7 +1337,7 @@
     },
     {
       "path": "scripts/smoke-test.php",
-      "sha256": "4d4f1c3840aefe40ed29f8d93928768168f316533cd6c8a96781b3fbbc2fb30e"
+      "sha256": "97f1da4e18a28d0c5518b03733605a983636262a5ecc66ed3421b2eef88a0871"
     },
     {
       "path": "search.php",
@@ -1345,7 +1349,7 @@
     },
     {
       "path": "sw.js",
-      "sha256": "e5159ac08c212778b257d86c4f539404273ba9925237147c95ef1282034d2360"
+      "sha256": "49f69a604a36ca23e8baccb3fa4e48be4c45c7664163dab26b8d645bf59b9e03"
     }
   ]
 }
