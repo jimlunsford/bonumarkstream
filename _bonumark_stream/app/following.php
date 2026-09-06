@@ -420,8 +420,9 @@ function bms_activitypub_post_reactions_view_data(array $page): array
         || (string)($page['section'] ?? '') !== 'published') {
         return [];
     }
-    $generation = bms_activitypub_current_local_generation_for_post((int)($page['id'] ?? 0));
+    $postId = (int)($page['post_id'] ?? 0);
+    $generation = bms_activitypub_current_local_generation_for_post($postId);
     return is_array($generation)
-        ? bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows((int)$page['id'], (int)$generation['publication_generation']))
+        ? bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, (int)$generation['publication_generation']))
         : [];
 }

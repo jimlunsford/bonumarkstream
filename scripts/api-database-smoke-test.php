@@ -1214,12 +1214,53 @@ function bms_api_smoke_verify_activitypub_publication(): void
 function bms_api_smoke_verify_activitypub_stage5(): void
 {
     $pdo = bms_db();
-    $postId = bms_upsert_database_content([
-        'title' => 'Stage 5 target', 'slug' => 'stage-5-target', 'status' => 'draft',
-        'content_type' => 'stream', 'post_type' => 'stream', 'date' => '2026-08-31',
-        'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Stage 5 local content.', 'front_matter' => [],
-    ], 'drafts', 'stage-5-target.md', 1);
-    $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'published', published_at = UTC_TIMESTAMP() WHERE id = :id")->execute(['id' => $postId]);
+    // Create through the database content path, then seed only the existing
+    // Stage 5 generation fixtures below. No publication delivery is needed here.
+    bms_api_smoke_set_setting('activitypub_enabled', '0');
+    try {
+        $postId = bms_upsert_database_content([
+            'title' => 'Stage 5 target', 'slug' => 'stage-5-target', 'status' => 'published',
+            'content_type' => 'stream', 'post_type' => 'stream', 'date' => '2026-08-31',
+            'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Stage 5 local content.', 'front_matter' => [],
+        ], 'published', 'stage-5-target.md', 1);
+    } finally {
+        bms_api_smoke_set_setting('activitypub_enabled', '1');
+    }
+    $reactionPage = bms_find_database_content_by_slug_status('stage-5-target', 'published', 'stream');
+    if (!is_array($reactionPage) || $postId < 1 || (int)($reactionPage['post_id'] ?? 0) !== $postId
+        || ($reactionPage['content_storage'] ?? '') !== 'database' || array_key_exists('id', $reactionPage)) {
+        throw new RuntimeException('The real database-prepared Stream page lost its post_id identity contract.');
+    }
+    $assertOwnerReactions = static function (int $likes, int $boosts) use ($postId): void {
+        // Re-enter the same lookup/conversion boundary used by public rendering.
+        $page = bms_find_database_content_by_slug_status('stage-5-target', 'published', 'stream');
+        if (!is_array($page) || (int)($page['post_id'] ?? 0) !== $postId) {
+            throw new RuntimeException('Owner reactions did not receive the real prepared local post.');
+        }
+        $actor = ['name' => 'Alpha Remote', 'handle' => '@alpha@93.184.216.34'];
+        $expected = $likes || $boosts ? ['likes' => $likes ? [$actor] : [], 'boosts' => $boosts ? [$actor] : []] : [];
+        $session = $_SESSION ?? [];
+        try {
+            $_SESSION['bms_logged_in'] = true;
+            $_SESSION['bms_user_id'] = 1;
+            if (bms_activitypub_post_reactions_view_data($page) !== $expected) {
+                throw new RuntimeException('Real prepared-page owner reactions do not match the incoming lifecycle.');
+            }
+            $html = bms_render_stream_single($page);
+            $hasSection = preg_match('/<section\b[^>]*aria-labelledby="remote-reactions-title"[^>]*>(.*?)<\/section>/s', $html, $section) === 1;
+            if ($hasSection !== ($expected !== []) || !str_contains($html, 'Stage 5 local content.')) {
+                throw new RuntimeException('Real Stream single rendering lost the local post or owner reaction section.');
+            }
+            if ($hasSection && (str_contains($section[1], '<h3>Likes</h3>') !== ($likes === 1)
+                || str_contains($section[1], '<h3>Boosts</h3>') !== ($boosts === 1)
+                || substr_count($section[1], '<strong>Alpha Remote</strong>') !== $likes + $boosts
+                || substr_count($section[1], '<bdi>@alpha@93.184.216.34</bdi>') !== $likes + $boosts)) {
+                throw new RuntimeException('Real owner single rendering duplicated or mislabeled the incoming actor.');
+            }
+        } finally {
+            $_SESSION = $session;
+        }
+    };
     $retiredUri = bms_activitypub_object_url($postId);
     $currentUri = bms_activitypub_generation_object_url($postId, 2);
     $localInsert = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (:post_id, :object_uri, :object_type, :content_hash, :object_json, :human_url, :generation, :sequence, UTC_TIMESTAMP(), UTC_TIMESTAMP(), :deleted_at, UTC_TIMESTAMP())');
@@ -1362,6 +1403,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
         throw new RuntimeException('A deleted remote reply lost its tombstone state.');
     }
 
+    $assertOwnerReactions(0, 0);
     $like1 = ['id' => $alphaUri . '/activities/like-1', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $currentUri];
     if (($send($like1)['result_code'] ?? '') !== 'like_recorded') {
         throw new RuntimeException('A valid inbound Like was not recorded.');
@@ -1374,6 +1416,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (!(count(bms_activitypub_post_reaction_rows($postId, 2)) === 1 && bms_activitypub_post_reaction_rows($postId, 1) === [])) {
         throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
     }
+    $assertOwnerReactions(1, 0);
     $wrongUndoLike = ['id' => $betaUri . '/activities/undo-like-wrong', 'type' => 'Undo', 'actor' => $betaUri, 'object' => ['id' => $like1['id'], 'type' => 'Like', 'actor' => $betaUri, 'object' => $currentUri]];
     bms_api_smoke_expect_security_exception(403, static fn() => $send($wrongUndoLike, 'beta'));
     $undoLike = ['id' => $alphaUri . '/activities/undo-like-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $like1];
@@ -1383,6 +1426,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (!(bms_activitypub_post_reaction_rows($postId, 2) === [])) {
         throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
     }
+    $assertOwnerReactions(0, 0);
     $likeAgain = $like1;
     $likeAgain['id'] = $alphaUri . '/activities/like-again';
     if (($send($likeAgain)['result_code'] ?? '') !== 'like_recorded' || bms_activitypub_federated_interaction_count($postId, 2, 'Like') !== 1) {
@@ -1405,14 +1449,28 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (!(count(bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['likes']) === 1 && count(bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['boosts']) === 1)) {
         throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
     }
+    $assertOwnerReactions(1, 1);
+    $undoCurrentLike = ['id' => $alphaUri . '/activities/undo-like-again', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $likeAgain];
+    if (($send($undoCurrentLike)['result_code'] ?? '') !== 'like_undone') {
+        throw new RuntimeException('The owner presentation fixture could not undo its current Like.');
+    }
+    $assertOwnerReactions(0, 1);
     $undoAnnounce = ['id' => $alphaUri . '/activities/undo-announce-1', 'type' => 'Undo', 'actor' => $alphaUri, 'object' => $announce];
     if (($send($undoAnnounce)['result_code'] ?? '') !== 'announce_undone' || bms_activitypub_federated_interaction_count($postId, 2, 'Announce') !== 0) {
         throw new RuntimeException('Undo Announce did not remove the exact owning interaction.');
     }
 
+    $assertOwnerReactions(0, 0);
+    // Restore one current Like for the remaining retired-target and access checks.
+    $restoredLike = $like1;
+    $restoredLike['id'] = $alphaUri . '/activities/like-restored';
+    if (($send($restoredLike)['result_code'] ?? '') !== 'like_recorded') {
+        throw new RuntimeException('The remaining owner access fixture could not restore its Like.');
+    }
     if (!(count(bms_activitypub_post_reaction_rows($postId, 2)) === 1 && bms_activitypub_post_reaction_presentation(bms_activitypub_post_reaction_rows($postId, 2))['boosts'] === [])) {
         throw new RuntimeException('Owner reaction presentation failed its generation, duplicate, or Undo check.');
     }
+    $assertOwnerReactions(1, 0);
     $retiredLike = ['id' => $alphaUri . '/activities/like-retired', 'type' => 'Like', 'actor' => $alphaUri, 'object' => $retiredUri];
     if (($send($retiredLike)['result_code'] ?? '') !== 'like_target_retired') {
         throw new RuntimeException('A Like against a retired generation was not isolated.');
@@ -1421,6 +1479,12 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (!is_array($retiredInteraction) || (int)$retiredInteraction['target_publication_generation'] !== 1 || (string)$retiredInteraction['state'] !== 'target_retired') {
         throw new RuntimeException('A retired-generation interaction migrated to the current generation.');
     }
+
+    $retiredAnnounce = ['id' => $betaUri . '/activities/announce-retired', 'type' => 'Announce', 'actor' => $betaUri, 'object' => $retiredUri];
+    if (($send($retiredAnnounce, 'beta')['result_code'] ?? '') !== 'announce_target_retired') {
+        throw new RuntimeException('The retired-generation Boost fixture was not isolated.');
+    }
+    $assertOwnerReactions(1, 0);
 
     $malformed = ['id' => $alphaUri . '/activities/malformed-create', 'type' => 'Create', 'actor' => $alphaUri, 'object' => $alphaUri . '/notes/not-embedded'];
     bms_api_smoke_expect_security_exception(400, static fn() => $send($malformed));
@@ -1452,7 +1516,6 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (bms_comment_count_for_slug('stage-5-target') !== $localCommentCount || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount) {
         throw new RuntimeException('Stage 5 changed local comments or anonymous local likes.');
     }
-    $reactionPage = ['id' => $postId, 'content_type' => 'stream', 'section' => 'published'];
     $savedSession = $_SESSION ?? [];
     try {
         $_SESSION['bms_logged_in'] = true;
@@ -1461,23 +1524,27 @@ function bms_api_smoke_verify_activitypub_stage5(): void
             throw new RuntimeException('The owner cannot see current incoming reactions.');
         }
         bms_set_static_site_export_rendering(true);
-        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []
+            || str_contains(bms_render_stream_single($reactionPage), 'remote-reactions-title')) {
             throw new RuntimeException('Static export exposes owner reactions.');
         }
         bms_set_static_site_export_rendering(false);
         bms_set_public_preview_mode(true);
-        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []
+            || str_contains(bms_render_stream_single($reactionPage), 'remote-reactions-title')) {
             throw new RuntimeException('Preview exposes owner reactions.');
         }
         bms_set_public_preview_mode(false);
         $_SESSION = [];
-        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []
+            || str_contains(bms_render_stream_single($reactionPage), 'remote-reactions-title')) {
             throw new RuntimeException('An anonymous visitor can see owner reactions.');
         }
         $pdo->exec("UPDATE " . bms_table('users') . " SET role = 'commenter' WHERE id = 1");
         $_SESSION['bms_logged_in'] = true;
         $_SESSION['bms_user_id'] = 1;
-        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []) {
+        if (bms_activitypub_post_reactions_view_data($reactionPage) !== []
+            || str_contains(bms_render_stream_single($reactionPage), 'remote-reactions-title')) {
             throw new RuntimeException('A Commenter can see owner reactions.');
         }
     } finally {
