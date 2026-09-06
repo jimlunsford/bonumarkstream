@@ -1,3 +1,16 @@
+## 0.8.1 - ActivityPub Product Acceptance Corrections
+
+- Prepares the corrected ActivityPub release candidate from accepted functional freeze `fcdb793353bf12c3416a45f07386b0f94c785193`; public release remains v0.7.2 pending separate authorization.
+- Preserves the historical v0.8.0 ZIP as immutable RC evidence. It was built, delivered, installed, and used for live interoperability testing before the product corrections below.
+- Uses plain-language deleted-post, empty-state, Like, Boost, Unlike, and Unboost notices; removes redundant Conversation self-links.
+- Keeps replies inside the native frontend composer, with Reply and Replying... states and normal Bonumark post identity.
+- Shows active Like and Boost states and preserves the accepted 44px Following interaction targets and phone-width containment of long text, handles, and links.
+- Accepts media-only remote Notes and presents single images and multi-image galleries in full frame, preserving alt text, image activation, and content-warning containment of both text and media.
+- Presents incoming remote Likes and boosts privately to the owner, uses the prepared Stream `post_id`, and keeps Undo and publication-generation interaction state correctly scoped.
+- Includes the stronger real-database publication-generation regression coverage completed during acceptance.
+- Retains all accepted core behavior and theme-owned appearance from the functional freeze. Finalization changes only release identity, package metadata, cache identity, and documentation.
+- Adds no database migration compared with the historical v0.8.0 RC. Migrations remain sequential through `0028_activitypub_remote_actor_lifecycle.php`; upgrades from public v0.7.2 apply `0018` through `0028`.
+
 ## 0.8.0 - ActivityPub Federation
 
 - Integrates the completed ActivityPub Stages 1 through 7 and Stage 6.5 subsystem as the v0.8.0 release candidate.
@@ -10,9 +23,6 @@
 - Preserves existing posts, Pages, profiles, comments, local Likes, media, themes, imports, exports, runtime data, configuration, accounts, settings, API state, and other owner data.
 - Updates all current version surfaces, user/operator documentation, package metadata, OpenAPI metadata, service-worker cache identity, and release notes for v0.8.0.
 - Expands release-candidate verification so release-branch compatibility jobs enforce the final manifest and validate a freshly built and extracted distributable package.
-- Rewrites deleted-post and Following empty-state copy in normal product language, removes redundant Conversation and timestamp self-links from conversation views, and gives Midnight Ledger's Following actions phone-friendly 44px targets.
-- Keeps owner replies frontend-facing by reusing the established Stream composer in Conversation and binding the remote `inReplyTo` target before normal draft, scheduled, or published post transitions.
-- Bumps Midnight Ledger to theme version 1.9.2 so the corrected interaction targets receive a fresh theme-owned asset cache revision.
 
 ## 0.7.2 - Database Smoke Test Correctness Pass
 

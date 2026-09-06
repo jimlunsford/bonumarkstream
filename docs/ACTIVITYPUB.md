@@ -24,7 +24,7 @@ The first federated publication of a Stream Post sends `Create`. A material edit
 
 Published image posts include ActivityStreams image attachments. Bonumark preserves the image order and sends the stored media alt text as the attachment name when alt text is available. Remote delivery does not expose private media or turn remote media into local Media Library records.
 
-v0.8.0 does not implement followers-only or private federation, direct messages, or another private-post visibility model. Federated Bonumark Stream Posts are public posts.
+v0.8.1 does not implement followers-only or private federation, direct messages, or another private-post visibility model. Federated Bonumark Stream Posts are public posts.
 
 ## Local identity and publication generations
 
@@ -153,7 +153,7 @@ Misskey.io accepted a correctly formed Update delivery during acceptance testing
 
 NodeInfo is intentionally not implemented. Its common usage and user-count fields are designed around social-server deployments and could misrepresent Bonumark's single-owner publishing model or leak private participation data. WebFinger and ActivityPub actor discovery provide the interoperability Bonumark currently needs. A future NodeInfo implementation requires a concrete consumer need and a privacy-safe single-owner reporting contract.
 
-## Deliberately unsupported in v0.8.0
+## Deliberately unsupported in v0.8.1
 
 - NodeInfo;
 - automatic domain migration;

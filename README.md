@@ -7,7 +7,8 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.0**
+- Current version: **0.8.1** (release candidate)
+- Current public GitHub release: **v0.7.2**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -34,7 +35,9 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.8.0
+## What's new in v0.8.1
+
+v0.8.1 finalizes the ActivityPub release line after product acceptance corrected the original v0.8.0 RC. It includes native frontend replies, visible Like and Boost states, usable phone controls, full-frame single images and galleries, content-warning containment, and private incoming reaction presentation. It adds no migration beyond v0.8.0. The historical v0.8.0 ZIP remains unchanged; v0.8.1 has not yet been publicly released.
 
 Bonumark Stream can now remain the owner's publishing home while also participating in the fediverse. ActivityPub is optional and disabled by default. When enabled, normal Bonumark publication transitions can reach followers on Mastodon, GoToSocial, Misskey, and other compatible platforms without making remote delivery part of the local save transaction.
 
@@ -44,7 +47,7 @@ Bonumark preserves durable local post identity while giving each federated publi
 
 Federation delivery is asynchronous, signed, retryable, and isolated from local publishing. The release adds encrypted signing-key storage and rotation, legacy RSA and RFC 9421 signature support, replay and digest protection, SSRF-safe remote fetching, queue repair, pause, delivery suspension, and irreversible permanent Actor Delete.
 
-ActivityPub requires a root-level HTTPS site, domain-root WebFinger routing, OpenSSL, cURL, protected private storage, and dependable server cron or protected web cron. See the [ActivityPub guide](docs/ACTIVITYPUB.md) and [v0.8.0 release notes](docs/releases/v0.8.0.md) before enabling federation.
+ActivityPub requires a root-level HTTPS site, domain-root WebFinger routing, OpenSSL, cURL, protected private storage, and dependable server cron or protected web cron. See the [ActivityPub guide](docs/ACTIVITYPUB.md) and [v0.8.1 release notes](docs/releases/v0.8.1.md) before enabling federation.
 
 ## Major features
 
@@ -257,7 +260,7 @@ Project documentation is included under `docs/`:
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [ActivityPub](docs/ACTIVITYPUB.md)
-- [v0.8.0 release notes](docs/releases/v0.8.0.md)
+- [v0.8.1 release notes](docs/releases/v0.8.1.md)
 - [Theming](docs/THEMING.md)
 - [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
 - [Admin UI Guidelines](docs/ADMIN-UI-GUIDELINES.md)
