@@ -185,6 +185,11 @@ function bms_api_smoke_run_child(string $scenario): void
             if ($activityPubEvents !== 1 || $observedEvents !== 1 || $activityPubDeliveries !== 1 || $responseDeliveries !== 1 || $publicationDeliveries !== 0) {
                 throw new RuntimeException('The Stage 3 response queue was not isolated from historical observed publication events.');
             }
+        } elseif ($scenario === 'activitypub_stage5') {
+            $completedEvents = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_publication_events') . " WHERE status = 'completed' AND processed_at IS NOT NULL")->fetchColumn();
+            if ($activityPubEvents !== 3 || $completedEvents !== 3 || $activityPubDeliveries !== 0) {
+                throw new RuntimeException('Stage 5 did not preserve its normal Create, Delete, Create fixture without delivery fan-out.');
+            }
         } elseif ($scenario === 'activitypub_stage6') {
             $unfinished = (int)bms_db()->query("SELECT COUNT(*) FROM " . bms_table('activitypub_deliveries') . " WHERE status IN ('pending', 'retry', 'processing')")->fetchColumn();
             $ownerActions = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_owner_action_log'))->fetchColumn();
@@ -1214,17 +1219,17 @@ function bms_api_smoke_verify_activitypub_publication(): void
 function bms_api_smoke_verify_activitypub_stage5(): void
 {
     $pdo = bms_db();
-    // Create through the database content path, then seed only the existing
-    // Stage 5 generation fixtures below. No publication delivery is needed here.
-    bms_api_smoke_set_setting('activitypub_enabled', '0');
-    try {
-        $postId = bms_upsert_database_content([
-            'title' => 'Stage 5 target', 'slug' => 'stage-5-target', 'status' => 'published',
-            'content_type' => 'stream', 'post_type' => 'stream', 'date' => '2026-08-31',
-            'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Stage 5 local content.', 'front_matter' => [],
-        ], 'published', 'stage-5-target.md', 1);
-    } finally {
-        bms_api_smoke_set_setting('activitypub_enabled', '1');
+    // Use the normal database publication lifecycle for both generations.
+    // Keep ActivityPub enabled: settings are cached for the whole PHP request.
+    $postId = bms_upsert_database_content([
+        'title' => 'Stage 5 target', 'slug' => 'stage-5-target', 'status' => 'published',
+        'content_type' => 'stream', 'post_type' => 'stream', 'date' => '2026-08-31',
+        'description' => '', 'category' => 'Stream', 'tags' => [], 'body' => 'Stage 5 local content.', 'front_matter' => [],
+    ], 'published', 'stage-5-target.md', 1);
+    $unpublished = bms_unpublish_file('stage-5-target.md');
+    $republished = bms_publish_file((string)$unpublished['filename']);
+    if ((int)($republished['post_id'] ?? 0) !== $postId || !bms_activitypub_enabled()) {
+        throw new RuntimeException('The Stage 5 publication fixture lost its local identity or enabled inbox.');
     }
     $reactionPage = bms_find_database_content_by_slug_status('stage-5-target', 'published', 'stream');
     if (!is_array($reactionPage) || $postId < 1 || (int)($reactionPage['post_id'] ?? 0) !== $postId
@@ -1263,9 +1268,15 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     };
     $retiredUri = bms_activitypub_object_url($postId);
     $currentUri = bms_activitypub_generation_object_url($postId, 2);
-    $localInsert = $pdo->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (:post_id, :object_uri, :object_type, :content_hash, :object_json, :human_url, :generation, :sequence, UTC_TIMESTAMP(), UTC_TIMESTAMP(), :deleted_at, UTC_TIMESTAMP())');
-    $localInsert->execute(['post_id' => $postId, 'object_uri' => $retiredUri, 'object_type' => 'Note', 'content_hash' => hash('sha256', 'retired'), 'object_json' => json_encode(['id' => $retiredUri, 'type' => 'Tombstone']), 'human_url' => bms_stream_url('stage-5-target'), 'generation' => 1, 'sequence' => 1, 'deleted_at' => gmdate('Y-m-d H:i:s')]);
-    $localInsert->execute(['post_id' => $postId, 'object_uri' => $currentUri, 'object_type' => 'Note', 'content_hash' => hash('sha256', 'current'), 'object_json' => json_encode(['id' => $currentUri, 'type' => 'Note', 'content' => '<p>Stage 5 local content.</p>']), 'human_url' => bms_stream_url('stage-5-target'), 'generation' => 2, 'sequence' => 2, 'deleted_at' => null]);
+    $retiredGeneration = bms_activitypub_local_object_generation($postId, 1);
+    $currentGeneration = bms_activitypub_current_local_generation_for_post($postId);
+    if (!is_array($retiredGeneration) || (string)$retiredGeneration['object_uri'] !== $retiredUri
+        || trim((string)($retiredGeneration['deleted_at'] ?? '')) === ''
+        || !is_array($currentGeneration) || (int)$currentGeneration['publication_generation'] !== 2
+        || (string)$currentGeneration['object_uri'] !== $currentUri
+        || trim((string)($currentGeneration['deleted_at'] ?? '')) !== '') {
+        throw new RuntimeException('The normal publication lifecycle did not prepare retired and current Stage 5 generations.');
+    }
 
     $commentInsert = $pdo->prepare("INSERT INTO " . bms_table('comments') . " (post_slug, post_id, user_id, parent_id, body, status, ip_hash, user_agent_hash, created_at, updated_at, approved_at) VALUES ('stage-5-target', :post_id, 1, NULL, 'Local comment remains local.', 'approved', :ip_hash, :ua_hash, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())");
     $commentInsert->execute(['post_id' => $postId, 'ip_hash' => hash('sha256', 'stage5-ip'), 'ua_hash' => hash('sha256', 'stage5-ua')]);
