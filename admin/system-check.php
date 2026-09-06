@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
+require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 bms_require_capability('view_system');

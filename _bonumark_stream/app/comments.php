@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/profiles.php';
+require_once __DIR__ . '/activitypub-interactions.php';
 
 function bms_comments_enabled(): bool
 {
@@ -253,9 +254,45 @@ function bms_comments_view_data(string $slug, string $notice = ''): array
             'avatar_html' => function_exists('bms_user_avatar_markup') ? bms_user_avatar_markup($comment, 'comment-avatar-image', 96, 96, false) : '<span class="stream-author-avatar stream-author-initials">' . htmlspecialchars(bms_user_initials($comment), ENT_QUOTES, 'UTF-8') . '</span>',
             'body' => (string)($comment['body'] ?? ''),
             'created_at' => (string)($comment['created_at'] ?? ''),
+            'source' => 'local',
             'raw' => $comment,
         ];
     }
+
+    $post = bms_find_published_post_for_comment($slug);
+    $generation = bms_activitypub_enabled() && is_array($post)
+        ? bms_activitypub_current_local_generation_for_post((int)$post['id'])
+        : null;
+    if (is_array($generation)) {
+        foreach (bms_activitypub_approved_replies_for_post((int)$post['id'], (int)$generation['publication_generation']) as $reply) {
+            $actorUri = (string)$reply['actor_uri'];
+            $username = bms_activitypub_remote_plain_text((string)($reply['preferred_username'] ?? ''), 190);
+            $domain = bms_activitypub_actor_domain($actorUri);
+            $displayName = bms_activitypub_remote_plain_text((string)($reply['display_name'] ?? ''), 255);
+            if ($displayName === '') {
+                $displayName = $username !== '' ? $username : 'Remote participant';
+            }
+            $initial = bms_text_substr($displayName, 0, 1);
+            $comments[] = [
+                'author_name' => $displayName,
+                'username' => $username !== '' ? $username . ($domain !== '' ? '@' . $domain : '') : $domain,
+                'profile_url' => bms_activitypub_remote_link_url($actorUri) ?: '#',
+                'avatar_html' => '<span class="stream-author-avatar stream-author-initials">' . htmlspecialchars(strtoupper($initial !== '' ? $initial : 'R'), ENT_QUOTES, 'UTF-8') . '</span>',
+                'body' => (string)$reply['content_text'],
+                'body_html' => (string)$reply['content_html'],
+                'created_at' => (string)($reply['remote_published_at'] ?? '') ?: (string)$reply['created_at'],
+                'source' => 'activitypub',
+                'publication_generation' => (int)$reply['target_publication_generation'],
+                'raw' => $reply,
+            ];
+        }
+    }
+    usort($comments, static function (array $left, array $right): int {
+        $time = strcmp((string)($left['created_at'] ?? ''), (string)($right['created_at'] ?? ''));
+        return $time !== 0 ? $time : strcmp((string)($left['source'] ?? ''), (string)($right['source'] ?? ''));
+    });
+
+    $count = count($comments);
 
     $commentReturnTo = bms_stream_url($slug) . '#comments';
     $canCreateCommentAccount = bms_comment_registration_enabled() && (!function_exists('bms_registration_require_email_verification') || !bms_registration_require_email_verification() || bms_registration_mail_ready());
@@ -264,8 +301,8 @@ function bms_comments_view_data(string $slug, string $notice = ''): array
         'slug' => $slug,
         'notice' => $notice,
         'comments_enabled' => bms_comments_enabled(),
-        'count' => bms_comment_count_for_slug($slug),
-        'label' => bms_comment_label(bms_comment_count_for_slug($slug)),
+        'count' => $count,
+        'label' => bms_comment_label($count),
         'comments' => $comments,
         'can_comment' => bms_is_logged_in() && bms_current_user_can('comment'),
         'can_create_comment_account' => $canCreateCommentAccount,
@@ -340,4 +377,3 @@ function bms_render_comments_mount(array $page): string
 
     return bms_render_public_theme_template('comments-mount', $view);
 }
-

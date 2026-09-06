@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/database.php';
 
-bms_start_secure_session();
+if (!defined('BMS_STATELESS_PROTOCOL_REQUEST') || BMS_STATELESS_PROTOCOL_REQUEST !== true) {
+    bms_start_secure_session();
+}
 bms_send_security_headers();
 
 function bms_find_user_by_username(string $username): ?array
@@ -475,7 +477,7 @@ function bms_admin_route_capability(string $script): ?string
         'comments.php' => 'manage_comments',
         'revisions.php', 'compare-revision.php', 'restore-revision.php' => 'restore_revisions',
         'appearance.php', 'theme.php', 'theme-details.php', 'theme-settings.php', 'theme-install.php', 'theme-delete.php', 'navigation.php', 'site-identity.php' => 'manage_appearance',
-        'settings.php', 'settings-writing.php', 'settings-reading.php', 'security.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php' => 'manage_settings',
+        'settings.php', 'settings-writing.php', 'settings-reading.php', 'security.php', 'registration.php', 'mail.php', 'remote-posting.php', 'scheduled-tasks.php', 'activitypub.php' => 'manage_settings',
         'users.php', 'user-new.php', 'user-edit.php' => 'manage_users',
         'tools.php', 'analytics.php', 'upgrade.php', 'export.php', 'import.php', 'import-markdown.php', 'system-check.php' => 'view_system',
         default => null,

@@ -159,6 +159,7 @@ function bms_public_theme_core_render_parts(): array
         'page',
         'profile',
         'account',
+        'following',
         'comments',
         'comments-mount',
         'search',
@@ -1268,7 +1269,8 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     $data['theme_core_view'] = $data['theme_core_view'] ?? $coreView;
     $data['favicon_tags'] = $data['favicon_tags'] ?? (function_exists('bms_site_favicon_tags') ? bms_site_favicon_tags() : '');
     $data['pwa_tags'] = $data['pwa_tags'] ?? (function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '');
-    if (function_exists('bms_public_seo_view_data')) {
+    $privateSurface = !empty($data['private_surface']);
+    if (!$privateSurface && function_exists('bms_public_seo_view_data')) {
         $data = bms_public_seo_view_data($template, $data);
     }
 
@@ -1276,11 +1278,13 @@ function bms_render_public_theme_template(string $template, array $data = []): ?
     ob_start();
     include $path;
     $html = (string)ob_get_clean();
-    $html = bms_inject_public_seo_head($html, $data);
+    if (!$privateSurface) {
+        $html = bms_inject_public_seo_head($html, $data);
+    }
     if ($template === 'profile') {
         $html = bms_inject_profile_identity_metadata_head($html, $data);
     }
     $html = bms_inject_public_favicon_tags($html);
     $html = function_exists('bms_inject_public_pwa_tags') ? bms_inject_public_pwa_tags($html) : $html;
-    return function_exists('bms_inject_public_analytics_script') ? bms_inject_public_analytics_script($html) : $html;
+    return !$privateSurface && function_exists('bms_inject_public_analytics_script') ? bms_inject_public_analytics_script($html) : $html;
 }

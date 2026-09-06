@@ -2,6 +2,13 @@
 require_once __DIR__ . '/_bonumark_stream/app/functions.php';
 
 $route = (string)($_GET['__bonumark_route'] ?? '');
+if (str_starts_with($route, 'activitypub_')) {
+    require_once __DIR__ . '/_bonumark_stream/app/activitypub-routes.php';
+    if (bms_dispatch_activitypub_route($route)) {
+        exit;
+    }
+}
+
 if (in_array($route, ['api_status', 'api_stream_posts', 'api_media', 'api_media_import'], true)) {
     require_once __DIR__ . '/_bonumark_stream/app/api.php';
     if ($route === 'api_status') {

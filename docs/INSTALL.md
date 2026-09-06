@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.7.2 is the current release package.
+Bonumark Stream v0.8.1 is the current release-candidate package. The current public GitHub release remains v0.7.2 pending separate release authorization.
 
 ## Runtime storage contract
 
@@ -99,6 +99,14 @@ Pins do not change a post’s original publish date or its place in RSS, sitemap
 The stream composer schedules new Stream Posts. The full editor reschedules saved posts, publishes drafts immediately, or cancels scheduled posts back to drafts. Schedule fields display the configured site timezone, while Bonumark stores the canonical scheduled time in UTC.
 
 Open **Admin → Settings → Scheduled Tasks** after install. Server cron is the recommended runner. Shared-hosting and external services can use the protected web cron endpoint. Public traffic and signed-in browser heartbeat checks remain optional fallback paths. The same shared task runner handles every path and records health plus manual/cron history.
+
+## Optional ActivityPub hosting
+
+ActivityPub is disabled by default. Before enabling it, confirm **Admin → System Check** reports a canonical root-level HTTPS URL, domain-root WebFinger routing, OpenSSL, cURL, a protected signing-key secret, and dependable server cron or protected web cron. Reverse proxies must forward the signed federation and digest headers listed in [ACTIVITYPUB.md](ACTIVITYPUB.md). Subdirectory installs require hosting-level domain-root WebFinger mapping and are not automatically accepted. Keep package-managed application code read-only to PHP and grant write access only to the normal Bonumark runtime paths.
+
+After every requirement passes, open **Admin → ActivityPub**, provision the signing key, verify key health, and then enable federation. WebFinger advertises the single owner actor. Normal publishing can then send Create, Update, and Delete activities after local commits, and accepted remote relationships can appear in the private chronological Following experience.
+
+Pause and delivery suspension are reversible maintenance controls. Permanent federation deactivation is not reversible: it sends Actor Delete, permanently retires the current actor URI, removes it from WebFinger, and prevents it from being enabled again. Bonumark v0.8.1 does not create a replacement actor identity.
 
 ## Locked-down deployments
 

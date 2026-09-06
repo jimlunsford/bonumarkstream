@@ -7,6 +7,7 @@ require_once __DIR__ . '/renderer.php';
 require_once __DIR__ . '/pages.php';
 require_once __DIR__ . '/sitemap.php';
 require_once __DIR__ . '/scheduler.php';
+require_once __DIR__ . '/following.php';
 
 
 function bms_run_public_scheduled_posts_check(string $context): void
@@ -384,6 +385,13 @@ function bms_handle_stream_route(): void
             $page = bms_find_database_content_by_slug_status($slug, 'published', 'stream');
         }
         if (!$page) {
+            $aliasTarget = function_exists('bms_activitypub_permalink_alias_target')
+                ? bms_activitypub_permalink_alias_target($slug)
+                : '';
+            if ($aliasTarget !== '') {
+                http_response_code(301);
+                bms_redirect($aliasTarget);
+            }
             http_response_code(404);
             echo bms_render_public_theme_template('empty', [
                 'context' => 'stream-single',
@@ -500,6 +508,10 @@ function bms_dispatch_public_route(string $route): bool
     }
     if ($route === 'account') {
         bms_handle_account_route();
+        return true;
+    }
+    if ($route === 'following' || $route === 'following_conversation') {
+        bms_handle_activitypub_following_route($route === 'following_conversation');
         return true;
     }
     if ($route === 'stream') {

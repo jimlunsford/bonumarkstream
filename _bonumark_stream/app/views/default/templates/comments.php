@@ -24,8 +24,13 @@ $slug = (string)($data['slug'] ?? '');
               <a href="<?= htmlspecialchars((string)($comment['profile_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($comment['author_name'] ?? 'Commenter'), ENT_QUOTES, 'UTF-8') ?></a>
               <span>@<?= htmlspecialchars((string)($comment['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
               <time datetime="<?= htmlspecialchars((string)($comment['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($comment['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></time>
+              <?php if ((string)($comment['source'] ?? 'local') === 'activitypub'): ?><span>Federated reply</span><?php endif; ?>
             </div>
-            <p><?= nl2br(htmlspecialchars((string)($comment['body'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></p>
+            <?php if ((string)($comment['source'] ?? 'local') === 'activitypub' && (string)($comment['body_html'] ?? '') !== ''): ?>
+              <div class="comment-federated-content"><?= (string)$comment['body_html'] ?></div>
+            <?php else: ?>
+              <p><?= nl2br(htmlspecialchars((string)($comment['body'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></p>
+            <?php endif; ?>
           </div>
         </li>
       <?php endforeach; ?>

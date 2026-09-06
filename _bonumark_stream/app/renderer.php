@@ -5,6 +5,7 @@ require_once __DIR__ . '/appearance.php';
 require_once __DIR__ . '/interactions.php';
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/comments.php';
+require_once __DIR__ . '/following.php';
 require_once __DIR__ . '/link-preview.php';
 require_once __DIR__ . '/analytics.php';
 require_once __DIR__ . '/places.php';
@@ -155,7 +156,7 @@ function bms_render_stream_composer_mount(): string
 }
 
 
-function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
+function bms_stream_composer_view_data(?string $returnToOverride = null, array $overrides = []): ?array
 {
     $canEdit = function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
     $canPublish = function_exists('bms_current_user_can') && bms_current_user_can('publish_content');
@@ -193,7 +194,7 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
 
     $returnSource = $returnToOverride !== null ? $returnToOverride : (string)($_SERVER['REQUEST_URI'] ?? bms_url_path());
 
-    return [
+    $view = [
         'action_url' => bms_admin_url('quick-post.php'),
         'csrf' => function_exists('bms_csrf_token') ? bms_csrf_token() : '',
         'return_to' => bms_stream_safe_return_url($returnSource),
@@ -221,11 +222,24 @@ function bms_stream_composer_view_data(?string $returnToOverride = null): ?array
         'timezone_label' => function_exists('bms_site_timezone_name') ? bms_site_timezone_name() : 'UTC',
         'flashes' => $flashes,
     ];
+
+    $allowedOverrides = [
+        'section_label', 'textarea_label', 'placeholder', 'submit_label', 'busy_label',
+        'draft_label', 'draft_busy_label', 'continue_label',
+        'continue_busy_label', 'help_text', 'reply_object_uri',
+    ];
+    foreach ($allowedOverrides as $key) {
+        if (array_key_exists($key, $overrides)) {
+            $view[$key] = (string)$overrides[$key];
+        }
+    }
+
+    return $view;
 }
 
-function bms_render_stream_composer(?string $returnToOverride = null): string
+function bms_render_stream_composer(?string $returnToOverride = null, array $overrides = []): string
 {
-    $view = bms_stream_composer_view_data($returnToOverride);
+    $view = bms_stream_composer_view_data($returnToOverride, $overrides);
     if ($view === null) {
         return '';
     }
@@ -890,6 +904,16 @@ function bms_stream_media_absolute_url(array $page): string
 
 function bms_render_stream_single(array $page): string
 {
+    $remoteReactions = bms_activitypub_post_reactions_view_data($page);
+    if ($remoteReactions && headers_sent() && PHP_SAPI !== 'cli') {
+        $remoteReactions = [];
+    }
+    if ($remoteReactions && !headers_sent()) {
+        header('Cache-Control: no-store, private, max-age=0');
+        header('Pragma: no-cache');
+        header('Vary: Cookie', false);
+    }
+
     $siteNameRaw = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
     $titleRaw = bms_stream_seo_title($page);
     $descriptionRaw = bms_stream_seo_description($page);
@@ -940,6 +964,7 @@ function bms_render_stream_single(array $page): string
         'header_html' => bms_render_public_header($previewMode ? 'preview' : 'stream-single', null, $previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
         'footer_html' => bms_render_public_footer($previewMode ? null : bms_stream_relative_directory_for_post($page) . '/'),
         'card_html' => bms_render_stream_card($page, true),
+        'remote_reactions' => $remoteReactions,
         'comments_html' => function_exists('bms_render_comments_mount') ? bms_render_comments_mount($page) : '',
         'page' => $page,
     ];
@@ -1172,14 +1197,12 @@ function bms_unpublish_file(string $publishedFilename): array
         throw new RuntimeException('A draft with this slug already exists. Delete or rename the draft first.');
     }
 
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename('published', $filename);
-    }
     if (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($draft, 'drafts', $draftFilename, $authorId);
     }
 
-    return $draft + ['filename' => $draftFilename];
+    $result = $draft + ['filename' => $draftFilename];
+    return $result;
 }
 
 function bms_delete_content_file(string $type, string $filename): array
@@ -1192,13 +1215,39 @@ function bms_delete_content_file(string $type, string $filename): array
         throw new RuntimeException('Content record not found.');
     }
 
+    $postId = (int)($page['post_id'] ?? $page['id'] ?? 0);
+    if ($postId < 1) {
+        throw new RuntimeException('The post identity could not be preserved in Trash.');
+    }
     $trashFilename = date('Ymd-His') . '-' . $originalStatus . '-' . $filename;
-    if (function_exists('bms_record_trashed_content')) {
+    $pdo = bms_db();
+    $beforeRow = null;
+    $afterRow = null;
+    $pdo->beginTransaction();
+    try {
+        $before = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id FOR UPDATE');
+        $before->execute(['id' => $postId]);
+        $beforeRow = $before->fetch();
+        if (!is_array($beforeRow) || (string)($beforeRow['status'] ?? '') !== $originalStatus) {
+            throw new RuntimeException('The post changed before it could be moved to Trash.');
+        }
         bms_record_trashed_content($page, $originalStatus, $filename, $trashFilename);
+        $update = $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'trash', markdown_path = :markdown_path, html_path = NULL, scheduled_at = NULL, is_pinned = 0, pinned_at = NULL, updated_at = UTC_TIMESTAMP() WHERE id = :id AND post_type = 'stream'");
+        $update->execute(['markdown_path' => 'content/trash/' . $trashFilename, 'id' => $postId]);
+        if ($update->rowCount() < 1) {
+            throw new RuntimeException('The post could not be moved to Trash without changing its identity.');
+        }
+        $after = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+        $after->execute(['id' => $postId]);
+        $afterRow = $after->fetch();
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
     }
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename($section, $filename);
-    }
+    bms_dispatch_publication_transition(is_array($beforeRow) ? $beforeRow : $page, is_array($afterRow) ? $afterRow : null, ['source' => 'trash']);
     return $page;
 }
 
@@ -1228,9 +1277,6 @@ function bms_publish_file(string $draftFilename): array
         throw new RuntimeException('A published stream post already uses this slug.');
     }
 
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename($sourceSection, $filename);
-    }
     if (function_exists('bms_sync_stream_metadata')) {
         bms_sync_stream_metadata($published, 'published', $publishedFilename, $authorId);
     }

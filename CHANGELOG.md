@@ -1,6 +1,47 @@
 # Bonumark Stream Changelog
 
-This file tracks public GitHub release milestones. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+This file tracks public GitHub release milestones and the explicitly marked pending release candidate. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+
+## 0.8.1 - ActivityPub Product Acceptance Corrections
+
+**Release candidate, not yet publicly released.** The current public release remains v0.7.2.
+
+v0.8.1 finalizes the accepted ActivityPub source after product acceptance corrected the original v0.8.0 RC. The previously delivered v0.8.0 ZIP remains immutable historical evidence.
+
+Compared with public v0.7.2, Bonumark Stream v0.8.1 adds optional ActivityPub federation while preserving Bonumark as a self-hosted, single-owner personal publishing system first.
+
+### Highlights
+
+- Publishes normal Bonumark Stream Posts to followers on Mastodon, GoToSocial, Misskey, and compatible ActivityPub platforms.
+- Adds stable single-owner WebFinger and actor discovery plus read-only outbox and object routes.
+- Supports follower requests, approval or rejection, Follow and Unfollow, inbound replies, Likes, boosts, and exact Undo behavior.
+- Adds a private, chronological, non-algorithmic frontend Following timeline with private conversation views and owner Reply, Like, Unlike, Boost, and Unboost actions.
+- Keeps replies inside the native frontend Stream composer, removes redundant conversation self-links, uses plain-language empty and deleted states, and enlarges Following actions for dependable touch use.
+- Adds visible active Like and Boost states, Reply and Replying... composer states, and plain-language interaction notices.
+- Accepts media-only Notes and preserves full-frame single images and galleries, distinct alt text, and content-warning containment of text and media.
+- Shows incoming remote Likes and boosts privately to the owner with the correct prepared post identity and publication-generation boundaries.
+- Keeps remote actors separate from local accounts and remote content separate from Bonumark's public Stream and archive.
+- Preserves durable local post identity while assigning each federated publication lifetime its own immutable object generation.
+- Permanently Tombstones a deleted generation and gives a republished post a new ActivityPub object identity.
+- Delivers multiple images and alt text through generation-aware Create and Update activities.
+- Adds encrypted signing-key storage and rotation, legacy RSA and RFC 9421 signature support, digest and replay protection, SSRF-safe fetching, and bounded remote data handling.
+- Adds asynchronous delivery, retries, dead letters, queue inspection and repair, actor/domain blocking, remote cache lifecycle controls, federation pause, and delivery suspension.
+- Adds irreversible permanent Actor Delete with explicit confirmation and permanent non-resurrection of the retired actor URI.
+- Keeps ActivityPub optional and disabled by default.
+
+### Database changes
+
+Adds no migration compared with the historical v0.8.0 RC. Upgrades from public v0.7.2 apply migrations `0018` through `0028` for ActivityPub identity, keys, publications, delivery, followers, Following, interactions, blocks, actor retirement, and remote-actor lifecycle state.
+
+The migrations do not rewrite existing post bodies or replace existing posts, profiles, media, comments, Likes, themes, imports, exports, runtime state, or other owner data.
+
+### Hosting and compatibility
+
+ActivityPub requires a canonical root-level HTTPS site, domain-root WebFinger routing, OpenSSL, cURL with outbound HTTPS access, protected private storage, and dependable server cron or protected web cron. Subdirectory installs need explicit hosting-level domain-root WebFinger routing.
+
+The required final-package compatibility matrix covers PHP 8.1 and 8.3 with MySQL 8.0/8.4 and MariaDB 10.6/11.4; its v0.8.1 result is recorded separately in the finalization report. Live interoperability testing covered Mastodon, GoToSocial, and Misskey.io. Misskey.io accepted Update activities but did not apply changed Note text during testing; no Bonumark payload defect was identified.
+
+See the [v0.8.1 release notes](docs/releases/v0.8.1.md) and [ActivityPub guide](docs/ACTIVITYPUB.md) for the complete owner and operator summary.
 
 ## 0.7.2 - Hosting Portability & Upgrade Workflow
 

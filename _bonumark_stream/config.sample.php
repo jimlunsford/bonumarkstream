@@ -1,6 +1,6 @@
 <?php
 return [
-    'version' => '0.7.2',
+    'version' => '0.8.1',
     'site_name' => 'Bonumark Stream',
     'site_tagline' => 'A self-hosted microblog CMS for publishing short-form posts on a site you control.',
     'active_public_theme' => 'default',
@@ -14,6 +14,8 @@ return [
     'remote_posting_publish_confirmation_required' => '1',
     'remote_posting_rate_limit_per_minute' => '60',
     'remote_media_upload_enabled' => '0',
+    'activitypub_enabled' => '0',
+    'activitypub_follow_policy' => 'manual',
     'pwa_enabled' => '1',
     'pwa_share_target_enabled' => '1',
     'pwa_theme_color' => '#111827',

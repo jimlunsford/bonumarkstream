@@ -1,0 +1,320 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('CLI only.');
+}
+
+require_once __DIR__ . '/../_bonumark_stream/app/functions.php';
+require_once __DIR__ . '/../_bonumark_stream/app/activitypub-inbox.php';
+require_once __DIR__ . '/../_bonumark_stream/app/following.php';
+
+function bms_ap_following_assert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+function bms_ap_following_render_composer(array $viewData): string
+{
+    $bms_theme_data = $viewData;
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/composer.php';
+    return (string)ob_get_clean();
+}
+
+function bms_ap_following_render_page(array $viewData): string
+{
+    $bms_theme_data = $viewData;
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/following.php';
+    return (string)ob_get_clean();
+}
+
+function bms_ap_following_primary_composer_control(string $html): array
+{
+    if (preg_match('/<button\b(?=[^>]*\bdata-stream-primary-submit\b)([^>]*)>([^<]*)<\/button>/i', $html, $button) !== 1) {
+        throw new RuntimeException('The rendered composer is missing its primary control.');
+    }
+    $control = ['text' => html_entity_decode(trim((string)$button[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8')];
+    foreach (['data-ready-label', 'data-busy-label', 'data-publish-label', 'data-publish-busy-label', 'data-schedule-label', 'data-schedule-busy-label'] as $attribute) {
+        if (preg_match('/\b' . preg_quote($attribute, '/') . '="([^"]*)"/i', (string)$button[1], $value) !== 1) {
+            throw new RuntimeException('The rendered composer primary control is missing ' . $attribute . '.');
+        }
+        $control[$attribute] = html_entity_decode((string)$value[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return $control;
+}
+
+bms_ap_following_assert(bms_activitypub_following_access_state(false, true, true, false) === 'not_found', 'Disabled ActivityPub exposed Following.');
+bms_ap_following_assert(bms_activitypub_following_access_state(true, false, false, false) === 'login', 'Logged-out Following did not require authentication.');
+bms_ap_following_assert(bms_activitypub_following_access_state(true, true, false, false) === 'not_found', 'A Commenter received Following access.');
+bms_ap_following_assert(bms_activitypub_following_access_state(true, true, true, true) === 'not_found', 'Static export received Following access.');
+bms_ap_following_assert(bms_activitypub_following_access_state(true, true, true, false) === 'allowed', 'The authenticated owner could not access Following.');
+
+$note = [
+    'id' => 'https://remote.example/notes/frontend',
+    'type' => 'Note',
+    'attributedTo' => 'https://remote.example/users/owner',
+    'content' => '<p onclick="evil()">Safe <strong>content</strong>.</p><script>alert(1)</script><a href="javascript:alert(1)">bad</a>',
+    'url' => 'https://remote.example/@owner/frontend',
+    'inReplyTo' => 'https://remote.example/notes/parent',
+    'summary' => '<b>Content warning</b>',
+    'sensitive' => true,
+    'published' => '2026-09-01T00:00:00Z',
+    'attachment' => [
+        ['type' => 'Image', 'mediaType' => 'image/jpeg', 'url' => 'https://media.remote.example/photo.jpg', 'name' => '<b>Useful alt text</b>', 'width' => 1200, 'height' => 800],
+        ['type' => 'Image', 'mediaType' => 'image/svg+xml', 'url' => 'https://media.remote.example/active.svg', 'name' => 'Rejected active format'],
+        ['type' => 'Image', 'mediaType' => 'image/png', 'url' => 'file:///etc/passwd', 'name' => 'Rejected URL'],
+    ],
+];
+$stored = bms_activitypub_remote_note_data($note, 'https://remote.example/users/owner');
+$metadata = json_decode((string)$stored['metadata_json'], true);
+bms_ap_following_assert(count((array)($metadata['media'] ?? [])) === 1, 'Unsafe or unsupported remote media entered the cache model.');
+bms_ap_following_assert((string)($metadata['media'][0]['alt_text'] ?? '') === 'Useful alt text', 'Remote media alt text was not normalized.');
+
+$row = array_merge($stored, [
+    'id' => 9,
+    'actor_uri' => 'https://remote.example/users/owner',
+    'preferred_username' => 'owner',
+    'display_name' => '<b>Remote Owner</b>',
+    'document_json' => json_encode(['icon' => ['type' => 'Image', 'url' => 'https://media.remote.example/avatar.jpg']], JSON_UNESCAPED_SLASHES),
+    'lifecycle_state' => 'active',
+    'created_at' => '2026-09-01 00:00:00',
+    'like_interaction_id' => 15,
+    'like_state' => 'active',
+    'like_last_error' => '<script>error</script>Like queued',
+    'announce_interaction_id' => null,
+    'announce_state' => null,
+    'announce_last_error' => null,
+]);
+$presented = bms_activitypub_following_presentation_row($row);
+bms_ap_following_assert(str_contains((string)$presented['content_html'], '<strong>content</strong>') && !str_contains((string)$presented['content_html'], '<script'), 'The theme presentation model exposed unsafe remote HTML.');
+bms_ap_following_assert((string)$presented['actor_name'] === 'Remote Owner' && (string)$presented['actor_handle'] === '@owner@remote.example', 'Remote actor presentation identity is invalid.');
+bms_ap_following_assert((string)$presented['actor_avatar_url'] === 'https://media.remote.example/avatar.jpg', 'A safe remote avatar was not exposed through the presentation model.');
+bms_ap_following_assert(!empty($presented['like']['active']) && (int)$presented['like']['interaction_id'] === 15, 'Owner Like state did not survive a presentation reload.');
+bms_ap_following_assert((string)$presented['in_reply_to'] === 'https://remote.example/notes/parent', 'Conversation identity was not retained.');
+bms_ap_following_assert((string)$presented['conversation_url'] !== '' && str_starts_with((string)$presented['reply_url'], (string)$presented['conversation_url'] . '#following-reply-'), 'Following reply navigation does not target the private conversation reply area.');
+bms_ap_following_assert((string)$presented['reply_anchor_id'] !== '' && str_ends_with((string)$presented['reply_url'], '#' . (string)$presented['reply_anchor_id']), 'Following reply navigation and its reply anchor do not match.');
+bms_ap_following_assert(!array_key_exists('metadata_json', $presented) && !array_key_exists('document_json', $presented), 'Raw protocol cache fields escaped into the theme model.');
+
+// Followed media-only Notes must reach the same private presentation model.
+foreach ([1, 2, 4] as $imageCount) {
+    $mediaOnlyNote = $note;
+    $mediaOnlyNote['content'] = '';
+    $mediaOnlyNote['attachment'] = [];
+    for ($imageIndex = 1; $imageIndex <= $imageCount; $imageIndex++) {
+        $mediaOnlyNote['attachment'][] = [
+            'type' => 'Document', 'mediaType' => 'image/png',
+            'url' => 'https://media.remote.example/chart-' . $imageIndex . '.png',
+            'name' => '<b>Chart ' . $imageIndex . ' edge markers</b>',
+            'width' => $imageIndex % 2 ? 900 : 1350,
+            'height' => $imageIndex % 2 ? 1350 : 900,
+        ];
+    }
+    $mediaOnlyData = bms_activitypub_remote_note_data($mediaOnlyNote, 'https://remote.example/users/owner');
+    $mediaOnlyRow = array_merge($row, $mediaOnlyData);
+    $mediaOnlyPresentation = bms_activitypub_following_presentation_row($mediaOnlyRow);
+    bms_ap_following_assert($mediaOnlyPresentation['content_html'] === '' && count($mediaOnlyPresentation['media']) === $imageCount, 'Media-only content did not reach Following without fake body text.');
+    bms_ap_following_assert($mediaOnlyPresentation['sensitive'] && $mediaOnlyPresentation['summary'] === 'Content warning', 'A media-only content warning was lost.');
+    foreach ($mediaOnlyPresentation['media'] as $index => $image) {
+        bms_ap_following_assert($image['alt_text'] === 'Chart ' . ($index + 1) . ' edge markers' && $image['url'] === $mediaOnlyNote['attachment'][$index]['url'], 'Gallery ordering or distinct alt text was lost.');
+        bms_ap_following_assert($image['width'] === $mediaOnlyNote['attachment'][$index]['width'] && $image['height'] === $mediaOnlyNote['attachment'][$index]['height'], 'Mixed-orientation gallery dimensions changed.');
+    }
+    $mediaOnlyRow['lifecycle_state'] = 'deleted';
+    bms_ap_following_assert(bms_activitypub_following_presentation_row($mediaOnlyRow)['media'] === [], 'A deleted media-only Note exposed its images.');
+    $mediaOnlyRow['lifecycle_state'] = 'blocked';
+    bms_ap_following_assert(bms_activitypub_following_presentation_row($mediaOnlyRow)['media'] === [], 'A blocked media-only Note exposed its images.');
+}
+
+$row['lifecycle_state'] = 'deleted';
+$deleted = bms_activitypub_following_presentation_row($row);
+bms_ap_following_assert((string)$deleted['content_html'] === '' && $deleted['media'] === [] && (string)$deleted['lifecycle_state'] === 'deleted', 'A tombstoned remote object remained visibly active.');
+
+// Exercise the actual shared template, including image-only and non-image media.
+$warningMediaCases = ['text-only' => [], 'video' => [['kind' => 'video', 'url' => 'https://media.remote.example/movie.mp4', 'media_type' => 'video/mp4', 'alt_text' => 'Video description']], 'audio' => [['kind' => 'audio', 'url' => 'https://media.remote.example/sound.mp3', 'media_type' => 'audio/mpeg', 'alt_text' => 'Audio description']]];
+foreach ([1, 2, 4] as $imageCount) {
+    $warningMediaCases['images-' . $imageCount] = [];
+    for ($imageIndex = 1; $imageIndex <= $imageCount; $imageIndex++) {
+        $warningMediaCases['images-' . $imageCount][] = ['kind' => 'image', 'url' => 'https://media.remote.example/warning-' . $imageIndex . '.png', 'alt_text' => 'Distinct image ' . $imageIndex];
+    }
+}
+foreach ([false, true] as $conversationView) {
+    foreach ($warningMediaCases as $case => $caseMedia) {
+        foreach (['<p>Concealed body.</p>', ''] as $body) {
+            $warningItem = array_merge($presented, ['sensitive' => true, 'summary' => 'Warning & <test>', 'content_html' => $body, 'media' => $caseMedia, 'actor_avatar_url' => '']);
+            $viewData = ['items' => [$warningItem], 'conversation' => $conversationView, 'conversation_found' => true, 'conversation_object_uri' => $warningItem['object_uri'], 'reply_composer_html' => '<form data-test-reply-composer></form>'];
+            $warningHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(preg_match('/<details\b([^>]*)>(.*?)<\/details>/s', $warningHtml, $disclosure) === 1, 'A warned post is missing its disclosure: ' . $case);
+            bms_ap_following_assert(preg_match('/\bopen(?:\s|=|$)/', (string)$disclosure[1]) !== 1, 'A content warning starts expanded.');
+            bms_ap_following_assert(str_contains((string)$disclosure[2], '<summary>Warning &amp; &lt;test&gt;</summary>') && str_contains((string)$disclosure[2], '<div class="following-content stream-card-content">' . $body . '</div>'), 'The warning summary or body escaped its disclosure.');
+            $outsideDisclosure = str_replace((string)$disclosure[0], '', $warningHtml);
+            bms_ap_following_assert(!str_contains($outsideDisclosure, 'following-content stream-card-content') && !str_contains($outsideDisclosure, 'following-media stream-card-media'), 'Warned text or media is rendered outside its disclosure.');
+            foreach ($caseMedia as $attachment) {
+                bms_ap_following_assert(str_contains((string)$disclosure[2], $attachment['url']) && !str_contains($outsideDisclosure, $attachment['url']), 'A warned attachment escaped the disclosure: ' . $case);
+                bms_ap_following_assert(str_contains((string)$disclosure[2], $attachment['alt_text']), 'A warned attachment lost its description.');
+                if ($attachment['kind'] === 'image') {
+                    bms_ap_following_assert(str_contains((string)$disclosure[2], 'alt="' . $attachment['alt_text'] . '"') && !str_contains((string)$disclosure[2], 'following-media-alt'), 'Image alt text is missing or rendered as unwanted visible text.');
+                }
+            }
+            bms_ap_following_assert(str_contains($outsideDisclosure, 'following-actions stream-card-actions') && !str_contains((string)$disclosure[2], 'following-action-form'), 'Action forms moved inside the warning.');
+            if ($conversationView) {
+                bms_ap_following_assert(str_contains($outsideDisclosure, 'data-test-reply-composer'), 'The Conversation reply composer moved inside the warning.');
+            }
+            $viewData['items'][0]['sensitive'] = false;
+            $ordinaryHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(!str_contains($ordinaryHtml, '<details') && str_contains($ordinaryHtml, 'following-content stream-card-content'), 'An ordinary post was concealed by the warning correction.');
+            foreach ($caseMedia as $attachment) {
+                bms_ap_following_assert(str_contains($ordinaryHtml, $attachment['url']), 'An ordinary attachment disappeared.');
+            }
+            $viewData['items'][0]['lifecycle_state'] = 'deleted';
+            $deletedHtml = bms_ap_following_render_page($viewData);
+            bms_ap_following_assert(!str_contains($deletedHtml, '<details') && !str_contains($deletedHtml, 'following-media stream-card-media') && !str_contains($deletedHtml, 'Concealed body.'), 'Deleted post content was restored by the warning correction.');
+        }
+    }
+}
+
+// Prepared owner reactions are distinct, sanitized, and separate from local Likes.
+$reactionRow = ['interaction_type' => 'Like', 'state' => 'active', 'actor_uri' => 'https://remote.example/users/owner', 'display_name' => '<b>Remote Owner</b>', 'preferred_username' => 'owner', 'current_activity_uri' => 'private-audit-value'];
+$reactionGroups = bms_activitypub_post_reaction_presentation([$reactionRow, $reactionRow, array_merge($reactionRow, ['interaction_type' => 'Announce']), array_merge($reactionRow, ['state' => 'undone']), array_merge($reactionRow, ['state' => 'blocked']), array_merge($reactionRow, ['actor_uri' => 'javascript:alert(1)'])]);
+bms_ap_following_assert(count($reactionGroups['likes']) === 1 && count($reactionGroups['boosts']) === 1, 'Owner reactions conflate types or expose duplicate, inactive, or invalid actors.');
+bms_ap_following_assert($reactionGroups['likes'][0] === ['name' => 'Remote Owner', 'handle' => '@owner@remote.example'], 'Owner reactions expose raw protocol fields or unsanitized identity.');
+bms_ap_following_assert(bms_activitypub_post_reaction_presentation([]) === [], 'Empty owner reactions must not create a public placeholder.');
+$renderSingle = static function (array $reactions): string {
+    $bms_theme_data = ['remote_reactions' => $reactions, 'card_html' => '<article>Local post</article>', 'comments_html' => '<section>Local comments</section>'];
+    ob_start();
+    require __DIR__ . '/../_bonumark_stream/app/views/default/templates/single.php';
+    return (string)ob_get_clean();
+};
+$reactionHtml = $renderSingle($reactionGroups);
+bms_ap_following_assert(str_contains($reactionHtml, '<h3>Likes</h3>') && str_contains($reactionHtml, '<h3>Boosts</h3>') && str_contains($reactionHtml, '@owner@remote.example'), 'The local post view does not distinguish incoming Likes and boosts.');
+bms_ap_following_assert(strpos($reactionHtml, 'Local post') < strpos($reactionHtml, 'remote-reactions-title') && strpos($reactionHtml, 'remote-reactions-title') < strpos($reactionHtml, 'Local comments'), 'Owner reactions displaced the local post or its comments.');
+$unsafeReactionHtml = $renderSingle(['likes' => [['name' => '<img src=x onerror=alert(1)>', 'handle' => '<script>alert(1)</script>']], 'boosts' => []]);
+bms_ap_following_assert(!str_contains($unsafeReactionHtml, '<script>') && str_contains($unsafeReactionHtml, '&lt;img'), 'The owner reaction template does not escape prepared text defensively.');
+bms_ap_following_assert(!str_contains($renderSingle([]), 'From the fediverse'), 'A public post exposes the owner-only section without authorized data.');
+
+$template = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/following.php');
+$routes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/routes.php');
+$appearance = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/appearance.php');
+$themes = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/themes.php');
+$templateHelpers = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/_helpers.php');
+$commentsTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/comments.php');
+$followingController = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/following.php');
+bms_ap_following_assert(str_contains($followingController, "bms_flash(\$type === 'Like' ? 'Post liked.' : 'Post boosted.', 'success');"), 'Following Like and Boost success notices must use plain product language.');
+bms_ap_following_assert(str_contains($followingController, "bms_flash(\$type === 'Like' ? 'Like removed.' : 'Boost removed.', 'success');") && !str_contains($followingController, 'queued for signed delivery'), 'Following Undo success notices must use plain product language.');
+$followingCss = (string)file_get_contents(__DIR__ . '/../assets/following.css');
+$activityPubAdmin = (string)file_get_contents(__DIR__ . '/../admin/activitypub.php');
+$streamJs = (string)file_get_contents(__DIR__ . '/../assets/stream.js');
+$composerTemplate = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/views/default/templates/composer.php');
+$renderer = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php');
+bms_ap_following_assert(str_contains($followingController, "!bms_current_user_can('view_admin')") && str_contains($followingController, 'bms_public_preview_mode() || bms_static_site_export_rendering()'), 'Owner reaction data is missing permission, preview, or export gates.');
+bms_ap_following_assert(str_contains($renderer, "header('Cache-Control: no-store, private, max-age=0');") && str_contains($renderer, "header('Vary: Cookie', false);"), 'Owner reaction responses are missing private cache protection.');
+$quickPost = (string)file_get_contents(__DIR__ . '/../admin/quick-post.php');
+$sourceThemeCss = (string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/assets/css/theme.css');
+$publicThemeCss = (string)file_get_contents(__DIR__ . '/../assets/themes/default/assets/css/theme.css');
+$themeManifest = json_decode((string)file_get_contents(__DIR__ . '/../_bonumark_stream/themes/default/theme.json'), true);
+$ordinaryComposerControl = bms_ap_following_primary_composer_control(bms_ap_following_render_composer(['can_publish' => true]));
+$replyComposerControl = bms_ap_following_primary_composer_control(bms_ap_following_render_composer([
+    'can_publish' => true,
+    'submit_label' => 'Reply',
+    'busy_label' => 'Replying...',
+]));
+bms_ap_following_assert(str_contains($template, 'csrf_token') && str_contains($template, 'following_action'), 'Frontend federation actions are missing CSRF form boundaries.');
+bms_ap_following_assert(str_contains($routes, "'following_conversation'") && str_contains($routes, 'bms_handle_activitypub_following_route'), 'Private Following routes are not core-owned.');
+bms_ap_following_assert(str_contains($appearance, "'source' => 'system-following'") && str_contains($appearance, "bms_current_user_can('view_admin')"), 'Owner-only Following navigation is incomplete.');
+bms_ap_following_assert(str_contains($themes, "'following'") && str_contains($themes, 'bms_public_theme_template_path($template, \'default\')') && str_contains($themes, '$privateSurface') && str_contains($themes, '!$privateSurface'), 'The core theme fallback or private analytics boundary is incomplete.');
+bms_ap_following_assert(str_contains($appearance, "'bonumark-public public-theme-'"), 'The public theme class contract changed unexpectedly.');
+bms_ap_following_assert(str_contains($appearance, "' context-'"), 'The public theme context class contract changed unexpectedly.');
+bms_ap_following_assert(str_contains($template, 'site-main stream-shell timeline following-shell'), 'Following does not expose the semantic public Stream shell contract.');
+bms_ap_following_assert(str_contains($template, 'following-card stream-card'), 'Following cards do not inherit the public Stream card surface.');
+bms_ap_following_assert(!str_contains($template, 'ledger-following-shell') && !str_contains($template, 'ledger-stream-card'), 'Following core markup depends on Midnight Ledger-specific card or shell classes.');
+bms_ap_following_assert(str_contains($template, 'following-card-inner stream-card-inner'), 'Following cards do not inherit the public Stream card layout.');
+bms_ap_following_assert(str_contains($template, 'following-card-header stream-card-headerline'), 'Following cards do not inherit the public Stream header layout.');
+bms_ap_following_assert(str_contains($template, 'following-content stream-card-content'), 'Following content does not inherit public Stream typography.');
+bms_ap_following_assert(str_contains($template, 'following-media stream-card-media'), 'Following media does not reuse the public Stream media surface contract.');
+bms_ap_following_assert(str_contains($template, 'following-meta stream-card-meta') && str_contains($template, 'following-actions stream-card-actions'), 'Following actions do not inherit the public Stream metadata layout.');
+bms_ap_following_assert(!str_contains($template, '<div class="stream-card-tags"></div>'), 'Following retains an empty Stream tags column that can collapse the reply layout.');
+bms_ap_following_assert(str_contains($commentsTemplate, 'class="comment-form"') && str_contains($commentsTemplate, 'class="comment-form-actions"') && str_contains($commentsTemplate, '>Add a comment</label>'), 'The local comment-form presentation contract changed unexpectedly.');
+bms_ap_following_assert(str_contains($template, '<?= $replyComposerHtml ?>') && !str_contains($template, 'Create Reply Draft'), 'Following does not render the established frontend Stream composer for replies.');
+bms_ap_following_assert(str_contains($composerTemplate, 'name="activitypub_reply_object_uri"') && str_contains($composerTemplate, '$textareaLabel'), 'The shared frontend composer cannot carry accessible reply context.');
+bms_ap_following_assert($ordinaryComposerControl === [
+    'text' => 'Post',
+    'data-ready-label' => 'Post',
+    'data-busy-label' => 'Posting...',
+    'data-publish-label' => 'Post',
+    'data-publish-busy-label' => 'Posting...',
+    'data-schedule-label' => 'Schedule',
+    'data-schedule-busy-label' => 'Scheduling...',
+], 'The ordinary frontend composer no longer exposes the expected ready, publish, busy, and schedule labels.');
+bms_ap_following_assert($replyComposerControl === [
+    'text' => 'Reply',
+    'data-ready-label' => 'Reply',
+    'data-busy-label' => 'Replying...',
+    'data-publish-label' => 'Reply',
+    'data-publish-busy-label' => 'Replying...',
+    'data-schedule-label' => 'Schedule',
+    'data-schedule-busy-label' => 'Scheduling...',
+], 'The reply composer does not preserve its caller-supplied labels across publish and schedule state.');
+bms_ap_following_assert(str_contains($streamJs, "submit.getAttribute('data-publish-label')") && str_contains($streamJs, "submit.getAttribute('data-publish-busy-label')") && str_contains($streamJs, 'scheduleSubmitLabel(isActive)'), 'Scheduling no longer restores the shared composer publish labels supplied by its caller.');
+bms_ap_following_assert(str_contains($renderer, "'reply_object_uri'") && str_contains($renderer, "'textarea_label'"), 'Frontend composer overrides do not expose the bounded reply contract.');
+bms_ap_following_assert(str_contains($quickPost, 'bms_activitypub_save_owner_reply_post') && str_contains($quickPost, "\$_POST['activitypub_reply_object_uri']"), 'Quick Post does not preserve remote reply metadata through normal frontend publishing.');
+bms_ap_following_assert(!str_contains($template, 'following-reply-control') && !str_contains($template, '>Reply</summary>'), 'A redundant disclosure still separates remote replies from the frontend composer experience.');
+bms_ap_following_assert(str_contains($template, 'class="following-feed-item"') && str_contains($template, 'class="following-reply-region stream-comments"'), 'Remote replies do not reuse the full-width local comments surface.');
+bms_ap_following_assert(str_contains($template, "!\$conversation ? ' stream-card-clickable' : ''") && str_contains($template, "!\$conversation ? ' data-stream-card data-stream-url=\"") && str_contains($template, '$h($conversationUrl)'), 'Following timeline cards do not open their private conversation view like local Stream cards.');
+bms_ap_following_assert(str_contains($followingController, "bms_asset_url('assets/stream.js')") && str_contains($streamJs, 'function setupCards(root)') && str_contains($streamJs, "window.location.href = url;"), 'Following cards do not retain the core Stream card-navigation behavior.');
+bms_ap_following_assert(str_contains($template, 'class="stream-meta-pill following-reply-link"') && str_contains($template, 'href="<?= $h($replyUrl) ?>">Reply</a>'), 'Following cards do not expose an explicit Reply path to the conversation composer.');
+bms_ap_following_assert(str_contains($template, '$replyTarget = $conversation') && str_contains($template, '$conversationObjectUri') && str_contains($template, 'if (!$deleted && $replyTarget)'), 'The reply composer is not restricted to the selected conversation object.');
+bms_ap_following_assert(preg_match('/<\/article>\s*<\?php if \(!\$deleted && \$replyTarget\): \?>\s*<section class="following-reply-region stream-comments"/s', $template) === 1, 'The conversation reply composer is not a post-card sibling discussion surface.');
+bms_ap_following_assert(str_contains($template, 'id="<?= $h($replyAnchorId) ?>"'), 'The conversation reply area cannot receive the timeline Reply anchor.');
+bms_ap_following_assert(str_contains($followingController, "'conversation_object_uri' => \$conversation ? \$objectUri : ''") && str_contains($followingController, "'reply_url' => \$conversationUrl . '#' . \$replyAnchorId"), 'Core does not supply the selected conversation identity and Reply destination.');
+bms_ap_following_assert(str_contains($followingCss, '.following-reply-region') && str_contains($followingCss, 'max-width: 100%;') && str_contains($followingCss, 'min-width: 0;'), 'The reply composer can overflow or collapse inside the Following surface.');
+bms_ap_following_assert(str_contains($followingCss, '.following-feed') && str_contains($followingCss, '.following-content pre') && str_contains($followingCss, '.following-media img') && str_contains($followingCss, 'flex-wrap: wrap;'), 'The neutral Following fallback no longer prevents common overflow or action-row failures.');
+bms_ap_following_assert(preg_match('/\.following-actions\s*\{[^}]*width:\s*100%;/s', $followingCss) === 1, 'The neutral Following fallback allows the reply action region to collapse below the card width.');
+bms_ap_following_assert(!str_contains($followingCss, '--ledger-') && !str_contains($followingCss, 'ledger-'), 'Core Following CSS depends on Midnight Ledger-specific visual tokens or classes.');
+bms_ap_following_assert(preg_match('/(?:^|\n)\s*(?:color|background|border|border-color|border-radius|border-left|box-shadow|font|font-size|font-weight|padding|margin|gap|aspect-ratio|object-fit|justify-content)\s*:/m', $followingCss) !== 1, 'Core Following CSS still owns theme appearance.');
+bms_ap_following_assert(!str_contains($followingCss, '.following-reply-form button'), 'The remote reply button overrides the local comment button treatment.');
+bms_ap_following_assert(str_contains($followingController, 'bms_render_stream_composer') && str_contains($followingController, "'submit_label' => 'Reply'") && !str_contains($followingController, "bms_admin_url('edit.php?type=draft&file='"), 'Remote replies do not remain in the native frontend composer workflow.');
+bms_ap_following_assert(strpos($followingController, '$noticeHtml = bms_render_public_flash_notices();') < strpos($followingController, '$replyComposerHtml = bms_render_stream_composer(') && str_contains($followingController, "'notice_html' => \$noticeHtml"), 'Following action notices can be consumed by the reply composer before the page renders them.');
+bms_ap_following_assert(str_contains($template, 'This post was deleted and is no longer available.') && !str_contains($template, 'stale Create or Update') && !str_contains($template, 'remains tombstoned'), 'Deleted-post frontend copy exposes protocol jargon.');
+bms_ap_following_assert(str_contains($template, 'New posts from people you follow will appear here.') && !str_contains($template, 'No remote posts are cached yet'), 'The Following empty state exposes storage terminology.');
+bms_ap_following_assert(str_contains($template, 'if (!$conversation): ?><a class="stream-meta-pill"') && str_contains($template, 'if ($conversation): ?>') && str_contains($template, '<span class="following-time stream-card-datetime">'), 'Conversation cards retain a redundant Conversation or timestamp self-link.');
+bms_ap_following_assert(!str_contains($template, 'following-intro') && !str_contains($template, 'Private federation') && !str_contains($template, 'cached note'), 'Following retains the removed introductory panel.');
+bms_ap_following_assert(str_contains($template, 'following-conversation-nav') && str_contains($template, 'Back to Following'), 'Conversation navigation disappeared with the Following introduction.');
+$coreFollowingLink = strpos($templateHelpers, "data['head_preload_html']");
+$coreBaseLink = strpos($templateHelpers, "data['style_url']");
+$activeThemeLinks = strpos($templateHelpers, "data['theme_stylesheet_links']");
+bms_ap_following_assert($coreFollowingLink !== false && $coreBaseLink !== false && $activeThemeLinks !== false && $coreFollowingLink < $coreBaseLink && $coreBaseLink < $activeThemeLinks, 'The active theme stylesheet no longer loads after core Following and base CSS.');
+bms_ap_following_assert(str_contains($followingController, "bms_asset_url('assets/following.css')") && str_contains($followingController, 'bms_public_theme_stylesheet_links()'), 'Following no longer loads both the neutral core fallback and active theme stylesheet.');
+foreach ([$sourceThemeCss, $publicThemeCss] as $themeCss) {
+    bms_ap_following_assert(str_contains($themeCss, 'Midnight Ledger Following presentation'), 'Midnight Ledger is missing its theme-owned Following presentation layer.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .following-shell'), 'Following does not share the Midnight Ledger public Stream content width.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .ledger-header'), 'Following masthead does not share the public Stream width.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .stream-card-media') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-media.is-gallery') && str_contains($themeCss, 'aspect-ratio: 16 / 10;'), 'Midnight Ledger does not own Following media composition.');
+    bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-media:not\(\.is-gallery\) img\s*\{([^}]*)\}/s', $themeCss, $singleImageRule) === 1, 'The uncropped image rule must be limited to single-image Following and Conversation media.');
+    $singleImageDeclarations = (string)($singleImageRule[1] ?? '');
+    foreach (['height: auto;', 'max-height: min(640px, 70vh);', 'aspect-ratio: auto;', 'object-fit: contain;', 'object-position: center;', 'background: var(--ledger-bg-3);'] as $declaration) {
+        bms_ap_following_assert(str_contains($singleImageDeclarations, $declaration), 'Single remote images lost their full-frame, bounded theme presentation: ' . $declaration);
+    }
+    bms_ap_following_assert(preg_match('/\.following-media img,\s*body\.bonumark-public\.context-following-page \.following-media video\s*\{([^}]*)\}/s', $themeCss, $sharedMediaRule) === 1 && str_contains((string)($sharedMediaRule[1] ?? ''), 'aspect-ratio: 16 / 10;') && str_contains((string)($sharedMediaRule[1] ?? ''), 'object-fit: cover;'), 'The shared media rule no longer preserves tile geometry and video treatment.');
+    bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-media\.is-gallery img\s*\{([^}]*)\}/s', $themeCss, $galleryImageRule) === 1, 'Full-frame gallery presentation must be restricted to Following and Conversation images.');
+    $galleryImageDeclarations = (string)($galleryImageRule[1] ?? '');
+    foreach (['object-fit: contain;', 'object-position: center;', 'background: var(--ledger-bg-3);'] as $declaration) {
+        bms_ap_following_assert(str_contains($galleryImageDeclarations, $declaration), 'Gallery images lost their complete, centered theme presentation: ' . $declaration);
+    }
+    bms_ap_following_assert(preg_match('/(?:height|width|aspect-ratio|grid-template-columns)\s*:/', $galleryImageDeclarations) !== 1, 'The gallery image correction changed tile geometry.');
+    bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill') && str_contains($themeCss, 'min-height: 44px;') && str_contains($themeCss, 'var(--ledger-accent)'), 'Midnight Ledger does not own phone-friendly Following interaction presentation.');
+    bms_ap_following_assert(preg_match('/body\.bonumark-public\.context-following-page \.following-actions > \.following-action-form > \.stream-meta-pill\.is-active:focus-visible\s*\{([^}]*)\}/s', $themeCss, $activeRule) === 1, 'Midnight Ledger active Following controls do not outrank the neutral action rule through keyboard focus.');
+    $activeDeclarations = (string)($activeRule[1] ?? '');
+    bms_ap_following_assert(str_contains($themeCss, '.following-actions > .following-action-form > .stream-meta-pill.is-active:hover') && str_contains($activeDeclarations, 'border-color: var(--ledger-accent);') && str_contains($activeDeclarations, 'background: color-mix(in srgb, var(--ledger-accent) 14%, var(--ledger-panel-soft));') && str_contains($activeDeclarations, 'color: var(--ledger-accent);'), 'Midnight Ledger active Like and Boost controls lack distinct theme-token border, background, or text states.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public .stream-compose') && !str_contains($themeCss, '.following-reply-form button'), 'Midnight Ledger no longer styles remote replies through the native Stream composer contract.');
+    bms_ap_following_assert(str_contains($themeCss, 'body.bonumark-public.context-following-page .following-feed-item') && str_contains($themeCss, 'body.bonumark-public.context-following-page .following-reply-region'), 'Midnight Ledger does not align the remote reply discussion surface with local comments.');
+    bms_ap_following_assert(!str_contains($themeCss, 'activitypub_remote_objects') && !str_contains($themeCss, 'following_action') && !str_contains($themeCss, 'inReplyTo'), 'ActivityPub behavior or protocol data moved into theme CSS.');
+}
+bms_ap_following_assert(is_array($themeManifest) && (string)($themeManifest['version'] ?? '') === '1.9.5', 'Midnight Ledger did not advance its cache revision for the corrected Following CSS.');
+bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/renderer.php'), 'activitypub_remote_objects'), 'Remote content leaked into the public Stream renderer.');
+bms_ap_following_assert(!str_contains((string)file_get_contents(__DIR__ . '/../_bonumark_stream/app/sitemap.php'), 'activitypub_remote_objects'), 'Remote content leaked into sitemap rendering.');
+bms_ap_following_assert(!str_contains($activityPubAdmin, 'Private owner inbox') && !str_contains($activityPubAdmin, "'owner_reply'") && !str_contains($activityPubAdmin, "'owner_like'") && !str_contains($activityPubAdmin, "'owner_announce'") && !str_contains($activityPubAdmin, "'undo_owner_interaction'"), 'Normal remote-content participation drifted back into Admin instead of remaining in Following.');
+
+fwrite(STDOUT, "ActivityPub Stage 6.5 frontend federation unit test passed.\n");
