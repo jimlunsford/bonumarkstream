@@ -3,7 +3,7 @@ $data = is_array($bms_theme_data ?? null) ? $bms_theme_data : [];
 $comments = is_array($data['comments'] ?? null) ? $data['comments'] : [];
 $slug = (string)($data['slug'] ?? '');
 ?>
-<section class="stream-comments ledger-comments" id="comments" data-public-comment-count="<?= (int)($data['count'] ?? 0) ?>">
+<section class="stream-comments ledger-comments" id="comments" aria-label="Comments" data-public-comment-count="<?= (int)($data['count'] ?? 0) ?>">
   <div class="comments-header">
     <h2 data-public-comment-heading><?= htmlspecialchars((string)($data['label'] ?? '0 Comments'), ENT_QUOTES, 'UTF-8') ?></h2>
   </div>

@@ -16,8 +16,9 @@ class Element {
   setAttribute(k, v) { this.attrs[k] = String(v); }
   querySelector(k) { return this.children[k] || null; }
   addEventListener(k, f) { this.listeners[k] = f; }
-  contains(x) { return x === this; }
-  insertAdjacentElement() {}
+  contains(x) { return x === this || Object.values(this.children).includes(x); }
+  focus() { document.activeElement = this; }
+  insertAdjacentElement(position, e) { this.adjacent = e; }
   appendChild(e) { this.children['[data-composer-error]'] = e; }
   fire(k) { this.listeners[k]({preventDefault() {}, stopPropagation() {}}); }
 }
@@ -70,7 +71,7 @@ const context = {document, window, URL, Promise, Date, console,
   fetch(url, options) { return new Promise((resolve, reject) => requests.push({url, options, resolve, reject})); }
 };
 let source = fs.readFileSync(path.join(__dirname, '../assets/stream.js'), 'utf8');
-source = source.replace(/\}\(\)\);\s*$/, 'window.testHooks = {hydrateLikes, setupLikes, setupComments, setupPublicInteractionRefresh, submitComposer}; }());');
+source = source.replace(/\}\(\)\);\s*$/, 'window.testHooks = {hydrateLikes, setupLikes, setupComments, setupPublicInteractionRefresh, submitComposer, setupCards}; }());');
 vm.runInNewContext(source, context);
 const api = window.testHooks;
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -107,7 +108,11 @@ function counts(likes, comments) {
   assert.equal(buttons[1].getAttribute('aria-pressed'), 'true');
 
   api.setupComments(document);
+  assert.equal(mount.getAttribute('aria-busy'), 'true');
+  assert.equal(mount.adjacent.getAttribute('role'), 'status');
+  assert.equal(mount.adjacent.textContent, 'Loading comments.');
   respond(requests.shift(), html(2)); await tick();
+  assert.equal(mount.getAttribute('aria-busy'), 'false');
   mount.textarea.value = 'Keep my unsent draft';
   const preservedForm = mount.form;
   document.dispatchEvent({type: 'bms:public-interactions', detail: {slug: 'post', comments: 3}});
@@ -117,17 +122,23 @@ function counts(likes, comments) {
   counts(2, 3);
   assert.equal(mount.panel.getAttribute('data-public-comment-count'), '3');
 
+  document.activeElement = mount.textarea;
   mount.form.fire('submit');
   assert.equal(mount.submit.disabled, true);
   mount.form.fire('submit'); assert.equal(requests.length, 1);
   respond(requests.shift(), html(4)); await tick();
   assert.equal(mount.textarea.value, '');
+  assert.equal(document.activeElement, mount.textarea);
+  assert.match(mount.adjacent.textContent, /Comment submitted/);
   counts(2, 4);
   respond(requests.shift(), state(2, 4, true)); await tick(); counts(2, 4);
 
+  assert.equal(mount.getAttribute('aria-busy'), 'false');
   mount.textarea.value = 'Retain rejected comment';
+  document.activeElement = mount.textarea;
   mount.form.fire('submit'); respond(requests.shift(), html(4), false); await tick();
   assert.equal(mount.textarea.value, 'Retain rejected comment');
+  assert.equal(document.activeElement, mount.textarea);
   respond(requests.shift(), state(2, 4, true)); await tick();
 
   api.setupPublicInteractionRefresh();
@@ -153,6 +164,30 @@ function counts(likes, comments) {
   const corrected = api.submitComposer(composer, publishButton, 'Post');
   respond(requests.shift(), {ok: true, redirect: '/?saved=1'}); await corrected;
   assert.equal(window.location.href, '/?saved=1');
+  const failedMount = new CommentMount({'data-comments-endpoint':'/comments.php','data-comments-slug':'failed'});
+  api.setupComments({querySelectorAll:()=>[failedMount]});
+  respond(requests.shift(), '', false); await tick();
+  assert.match(failedMount.innerHTML, /role="alert"/);
+  assert.equal(failedMount.getAttribute('aria-busy'), 'false');
+  const card = new Element({'data-stream-url':'/post/'});
+  api.setupCards({querySelectorAll:()=>[card]});
+  window.location.href = 'https://example.test/';
+  let selected = true;
+  window.getSelection = () => ({isCollapsed:!selected});
+  const click = overrides => card.listeners.click({target:{closest:()=>null}, button:0, ...overrides});
+  click(); assert.equal(window.location.href, 'https://example.test/');
+  selected=false;
+  card.listeners.pointerdown({clientX:0,clientY:0}); card.listeners.pointermove({clientX:30,clientY:0});
+  click(); assert.equal(window.location.href, 'https://example.test/');
+  card.listeners.pointerdown({clientX:0,clientY:0});
+  click({target:{closest:()=>({})}}); assert.equal(window.location.href, 'https://example.test/');
+  click({ctrlKey:true}); assert.equal(window.location.href, 'https://example.test/');
+  click(); assert.equal(window.location.href, 'https://example.test/post/');
+  window.location.href = 'https://example.test/post/#comments';
+  click(); assert.equal(window.location.href, 'https://example.test/post/#comments');
+  assert.equal(buttons[0].children['.stream-like-sr-text'].textContent, 'Liked');
+  assert.equal(buttons[0].children['.stream-like-text'].textContent, '1');
+  console.log('PASS card selection, pointer drag, child control, modified click, blank-space and self-navigation guards; comment busy/focus contract');
   console.log('PASS composer: rejected input, interrupted response, retained attachments, corrected retry');
   console.log('PASS public interactions: initial/duplicate surfaces, ordering, local Like, async comment, draft retention, remote removal and visible-only polling');
 })().catch(error => {console.error(error); process.exitCode = 1;});

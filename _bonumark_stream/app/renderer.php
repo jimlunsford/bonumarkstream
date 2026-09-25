@@ -487,12 +487,7 @@ function bms_stream_media_item_alt(array $page, string $path, int $position = 1,
             $alt = $candidate;
         }
     }
-    if ($alt === '') {
-        $alt = bms_stream_media_alt($page);
-        if ($count > 1) {
-            $alt .= ' (photo ' . $position . ' of ' . $count . ')';
-        }
-    }
+    // Missing metadata is not an image description. Empty alt remains empty.
     return $alt;
 }
 
@@ -630,12 +625,8 @@ function bms_render_stream_link_preview(array $page): string
 
 function bms_stream_media_alt(array $page): string
 {
-    $title = trim((string)($page['title'] ?? ''));
-    if ($title !== '' && !str_starts_with(strtolower($title), 'stream post:')) {
-        return $title;
-    }
-    $preview = function_exists('bms_stream_preview_text') ? bms_stream_preview_text($page, 80) : '';
-    return $preview !== '' && $preview !== 'Media post' ? $preview : 'Stream post media';
+    // Retained for compatibility. A post title or excerpt cannot describe its image.
+    return '';
 }
 
 function bms_stream_edit_url(array $page): string

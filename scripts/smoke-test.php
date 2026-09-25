@@ -3604,7 +3604,7 @@ foreach (['stream-post-actions-menu', 'stream-post-actions-toggle', 'stream-post
     }
 }
 $streamJs = @file_get_contents($root . '/assets/stream.js') ?: '';
-if (!str_contains($streamJs, 'summary, details, [data-stream-actions-menu]')) {
+if (!str_contains($streamJs, 'summary, details, img, video, audio, iframe, [contenteditable], [role=button], [data-stream-actions-menu]')) {
     bm_smoke_fail($failures, 'Card click handling must ignore the front-end post actions menu.');
 }
 foreach (['assets/style.css', '_bonumark_stream/themes/default/assets/css/theme.css', 'assets/themes/default/assets/css/theme.css'] as $menuCssPath) {
