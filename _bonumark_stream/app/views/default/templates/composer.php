@@ -1,5 +1,7 @@
 <?php
 $data = is_array($bms_theme_data ?? null) ? $bms_theme_data : [];
+$recovery = is_array($data['recovery'] ?? null) ? $data['recovery'] : [];
+$recovered = static fn(string $key): string => htmlspecialchars((string)($recovery[$key] ?? ''), ENT_QUOTES, 'UTF-8');
 $textareaId = (string)($data['textarea_id'] ?? 'stream_body');
 $fileId = (string)($data['file_id'] ?? 'stream_media');
 $helpId = (string)($data['help_id'] ?? 'stream-compose-help');
@@ -29,7 +31,7 @@ $primaryBusyLabel = (string)($data['busy_label'] ?? ($canPublish ? 'Posting...' 
         <div id="<?= htmlspecialchars($schedulePanelId, ENT_QUOTES, 'UTF-8') ?>" class="stream-compose-schedule-panel" data-stream-schedule-panel hidden>
           <div class="stream-compose-schedule-fields">
             <label class="stream-compose-schedule-label" for="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>">Schedule for</label>
-            <input id="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>" type="datetime-local" name="stream_scheduled_at" class="stream-compose-schedule-input" data-stream-scheduled-at>
+            <input id="<?= htmlspecialchars($scheduleInputId, ENT_QUOTES, 'UTF-8') ?>" type="datetime-local" name="stream_scheduled_at" value="<?= $recovered('stream_scheduled_at') ?>" class="stream-compose-schedule-input" data-stream-scheduled-at>
             <p class="stream-compose-schedule-timezone">Timezone: <strong><?= htmlspecialchars($timezoneLabel, ENT_QUOTES, 'UTF-8') ?></strong></p>
           </div>
           <button type="button" class="stream-compose-schedule-cancel" data-stream-schedule-cancel>Cancel schedule</button>
@@ -46,26 +48,26 @@ $primaryBusyLabel = (string)($data['busy_label'] ?? ($canPublish ? 'Posting...' 
         <div class="stream-compose-advanced-grid">
           <div class="stream-compose-advanced-field">
             <label for="stream_title_front">Internal title</label>
-            <input id="stream_title_front" type="text" name="stream_title" maxlength="180" placeholder="Generated from the post if blank">
+            <input id="stream_title_front" type="text" name="stream_title" value="<?= $recovered('stream_title') ?>" maxlength="180" placeholder="Generated from the post if blank">
           </div>
           <div class="stream-compose-advanced-field">
             <label for="stream_slug_front">Slug</label>
-            <input id="stream_slug_front" type="text" name="stream_slug" maxlength="180" placeholder="Generated on save">
+            <input id="stream_slug_front" type="text" name="stream_slug" value="<?= $recovered('stream_slug') ?>" maxlength="180" placeholder="Generated on save">
           </div>
           <div class="stream-compose-advanced-field stream-compose-advanced-wide">
             <label for="stream_description_front">Meta description</label>
-            <textarea id="stream_description_front" name="stream_description" maxlength="300" rows="2" placeholder="Generated from the post if blank"></textarea>
+            <textarea id="stream_description_front" name="stream_description" maxlength="300" rows="2" placeholder="Generated from the post if blank"><?= $recovered('stream_description') ?></textarea>
           </div>
           <div class="stream-compose-advanced-field">
             <label for="stream_seo_title_front">Search title</label>
-            <input id="stream_seo_title_front" type="text" name="stream_seo_title" maxlength="180" placeholder="Generated from the post if blank">
+            <input id="stream_seo_title_front" type="text" name="stream_seo_title" value="<?= $recovered('stream_seo_title') ?>" maxlength="180" placeholder="Generated from the post if blank">
           </div>
           <div class="stream-compose-advanced-field">
             <label for="stream_robots_front">Search indexing</label>
             <select id="stream_robots_front" name="stream_robots">
-              <option value="">Use Stream setting</option>
-              <option value="index,follow">Index this post</option>
-              <option value="noindex,follow">Noindex this post</option>
+              <option value=""<?= ($recovery['stream_robots'] ?? '') === '' ? ' selected' : '' ?>>Use Stream setting</option>
+              <option value="index,follow"<?= ($recovery['stream_robots'] ?? '') === 'index,follow' ? ' selected' : '' ?>>Index this post</option>
+              <option value="noindex,follow"<?= ($recovery['stream_robots'] ?? '') === 'noindex,follow' ? ' selected' : '' ?>>Noindex this post</option>
             </select>
           </div>
         </div>
@@ -121,15 +123,16 @@ $primaryBusyLabel = (string)($data['busy_label'] ?? ($canPublish ? 'Posting...' 
     </div>
     <?php if ((string)($data['csrf'] ?? '') !== ''): ?><input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$data['csrf'], ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
     <?php if ($replyObjectUri !== ''): ?><input type="hidden" name="activitypub_reply_object_uri" value="<?= htmlspecialchars($replyObjectUri, ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
+    <input type="hidden" name="composer_request_key" value="<?= htmlspecialchars((string)($data['request_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars((string)($data['return_to'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="stream_submit_action" value="<?= $canPublish ? 'publish' : 'draft' ?>" data-stream-submit-action>
     <input type="hidden" name="stream_schedule_enabled" value="0" data-stream-schedule-enabled>
-    <input type="hidden" name="link_preview_enabled" value="0" data-link-preview-enabled>
-    <input type="hidden" name="link_preview_url" value="" data-link-preview-field="url">
-    <input type="hidden" name="link_preview_title" value="" data-link-preview-field="title">
-    <input type="hidden" name="link_preview_description" value="" data-link-preview-field="description">
-    <input type="hidden" name="link_preview_image" value="" data-link-preview-field="image">
-    <input type="hidden" name="link_preview_site_name" value="" data-link-preview-field="site_name">
+    <input type="hidden" name="link_preview_enabled" value="<?= $recovered('link_preview_enabled') ?>" data-link-preview-enabled>
+    <input type="hidden" name="link_preview_url" value="<?= $recovered('link_preview_url') ?>" data-link-preview-field="url">
+    <input type="hidden" name="link_preview_title" value="<?= $recovered('link_preview_title') ?>" data-link-preview-field="title">
+    <input type="hidden" name="link_preview_description" value="<?= $recovered('link_preview_description') ?>" data-link-preview-field="description">
+    <input type="hidden" name="link_preview_image" value="<?= $recovered('link_preview_image') ?>" data-link-preview-field="image">
+    <input type="hidden" name="link_preview_site_name" value="<?= $recovered('link_preview_site_name') ?>" data-link-preview-field="site_name">
   </form>
   <?php foreach ($flashes as $flash): ?>
     <p class="stream-compose-notice <?= htmlspecialchars((string)($flash['class'] ?? 'is-warning'), ENT_QUOTES, 'UTF-8') ?> stream-notice stream-notice-<?= htmlspecialchars((string)($flash['type'] ?? 'info'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>

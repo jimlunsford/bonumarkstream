@@ -1119,7 +1119,7 @@ function bms_site_url(string $path = ''): string
 
 function bms_text_length(string $value): int
 {
-    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
 }
 
 function bms_text_substr(string $value, int $start, ?int $length = null): string
@@ -1129,7 +1129,8 @@ function bms_text_substr(string $value, int $start, ?int $length = null): string
             ? (string)mb_substr($value, $start, null, 'UTF-8')
             : (string)mb_substr($value, $start, $length, 'UTF-8');
     }
-    return $length === null ? (string)substr($value, $start) : (string)substr($value, $start, $length);
+    $characters = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    return implode('', array_slice($characters, $start, $length));
 }
 
 function bms_text_lower(string $value): string
@@ -1224,12 +1225,12 @@ function bms_stream_limit_text(string $text, int $limit, string $suffix = '…')
         return '';
     }
 
-    $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+    $length = bms_text_length($text);
     if ($length <= $limit) {
         return $text;
     }
 
-    $cut = function_exists('mb_substr') ? mb_substr($text, 0, max(1, $limit - 1)) : substr($text, 0, max(1, $limit - 1));
+    $cut = bms_text_substr($text, 0, max(0, $limit - bms_text_length($suffix)));
     $cut = preg_replace('/\s+\S*$/u', '', $cut) ?: $cut;
     return rtrim($cut, " \t\n\r\0\x0B.,;:!?") . $suffix;
 }
@@ -1883,7 +1884,7 @@ function bms_parse_markdown_string(string $raw): array
 function bms_parse_front_matter(string $raw): array
 {
     $data = [];
-    $lines = preg_split('/\R/', $raw) ?: [];
+    $lines = preg_split('/\R/u', $raw) ?: [];
     $currentKey = null;
 
     foreach ($lines as $line) {

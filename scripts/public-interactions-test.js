@@ -18,6 +18,7 @@ class Element {
   addEventListener(k, f) { this.listeners[k] = f; }
   contains(x) { return x === this; }
   insertAdjacentElement() {}
+  appendChild(e) { this.children['[data-composer-error]'] = e; }
   fire(k) { this.listeners[k]({preventDefault() {}, stopPropagation() {}}); }
 }
 function button(slug) {
@@ -66,16 +67,16 @@ const window = {location: {href: 'https://example.test/'},
 const context = {document, window, URL, Promise, Date, console,
   CustomEvent: class {constructor(type, init) {this.type = type; this.detail = init.detail;}},
   FormData: class {append() {}},
-  fetch(url, options) { return new Promise(resolve => requests.push({url, options, resolve})); }
+  fetch(url, options) { return new Promise((resolve, reject) => requests.push({url, options, resolve, reject})); }
 };
 let source = fs.readFileSync(path.join(__dirname, '../assets/stream.js'), 'utf8');
-source = source.replace(/\}\(\)\);\s*$/, 'window.testHooks = {hydrateLikes, setupLikes, setupComments, setupPublicInteractionRefresh}; }());');
+source = source.replace(/\}\(\)\);\s*$/, 'window.testHooks = {hydrateLikes, setupLikes, setupComments, setupPublicInteractionRefresh, submitComposer}; }());');
 vm.runInNewContext(source, context);
 const api = window.testHooks;
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function respond(req, value, ok = true) {
   req.resolve({ok, status: ok ? 200 : 422, headers: {get: () => 'application/json'},
-    text: () => Promise.resolve(typeof value === 'string' ? value : JSON.stringify(value))});
+    json: () => Promise.resolve(value), text: () => Promise.resolve(typeof value === 'string' ? value : JSON.stringify(value))});
 }
 const state = (count, comments, liked = false) => ({ok: true, data: {post: {count, comments, liked}}});
 const html = count => '<section data-public-comment-count="' + count + '"></section>';
@@ -137,5 +138,21 @@ function counts(likes, comments) {
   assert.equal(requests.length, 1); // Remote removal updates the visible conversation without replacing its form.
   respond(requests.shift(), html(3)); await tick(); counts(1, 3);
   assert.equal(mount.textarea.value, 'Retain rejected comment');
+  const composer = new Element({action: '/admin/quick-post.php'});
+  composer.body = 'Keep this post 🌅'; composer.attachments = ['selected-photo.png'];
+  const publishButton = button('composer'); publishButton.disabled = true;
+  const rejected = api.submitComposer(composer, publishButton, 'Post');
+  respond(requests.shift(), {ok: false, message: 'Correct the scheduled date.'}, false); await rejected;
+  assert.equal(composer.body, 'Keep this post 🌅');
+  assert.deepEqual(composer.attachments, ['selected-photo.png']);
+  assert.match(composer.querySelector('[data-composer-error]').textContent, /scheduled date/);
+  assert.equal(publishButton.disabled, false);
+  const offline = api.submitComposer(composer, publishButton, 'Post');
+  requests.shift().reject(new Error('Connection interrupted')); await offline;
+  assert.equal(composer.body, 'Keep this post 🌅');
+  const corrected = api.submitComposer(composer, publishButton, 'Post');
+  respond(requests.shift(), {ok: true, redirect: '/?saved=1'}); await corrected;
+  assert.equal(window.location.href, '/?saved=1');
+  console.log('PASS composer: rejected input, interrupted response, retained attachments, corrected retry');
   console.log('PASS public interactions: initial/duplicate surfaces, ordering, local Like, async comment, draft retention, remote removal and visible-only polling');
 })().catch(error => {console.error(error); process.exitCode = 1;});

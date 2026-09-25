@@ -442,6 +442,35 @@
     });
   }
 
+  function submitComposer(form, button, readyLabel) {
+    var notice = form.querySelector('[data-composer-error]');
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.setAttribute('data-composer-error', '');
+      notice.setAttribute('role', 'alert');
+      notice.className = 'stream-compose-notice is-error';
+      form.appendChild(notice);
+    }
+    notice.textContent = '';
+    return fetch(form.getAttribute('action'), {
+      method: 'POST', body: new FormData(form), credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (response) {
+      return response.json().then(function (result) {
+        if (!response.ok || !result || result.ok !== true) {
+          throw new Error(result && result.message ? result.message : 'The post could not be saved. Your text is preserved.');
+        }
+        if (!result.redirect) { throw new Error('The save result could not be confirmed. Check your Stream and Drafts before starting another post.'); }
+        window.location.href = result.redirect;
+      });
+    }).catch(function (error) {
+      notice.textContent = error && error.name !== 'SyntaxError' && error.name !== 'TypeError' && error.message ? error.message : 'The connection failed. Your text and attachments are preserved. Retry this submission to check its saved result.';
+    }).finally(function () {
+      form.dataset.composerSubmitting = '0';
+      if (button) { button.disabled = false; button.textContent = readyLabel; button.classList.remove('is-busy'); }
+    });
+  }
+
   function setupComposer(root) {
     var scope = root || document;
     var forms = scope.querySelectorAll('[data-stream-form]');
@@ -1031,7 +1060,7 @@
         });
       }
 
-      setScheduleActive(false, false);
+      setScheduleActive(!!(scheduleInput && scheduleInput.value), false);
       startScheduledRunnerHeartbeat();
 
       if (textarea) {
@@ -1047,6 +1076,7 @@
 
       if (submitButtons.length) {
         form.addEventListener('submit', function (event) {
+          if (form.dataset.composerSubmitting === '1') { event.preventDefault(); return; }
           var isScheduling = form.classList.contains('is-scheduling');
           var activeSubmit = event.submitter && event.submitter.getAttribute ? event.submitter : submit;
           if (!activeSubmit || !activeSubmit.getAttribute) {
@@ -1068,10 +1098,16 @@
           if (requestedAction === 'schedule' && scheduleInput && !scheduleInput.value) {
             return;
           }
+          var readyLabel = activeSubmit ? activeSubmit.textContent : '';
           if (activeSubmit) {
             activeSubmit.disabled = true;
             activeSubmit.textContent = activeSubmit.getAttribute('data-busy-label') || (requestedAction === 'schedule' ? 'Scheduling...' : (requestedAction === 'continue' ? 'Opening editor...' : 'Saving...'));
             activeSubmit.classList.add('is-busy');
+          }
+          if (typeof fetch === 'function') {
+            event.preventDefault();
+            form.dataset.composerSubmitting = '1';
+            submitComposer(form, activeSubmit, readyLabel);
           }
         });
       }

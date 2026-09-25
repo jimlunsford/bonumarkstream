@@ -50,6 +50,7 @@ $scenarios = [
     'invalid_token',
     'stream_read',
     'durable_post_lifecycle',
+    'publishing_safety',
     'activitypub_observer',
     'activitypub_publication',
     'activitypub_inbox',
@@ -223,6 +224,10 @@ function bms_api_smoke_run_child(string $scenario): void
 function bms_api_smoke_run_scenario(string $scenario): void
 {
     switch ($scenario) {
+        case 'publishing_safety':
+            require_once __DIR__ . '/publishing-safety-scenario.php';
+            bms_api_smoke_publishing_safety();
+            return;
         case 'disabled_api':
             $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer invalid';
             bms_api_smoke_expect_api_exception('remote_posting_disabled', function (): void {
@@ -2131,7 +2136,7 @@ function bms_api_smoke_rfc9421_activity_request(array $activity, string $keyId, 
     ];
 }
 
-function bms_api_smoke_http_request(string $url, string $method = 'GET', array $headers = []): array
+function bms_api_smoke_http_request(string $url, string $method = 'GET', array $headers = [], string $requestBody = ''): array
 {
     $parts = parse_url($url);
     $host = is_array($parts) ? (string)($parts['host'] ?? '') : '';
@@ -2147,9 +2152,9 @@ function bms_api_smoke_http_request(string $url, string $method = 'GET', array $
         throw new RuntimeException('The route smoke request failed: ' . $errorMessage);
     }
     stream_set_timeout($socket, 5);
-    $requestHeaders = array_merge(['Host: ' . $host . ':' . $port, 'Connection: close'], $headers);
+    $requestHeaders = array_merge(['Host: ' . $host . ':' . $port, 'Connection: close', 'Content-Length: ' . strlen($requestBody)], $headers);
     $request = strtoupper($method) . ' ' . $target . " HTTP/1.1\r\n" . implode("\r\n", $requestHeaders) . "\r\n\r\n";
-    fwrite($socket, $request);
+    fwrite($socket, $request . $requestBody);
     $raw = stream_get_contents($socket);
     fclose($socket);
     if (!is_string($raw) || !str_contains($raw, "\r\n\r\n")) {

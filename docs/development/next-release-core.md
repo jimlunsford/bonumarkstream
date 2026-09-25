@@ -41,3 +41,24 @@ Required acceptance includes initial render, asynchronous interaction changes, a
 ## Development acceptance log
 
 Implementation and acceptance remain pending. This file is the scope and evidence record, not a release-readiness claim.
+
+## Batch A acceptance, September 25
+- Implemented in 884bae2; live-discovered PWA caching blocker corrected in 7d51b51.
+- Both exact commits passed all four PHP/MySQL/MariaDB compatibility jobs.
+- Dev deployed to 7d51b513ba5e8579b6947b7a3285f96c7881653c; all 315 deployed tracked application files compared byte-for-byte.
+- Existing fixture now aggregates one remote and one local Like. Two deliberate local acceptance comments were added to post 49.
+- Async submission immediately synchronized the permalink pill and heading to 3 comments. Remote moderation pending/approved changed 3 -> 2 -> 3 without reloading and preserved an unsent draft. Stream agreed.
+- Full remote handle, site-local display date and ISO datetime verified in the rendered DOM.
+- Existing remote reply restored to approved. No new federation publication or identity operation was required.
+- System Check: 39 PASS / 0 WARN / 0 FAIL. 49 posts, 15 media, 28 migrations preserved; comments increased 4 -> 6, local Likes 2 -> 3.
+- Private application, scripts and backup URLs reject HTTP access. Existing isolated FPM pool unchanged; existing VPS backup service succeeded September 25 at 11:17 UTC.
+- Strict release-manifest check intentionally reports development file drift against frozen v0.8.1. Exact Git comparison is the development integrity evidence; no future release manifest was generated.
+- Browser viewport was 1363 x 936. Exact 390 x 844 and 360 x 800 controls were unavailable, so mobile acceptance is not claimed.
+
+## Batch B implementation decisions
+- Reproduced valid generated metadata becoming invalid after front-matter parsing: byte-mode PCRE newline splitting matched a continuation byte in the sunrise emoji. UTF-8 parsing and character-based fallback/API truncation preserve valid text.
+- Alt text retains the existing utf8mb4 VARCHAR(255) contract: at most 255 Unicode code points, explicitly validated in media writes and API inputs. Admin retains rejected alt text and captions.
+- Media usage reused named PDO placeholders under native prepared statements. Unique placeholders restore detection of single images and galleries without changing storage. The reporter covers current post/page records and legacy import files, not Profile or revision history. Permanent deletion does not call this reporter; its existing explicit owner-confirmation behavior remains. Media trash preserves referenced files.
+- Composer uses progressive asynchronous submission to retain all controls and selected files on rejected/failed responses, with a session-backed fallback for text/metadata. Native file controls must be reselected after a full navigation.
+- Per-form submission receipts and an atomic content transaction prevent duplicate creation when a successful response is lost. A persisted in-progress receipt blocks blind retry after an uncertain worker/commit outcome. Session receipt data is transient UI recovery state, not content storage. Existing database remains authoritative.
+- No schema migration is required.

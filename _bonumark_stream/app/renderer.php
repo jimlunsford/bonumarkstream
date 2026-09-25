@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/composer.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/markdown.php';
 require_once __DIR__ . '/appearance.php';
@@ -193,6 +194,9 @@ function bms_stream_composer_view_data(?string $returnToOverride = null, array $
     }
 
     $returnSource = $returnToOverride !== null ? $returnToOverride : (string)($_SERVER['REQUEST_URI'] ?? bms_url_path());
+    $recovery = bms_composer_recovery(bms_stream_safe_return_url($returnSource), (string)($overrides['reply_object_uri'] ?? ''));
+    $requestKey = (string)($recovery['composer_request_key'] ?? '');
+    if (!isset($_SESSION['bms_composer_requests'][$requestKey])) { $requestKey = bms_composer_request_key(); }
 
     $view = [
         'action_url' => bms_admin_url('quick-post.php'),
@@ -205,10 +209,12 @@ function bms_stream_composer_view_data(?string $returnToOverride = null, array $
         'preview_id' => 'stream-compose-preview',
         'link_preview_id' => 'stream-link-preview',
         'link_preview_endpoint' => bms_admin_url('link-preview.php'),
-        'location_picker_html' => function_exists('bms_place_picker_markup') ? bms_place_picker_markup([], 'front') : '',
+        'location_picker_html' => function_exists('bms_place_picker_markup') ? bms_place_picker_markup(['location_place_id' => $recovery['location_place_id'] ?? '', 'location_display_mode' => $recovery['location_display_mode'] ?? 'exact'], 'front') : '',
         'scheduled_runner_url' => bms_admin_url('scheduled-runner.php'),
         'placeholder' => 'What is happening?',
-        'body_value' => $prefillBody,
+        'body_value' => $recovery['stream_body'] ?? $prefillBody,
+        'request_key' => $requestKey,
+        'recovery' => $recovery,
         'can_publish' => $canPublish,
         'submit_label' => $canPublish ? 'Post' : 'Save draft',
         'busy_label' => $canPublish ? 'Posting...' : 'Saving...',
