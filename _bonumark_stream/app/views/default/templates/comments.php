@@ -3,15 +3,16 @@ $data = is_array($bms_theme_data ?? null) ? $bms_theme_data : [];
 $comments = is_array($data['comments'] ?? null) ? $data['comments'] : [];
 $slug = (string)($data['slug'] ?? '');
 ?>
-<section class="stream-comments ledger-comments" id="comments">
+<section class="stream-comments ledger-comments" id="comments" data-public-comment-count="<?= (int)($data['count'] ?? 0) ?>">
   <div class="comments-header">
-    <h2><?= htmlspecialchars((string)($data['label'] ?? '0 Comments'), ENT_QUOTES, 'UTF-8') ?></h2>
+    <h2 data-public-comment-heading><?= htmlspecialchars((string)($data['label'] ?? '0 Comments'), ENT_QUOTES, 'UTF-8') ?></h2>
   </div>
 
   <?php if ((string)($data['notice'] ?? '') !== ''): ?>
     <p class="comment-notice"><?= htmlspecialchars((string)$data['notice'], ENT_QUOTES, 'UTF-8') ?></p>
   <?php endif; ?>
 
+  <div data-public-comment-list>
   <?php if (!$comments): ?>
     <div class="comment-empty">No comments yet.</div>
   <?php else: ?>
@@ -22,9 +23,9 @@ $slug = (string)($data['slug'] ?? '');
           <div class="comment-body">
             <div class="comment-meta">
               <a href="<?= htmlspecialchars((string)($comment['profile_url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($comment['author_name'] ?? 'Commenter'), ENT_QUOTES, 'UTF-8') ?></a>
-              <span>@<?= htmlspecialchars((string)($comment['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-              <time datetime="<?= htmlspecialchars((string)($comment['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($comment['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></time>
-              <?php if ((string)($comment['source'] ?? 'local') === 'activitypub'): ?><span>Federated reply</span><?php endif; ?>
+              <bdi class="comment-identity"><?= htmlspecialchars((string)($comment['identity'] ?? ''), ENT_QUOTES, 'UTF-8') ?></bdi>
+              <time datetime="<?= htmlspecialchars((string)($comment['datetime'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($comment['date_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></time>
+              <?php if ((string)($comment['source'] ?? 'local') === 'activitypub'): ?><span class="comment-source"><?= htmlspecialchars((string)($comment['source_label'] ?? 'Federated reply'), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
             </div>
             <?php if ((string)($comment['source'] ?? 'local') === 'activitypub' && (string)($comment['body_html'] ?? '') !== ''): ?>
               <div class="comment-federated-content"><?= (string)$comment['body_html'] ?></div>
@@ -36,6 +37,8 @@ $slug = (string)($data['slug'] ?? '');
       <?php endforeach; ?>
     </ol>
   <?php endif; ?>
+
+  </div>
 
   <?php if (empty($data['comments_enabled'])): ?>
     <p class="comment-note">Comments are closed.</p>

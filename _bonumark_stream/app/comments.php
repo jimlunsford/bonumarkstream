@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/profiles.php';
 require_once __DIR__ . '/activitypub-interactions.php';
+require_once __DIR__ . '/public-interactions.php';
 
 function bms_comments_enabled(): bool
 {
@@ -60,16 +61,7 @@ function bms_find_published_post_for_comment(string $slug): ?array
 
 function bms_comment_count_for_slug(string $slug): int
 {
-    if (!bms_is_installed()) {
-        return 0;
-    }
-    try {
-        $stmt = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('comments') . ' WHERE post_slug = :post_slug AND status = :status');
-        $stmt->execute(['post_slug' => bms_slugify($slug), 'status' => 'approved']);
-        return (int)$stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return 0;
-    }
+    return bms_public_interaction_counts_for_slug($slug)['comments'];
 }
 
 function bms_comment_label(int $count): string
@@ -82,10 +74,14 @@ function bms_list_comments_for_slug(string $slug, bool $includeModeration = fals
     if (!bms_is_installed()) {
         return [];
     }
+    $post = bms_find_published_post_for_comment($slug);
+    if (!$post || (string)$post['post_type'] !== 'stream') {
+        return [];
+    }
     $where = $includeModeration ? 'c.status IN (\'approved\',\'pending\')' : 'c.status = \'approved\'';
-    $sql = 'SELECT c.*, u.username, u.display_name, u.role, u.profile_visibility, u.avatar_path FROM ' . bms_table('comments') . ' c INNER JOIN ' . bms_table('users') . ' u ON u.id = c.user_id WHERE c.post_slug = :post_slug AND ' . $where . ' ORDER BY c.created_at ASC, c.id ASC';
+    $sql = 'SELECT c.*, u.username, u.display_name, u.role, u.profile_visibility, u.avatar_path FROM ' . bms_table('comments') . ' c INNER JOIN ' . bms_table('users') . ' u ON u.id = c.user_id WHERE c.post_id = :post_id AND ' . $where . ' ORDER BY c.created_at ASC, c.id ASC';
     $stmt = bms_db()->prepare($sql);
-    $stmt->execute(['post_slug' => bms_slugify($slug)]);
+    $stmt->execute(['post_id' => (int)$post['id']]);
     return $stmt->fetchAll() ?: [];
 }
 
@@ -242,6 +238,20 @@ function bms_list_admin_comments(string $status = 'approved', int $limit = 100, 
     return $stmt->fetchAll() ?: [];
 }
 
+/** UTC storage, site-local display, and an unambiguous machine datetime. */
+function bms_comment_datetime_metadata(string $value): array
+{
+    if (trim($value) === '') {
+        return ['datetime' => '', 'date_label' => 'Date unavailable'];
+    }
+    try {
+        $date = new DateTimeImmutable($value, bms_utc_timezone());
+        return ['datetime' => $date->format(DATE_ATOM), 'date_label' => $date->setTimezone(bms_site_timezone())->format('M j, Y g:i A')];
+    } catch (Throwable $e) {
+        return ['datetime' => '', 'date_label' => 'Date unavailable'];
+    }
+}
+
 function bms_comments_view_data(string $slug, string $notice = ''): array
 {
     $slug = bms_slugify($slug);
@@ -281,6 +291,7 @@ function bms_comments_view_data(string $slug, string $notice = ''): array
                 'body' => (string)$reply['content_text'],
                 'body_html' => (string)$reply['content_html'],
                 'created_at' => (string)($reply['remote_published_at'] ?? '') ?: (string)$reply['created_at'],
+                'identity' => $username !== '' ? '@' . $username . ($domain !== '' ? '@' . $domain : '') : $actorUri,
                 'source' => 'activitypub',
                 'publication_generation' => (int)$reply['target_publication_generation'],
                 'raw' => $reply,
@@ -292,6 +303,12 @@ function bms_comments_view_data(string $slug, string $notice = ''): array
         return $time !== 0 ? $time : strcmp((string)($left['source'] ?? ''), (string)($right['source'] ?? ''));
     });
 
+    foreach ($comments as &$comment) {
+        $comment += bms_comment_datetime_metadata((string)$comment['created_at']);
+        $comment['identity'] ??= (string)$comment['username'] !== '' ? '@' . (string)$comment['username'] : '';
+        $comment['source_label'] = $comment['source'] === 'activitypub' ? 'Federated reply' : 'Local comment';
+    }
+    unset($comment);
     $count = count($comments);
 
     $commentReturnTo = bms_stream_url($slug) . '#comments';

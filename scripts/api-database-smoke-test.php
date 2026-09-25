@@ -111,6 +111,20 @@ function bms_api_smoke_run_child(string $scenario): void
     $prefix = 'bms_api_ci_' . strtolower(bin2hex(random_bytes(4))) . '_';
 
     bms_api_smoke_copy_tree($sourceRoot, $tempRoot);
+    if ($scenario === 'deployment_check') {
+        $manifestPath = $tempRoot . '/_bonumark_stream/RELEASE-MANIFEST.json';
+        $manifest = json_decode((string)file_get_contents($manifestPath), true);
+        $files = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($tempRoot, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file->isFile()) { continue; }
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($tempRoot) + 1));
+            if ($relative === '_bonumark_stream/RELEASE-MANIFEST.json') { continue; }
+            $files[] = ['path' => $relative, 'sha256' => hash_file('sha256', $file->getPathname())];
+        }
+        usort($files, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        $manifest['files'] = $files;
+        file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    }
 
     $configPath = $tempRoot . '/_bonumark_stream/config.php';
     $lockPath = $tempRoot . '/_bonumark_stream/installed.lock';
@@ -1237,6 +1251,11 @@ function bms_api_smoke_verify_activitypub_stage5(): void
         throw new RuntimeException('The real database-prepared Stream page lost its post_id identity contract.');
     }
     $assertOwnerReactions = static function (int $likes, int $boosts) use ($postId): void {
+        $public = bms_stream_like_status_for_slugs(['stage-5-target'])['stage-5-target'];
+        if ($public['count'] !== $likes + 1 || bms_stream_like_count_for_slug('stage-5-target') !== $likes + 1
+            || array_keys($public) !== ['slug', 'liked', 'count', 'label', 'comments']) {
+            throw new RuntimeException('Public Like totals disagree with the local plus remote lifecycle or expose extra data.');
+        }
         // Re-enter the same lookup/conversion boundary used by public rendering.
         $page = bms_find_database_content_by_slug_status('stage-5-target', 'published', 'stream');
         if (!is_array($page) || (int)($page['post_id'] ?? 0) !== $postId) {
@@ -1280,6 +1299,8 @@ function bms_api_smoke_verify_activitypub_stage5(): void
 
     $commentInsert = $pdo->prepare("INSERT INTO " . bms_table('comments') . " (post_slug, post_id, user_id, parent_id, body, status, ip_hash, user_agent_hash, created_at, updated_at, approved_at) VALUES ('stage-5-target', :post_id, 1, NULL, 'Local comment remains local.', 'approved', :ip_hash, :ua_hash, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())");
     $commentInsert->execute(['post_id' => $postId, 'ip_hash' => hash('sha256', 'stage5-ip'), 'ua_hash' => hash('sha256', 'stage5-ua')]);
+    $commentInsert->execute(['post_id' => $postId, 'ip_hash' => hash('sha256', 'stage5-second'), 'ua_hash' => hash('sha256', 'stage5-second-ua')]);
+    bms_stream_register_like('stage-5-target');
     $localCommentCount = bms_comment_count_for_slug('stage-5-target');
     $localLikeCount = bms_stream_like_count_for_slug('stage-5-target');
 
@@ -1323,11 +1344,26 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     };
     $alphaUri = (string)$actors['alpha']['uri'];
     $betaUri = (string)$actors['beta']['uri'];
+    $assertPublicComments = static function (int $expected): void {
+        $view = bms_comments_view_data('stage-5-target');
+        $page = bms_find_database_content_by_slug_status('stage-5-target', 'published', 'stream');
+        $card = bms_stream_card_view_data($page, true);
+        $status = bms_stream_like_status_for_slugs(['stage-5-target']);
+        if ($view['count'] !== $expected || count($view['comments']) !== $expected
+            || bms_comment_count_for_slug('stage-5-target') !== $expected
+            || $card['comments']['count'] !== $expected || $status['stage-5-target']['comments'] !== $expected) {
+            throw new RuntimeException('Stream, permalink, Conversation and asynchronous public counts disagree.');
+        }
+        $markup = bms_render_comments_panel('stage-5-target');
+        if (!str_contains($markup, 'data-public-comment-count="' . $expected . '"')) {
+            throw new RuntimeException('Rendered comments lost the synchronization contract.');
+        }
+    };
     $replyUri = $alphaUri . '/notes/reply-1';
     $reply = [
         'id' => $alphaUri . '/activities/create-reply-1', 'type' => 'Create', 'actor' => $alphaUri,
         'object' => [
-            'id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri,
+            'id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri, 'to' => ['https://www.w3.org/ns/activitystreams#Public'],
             'published' => gmdate(DATE_ATOM, $clock),
             'content' => '<p>Hello <strong>federation</strong>.</p><script>alert(1)</script><p><a href="javascript:alert(1)" onclick="evil()">bad</a> <a href="https://remote.example/safe">safe</a></p>',
         ],
@@ -1344,12 +1380,30 @@ function bms_api_smoke_verify_activitypub_stage5(): void
         || !str_contains((string)$storedReply['content_html'], 'https://remote.example/safe')) {
         throw new RuntimeException('Remote reply identity, generation binding, or HTML sanitization failed.');
     }
+    $assertPublicComments(2); // Pending remote replies never count.
     bms_activitypub_moderate_remote_reply((int)$storedReply['id'], 'approve', 1);
+    $assertPublicComments(3);
     $presented = bms_comments_view_data('stage-5-target');
-    if ($localCommentCount !== 1 || (int)$presented['count'] !== 2
+    if ($localCommentCount !== 2 || (int)$presented['count'] !== 3
         || count(array_filter((array)$presented['comments'], static fn(array $item): bool => ($item['source'] ?? '') === 'activitypub')) !== 1) {
         throw new RuntimeException('Approved remote replies were not presented beside, but separate from, local comments.');
     }
+
+    $remoteMetadata = array_values(array_filter($presented['comments'], static fn(array $item): bool => $item['source'] === 'activitypub'))[0];
+    if ($remoteMetadata['identity'] !== '@alpha@93.184.216.34'
+        || !str_contains($remoteMetadata['datetime'], 'T') || !str_contains($remoteMetadata['datetime'], '+00:00')
+        || preg_match('/^\d{4}-\d{2}-\d{2} /', $remoteMetadata['date_label']) === 1
+        || isset($remoteMetadata['raw']['visibility_receipt'])) {
+        throw new RuntimeException('Public comment metadata lost identity, human/machine dates, or receipt privacy.');
+    }
+    $privateReply = $reply;
+    $privateReply['id'] = $alphaUri . '/activities/private-reply';
+    $privateReply['object']['id'] = $alphaUri . '/notes/private-reply';
+    $privateReply['object']['to'] = [bms_activitypub_actor_url()];
+    $send($privateReply);
+    $privateStored = bms_activitypub_remote_reply_by_uri($privateReply['object']['id']);
+    bms_activitypub_moderate_remote_reply((int)$privateStored['id'], 'approve', 1);
+    $assertPublicComments(3); // Moderator approval cannot make a private Note public.
 
     $nestedUri = $alphaUri . '/notes/reply-2';
     $nested = ['id' => $alphaUri . '/activities/create-reply-2', 'type' => 'Create', 'actor' => $alphaUri, 'object' => ['id' => $nestedUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $replyUri, 'content' => '<p>Nested reply.</p>']];
@@ -1385,7 +1439,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
         throw new RuntimeException('A reply to an unknown local object was not ignored.');
     }
 
-    $update = ['id' => $alphaUri . '/activities/update-reply-1', 'type' => 'Update', 'actor' => $alphaUri, 'object' => ['id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri, 'updated' => gmdate(DATE_ATOM, $clock), 'content' => '<p>Updated reply text.</p>']];
+    $update = ['id' => $alphaUri . '/activities/update-reply-1', 'type' => 'Update', 'actor' => $alphaUri, 'object' => ['id' => $replyUri, 'type' => 'Note', 'attributedTo' => $alphaUri, 'inReplyTo' => $currentUri, 'to' => ['https://www.w3.org/ns/activitystreams#Public'], 'updated' => gmdate(DATE_ATOM, $clock), 'content' => '<p>Updated reply text.</p>']];
     if (($send($update)['result_code'] ?? '') !== 'reply_updated') {
         throw new RuntimeException('The owning actor could not update its accepted remote reply.');
     }
@@ -1393,6 +1447,16 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (!is_array($updatedStored) || (string)$updatedStored['moderation_state'] !== 'approved' || !str_contains((string)$updatedStored['content_text'], 'Updated reply text')) {
         throw new RuntimeException('Remote reply Update lost moderation state or sanitized content.');
     }
+    $assertPublicComments(3);
+    $privateUpdate = $update;
+    $privateUpdate['id'] = $alphaUri . '/activities/restrict-reply';
+    $privateUpdate['object']['to'] = [$alphaUri . '/followers'];
+    $send($privateUpdate);
+    $assertPublicComments(2);
+    $restorePublic = $update;
+    $restorePublic['id'] = $alphaUri . '/activities/restore-public-reply';
+    $send($restorePublic);
+    $assertPublicComments(3);
     $wrongUpdate = $update;
     $wrongUpdate['id'] = $betaUri . '/activities/wrong-update';
     $wrongUpdate['actor'] = $betaUri;
@@ -1405,6 +1469,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     if (($send($delete)['result_code'] ?? '') !== 'reply_deleted') {
         throw new RuntimeException('The owning actor could not delete its remote reply.');
     }
+    $assertPublicComments(2);
     $afterDelete = $update;
     $afterDelete['id'] = $alphaUri . '/activities/update-after-delete';
     if (($send($afterDelete)['result_code'] ?? '') !== 'reply_update_after_delete') {
@@ -1524,7 +1589,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
     bms_activitypub_receive_inbox($replayRequest, $fetcher, $resolver, $clock);
     bms_api_smoke_expect_security_exception(409, static fn() => bms_activitypub_receive_inbox($replayRequest, $fetcher, $resolver, $clock));
 
-    if (bms_comment_count_for_slug('stage-5-target') !== $localCommentCount || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount) {
+    if (bms_comment_count_for_slug('stage-5-target') !== $localCommentCount || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount + 1) {
         throw new RuntimeException('Stage 5 changed local comments or anonymous local likes.');
     }
     $savedSession = $_SESSION ?? [];
@@ -1565,7 +1630,7 @@ function bms_api_smoke_verify_activitypub_stage5(): void
         bms_set_public_preview_mode(false);
     }
     $pdo->prepare('INSERT INTO ' . bms_table('activitypub_blocks') . " (block_type, block_value, reason, created_at, updated_at) VALUES ('domain', :domain, '', UTC_TIMESTAMP(), UTC_TIMESTAMP())")->execute(['domain' => bms_activitypub_actor_domain($alphaUri)]);
-    if (bms_activitypub_post_reaction_rows($postId, 2) !== []) {
+    if (bms_activitypub_post_reaction_rows($postId, 2) !== [] || bms_stream_like_count_for_slug('stage-5-target') !== $localLikeCount) {
         throw new RuntimeException('A blocked domain remains visible in owner reactions.');
     }
 }
@@ -1800,6 +1865,14 @@ function bms_api_smoke_verify_activitypub_stage6(): void
     $createPayload = is_array($generationOne) ? json_decode((string)$generationOne['last_object_json'], true) : null;
     if (!is_array($generationOne) || (string)($createPayload['inReplyTo'] ?? '') !== $noteUri) {
         throw new RuntimeException('Published owner reply lost inReplyTo or normal generation identity.');
+    }
+    $publicReplyPage = bms_find_database_content_by_slug_status((string)$reply['slug'], 'published', 'stream');
+    $publishedPages = bms_list_content_records('published');
+    if (!is_array($publicReplyPage) || !bms_is_stream_post($publicReplyPage)
+        || bms_filter_main_stream_posts([$publicReplyPage]) !== []
+        || !in_array((int)$reply['post_id'], array_column(bms_filter_stream_posts($publishedPages), 'post_id'), true)
+        || str_contains(bms_render_stream_index($publishedPages), bms_stream_url_for_post($publicReplyPage))) {
+        throw new RuntimeException('A conversation reply appeared in the main Stream or lost normal content/permalink access.');
     }
     $replyTargets = $pdo->prepare('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries') . ' d INNER JOIN ' . bms_table('activitypub_publication_events') . ' e ON e.id = d.event_id WHERE e.post_id = :post_id AND d.recipient_actor_ids_json = :recipient_actor_ids_json');
     $replyTargets->execute(['post_id' => (int)$reply['post_id'], 'recipient_actor_ids_json' => json_encode([(int)$follow['following']['remote_actor_id']], JSON_UNESCAPED_SLASHES)]);

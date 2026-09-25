@@ -499,14 +499,54 @@ function bms_activitypub_cancel_blocked_owner_deliveries(string $actorUri, strin
     }
 }
 
-function bms_activitypub_approved_replies_for_post(int $postId, int $generation): array
+/** Public presentation requires explicit public addressing on the Note itself. */
+function bms_activitypub_note_is_public(array $note): bool
 {
-    if ($postId < 1 || $generation < 1) {
+    foreach (['to', 'cc', 'audience'] as $field) {
+        $values = $note[$field] ?? [];
+        if (!is_array($values) || !array_is_list($values)) {
+            $values = [$values];
+        }
+        foreach ($values as $value) {
+            $id = is_string($value) ? $value : (is_array($value) ? ($value['id'] ?? '') : '');
+            if (in_array($id, ['https://www.w3.org/ns/activitystreams#Public', 'as:Public', 'Public'], true)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** One eligibility path for public reply lists and aggregate counts. */
+function bms_activitypub_public_reply_rows(array $postIds): array
+{
+    $postIds = array_values(array_unique(array_filter(array_map('intval', $postIds), static fn(int $id): bool => $id > 0)));
+    if (!$postIds || !bms_activitypub_enabled()) {
         return [];
     }
-    $stmt = bms_db()->prepare("SELECT r.*, a.preferred_username, a.display_name FROM " . bms_table('activitypub_remote_replies') . " r INNER JOIN " . bms_table('activitypub_remote_actors') . " a ON a.id = r.remote_actor_id WHERE r.target_post_id = :post_id AND r.target_publication_generation = :generation AND r.moderation_state = 'approved' AND r.lifecycle_state = 'active' ORDER BY r.created_at ASC, r.id ASC");
-    $stmt->execute(['post_id' => $postId, 'generation' => $generation]);
-    return $stmt->fetchAll() ?: [];
+    $marks = implode(',', array_fill(0, count($postIds), '?'));
+    $stmt = bms_db()->prepare("SELECT r.*, a.preferred_username, a.display_name, receipt.activity_json AS visibility_receipt FROM " . bms_table('activitypub_remote_replies') . " r INNER JOIN " . bms_table('activitypub_remote_actors') . " a ON a.id = r.remote_actor_id INNER JOIN " . bms_table('posts') . " p ON p.id = r.target_post_id INNER JOIN " . bms_table('activitypub_local_objects') . " o ON o.post_id = r.target_post_id AND o.publication_generation = r.target_publication_generation AND o.object_uri = r.target_object_uri INNER JOIN " . bms_table('activitypub_inbox_receipts') . " receipt ON receipt.id = r.last_receipt_id AND receipt.activity_uri = r.last_activity_uri AND receipt.actor_uri = r.actor_uri WHERE r.target_post_id IN (" . $marks . ") AND p.status = 'published' AND p.post_type = 'stream' AND o.deleted_at IS NULL AND r.moderation_state = 'approved' AND r.lifecycle_state = 'active' AND r.deleted_at IS NULL AND a.lifecycle_state = 'active' ORDER BY r.created_at ASC, r.id ASC");
+    $stmt->execute($postIds);
+    $rows = [];
+    $blocked = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $actor = (string)$row['actor_uri'];
+        $blocked[$actor] ??= bms_activitypub_actor_is_blocked($actor);
+        $receipt = json_decode((string)$row['visibility_receipt'], true);
+        $note = is_array($receipt) ? ($receipt['object'] ?? null) : null;
+        unset($row['visibility_receipt']);
+        if (!$blocked[$actor] && is_array($note) && bms_activitypub_note_is_public($note)
+            && ($note['id'] ?? '') === $row['remote_object_uri']) {
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+
+function bms_activitypub_approved_replies_for_post(int $postId, int $generation): array
+{
+    return array_values(array_filter(bms_activitypub_public_reply_rows([$postId]),
+        static fn(array $row): bool => (int)$row['target_publication_generation'] === $generation));
 }
 
 function bms_activitypub_current_local_generation_for_post(int $postId): ?array

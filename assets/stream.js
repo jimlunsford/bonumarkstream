@@ -1365,6 +1365,29 @@
     }, 2200);
   }
 
+  var publicInteractionEpoch = 0;
+  var publicInteractionRequest = 0;
+  var publicInteractionRefreshPending = false;
+
+  function syncPublicCommentCount(slug, count) {
+    if (typeof count !== 'number' || count < 0) { return; }
+    document.querySelectorAll('[data-public-comments]').forEach(function (link) {
+      if (link.getAttribute('data-public-comments') !== slug) { return; }
+      var label = link.querySelector('[data-public-comment-label]');
+      if (label) { label.textContent = count + (count === 1 ? ' Comment' : ' Comments'); }
+    });
+  }
+
+  function syncPublicInteractions(slug, data) {
+    document.querySelectorAll('[data-stream-like]').forEach(function (button) {
+      if (button.getAttribute('data-like-slug') === slug && !button.disabled) {
+        updateLikeButton(button, data);
+      }
+    });
+    syncPublicCommentCount(slug, data.comments);
+    document.dispatchEvent(new CustomEvent('bms:public-interactions', { detail: { slug: slug, comments: data.comments } }));
+  }
+
   function hydrateLikes(root) {
     var scope = root || document;
     var buttons = Array.prototype.slice.call(scope.querySelectorAll('[data-stream-like]'));
@@ -1387,8 +1410,10 @@
       return;
     }
 
+    var epoch = publicInteractionEpoch;
+    var request = ++publicInteractionRequest;
     var candidates = likeEndpointCandidates(buttons[0]);
-    tryLikeEndpoints(candidates, function (endpoint) {
+    return tryLikeEndpoints(candidates, function (endpoint) {
       return endpointUrl(endpoint, {
         slugs: unique.join(','),
         _: Date.now()
@@ -1396,13 +1421,9 @@
     }, function () {
       return { method: 'GET' };
     }).then(function (json) {
+      if (epoch !== publicInteractionEpoch || request !== publicInteractionRequest) { return; }
       var data = json.data || {};
-      buttons.forEach(function (button) {
-        var slug = button.getAttribute('data-like-slug') || '';
-        if (data[slug]) {
-          updateLikeButton(button, data[slug]);
-        }
-      });
+      Object.keys(data).forEach(function (slug) { syncPublicInteractions(slug, data[slug]); });
     }).catch(function () {
       // Like status hydration is progressive enhancement. If every endpoint check fails,
       // keep the baked-in count visible and avoid changing the public card layout.
@@ -1461,7 +1482,9 @@
             body: body
           };
         }).then(function (json) {
+          publicInteractionEpoch++;
           updateLikeButton(button, json.data || {});
+          syncPublicInteractions(slug, json.data || {});
         }).catch(function (error) {
           showLikeError(button, cleanLikeErrorMessage(error), previousText);
         }).finally(function () {
@@ -1636,70 +1659,114 @@
   function setupComments(root) {
     var scope = root || document;
     scope.querySelectorAll('[data-comments-mount]').forEach(function (mount) {
-      if (mount.dataset.commentsInitialized === '1') {
-        return;
-      }
+      if (mount.dataset.commentsInitialized === '1') { return; }
       mount.dataset.commentsInitialized = '1';
       var endpoint = mount.getAttribute('data-comments-endpoint') || '';
       var slug = mount.getAttribute('data-comments-slug') || '';
-      if (!endpoint || !slug) {
-        return;
+      if (!endpoint || !slug) { return; }
+      var requestVersion = 0;
+      var submitting = false;
+      var refreshing = false;
+
+      function syncRenderedCount() {
+        var panel = mount.querySelector('[data-public-comment-count]');
+        if (panel) { syncPublicCommentCount(slug, Number(panel.getAttribute('data-public-comment-count'))); }
       }
 
-      function loadComments() {
+      function loadComments(background) {
+        if (submitting || refreshing) { return; }
+        refreshing = true;
+        var version = ++requestVersion;
         var url = endpoint + (endpoint.indexOf('?') === -1 ? '?' : '&') + 'slug=' + encodeURIComponent(slug);
-        fetch(url, { credentials: 'same-origin' })
-          .then(function (response) { return response.text(); })
-          .then(function (html) {
-            mount.innerHTML = html;
-            bindCommentForm();
-          })
-          .catch(function () {
-            mount.innerHTML = '<p class="comment-note">Comments could not be loaded.</p>';
-          });
+        return fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (response) {
+            if (!response.ok) { throw new Error('Comments could not be loaded.'); }
+            return response.text();
+          }).then(function (html) {
+            if (version !== requestVersion || submitting) { return; }
+            var currentPanel = mount.querySelector('[data-public-comment-count]');
+            if (background && currentPanel) {
+              var incoming = document.createElement('div');
+              incoming.innerHTML = html;
+              var list = mount.querySelector('[data-public-comment-list]');
+              var nextList = incoming.querySelector('[data-public-comment-list]');
+              var heading = mount.querySelector('[data-public-comment-heading]');
+              var nextHeading = incoming.querySelector('[data-public-comment-heading]');
+              var nextPanel = incoming.querySelector('[data-public-comment-count]');
+              // Never replace the form, its draft, or a focused comment link during polling.
+              if (!list || !nextList || !heading || !nextHeading || !nextPanel || list.contains(document.activeElement)) { return; }
+              list.innerHTML = nextList.innerHTML;
+              heading.textContent = nextHeading.textContent;
+              currentPanel.setAttribute('data-public-comment-count', nextPanel.getAttribute('data-public-comment-count'));
+            } else {
+              mount.innerHTML = html;
+              bindCommentForm();
+            }
+            syncRenderedCount();
+          }).catch(function () {
+            if (!background && version === requestVersion) {
+              mount.innerHTML = '<p class="comment-note" role="alert">Comments could not be loaded.</p>';
+            }
+          }).finally(function () { refreshing = false; });
       }
 
       function bindCommentForm() {
         var form = mount.querySelector('[data-comment-form]');
-        if (!form || form.dataset.commentFormInitialized === '1') {
-          return;
-        }
+        if (!form || form.dataset.commentFormInitialized === '1') { return; }
         form.dataset.commentFormInitialized = '1';
         form.addEventListener('submit', function (event) {
           event.preventDefault();
+          if (submitting) { return; }
+          submitting = true;
+          requestVersion++;
+          publicInteractionEpoch++;
+          var textarea = form.querySelector('textarea');
+          var savedBody = textarea ? textarea.value : '';
           var submit = form.querySelector('button[type="submit"]');
           var original = submit ? submit.textContent : '';
-          if (submit) {
-            submit.disabled = true;
-            submit.textContent = 'Posting...';
-          }
+          if (submit) { submit.disabled = true; submit.textContent = 'Posting...'; }
           fetch(form.getAttribute('action') || endpoint, {
-            method: 'POST',
-            body: new FormData(form),
-            credentials: 'same-origin'
-          })
-            .then(function (response) { return response.text(); })
-            .then(function (html) {
-              mount.innerHTML = html;
-              bindCommentForm();
-            })
-            .catch(function () {
-              var note = document.createElement('p');
-              note.className = 'comment-notice';
-              note.textContent = 'Comment could not be posted right now.';
-              form.insertAdjacentElement('beforebegin', note);
-            })
-            .finally(function () {
-              if (submit) {
-                submit.disabled = false;
-                submit.textContent = original || 'Post Comment';
-              }
-            });
+            method: 'POST', body: new FormData(form), credentials: 'same-origin'
+          }).then(function (response) {
+            return response.text().then(function (html) { return { html: html, ok: response.ok }; });
+          }).then(function (result) {
+            publicInteractionEpoch++;
+            mount.innerHTML = result.html;
+            bindCommentForm();
+            var nextBody = mount.querySelector('textarea');
+            if (!result.ok && nextBody) { nextBody.value = savedBody; }
+            syncRenderedCount();
+            hydrateLikes(document);
+          }).catch(function () {
+            var note = document.createElement('p');
+            note.className = 'comment-notice';
+            note.setAttribute('role', 'alert');
+            note.textContent = 'Comment could not be posted right now.';
+            form.insertAdjacentElement('beforebegin', note);
+          }).finally(function () {
+            submitting = false;
+            if (submit) { submit.disabled = false; submit.textContent = original || 'Post Comment'; }
+          });
         });
       }
-
-      loadComments();
+      document.addEventListener('bms:public-interactions', function (event) {
+        if (!mount.isConnected || event.detail.slug !== slug || typeof event.detail.comments !== 'number') { return; }
+        var panel = mount.querySelector('[data-public-comment-count]');
+        if (panel && Number(panel.getAttribute('data-public-comment-count')) !== event.detail.comments) { loadComments(true); }
+      });
+      loadComments(false);
     });
+  }
+
+  function setupPublicInteractionRefresh() {
+    function refresh() {
+      if (document.hidden || publicInteractionRefreshPending) { return; }
+      publicInteractionRefreshPending = true;
+      Promise.resolve(hydrateLikes(document)).finally(function () { publicInteractionRefreshPending = false; });
+    }
+    window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) { refresh(); } });
+    window.addEventListener('focus', refresh);
   }
 
   function setupLinkPreviewImages(root) {
@@ -2636,6 +2703,7 @@
       setupQuickEdits(document);
       setupStreamTrash(document);
       setupComments(document);
+      setupPublicInteractionRefresh();
       setupLoadMore();
     }
   });

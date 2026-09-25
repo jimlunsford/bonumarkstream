@@ -2269,6 +2269,18 @@ function bms_filter_stream_posts(array $pages): array
     return array_values(array_filter($pages, 'bms_is_stream_post'));
 }
 
+/** Reply placement is independent of publication/federation eligibility. */
+function bms_filter_main_stream_posts(array $pages): array
+{
+    $pages = bms_filter_stream_posts($pages);
+    if (!$pages || !bms_is_installed() || !function_exists('bms_db')
+        || !bms_database_table_exists(bms_db(), bms_table('activitypub_reply_targets'))) {
+        return $pages;
+    }
+    $replyIds = array_fill_keys(array_map('intval', bms_db()->query('SELECT post_id FROM ' . bms_table('activitypub_reply_targets'))->fetchAll(PDO::FETCH_COLUMN)), true);
+    return array_values(array_filter($pages, static fn(array $page): bool => !isset($replyIds[(int)($page['post_id'] ?? $page['id'] ?? 0)])));
+}
+
 function bms_datetime_sort_timestamp(string $raw, ?DateTimeZone $timezone = null): int
 {
     $raw = trim($raw);

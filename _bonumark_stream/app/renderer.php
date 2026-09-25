@@ -31,7 +31,7 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
     $taglineRaw = (string)bms_setting_or_config('site_tagline', 'A self-hosted microblog stream for owning short-form publishing.');
     $pageNumber = max(1, $pageNumber);
     $perPage = bms_stream_posts_per_page();
-    $allStreamPosts = bms_sort_stream_posts(bms_filter_stream_posts($pages));
+    $allStreamPosts = bms_sort_stream_posts(bms_filter_main_stream_posts($pages));
     $totalPosts = count($allStreamPosts);
     $totalPages = max(1, (int)ceil($totalPosts / max(1, $perPage)));
     if ($pageNumber > $totalPages) {
@@ -39,7 +39,7 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
     }
     $streamPosts = array_slice($allStreamPosts, ($pageNumber - 1) * $perPage, $perPage);
     $isArchive = $context === 'archive';
-    $pinnedPosts = (!$isArchive && $pageNumber === 1) ? bms_list_pinned_stream_posts() : [];
+    $pinnedPosts = (!$isArchive && $pageNumber === 1) ? bms_filter_main_stream_posts(bms_list_pinned_stream_posts()) : [];
     $pinnedSlugs = [];
     foreach ($pinnedPosts as $pinnedPost) {
         $slug = bms_slugify((string)($pinnedPost['slug'] ?? ''));
@@ -286,7 +286,9 @@ function bms_render_pinned_stream_posts(array $pages): string
 function bms_render_stream_cards(array $pages, bool $pinned = false): string
 {
     $items = '';
+    $counts = bms_public_preview_mode() ? [] : bms_public_interaction_counts_for_slugs(array_column($pages, 'slug'));
     foreach ($pages as $index => $page) {
+        $page['_public_interaction_counts'] = $counts[(string)($page['slug'] ?? '')] ?? ['likes' => 0, 'comments' => 0];
         $items .= bms_render_stream_card($page, false, (int)$index, $pinned);
     }
 
@@ -695,10 +697,11 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $linkPreviewHtml = bms_render_stream_link_preview($page);
     $locationHtml = function_exists('bms_render_stream_location') ? bms_render_stream_location($page) : '';
     $slug = (string)($page['slug'] ?? '');
-    $likeCount = !$previewMode && function_exists('bms_stream_like_count_for_slug') ? bms_stream_like_count_for_slug($slug) : 0;
+    $publicCounts = $previewMode ? ['likes' => 0, 'comments' => 0] : ($page['_public_interaction_counts'] ?? bms_public_interaction_counts_for_slug($slug));
+    $likeCount = $publicCounts['likes'];
     $liked = !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
     $likeLabel = function_exists('bms_stream_like_label') ? bms_stream_like_label($likeCount) : ((string)$likeCount . ' likes');
-    $commentCount = !$previewMode && function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
+    $commentCount = $publicCounts['comments'];
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
     $editUrl = '';
     $quickEdit = [];
@@ -797,6 +800,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
             'action_label' => $liked ? 'Post liked.' : 'Like this post.',
         ],
         'comments' => [
+            'slug' => $slug,
             'count' => $commentCount,
             'label' => $commentLabel,
             'url' => $single ? '#comments' : $pageUrl . '#comments',
@@ -1142,12 +1146,12 @@ function bms_clean_static_export_stream_output(array $streamPosts, ?string $targ
 function bms_generate_static_stream_archive(?array $pages = null, ?string $targetRoot = null): void
 {
     $pages = $pages ?? bms_list_content_records('published');
-    $streamPosts = bms_sort_stream_posts(bms_filter_stream_posts($pages));
+    $streamPosts = bms_sort_stream_posts(bms_filter_main_stream_posts($pages));
     $perPage = bms_stream_posts_per_page();
     $totalPages = max(1, (int)ceil(count($streamPosts) / max(1, $perPage)));
 
     bms_delete_directory(bms_static_site_export_path('stream/page', $targetRoot));
-    bms_clean_static_export_stream_output($streamPosts, $targetRoot);
+    bms_clean_static_export_stream_output(bms_filter_stream_posts($pages), $targetRoot);
     bms_write_file(bms_static_site_export_path('stream/index.html', $targetRoot), bms_render_stream_index($pages, false, 1, 'archive'));
 
     for ($page = 2; $page <= $totalPages; $page++) {
