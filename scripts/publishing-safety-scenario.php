@@ -146,7 +146,7 @@ function bms_api_smoke_publishing_safety(): void
         }
 
         $admin = bms_api_smoke_http_request($base . '/admin/activitypub.php', 'GET', ['Cookie: ' . $cookie]);
-        if ($admin['status'] !== 200 || !str_contains($admin['body'], 'Federated profile') || !str_contains($admin['body'], 'ap-diagnostics')) {
+        if ($admin['status'] !== 200 || !str_contains($admin['body'], 'Federated profile') || !str_contains($admin['body'], 'id="ap-danger"') || !str_contains($admin['body'], 'class="admin-footer"') || str_contains($admin['body'], 'Fatal error')) {
             throw new RuntimeException('The authenticated ActivityPub Admin workflow did not render.');
         }
         $privateView = bms_api_smoke_http_request($base . '/admin/_activitypub-view.php', 'GET');

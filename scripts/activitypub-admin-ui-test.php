@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit('CLI only.'); }
 require_once dirname(__DIR__).'/admin/_activitypub-ui.php';
 function bms_csrf_token(): string { return 'fixture-csrf'; }
 function bms_admin_url(string $path): string { return '/admin/'.$path; }
-function bms_activitypub_following_redirect_url(): string { return '/following/'; }
+function bms_site_url(string $path): string { return 'https://local.test/'.$path; }
 function ap_check(bool $ok,string $message): void { if (!$ok) { throw new RuntimeException($message); } }
 define('BMS_ADMIN_ACTIVITYPUB_VIEW',true);
 set_error_handler(static function(int $severity,string $message): bool { if (error_reporting() & $severity) { throw new RuntimeException($message); } return false; });
