@@ -449,10 +449,11 @@ function bms_activitypub_publication_event_by_activity_uri(string $activityUri):
     return is_array($row) ? $row : null;
 }
 
-function bms_activitypub_publication_delivery_rows(int $limit = 100): array
+function bms_activitypub_publication_delivery_rows(int $limit = 100, int $offset = 0): array
 {
     $limit = max(1, min(500, $limit));
-    $stmt = bms_db()->query("SELECT d.*, e.event_type, e.post_id FROM " . bms_table('activitypub_deliveries') . ' d INNER JOIN ' . bms_table('activitypub_publication_events') . " e ON e.id = d.event_id WHERE d.delivery_type = 'publication' AND d.event_id IS NOT NULL ORDER BY d.updated_at DESC, d.id DESC LIMIT " . $limit);
+    $offset = max(0, $offset);
+    $stmt = bms_db()->query("SELECT d.*, e.event_type, e.post_id FROM " . bms_table('activitypub_deliveries') . ' d INNER JOIN ' . bms_table('activitypub_publication_events') . " e ON e.id = d.event_id WHERE d.delivery_type = 'publication' AND d.event_id IS NOT NULL ORDER BY d.updated_at DESC, d.id DESC LIMIT " . $limit . ' OFFSET ' . $offset);
     return $stmt ? ($stmt->fetchAll() ?: []) : [];
 }
 

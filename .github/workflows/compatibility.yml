@@ -98,6 +98,7 @@ jobs:
           done < <(find . -type f -name '*.json' -print0)
           node scripts/markdown-link-test.js
           node scripts/public-interactions-test.js
+          php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php
@@ -251,6 +252,7 @@ jobs:
           done < <(find . -type f -name '*.json' -print0)
           node scripts/markdown-link-test.js
           node scripts/public-interactions-test.js
+          php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php

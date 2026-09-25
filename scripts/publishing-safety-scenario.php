@@ -145,6 +145,13 @@ function bms_api_smoke_publishing_safety(): void
             throw new RuntimeException('Successful save left the failed draft in the composer.');
         }
 
+        $admin = bms_api_smoke_http_request($base . '/admin/activitypub.php', 'GET', ['Cookie: ' . $cookie]);
+        if ($admin['status'] !== 200 || !str_contains($admin['body'], 'Federated profile') || !str_contains($admin['body'], 'ap-diagnostics')) {
+            throw new RuntimeException('The authenticated ActivityPub Admin workflow did not render.');
+        }
+        $privateView = bms_api_smoke_http_request($base . '/admin/_activitypub-view.php', 'GET');
+        if ($privateView['status'] !== 403) { throw new RuntimeException('Direct access to the ActivityPub view was not blocked.'); }
+
         $badAlt = str_repeat('z', 270);
         $edit = bms_api_smoke_http_request($base . '/admin/media-edit.php?id=' . $media[0]['id'], 'POST',
             ['Cookie: ' . $cookie, 'Content-Type: application/x-www-form-urlencoded'],

@@ -482,10 +482,11 @@ function bms_activitypub_unfollow_remote_actor(int $followingId, ?callable $fetc
     }
 }
 
-function bms_activitypub_following_rows(int $limit = 200): array
+function bms_activitypub_following_rows(int $limit = 200, int $offset = 0): array
 {
     $limit = max(1, min(500, $limit));
-    $stmt = bms_db()->query('SELECT f.*, a.preferred_username, a.display_name, a.inbox_url, a.shared_inbox_url FROM ' . bms_table('activitypub_following') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id ORDER BY f.updated_at DESC, f.id DESC LIMIT ' . $limit);
+    $offset = max(0, $offset);
+    $stmt = bms_db()->query('SELECT f.*, a.preferred_username, a.display_name, a.inbox_url, a.shared_inbox_url FROM ' . bms_table('activitypub_following') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id ORDER BY f.updated_at DESC, f.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
     return $stmt ? ($stmt->fetchAll() ?: []) : [];
 }
 

@@ -6,10 +6,11 @@ function bms_activitypub_queue_summary(): array
     return $rows ? ($rows->fetchAll() ?: []) : [];
 }
 
-function bms_activitypub_operational_delivery_rows(int $limit = 200): array
+function bms_activitypub_operational_delivery_rows(int $limit = 200, int $offset = 0): array
 {
     $limit = max(1, min(500, $limit));
-    $rows = bms_db()->query("SELECT * FROM " . bms_table('activitypub_deliveries') . " WHERE status IN ('pending', 'retry', 'processing', 'dead', 'cancelled') ORDER BY updated_at DESC, id DESC LIMIT " . $limit);
+    $offset = max(0, $offset);
+    $rows = bms_db()->query("SELECT * FROM " . bms_table('activitypub_deliveries') . " WHERE status IN ('pending', 'retry', 'processing', 'dead', 'cancelled') ORDER BY updated_at DESC, id DESC LIMIT " . $limit . ' OFFSET ' . $offset);
     return $rows ? ($rows->fetchAll() ?: []) : [];
 }
 

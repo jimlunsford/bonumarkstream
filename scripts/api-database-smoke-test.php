@@ -185,6 +185,24 @@ function bms_api_smoke_run_child(string $scenario): void
 
         $GLOBALS['bms_api_smoke_temp_root'] = $tempRoot;
         bms_api_smoke_run_scenario($scenario);
+        if (in_array($scenario, ['activitypub_inbox', 'activitypub_stage5', 'activitypub_stage6', 'activitypub_publication'], true)) {
+            $readers = [
+                static fn(int $n, int $o): array => bms_activitypub_follower_rows('', $n, $o),
+                static fn(int $n, int $o): array => bms_activitypub_remote_reply_rows('', $n, $o),
+                static fn(int $n, int $o): array => bms_activitypub_following_rows($n, $o),
+                static fn(int $n, int $o): array => bms_activitypub_publication_delivery_rows($n, $o),
+                static fn(int $n, int $o): array => bms_activitypub_operational_delivery_rows($n, $o),
+            ];
+            foreach ($readers as $reader) {
+                $all = $reader(50, 0);
+                foreach ([0, 1, 10] as $offset) {
+                    if (array_column($reader(3, $offset), 'id') !== array_column(array_slice($all, $offset, 3), 'id')) {
+                        throw new RuntimeException('ActivityPub Admin pagination skipped, duplicated, or misordered records.');
+                    }
+                }
+            }
+        }
+
         $activityPubEvents = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_publication_events'))->fetchColumn();
         $activityPubDeliveries = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('activitypub_deliveries'))->fetchColumn();
         if ($scenario === 'activitypub_observer') {

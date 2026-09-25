@@ -408,11 +408,12 @@ function bms_activitypub_result_is_ignored(string $result): bool
         || in_array($result, ['reply_parent_deleted', 'blocked_actor'], true);
 }
 
-function bms_activitypub_remote_reply_rows(string $state = '', int $limit = 200): array
+function bms_activitypub_remote_reply_rows(string $state = '', int $limit = 200, int $offset = 0): array
 {
     $limit = max(1, min(500, $limit));
+    $offset = max(0, $offset);
     $where = $state !== '' ? ' WHERE r.moderation_state = :state' : '';
-    $stmt = bms_db()->prepare('SELECT r.*, a.preferred_username, a.display_name, p.slug AS post_slug, p.title AS post_title FROM ' . bms_table('activitypub_remote_replies') . ' r INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = r.remote_actor_id LEFT JOIN ' . bms_table('posts') . ' p ON p.id = r.target_post_id' . $where . ' ORDER BY r.updated_at DESC, r.id DESC LIMIT ' . $limit);
+    $stmt = bms_db()->prepare('SELECT r.*, a.preferred_username, a.display_name, p.slug AS post_slug, p.title AS post_title FROM ' . bms_table('activitypub_remote_replies') . ' r INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = r.remote_actor_id LEFT JOIN ' . bms_table('posts') . ' p ON p.id = r.target_post_id' . $where . ' ORDER BY r.updated_at DESC, r.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
     $stmt->execute($state !== '' ? ['state' => $state] : []);
     return $stmt->fetchAll() ?: [];
 }
