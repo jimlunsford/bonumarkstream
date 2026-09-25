@@ -1006,7 +1006,19 @@ function bms_asset_url(string $path): string
 {
     $url = bms_url_path($path);
     $version = rawurlencode(bms_version());
-    return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $version;
+    $url .= (str_contains($url, '?') ? '&' : '?') . 'v=' . $version;
+    // Same-version development deployments must not reuse stale PWA/browser assets.
+    static $fingerprints = [];
+    if (preg_match('~^assets/[a-zA-Z0-9_./-]+\.(?:css|js)$~D', $path) === 1 && !str_contains($path, '..')) {
+        if (!array_key_exists($path, $fingerprints)) {
+            $file = bms_public_path($path);
+            $fingerprints[$path] = is_file($file) ? substr((string)hash_file('sha256', $file), 0, 16) : '';
+        }
+        if ($fingerprints[$path] !== '') {
+            $url .= '&h=' . $fingerprints[$path];
+        }
+    }
+    return $url;
 }
 
 
