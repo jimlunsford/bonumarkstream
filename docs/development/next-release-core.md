@@ -40,7 +40,7 @@ Required acceptance includes initial render, asynchronous interaction changes, a
 
 ## Development acceptance log
 
-Implementation and acceptance remain pending. This file is the scope and evidence record, not a release-readiness claim.
+All 13 items are implemented and covered by automated tests. The September 26 reconciliation below records completed dev acceptance and the remaining exact-mobile, touch and screen-reader listening gaps. No additional product correction is currently identified. This is development evidence, not a release-readiness claim.
 
 ## Batch A acceptance, September 25
 - Implemented in 884bae2; live-discovered PWA caching blocker corrected in 7d51b51.
@@ -95,3 +95,90 @@ Rendered-DOM tests cover healthy, failed and retired states; workflow order; ten
 ### Batch D browser acceptance correction
 
 The first Batch D deployment (e9b9ecd0b2631dfb89c7ccf1ee0280715725719b) stopped rendering at the new Following feed link. It called a frontend-only helper not loaded by the Admin controller. The isolated HTTP assertion only required content from the beginning of the page and therefore missed the partial response. Browser acceptance caught this immediately. All twelve deployed files were restored to the prior Batch C bytes before correction. The link now uses the existing shared site URL helper, and the actual authenticated HTTP test requires both the final Danger Zone section and the Admin footer, with no fatal-error output. This is a fixed batch regression, not a remaining product issue.
+
+## Final correction and acceptance reconciliation, September 26, 2026
+
+### Repository and exact deployment evidence
+
+- Resumed from local, remote and dev application commit `07cdd676e244fc076f8d55bef80ebf78b6b5fc4d`, with a clean feature worktree and all four Compatibility jobs green.
+- Code correction and accepted dev application SHA: `bb3961ecbe6ec51988e11cbb26237901b8b51787`.
+- Correction Compatibility run [36231935715](https://github.com/jimlunsford/bonumarkstream/actions/runs/36231935715) passed all four configurations: PHP 8.1/MySQL 8.0, PHP 8.1/MariaDB 10.6, PHP 8.3/MySQL 8.4 and PHP 8.3/MariaDB 11.4. Deployment followed the green result.
+- This reconciliation is a separate documentation-only commit on `feature/next-release-core`. Its full SHA is the containing commit, obtainable with `git log -1 --format=%H -- docs/development/next-release-core.md`. This avoids presenting the pre-documentation code SHA as final feature HEAD. Final local/remote HEAD, CI and application-byte comparison are recorded in the execution report and deployment checkpoint after this commit.
+- Dev is a deployment without Git. Excluding repository-only `.github/` and `docs/`, all 322 tracked application files matched the correction commit. The documentation-only successor has identical application bytes.
+- PR #4 remains open, draft and unmerged, targeting develop. Main and develop remain `2d31fcf0f72c297f7bf501e26a4deac96f6c2980`. Public release and application version remain v0.8.1.
+
+### Narrow correction
+
+Queue-summary and consistency-finding rows previously used an unrelated `$deliveryStatus` to choose `ap-record-failed`. Each now reads its own row's `status`: `$summary['status']` and `$issue['status']`. Only retry/dead rows receive failure styling. No action, capability, CSRF, pagination or hierarchy behavior changed.
+
+The strengthened rendered-view test failed against the old implementation and passed after correction. For both row types it exercises retry, dead, delivered, pending, processing and cancelled while seeding the unrelated delivery variable as healthy and failed. It also checks healthy publication rows, independent global counts and open failure diagnostics. Existing complete rendering, escaping, ten-row bounds, pagination, timestamp and CSRF assertions pass.
+
+Focused Admin tests, source-tree smoke, all 248 PHP syntax checks, nine JavaScript syntax checks, 18 JSON parses, diff hygiene, public interaction handlers and public rendered semantics passed. No tests were weakened.
+
+Live Admin rendered through its footer in this order: federated profile, Following, Followers, reply moderation, settings, diagnostics and collapsed Danger Zone. Healthy diagnostic disclosures stayed collapsed. Publication history showed ten rows on page 1 and ten on page 2; Next and Previous worked without changing the global summary. After the controlled reply, the summary showed 10/10 checks and 72 delivered, with zero waiting, processing, retrying or failed deliveries. No failed live fixture was manufactured; failure styling uses rendered-view regression evidence.
+
+### Acceptance matrix
+
+ACCEPTED ON DEV means the item's functional acceptance is complete using current and retained September 25 evidence. Cross-surface exact responsive checks remain separately unverified below; they do not invalidate completed functional evidence.
+
+| Item | Classification | Evidence or exact remaining acceptance |
+| --- | --- | --- |
+| 1. Owner federated-reply exclusion | ACCEPTED ON DEV | One published owner reply delivered, appeared under its remote parent, remained available by permalink and was absent from the ordinary main Stream. Automated main/pinned/archive exclusions pass. |
+| 2. Unified public comments and Likes | ACCEPTED ON DEV | Retained async comment/moderation evidence plus real remote Like Undo and restoration, public totals and database state agree. |
+| 3. ActivityPub Admin workflows | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Complete desktop render, hierarchy, ten-row pagination, disclosures and corrected failure regressions pass. Exact 390 x 844 and 360 x 800 Admin acceptance remains. |
+| 4. Selection-safe cards | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Prior actual desktop selection, blank-space activation, keyboard/media and self-navigation checks retained. Genuine touch/long-press selection remains. |
+| 5. Comment metadata | ACCEPTED ON DEV | Full identity, readable local/remote dates and ISO datetime observed; reusable rendering tests pass. Responsive wrapping remains in the cross-surface checklist. |
+| 6. Untitled document orientation | ACCEPTED ON DEV | Named main landmarks, skip destinations and existing visible headings verified in rendered markup and browser accessibility snapshots. |
+| 7. Alt fallback and guidance | ACCEPTED ON DEV | Authored/empty alt and two/three/four-image regressions pass; prior keyboard viewer and return-focus acceptance retained. |
+| 8. Async comment accessibility | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Stable status, busy/error and conditional focus handlers tested; live loading/completion and accessibility snapshots verified. Actual screen-reader listening remains. |
+| 9. Visible Like wording | ACCEPTED ON DEV | Like/Liked action wording and aggregate accessible labels observed, including real count changes. Mobile control layout remains in the cross-surface checklist. |
+| 10. Unicode-safe generated metadata | ACCEPTED ON DEV | Boundary/DB coverage and prior live emoji-rich recovery draft retained. |
+| 11. Composer failure recovery | ACCEPTED ON DEV | Existing failure/replay tests and live rejection, retained input and one corrected draft accepted. Exact mobile layout remains in the cross-surface checklist. |
+| 12. Alt validation and retained input | ACCEPTED ON DEV | Unicode limit tests and prior live 270-character rejection/input retention accepted; original description restored. |
+| 13. Gallery usage reporting | ACCEPTED ON DEV | Current-content/gallery query coverage and fourth-image live evidence retained; scope and deletion policy reviewed below. |
+
+### Responsive, pointer and accessibility limits
+
+- 390 x 844: NOT VERIFIED.
+- 360 x 800: NOT VERIFIED.
+- Genuine touch/pointer selection and long-press: NOT VERIFIED.
+- Actual screen-reader listening: NOT VERIFIED.
+
+The supplied browser exposes no viewport resizing, device/touch emulation or screen-reader listening capability. Actual DOM viewport was 1363 x 936. Desktop evidence and screenshots are not substitutes for these checks. No browser/server packages were installed and no speculative responsive changes were made.
+
+Remaining exact-viewport surfaces are Stream, permalink, Conversation/comments, Following, Admin, composer, long handles, Like controls, metadata and galleries/media. Check overflow, readable wrapping, usable controls, unclipped content, disclosures and pagination at both sizes.
+
+DOM/automated evidence includes named landmarks, authored/empty alt, stable polite status outside replaced content, busy state, error alerts and conditional focus restoration. Browser accessibility snapshots independently exposed the named Stream/Stream post/Conversation landmarks and Like labels. Live comments changed from Loading comments to 3 Comments loaded with busy false. These observations do not establish audible announcement behavior.
+
+### Live federation evidence
+
+One controlled reply was published through Following's Reply workflow to the existing Mastodon parent:
+https://mastodon.social/@disciplinedoperator/117258951567705354
+
+Reply text: "Controlled Bonumark dev acceptance, September 26: verifying that a published federated reply stays in its conversation and out of the main Stream."
+
+Bonumark post 51 is published, targets remote object 13/actor 1 and the original Mastodon status as in-reply-to. Event 28 produced deliveries 70, 71 and 72 to the three existing follower endpoints. The supported Run Tasks Now action delivered all three with HTTP 202, one attempt each and no error. The remote parent thread visibly contains the reply:
+https://mastodon.social/@jimlunsford@dev.bonumark.org/117336576315481059
+
+The local permalink renders its body:
+https://dev.bonumark.org/stream/controlled-bonumark-dev-acceptance-september-26-verifying-that-a/
+
+The main Stream retained its prior ordinary publication and did not include this reply. The local Following conversation renders the remote thread and composer; remote threaded receipt and the local permalink are the observed context/accessibility evidence.
+
+For post 49, the controlled Mastodon account removed its existing Favorite using the normal remote UI. Bonumark's total changed asynchronously from two Likes to one and remained one after reload; remote-interaction row 1 became undone. Favoriting the same remote post again restored the row to active and the public total to two after reload. The useful fixture is restored. No relationship was removed or recreated.
+
+### Media reporter contract
+
+Media Edit presents current content usage, not a complete application dependency inventory. It covers current post/page records, their galleries and legacy import references. The zero-result message explicitly says: "No current post or page references found. Profile and revision history are not included." Query errors explicitly say usage is unavailable and must not be assumed unused. Positive results report content-record references.
+
+Profile/avatar/cover fields and revision-only history are outside this contract. Historical revisions are not counted as active current content. Permanent deletion does not perform a reference guard: the owner must first trash the file and explicitly confirm permanent deletion. Trash preserves the file; permanent deletion can break references if the owner proceeds. The UI advises checking posts and explains irreversibility. The reporter is not a safe-delete certification. No misleading zero-usage claim or new deletion defect was identified within Item 13's accepted scope, so no additional core change was made.
+
+### Data, rollback and boundaries
+
+All 50 pre-pass posts, six comments, 15 media records, 28 migrations, three followers and one following record retained their original row hashes. The sole added publication is the controlled reply, bringing posts to 51 and owner reply targets to two. Remote reply and interaction counts remain one each; the tested remote interaction is active again. No migrations were added or run.
+
+The correction deployment preserved configuration, installed lock, frozen manifest and both version files, with scoped rollback copies under the existing test runtime. The existing VPS-wide backup service last reported success at 2026-09-26 06:35:01 UTC; backup payload contents were not independently reverified in this pass. No second backup system was introduced.
+
+The frozen v0.8.1 manifest remains unchanged and is expected to report development source drift. Git-byte comparison supplies development deployment integrity. The pre-existing README public-release status inconsistency remains separately recorded and outside this pass.
+
+No merge, version selection/change, release branch, tag, GitHub release, RC work or production deployment occurred. All accepted implementation work is complete; only the explicitly listed acceptance limitations remain. No additional product correction is currently identified.
