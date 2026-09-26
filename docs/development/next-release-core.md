@@ -6,7 +6,7 @@ Starting commit: `2d31fcf0f72c297f7bf501e26a4deac96f6c2980`
 Starting public release: v0.8.1
 Version selection: deferred until implemented scope is known.
 
-This is active development. No release branch, version-marker change, release manifest regeneration, release package, tag, release publication, production deployment, or merge is authorized by this pass.
+This is development evidence, not release preparation. The September 26 follow-up authorizes recording manual acceptance, merging PR #4 into develop, and verifying that exact merged baseline on dev. No release branch, version-marker change, release manifest regeneration, release package, tag, release publication, main merge, RC deployment or production deployment is authorized.
 
 ## Accepted batches
 
@@ -40,7 +40,7 @@ Required acceptance includes initial render, asynchronous interaction changes, a
 
 ## Development acceptance log
 
-All 13 items are implemented and covered by automated tests. The September 26 reconciliation below records completed dev acceptance and the remaining exact-mobile, touch and screen-reader listening gaps. No additional product correction is currently identified. This is development evidence, not a release-readiness claim.
+All 13 items are implemented and covered by automated tests. The September 26 reconciliation below records completed dev acceptance. The subsequent user-confirmed manual acceptance closes the exact-mobile and touch gaps; actual screen-reader listening remains NOT VERIFIED. Historical batch notes describe the evidence available at the time and are superseded only for responsive/touch status by the final manual record below. No additional product correction is currently identified. This is development evidence, not a release-readiness claim.
 
 ## Batch A acceptance, September 25
 - Implemented in 884bae2; live-discovered PWA caching blocker corrected in 7d51b51.
@@ -119,34 +119,37 @@ Live Admin rendered through its footer in this order: federated profile, Followi
 
 ### Acceptance matrix
 
-ACCEPTED ON DEV means the item's functional acceptance is complete using current and retained September 25 evidence. Cross-surface exact responsive checks remain separately unverified below; they do not invalidate completed functional evidence.
+ACCEPTED ON DEV means the item's functional acceptance is complete using current and retained September 25 evidence. Cross-surface exact responsive checks and touch text selection subsequently passed user-confirmed manual acceptance, as recorded below. Actual screen-reader listening remains NOT VERIFIED.
 
 | Item | Classification | Evidence or exact remaining acceptance |
 | --- | --- | --- |
 | 1. Owner federated-reply exclusion | ACCEPTED ON DEV | One published owner reply delivered, appeared under its remote parent, remained available by permalink and was absent from the ordinary main Stream. Automated main/pinned/archive exclusions pass. |
 | 2. Unified public comments and Likes | ACCEPTED ON DEV | Retained async comment/moderation evidence plus real remote Like Undo and restoration, public totals and database state agree. |
-| 3. ActivityPub Admin workflows | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Complete desktop render, hierarchy, ten-row pagination, disclosures and corrected failure regressions pass. Exact 390 x 844 and 360 x 800 Admin acceptance remains. |
-| 4. Selection-safe cards | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Prior actual desktop selection, blank-space activation, keyboard/media and self-navigation checks retained. Genuine touch/long-press selection remains. |
-| 5. Comment metadata | ACCEPTED ON DEV | Full identity, readable local/remote dates and ISO datetime observed; reusable rendering tests pass. Responsive wrapping remains in the cross-surface checklist. |
+| 3. ActivityPub Admin workflows | ACCEPTED ON DEV | Complete desktop render, hierarchy, ten-row pagination, disclosures and corrected failure regressions pass. User-confirmed manual acceptance at 390 x 844 and 360 x 800 passed. |
+| 4. Selection-safe cards | ACCEPTED ON DEV | Prior actual desktop selection, blank-space activation, keyboard/media and self-navigation checks retained. User-confirmed genuine phone/touch text selection and copying passed without convenience navigation; normal card and child-control behavior remained usable. |
+| 5. Comment metadata | ACCEPTED ON DEV | Full identity, readable local/remote dates and ISO datetime observed; reusable rendering tests pass. User-confirmed manual responsive acceptance passed at both exact sizes. |
 | 6. Untitled document orientation | ACCEPTED ON DEV | Named main landmarks, skip destinations and existing visible headings verified in rendered markup and browser accessibility snapshots. |
 | 7. Alt fallback and guidance | ACCEPTED ON DEV | Authored/empty alt and two/three/four-image regressions pass; prior keyboard viewer and return-focus acceptance retained. |
 | 8. Async comment accessibility | IMPLEMENTED AND TESTED, REMAINING ACCEPTANCE | Stable status, busy/error and conditional focus handlers tested; live loading/completion and accessibility snapshots verified. Actual screen-reader listening remains. |
-| 9. Visible Like wording | ACCEPTED ON DEV | Like/Liked action wording and aggregate accessible labels observed, including real count changes. Mobile control layout remains in the cross-surface checklist. |
+| 9. Visible Like wording | ACCEPTED ON DEV | Like/Liked action wording and aggregate accessible labels observed, including real count changes. User-confirmed manual responsive acceptance passed at both exact sizes. |
 | 10. Unicode-safe generated metadata | ACCEPTED ON DEV | Boundary/DB coverage and prior live emoji-rich recovery draft retained. |
-| 11. Composer failure recovery | ACCEPTED ON DEV | Existing failure/replay tests and live rejection, retained input and one corrected draft accepted. Exact mobile layout remains in the cross-surface checklist. |
+| 11. Composer failure recovery | ACCEPTED ON DEV | Existing failure/replay tests and live rejection, retained input and one corrected draft accepted. User-confirmed manual responsive acceptance passed at both exact sizes. |
 | 12. Alt validation and retained input | ACCEPTED ON DEV | Unicode limit tests and prior live 270-character rejection/input retention accepted; original description restored. |
 | 13. Gallery usage reporting | ACCEPTED ON DEV | Current-content/gallery query coverage and fourth-image live evidence retained; scope and deletion policy reviewed below. |
 
-### Responsive, pointer and accessibility limits
+### Final manual responsive and touch acceptance, September 26, 2026
 
-- 390 x 844: NOT VERIFIED.
-- 360 x 800: NOT VERIFIED.
-- Genuine touch/pointer selection and long-press: NOT VERIFIED.
+The following results are user-confirmed manual acceptance performed outside the Work browser after its exact mobile viewport controls proved unavailable:
+
+- 390 x 844: VERIFIED / PASS.
+- 360 x 800: VERIFIED / PASS.
+- Genuine phone/touch text selection: VERIFIED / PASS.
+- No horizontal overflow or control usability problems identified.
 - Actual screen-reader listening: NOT VERIFIED.
 
-The supplied browser exposes no viewport resizing, device/touch emulation or screen-reader listening capability. Actual DOM viewport was 1363 x 936. Desktop evidence and screenshots are not substitutes for these checks. No browser/server packages were installed and no speculative responsive changes were made.
+The manual checks covered the previously open responsive surfaces, including changed Stream, permalink/Conversation, Following, ActivityPub Admin, composer, interaction controls, comment metadata and media/gallery presentation. Selecting and copying Stream post text did not trigger convenience card navigation; normal card and child-control behavior remained usable. No additional manual evidence is claimed.
 
-Remaining exact-viewport surfaces are Stream, permalink, Conversation/comments, Following, Admin, composer, long handles, Like controls, metadata and galleries/media. Check overflow, readable wrapping, usable controls, unclipped content, disclosures and pagination at both sizes.
+Automated evidence, Work browser desktop evidence and this manual exact-viewport/touch acceptance are distinct. The Work browser did not perform these mobile or touch checks: its observed DOM viewport was 1363 x 936 and it exposed no viewport resizing, device/touch emulation or screen-reader listening capability. No browser/server packages were installed and no speculative responsive changes were made. Earlier batch limitations are retained as historical evidence, not current responsive/touch status.
 
 DOM/automated evidence includes named landmarks, authored/empty alt, stable polite status outside replaced content, busy state, error alerts and conditional focus restoration. Browser accessibility snapshots independently exposed the named Stream/Stream post/Conversation landmarks and Like labels. Live comments changed from Loading comments to 3 Comments loaded with busy false. These observations do not establish audible announcement behavior.
 
@@ -181,4 +184,4 @@ The correction deployment preserved configuration, installed lock, frozen manife
 
 The frozen v0.8.1 manifest remains unchanged and is expected to report development source drift. Git-byte comparison supplies development deployment integrity. The pre-existing README public-release status inconsistency remains separately recorded and outside this pass.
 
-No merge, version selection/change, release branch, tag, GitHub release, RC work or production deployment occurred. All accepted implementation work is complete; only the explicitly listed acceptance limitations remain. No additional product correction is currently identified.
+At the correction checkpoint, no merge, version selection/change, release branch, tag, GitHub release, RC work or production deployment had occurred. All accepted implementation work is complete. Manual responsive/touch acceptance is now recorded above; actual screen-reader listening remains NOT VERIFIED. This evidence-only follow-up does not change application source, tests, versions or release identity. Merge and exact merged-dev verification are subsequent gates, not outcomes claimed by this commit. No additional product correction is currently identified.
