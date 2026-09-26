@@ -922,3 +922,8 @@ body.stream-media-viewer-open {
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+
+/* Core metadata must remain usable with arbitrary local and federated identities. */
+.stream-comments .comment-body { min-width: 0; }
+.stream-comments .comment-meta { flex-wrap: wrap; min-width: 0; }
+.stream-comments .comment-meta > a, .stream-comments .comment-identity { overflow-wrap: anywhere; min-width: 0; }

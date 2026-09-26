@@ -8,6 +8,7 @@ $replyComposerHtml = (string)($data['reply_composer_html'] ?? '');
 $csrf = (string)($data['csrf'] ?? '');
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ml_open_document($data, [
+    'main_label' => $conversation ? 'Conversation' : 'Following',
     'fallback_title' => $conversation ? 'Conversation' : 'Following',
     'og_type' => 'website',
     'body_class' => 'following-template',

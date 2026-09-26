@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/composer.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/markdown.php';
 require_once __DIR__ . '/appearance.php';
@@ -31,7 +32,7 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
     $taglineRaw = (string)bms_setting_or_config('site_tagline', 'A self-hosted microblog stream for owning short-form publishing.');
     $pageNumber = max(1, $pageNumber);
     $perPage = bms_stream_posts_per_page();
-    $allStreamPosts = bms_sort_stream_posts(bms_filter_stream_posts($pages));
+    $allStreamPosts = bms_sort_stream_posts(bms_filter_main_stream_posts($pages));
     $totalPosts = count($allStreamPosts);
     $totalPages = max(1, (int)ceil($totalPosts / max(1, $perPage)));
     if ($pageNumber > $totalPages) {
@@ -39,7 +40,7 @@ function bms_render_stream_index(array $pages, bool $includeComposer = false, in
     }
     $streamPosts = array_slice($allStreamPosts, ($pageNumber - 1) * $perPage, $perPage);
     $isArchive = $context === 'archive';
-    $pinnedPosts = (!$isArchive && $pageNumber === 1) ? bms_list_pinned_stream_posts() : [];
+    $pinnedPosts = (!$isArchive && $pageNumber === 1) ? bms_filter_main_stream_posts(bms_list_pinned_stream_posts()) : [];
     $pinnedSlugs = [];
     foreach ($pinnedPosts as $pinnedPost) {
         $slug = bms_slugify((string)($pinnedPost['slug'] ?? ''));
@@ -193,6 +194,9 @@ function bms_stream_composer_view_data(?string $returnToOverride = null, array $
     }
 
     $returnSource = $returnToOverride !== null ? $returnToOverride : (string)($_SERVER['REQUEST_URI'] ?? bms_url_path());
+    $recovery = bms_composer_recovery(bms_stream_safe_return_url($returnSource), (string)($overrides['reply_object_uri'] ?? ''));
+    $requestKey = (string)($recovery['composer_request_key'] ?? '');
+    if (!isset($_SESSION['bms_composer_requests'][$requestKey])) { $requestKey = bms_composer_request_key(); }
 
     $view = [
         'action_url' => bms_admin_url('quick-post.php'),
@@ -205,10 +209,12 @@ function bms_stream_composer_view_data(?string $returnToOverride = null, array $
         'preview_id' => 'stream-compose-preview',
         'link_preview_id' => 'stream-link-preview',
         'link_preview_endpoint' => bms_admin_url('link-preview.php'),
-        'location_picker_html' => function_exists('bms_place_picker_markup') ? bms_place_picker_markup([], 'front') : '',
+        'location_picker_html' => function_exists('bms_place_picker_markup') ? bms_place_picker_markup(['location_place_id' => $recovery['location_place_id'] ?? '', 'location_display_mode' => $recovery['location_display_mode'] ?? 'exact'], 'front') : '',
         'scheduled_runner_url' => bms_admin_url('scheduled-runner.php'),
         'placeholder' => 'What is happening?',
-        'body_value' => $prefillBody,
+        'body_value' => $recovery['stream_body'] ?? $prefillBody,
+        'request_key' => $requestKey,
+        'recovery' => $recovery,
         'can_publish' => $canPublish,
         'submit_label' => $canPublish ? 'Post' : 'Save draft',
         'busy_label' => $canPublish ? 'Posting...' : 'Saving...',
@@ -286,7 +292,9 @@ function bms_render_pinned_stream_posts(array $pages): string
 function bms_render_stream_cards(array $pages, bool $pinned = false): string
 {
     $items = '';
+    $counts = bms_public_preview_mode() ? [] : bms_public_interaction_counts_for_slugs(array_column($pages, 'slug'));
     foreach ($pages as $index => $page) {
+        $page['_public_interaction_counts'] = $counts[(string)($page['slug'] ?? '')] ?? ['likes' => 0, 'comments' => 0];
         $items .= bms_render_stream_card($page, false, (int)$index, $pinned);
     }
 
@@ -479,12 +487,7 @@ function bms_stream_media_item_alt(array $page, string $path, int $position = 1,
             $alt = $candidate;
         }
     }
-    if ($alt === '') {
-        $alt = bms_stream_media_alt($page);
-        if ($count > 1) {
-            $alt .= ' (photo ' . $position . ' of ' . $count . ')';
-        }
-    }
+    // Missing metadata is not an image description. Empty alt remains empty.
     return $alt;
 }
 
@@ -622,12 +625,8 @@ function bms_render_stream_link_preview(array $page): string
 
 function bms_stream_media_alt(array $page): string
 {
-    $title = trim((string)($page['title'] ?? ''));
-    if ($title !== '' && !str_starts_with(strtolower($title), 'stream post:')) {
-        return $title;
-    }
-    $preview = function_exists('bms_stream_preview_text') ? bms_stream_preview_text($page, 80) : '';
-    return $preview !== '' && $preview !== 'Media post' ? $preview : 'Stream post media';
+    // Retained for compatibility. A post title or excerpt cannot describe its image.
+    return '';
 }
 
 function bms_stream_edit_url(array $page): string
@@ -695,10 +694,11 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $linkPreviewHtml = bms_render_stream_link_preview($page);
     $locationHtml = function_exists('bms_render_stream_location') ? bms_render_stream_location($page) : '';
     $slug = (string)($page['slug'] ?? '');
-    $likeCount = !$previewMode && function_exists('bms_stream_like_count_for_slug') ? bms_stream_like_count_for_slug($slug) : 0;
+    $publicCounts = $previewMode ? ['likes' => 0, 'comments' => 0] : ($page['_public_interaction_counts'] ?? bms_public_interaction_counts_for_slug($slug));
+    $likeCount = $publicCounts['likes'];
     $liked = !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
     $likeLabel = function_exists('bms_stream_like_label') ? bms_stream_like_label($likeCount) : ((string)$likeCount . ' likes');
-    $commentCount = !$previewMode && function_exists('bms_comment_count_for_slug') ? bms_comment_count_for_slug($slug) : 0;
+    $commentCount = $publicCounts['comments'];
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
     $editUrl = '';
     $quickEdit = [];
@@ -797,6 +797,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
             'action_label' => $liked ? 'Post liked.' : 'Like this post.',
         ],
         'comments' => [
+            'slug' => $slug,
             'count' => $commentCount,
             'label' => $commentLabel,
             'url' => $single ? '#comments' : $pageUrl . '#comments',
@@ -1142,12 +1143,12 @@ function bms_clean_static_export_stream_output(array $streamPosts, ?string $targ
 function bms_generate_static_stream_archive(?array $pages = null, ?string $targetRoot = null): void
 {
     $pages = $pages ?? bms_list_content_records('published');
-    $streamPosts = bms_sort_stream_posts(bms_filter_stream_posts($pages));
+    $streamPosts = bms_sort_stream_posts(bms_filter_main_stream_posts($pages));
     $perPage = bms_stream_posts_per_page();
     $totalPages = max(1, (int)ceil(count($streamPosts) / max(1, $perPage)));
 
     bms_delete_directory(bms_static_site_export_path('stream/page', $targetRoot));
-    bms_clean_static_export_stream_output($streamPosts, $targetRoot);
+    bms_clean_static_export_stream_output(bms_filter_stream_posts($pages), $targetRoot);
     bms_write_file(bms_static_site_export_path('stream/index.html', $targetRoot), bms_render_stream_index($pages, false, 1, 'archive'));
 
     for ($page = 2; $page <= $totalPages; $page++) {

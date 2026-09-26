@@ -580,6 +580,7 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
         throw new RuntimeException('Bonumark Stream must be installed before uploading media.');
     }
 
+    $altText = bms_media_validate_alt_text($altText);
     $valid = bms_media_validate_upload($file);
     if (!empty($options['image_only']) && !str_starts_with((string)$valid['mime'], 'image/')) {
         throw new RuntimeException('This upload must be an image file.');
@@ -738,8 +739,22 @@ function bms_media_find_by_public_path(string $publicPath): ?array
     }
 }
 
+/** Matches the distributed utf8mb4 VARCHAR(255) metadata contract. */
+function bms_media_validate_alt_text(string $value): string
+{
+    $value = trim($value);
+    if (preg_match('//u', $value) !== 1) {
+        throw new InvalidArgumentException('Alt text must be valid UTF-8 text.');
+    }
+    if (bms_text_length($value) > 255) {
+        throw new InvalidArgumentException('Alt text must be 255 characters or fewer. Shorten the description and try again.');
+    }
+    return $value;
+}
+
 function bms_media_update(int $id, string $altText, string $caption): void
 {
+    $altText = bms_media_validate_alt_text($altText);
     if ($id <= 0) {
         throw new RuntimeException('Invalid media item.');
     }
@@ -2023,9 +2038,11 @@ function bms_media_usage_references(array $media, int $limit = 20): array
                 if ($needle === '') {
                     continue;
                 }
-                $param = ':needle_' . $index;
-                $where[] = '(content_body LIKE ' . $param . ' OR content_front_matter LIKE ' . $param . ' OR description LIKE ' . $param . ')';
-                $params[$param] = '%' . addcslashes($needle, "\\%_") . '%';
+                foreach (['content_body', 'content_front_matter', 'description'] as $column) {
+                    $param = ':needle_' . $index . '_' . $column;
+                    $where[] = $column . ' LIKE ' . $param;
+                    $params[$param] = '%' . addcslashes($needle, "\\%_") . '%';
+                }
             }
             if ($where) {
                 $sql = 'SELECT id, title, slug, status, post_type FROM ' . bms_table('posts') . ' WHERE ' . implode(' OR ', $where) . ' ORDER BY updated_at DESC LIMIT ' . max(1, $limit);
@@ -2033,7 +2050,9 @@ function bms_media_usage_references(array $media, int $limit = 20): array
                 $stmt->execute($params);
                 foreach ($stmt->fetchAll() ?: [] as $row) {
                     $postType = (string)($row['post_type'] ?? 'stream') === 'page' ? 'Page' : 'Stream Post';
-                    $status = (string)($row['status'] ?? 'draft') === 'published' ? 'Published' : 'Draft';
+                    $status = match ((string)($row['status'] ?? 'draft')) {
+                        'published' => 'Published', 'scheduled' => 'Scheduled', 'trash' => 'Trashed', default => 'Draft',
+                    };
                     $slug = (string)($row['slug'] ?? '');
                     $path = $slug !== ''
                         ? (($postType === 'Page') ? bms_url_path('pages/' . $slug . '/') : bms_url_path('stream/' . $slug . '/'))
@@ -2049,7 +2068,7 @@ function bms_media_usage_references(array $media, int $limit = 20): array
                 }
             }
         } catch (Throwable $e) {
-            // Database content is authoritative; explicit Markdown import tooling handles old files.
+            throw new RuntimeException('Current post and page usage could not be checked.', 0, $e);
         }
     }
 
@@ -2097,10 +2116,14 @@ function bms_media_usage_references(array $media, int $limit = 20): array
 
 function bms_media_usage_summary(array $media): string
 {
-    $references = bms_media_usage_references($media, 5);
+    try {
+        $references = bms_media_usage_references($media, 5);
+    } catch (Throwable $e) {
+        return 'Usage check unavailable. Do not assume this file is unused.';
+    }
     $count = count($references);
     if ($count === 0) {
-        return 'No database content references found.';
+        return 'No current post or page references found. Profile and revision history are not included.';
     }
     if ($count === 1) {
         return 'Referenced in 1 content record.';

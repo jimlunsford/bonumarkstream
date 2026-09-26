@@ -436,6 +436,7 @@ function bms_handle_comments_route(): void
         }
     }
     header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store');
     echo bms_render_comments_panel($slug, $notice);
 }
 

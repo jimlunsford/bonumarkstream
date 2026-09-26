@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $message = trim($e->getMessage());
         bms_flash($message !== '' ? ('Media upload failed. ' . $message) : 'Media upload failed. Please try again.', 'error');
-        bms_redirect(bms_admin_url('media-upload.php'));
+        http_response_code(422);
     }
 }
 
@@ -49,10 +49,11 @@ bms_admin_header('Add New Media', [
     <p class="field-help">Supported formats: <?= htmlspecialchars(bms_allowed_media_extensions_label(), ENT_QUOTES, 'UTF-8') ?>. Maximum size: <?= function_exists('bms_current_media_upload_limit_mb') ? (int)bms_current_media_upload_limit_mb() : 8 ?> MB.</p>
 
     <label for="alt_text">Alt text / description</label>
-    <input id="alt_text" type="text" name="alt_text" maxlength="255" placeholder="Describe the media for accessibility">
+    <input id="alt_text" type="text" name="alt_text" data-alt-text-limit="255" aria-describedby="alt-text-help" value="<?= htmlspecialchars((string)($_POST['alt_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Describe the media for accessibility">
 
+    <p id="alt-text-help" class="field-help">Write an image-specific description using up to 255 characters. If an upload fails, select the file again; your entered text stays here.</p>
     <label for="caption">Caption</label>
-    <textarea id="caption" name="caption" class="small-textarea" maxlength="500" placeholder="Optional caption"></textarea>
+    <textarea id="caption" name="caption" class="small-textarea" maxlength="500" placeholder="Optional caption"><?= htmlspecialchars((string)($_POST['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
 
     <button type="submit">Upload Media</button>
   </form>

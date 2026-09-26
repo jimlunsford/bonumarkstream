@@ -3604,7 +3604,7 @@ foreach (['stream-post-actions-menu', 'stream-post-actions-toggle', 'stream-post
     }
 }
 $streamJs = @file_get_contents($root . '/assets/stream.js') ?: '';
-if (!str_contains($streamJs, 'summary, details, [data-stream-actions-menu]')) {
+if (!str_contains($streamJs, 'summary, details, img, video, audio, iframe, [contenteditable], [role=button], [data-stream-actions-menu]')) {
     bm_smoke_fail($failures, 'Card click handling must ignore the front-end post actions menu.');
 }
 foreach (['assets/style.css', '_bonumark_stream/themes/default/assets/css/theme.css', 'assets/themes/default/assets/css/theme.css'] as $menuCssPath) {
@@ -3782,6 +3782,18 @@ if (!str_contains($editorSource, 'data-editor-mobile-action-bar')
     || !str_contains($editorJs, 'window.visualViewport')
     || !str_contains($editorJs, 'entry.intersectionRatio >= 0.24')) {
     bm_smoke_fail($failures, 'Mobile editor action dock hotfix is incomplete or missing its viewport-safety behavior.');
+}
+
+foreach (['assets/stream.js', 'assets/style.css'] as $assetPath) {
+    parse_str((string)parse_url(bms_asset_url($assetPath), PHP_URL_QUERY), $assetQuery);
+    if (($assetQuery['v'] ?? '') !== bms_version()
+        || ($assetQuery['h'] ?? '') !== substr(hash_file('sha256', $root . '/' . $assetPath), 0, 16)) {
+        bm_smoke_fail($failures, 'Core asset URLs must distinguish exact content without changing release identity.');
+    }
+}
+parse_str((string)parse_url(bms_asset_url('assets/not-present.js'), PHP_URL_QUERY), $missingAssetQuery);
+if (isset($missingAssetQuery['h'])) {
+    bm_smoke_fail($failures, 'Missing assets must not receive a fabricated fingerprint.');
 }
 
 if ($failures !== []) {

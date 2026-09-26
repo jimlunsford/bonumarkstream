@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/public-interactions.php';
 
 function bms_stream_like_cookie_name(): string
 {
@@ -157,19 +158,7 @@ function bms_stream_post_record_by_slug(string $slug): ?array
 
 function bms_stream_like_count_for_slug(string $slug): int
 {
-    $post = bms_stream_post_record_by_slug($slug);
-    if (!$post) {
-        return 0;
-    }
-
-    try {
-        bms_stream_ensure_likes_table();
-        $stmt = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('stream_likes') . ' WHERE post_id = :post_id');
-        $stmt->execute(['post_id' => (int)$post['id']]);
-        return max(0, (int)$stmt->fetchColumn());
-    } catch (Throwable $e) {
-        return 0;
-    }
+    return bms_public_interaction_counts_for_slug($slug)['likes'];
 }
 
 function bms_stream_visitor_liked_slug(string $slug): bool
@@ -228,7 +217,6 @@ function bms_stream_like_status_for_slugs(array $slugs): array
             $ids[$id] = $slug;
         }
 
-        $counts = [];
         $liked = [];
         if ($ids) {
             $idPlaceholders = [];
@@ -240,12 +228,6 @@ function bms_stream_like_status_for_slugs(array $slugs): array
                 $idParams[$key] = $id;
             }
 
-            $countStmt = bms_db()->prepare('SELECT post_id, COUNT(*) AS total FROM ' . bms_table('stream_likes') . ' WHERE post_id IN (' . implode(',', $idPlaceholders) . ') GROUP BY post_id');
-            $countStmt->execute($idParams);
-            foreach ($countStmt->fetchAll() as $row) {
-                $counts[(int)$row['post_id']] = (int)$row['total'];
-            }
-
             $likedParams = $idParams;
             $likedParams['visitor_hash'] = bms_stream_like_visitor_hash();
             $likedStmt = bms_db()->prepare('SELECT post_id FROM ' . bms_table('stream_likes') . ' WHERE visitor_hash = :visitor_hash AND post_id IN (' . implode(',', $idPlaceholders) . ')');
@@ -255,16 +237,18 @@ function bms_stream_like_status_for_slugs(array $slugs): array
             }
         }
 
+        $publicCounts = bms_public_interaction_counts_for_slugs($cleanSlugs);
         $status = [];
         foreach ($cleanSlugs as $slug) {
             $post = $posts[$slug] ?? null;
-            $count = $post ? (int)($counts[(int)$post['id']] ?? 0) : 0;
+            $count = (int)($publicCounts[$slug]['likes'] ?? 0);
             $isLiked = $post ? !empty($liked[(int)$post['id']]) : false;
             $status[$slug] = [
                 'slug' => $slug,
                 'liked' => $isLiked,
                 'count' => $count,
                 'label' => bms_stream_like_label($count),
+                'comments' => (int)($publicCounts[$slug]['comments'] ?? 0),
             ];
         }
 

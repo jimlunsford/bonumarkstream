@@ -452,9 +452,22 @@
     window.setInterval(ping, 30000);
   }
 
+  function attachAltTextValidation() {
+    document.querySelectorAll('[data-alt-text-limit]').forEach(function (input) {
+      function validate() {
+        const limit = Number(input.getAttribute('data-alt-text-limit'));
+        input.setCustomValidity(Array.from(input.value.trim()).length > limit
+          ? 'Alt text must be ' + limit + ' characters or fewer. Shorten the description and try again.' : '');
+      }
+      input.addEventListener('input', validate);
+      validate();
+    });
+  }
+
   attachAdminNavigation();
 
   document.addEventListener('DOMContentLoaded', function () {
+    attachAltTextValidation();
     attachSelectAllControls();
     attachMediaSelectAllControls();
     attachMediaDetailsDialog();

@@ -663,11 +663,12 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     }
 }
 
-function bms_activitypub_follower_rows(string $state = '', int $limit = 100): array
+function bms_activitypub_follower_rows(string $state = '', int $limit = 100, int $offset = 0): array
 {
     $limit = max(1, min(500, $limit));
+    $offset = max(0, $offset);
     $where = $state !== '' ? ' WHERE f.state = :state' : '';
-    $stmt = bms_db()->prepare('SELECT f.*, a.preferred_username, a.display_name, a.inbox_url, a.shared_inbox_url FROM ' . bms_table('activitypub_followers') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id' . $where . ' ORDER BY f.updated_at DESC LIMIT ' . $limit);
+    $stmt = bms_db()->prepare('SELECT f.*, a.preferred_username, a.display_name, a.inbox_url, a.shared_inbox_url FROM ' . bms_table('activitypub_followers') . ' f INNER JOIN ' . bms_table('activitypub_remote_actors') . ' a ON a.id = f.remote_actor_id' . $where . ' ORDER BY f.updated_at DESC, f.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
     $stmt->execute($state !== '' ? ['state' => $state] : []);
     return $stmt->fetchAll() ?: [];
 }

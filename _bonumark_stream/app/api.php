@@ -666,13 +666,22 @@ function bms_api_string_field(array $payload, array $keys, int $limit = 255): st
     foreach ($keys as $key) {
         if (array_key_exists($key, $payload)) {
             $value = trim((string)$payload[$key]);
-            if ($limit > 0 && strlen($value) > $limit) {
-                $value = substr($value, 0, $limit);
+            if ($limit > 0 && bms_text_length($value) > $limit) {
+                $value = bms_text_substr($value, 0, $limit);
             }
             return $value;
         }
     }
     return '';
+}
+
+function bms_api_alt_text(array $payload, array $keys): string
+{
+    try {
+        return bms_media_validate_alt_text(bms_api_string_field($payload, $keys, 0));
+    } catch (InvalidArgumentException $e) {
+        throw new BMS_Api_Exception($e->getMessage(), 422, 'alt_text_invalid');
+    }
 }
 
 function bms_api_markdown_alt_text(string $text): string
@@ -767,7 +776,7 @@ function bms_api_placeholder_guard_text(array $payload, array $file): string
     $parts = [
         (string)($file['name'] ?? ''),
         bms_api_string_field($payload, ['filename', 'name', 'original_filename'], 255),
-        bms_api_string_field($payload, ['alt_text', 'alt', 'description'], 255),
+        bms_api_alt_text($payload, ['alt_text', 'alt', 'description']),
         bms_api_string_field($payload, ['caption'], 500),
     ];
     return strtolower(implode(' ', array_filter($parts, static fn($value) => trim((string)$value) !== '')));
@@ -808,7 +817,7 @@ function bms_api_create_remote_media(array $payload, array $token, array $file):
         throw new BMS_Api_Exception('Remote media uploads are disabled.', 403, 'remote_media_upload_disabled');
     }
     bms_api_reject_placeholder_media_upload($payload, $file);
-    $altText = bms_api_string_field($payload, ['alt_text', 'alt', 'description'], 255);
+    $altText = bms_api_alt_text($payload, ['alt_text', 'alt', 'description']);
     $caption = bms_api_string_field($payload, ['caption'], 500);
     $uploadedBy = bms_api_token_author_id($token);
     try {
@@ -951,7 +960,7 @@ function bms_api_payload_media_imports(array $payload): array
         if (isset($payload[$key]) && trim((string)$payload[$key]) !== '') {
             $imports[] = [
                 'image_url' => trim((string)$payload[$key]),
-                'alt_text' => bms_api_string_field($payload, ['alt_text', 'alt', 'description'], 255),
+                'alt_text' => bms_api_alt_text($payload, ['alt_text', 'alt', 'description']),
                 'caption' => bms_api_string_field($payload, ['caption'], 500),
             ];
             break;
@@ -1048,7 +1057,7 @@ function bms_api_embedded_media(array $payload, array $token): array
         $embed = bms_api_media_embed_item_from_record(
             $media,
             'library',
-            bms_api_string_field($item, ['alt_text', 'alt'], 255),
+            bms_api_alt_text($item, ['alt_text', 'alt']),
             bms_api_string_field($item, ['caption'], 500)
         );
         $key = 'id:' . (string)$embed['media_id'];

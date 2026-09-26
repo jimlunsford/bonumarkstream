@@ -52,8 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
         bms_log_admin_exception('media-edit', $e);
 
-        bms_flash('Media update failed. Please try again.', 'error');
-        bms_redirect(bms_admin_url('media-edit.php?id=' . urlencode((string)$id)));
+        if ($action === 'save') {
+            $media['alt_text'] = (string)($_POST['alt_text'] ?? '');
+            $media['caption'] = (string)($_POST['caption'] ?? '');
+        }
+        http_response_code(422);
+        $message = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Media update failed. Your entered details are preserved. Please try again.';
+        bms_flash($message, 'error');
     }
 }
 
@@ -175,8 +180,8 @@ bms_admin_header($isTrashed ? 'Edit Trashed Media' : 'Edit Media', [
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="id" value="<?= (int)$id ?>">
         <label for="alt_text">Alt text / description</label>
-        <input id="alt_text" type="text" name="alt_text" maxlength="255" value="<?= htmlspecialchars((string)($media['alt_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"<?= $isTrashed ? ' disabled' : '' ?>>
-        <p class="field-help">Alt text or a short description helps readers and gives the media cleaner context.</p>
+        <input id="alt_text" type="text" name="alt_text" data-alt-text-limit="255" aria-describedby="alt-text-help" value="<?= htmlspecialchars((string)($media['alt_text'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"<?= $isTrashed ? ' disabled' : '' ?>>
+        <p id="alt-text-help" class="field-help">Describe what this image communicates, using up to 255 characters. Write an image-specific description. Leave it empty only when the image adds no information beyond nearby text.</p>
 
         <label for="caption">Caption</label>
         <textarea id="caption" name="caption" class="small-textarea" maxlength="500"<?= $isTrashed ? ' disabled' : '' ?>><?= htmlspecialchars((string)($media['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>

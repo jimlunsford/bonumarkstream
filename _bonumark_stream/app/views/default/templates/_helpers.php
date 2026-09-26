@@ -110,7 +110,7 @@ if (!function_exists('ml_open_document')) {
   <div class="site-wrapper stream-site-wrapper ledger-site-wrapper">
     <div class="site-shell stream-site-shell ledger-site-shell">
       <?= (string)($data['header_html'] ?? '') ?>
-      <main id="site-main" class="<?= ml_h($mainClass) ?>">
+      <main id="site-main" tabindex="-1" aria-label="<?= ml_h((string)($options['main_label'] ?? $data['page_title'] ?? $options['fallback_title'] ?? 'Content')) ?>" class="<?= ml_h($mainClass) ?>">
 <?php
     }
 }
