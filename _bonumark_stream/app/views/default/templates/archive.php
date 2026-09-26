@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_helpers.php';
 $data = ml_theme_data($bms_theme_data ?? []);
 ml_open_document($data, [
+    'main_label' => (string)($data['title'] ?? 'Stream archive'),
     'fallback_title' => 'Stream',
     'og_type' => 'website',
     'feed' => true,

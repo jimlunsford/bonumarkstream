@@ -2,9 +2,22 @@
 
 This file tracks public GitHub release milestones and the explicitly marked pending release candidate. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
+## 0.8.2 - Core Interaction and Reliability Pass
+
+**Release candidate, not publicly released.** The current public release remains v0.8.1.
+
+- Corrects federation interaction presentation: eligible public local and remote comments and Likes share consistent totals, including moderation, Undo/removal, and live synchronization. Owner federated replies stay in their conversation context and out of the ordinary main Stream.
+- Reorganizes ActivityPub Admin around profile, Following, Followers, moderation, settings, and diagnostics, with bounded history pagination and a separate Danger Zone.
+- Preserves Unicode in generated metadata and improves composer failure recovery, editable rejected input, and duplicate-save protection.
+- Makes Stream cards safe for text selection; improves untitled-document landmarks, asynchronous comment feedback/focus, comment metadata, and visible Like/Liked wording.
+- Validates media descriptions explicitly, preserves authored or empty alt text, and corrects gallery usage reporting with clear limits on what references it covers.
+- Fingerprints core assets and strengthens interaction, publishing, accessibility, Admin, database, and compatibility regression coverage.
+
+Adds no database migration. Upgrades from public v0.8.1 retain the existing schema/migration ledger and owner/runtime data. See the [candidate notes](docs/releases/v0.8.2.md) and [upgrade guide](docs/UPGRADING.md).
+
 ## 0.8.1 - ActivityPub Product Acceptance Corrections
 
-**Release candidate, not yet publicly released.** The current public release remains v0.7.2.
+**Publicly released September 6, 2026.**
 
 v0.8.1 finalizes the accepted ActivityPub source after product acceptance corrected the original v0.8.0 RC. The previously delivered v0.8.0 ZIP remains immutable historical evidence.
 

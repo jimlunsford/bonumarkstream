@@ -442,6 +442,35 @@
     });
   }
 
+  function submitComposer(form, button, readyLabel) {
+    var notice = form.querySelector('[data-composer-error]');
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.setAttribute('data-composer-error', '');
+      notice.setAttribute('role', 'alert');
+      notice.className = 'stream-compose-notice is-error';
+      form.appendChild(notice);
+    }
+    notice.textContent = '';
+    return fetch(form.getAttribute('action'), {
+      method: 'POST', body: new FormData(form), credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (response) {
+      return response.json().then(function (result) {
+        if (!response.ok || !result || result.ok !== true) {
+          throw new Error(result && result.message ? result.message : 'The post could not be saved. Your text is preserved.');
+        }
+        if (!result.redirect) { throw new Error('The save result could not be confirmed. Check your Stream and Drafts before starting another post.'); }
+        window.location.href = result.redirect;
+      });
+    }).catch(function (error) {
+      notice.textContent = error && error.name !== 'SyntaxError' && error.name !== 'TypeError' && error.message ? error.message : 'The connection failed. Your text and attachments are preserved. Retry this submission to check its saved result.';
+    }).finally(function () {
+      form.dataset.composerSubmitting = '0';
+      if (button) { button.disabled = false; button.textContent = readyLabel; button.classList.remove('is-busy'); }
+    });
+  }
+
   function setupComposer(root) {
     var scope = root || document;
     var forms = scope.querySelectorAll('[data-stream-form]');
@@ -1031,7 +1060,7 @@
         });
       }
 
-      setScheduleActive(false, false);
+      setScheduleActive(!!(scheduleInput && scheduleInput.value), false);
       startScheduledRunnerHeartbeat();
 
       if (textarea) {
@@ -1047,6 +1076,7 @@
 
       if (submitButtons.length) {
         form.addEventListener('submit', function (event) {
+          if (form.dataset.composerSubmitting === '1') { event.preventDefault(); return; }
           var isScheduling = form.classList.contains('is-scheduling');
           var activeSubmit = event.submitter && event.submitter.getAttribute ? event.submitter : submit;
           if (!activeSubmit || !activeSubmit.getAttribute) {
@@ -1068,10 +1098,16 @@
           if (requestedAction === 'schedule' && scheduleInput && !scheduleInput.value) {
             return;
           }
+          var readyLabel = activeSubmit ? activeSubmit.textContent : '';
           if (activeSubmit) {
             activeSubmit.disabled = true;
             activeSubmit.textContent = activeSubmit.getAttribute('data-busy-label') || (requestedAction === 'schedule' ? 'Scheduling...' : (requestedAction === 'continue' ? 'Opening editor...' : 'Saving...'));
             activeSubmit.classList.add('is-busy');
+          }
+          if (typeof fetch === 'function') {
+            event.preventDefault();
+            form.dataset.composerSubmitting = '1';
+            submitComposer(form, activeSubmit, readyLabel);
           }
         });
       }
@@ -1322,7 +1358,7 @@
     var srText = button.querySelector('.stream-like-sr-text');
     var count = typeof data.count === 'number' ? data.count : parseLikeCount(data.label || (label ? label.textContent : ''));
     var liked = !!data.liked;
-    var text = data.label || (count.toLocaleString() + ' ' + (count === 1 ? 'like' : 'likes'));
+    var text = count.toLocaleString() + ' ' + (count === 1 ? 'like' : 'likes');
     var actionText = liked ? 'Post liked.' : 'Like this post.';
 
     button.dataset.likeCount = String(count);
@@ -1332,10 +1368,10 @@
     button.classList.remove('has-like-error');
 
     if (label) {
-      label.textContent = text;
+      label.textContent = count.toLocaleString();
     }
     if (srText) {
-      srText.textContent = actionText;
+      srText.textContent = liked ? 'Liked' : 'Like';
     }
   }
 
@@ -1365,6 +1401,29 @@
     }, 2200);
   }
 
+  var publicInteractionEpoch = 0;
+  var publicInteractionRequest = 0;
+  var publicInteractionRefreshPending = false;
+
+  function syncPublicCommentCount(slug, count) {
+    if (typeof count !== 'number' || count < 0) { return; }
+    document.querySelectorAll('[data-public-comments]').forEach(function (link) {
+      if (link.getAttribute('data-public-comments') !== slug) { return; }
+      var label = link.querySelector('[data-public-comment-label]');
+      if (label) { label.textContent = count + (count === 1 ? ' Comment' : ' Comments'); }
+    });
+  }
+
+  function syncPublicInteractions(slug, data) {
+    document.querySelectorAll('[data-stream-like]').forEach(function (button) {
+      if (button.getAttribute('data-like-slug') === slug && !button.disabled) {
+        updateLikeButton(button, data);
+      }
+    });
+    syncPublicCommentCount(slug, data.comments);
+    document.dispatchEvent(new CustomEvent('bms:public-interactions', { detail: { slug: slug, comments: data.comments } }));
+  }
+
   function hydrateLikes(root) {
     var scope = root || document;
     var buttons = Array.prototype.slice.call(scope.querySelectorAll('[data-stream-like]'));
@@ -1387,8 +1446,10 @@
       return;
     }
 
+    var epoch = publicInteractionEpoch;
+    var request = ++publicInteractionRequest;
     var candidates = likeEndpointCandidates(buttons[0]);
-    tryLikeEndpoints(candidates, function (endpoint) {
+    return tryLikeEndpoints(candidates, function (endpoint) {
       return endpointUrl(endpoint, {
         slugs: unique.join(','),
         _: Date.now()
@@ -1396,13 +1457,9 @@
     }, function () {
       return { method: 'GET' };
     }).then(function (json) {
+      if (epoch !== publicInteractionEpoch || request !== publicInteractionRequest) { return; }
       var data = json.data || {};
-      buttons.forEach(function (button) {
-        var slug = button.getAttribute('data-like-slug') || '';
-        if (data[slug]) {
-          updateLikeButton(button, data[slug]);
-        }
-      });
+      Object.keys(data).forEach(function (slug) { syncPublicInteractions(slug, data[slug]); });
     }).catch(function () {
       // Like status hydration is progressive enhancement. If every endpoint check fails,
       // keep the baked-in count visible and avoid changing the public card layout.
@@ -1461,7 +1518,9 @@
             body: body
           };
         }).then(function (json) {
+          publicInteractionEpoch++;
           updateLikeButton(button, json.data || {});
+          syncPublicInteractions(slug, json.data || {});
         }).catch(function (error) {
           showLikeError(button, cleanLikeErrorMessage(error), previousText);
         }).finally(function () {
@@ -1636,70 +1695,131 @@
   function setupComments(root) {
     var scope = root || document;
     scope.querySelectorAll('[data-comments-mount]').forEach(function (mount) {
-      if (mount.dataset.commentsInitialized === '1') {
-        return;
-      }
+      if (mount.dataset.commentsInitialized === '1') { return; }
       mount.dataset.commentsInitialized = '1';
       var endpoint = mount.getAttribute('data-comments-endpoint') || '';
       var slug = mount.getAttribute('data-comments-slug') || '';
-      if (!endpoint || !slug) {
-        return;
+      if (!endpoint || !slug) { return; }
+      var requestVersion = 0;
+      var submitting = false;
+      var refreshing = false;
+      var status = document.createElement('p');
+      status.className = 'screen-reader-text';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-atomic', 'true');
+      mount.insertAdjacentElement('beforebegin', status);
+      function announce(message) { status.textContent = message; }
+
+      function syncRenderedCount() {
+        var panel = mount.querySelector('[data-public-comment-count]');
+        if (panel) { syncPublicCommentCount(slug, Number(panel.getAttribute('data-public-comment-count'))); }
       }
 
-      function loadComments() {
+      function loadComments(background) {
+        if (submitting || refreshing) { return; }
+        refreshing = true;
+        if (!background) { mount.setAttribute('aria-busy', 'true'); announce('Loading comments.'); }
+        var version = ++requestVersion;
         var url = endpoint + (endpoint.indexOf('?') === -1 ? '?' : '&') + 'slug=' + encodeURIComponent(slug);
-        fetch(url, { credentials: 'same-origin' })
-          .then(function (response) { return response.text(); })
-          .then(function (html) {
-            mount.innerHTML = html;
-            bindCommentForm();
-          })
-          .catch(function () {
-            mount.innerHTML = '<p class="comment-note">Comments could not be loaded.</p>';
-          });
+        return fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (response) {
+            if (!response.ok) { throw new Error('Comments could not be loaded.'); }
+            return response.text();
+          }).then(function (html) {
+            if (version !== requestVersion || submitting) { return; }
+            var currentPanel = mount.querySelector('[data-public-comment-count]');
+            if (background && currentPanel) {
+              var incoming = document.createElement('div');
+              incoming.innerHTML = html;
+              var list = mount.querySelector('[data-public-comment-list]');
+              var nextList = incoming.querySelector('[data-public-comment-list]');
+              var heading = mount.querySelector('[data-public-comment-heading]');
+              var nextHeading = incoming.querySelector('[data-public-comment-heading]');
+              var nextPanel = incoming.querySelector('[data-public-comment-count]');
+              // Never replace the form, its draft, or a focused comment link during polling.
+              if (!list || !nextList || !heading || !nextHeading || !nextPanel || list.contains(document.activeElement)) { return; }
+              list.innerHTML = nextList.innerHTML;
+              heading.textContent = nextHeading.textContent;
+              currentPanel.setAttribute('data-public-comment-count', nextPanel.getAttribute('data-public-comment-count'));
+            } else {
+              mount.innerHTML = html;
+              bindCommentForm();
+            }
+            syncRenderedCount();
+            var loadedHeading = mount.querySelector('[data-public-comment-heading]');
+            announce((loadedHeading ? loadedHeading.textContent : 'Comments') + (background ? '. Conversation updated.' : '. Comments loaded.'));
+          }).catch(function () {
+            if (!background && version === requestVersion) {
+              mount.innerHTML = '<p class="comment-note" role="alert">Comments could not be loaded. Reload the page to try again.</p>';
+              announce('');
+            }
+          }).finally(function () { refreshing = false; if (!background) { mount.setAttribute('aria-busy', 'false'); } });
       }
 
       function bindCommentForm() {
         var form = mount.querySelector('[data-comment-form]');
-        if (!form || form.dataset.commentFormInitialized === '1') {
-          return;
-        }
+        if (!form || form.dataset.commentFormInitialized === '1') { return; }
         form.dataset.commentFormInitialized = '1';
         form.addEventListener('submit', function (event) {
           event.preventDefault();
+          if (submitting) { return; }
+          submitting = true;
+          requestVersion++;
+          publicInteractionEpoch++;
+          var textarea = form.querySelector('textarea');
+          var savedBody = textarea ? textarea.value : '';
           var submit = form.querySelector('button[type="submit"]');
           var original = submit ? submit.textContent : '';
-          if (submit) {
-            submit.disabled = true;
-            submit.textContent = 'Posting...';
-          }
+          mount.setAttribute('aria-busy', 'true'); announce('Posting comment.');
+          if (submit) { submit.disabled = true; submit.textContent = 'Posting...'; }
           fetch(form.getAttribute('action') || endpoint, {
-            method: 'POST',
-            body: new FormData(form),
-            credentials: 'same-origin'
-          })
-            .then(function (response) { return response.text(); })
-            .then(function (html) {
-              mount.innerHTML = html;
-              bindCommentForm();
-            })
-            .catch(function () {
-              var note = document.createElement('p');
-              note.className = 'comment-notice';
-              note.textContent = 'Comment could not be posted right now.';
-              form.insertAdjacentElement('beforebegin', note);
-            })
-            .finally(function () {
-              if (submit) {
-                submit.disabled = false;
-                submit.textContent = original || 'Post Comment';
-              }
-            });
+            method: 'POST', body: new FormData(form), credentials: 'same-origin'
+          }).then(function (response) {
+            return response.text().then(function (html) { return { html: html, ok: response.ok }; });
+          }).then(function (result) {
+            publicInteractionEpoch++;
+            var restoreFocus = form.contains(document.activeElement);
+            mount.innerHTML = result.html;
+            bindCommentForm();
+            var nextBody = mount.querySelector('textarea');
+            if (!result.ok && nextBody) { nextBody.value = savedBody; }
+            if (restoreFocus && nextBody) { nextBody.focus({ preventScroll: true }); }
+            var notice = mount.querySelector('.comment-notice');
+            announce(notice ? notice.textContent : (result.ok ? 'Comment submitted. Conversation updated.' : 'Comment was not posted. Review your text and try again.'));
+            syncRenderedCount();
+            hydrateLikes(document);
+          }).catch(function () {
+            announce('');
+            var note = document.createElement('p');
+            note.className = 'comment-notice';
+            note.setAttribute('role', 'alert');
+            note.textContent = 'Comment could not be posted right now.';
+            form.insertAdjacentElement('beforebegin', note);
+          }).finally(function () {
+            submitting = false;
+            mount.setAttribute('aria-busy', 'false');
+            if (submit) { submit.disabled = false; submit.textContent = original || 'Post Comment'; }
+          });
         });
       }
-
-      loadComments();
+      document.addEventListener('bms:public-interactions', function (event) {
+        if (!mount.isConnected || event.detail.slug !== slug || typeof event.detail.comments !== 'number') { return; }
+        var panel = mount.querySelector('[data-public-comment-count]');
+        if (panel && Number(panel.getAttribute('data-public-comment-count')) !== event.detail.comments) { loadComments(true); }
+      });
+      loadComments(false);
     });
+  }
+
+  function setupPublicInteractionRefresh() {
+    function refresh() {
+      if (document.hidden || publicInteractionRefreshPending) { return; }
+      publicInteractionRefreshPending = true;
+      Promise.resolve(hydrateLikes(document)).finally(function () { publicInteractionRefreshPending = false; });
+    }
+    window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) { refresh(); } });
+    window.addEventListener('focus', refresh);
   }
 
   function setupLinkPreviewImages(root) {
@@ -1832,7 +1952,7 @@
       var item = currentItems[currentIndex];
       var thumbnail = item.querySelector('img');
       viewerImage.src = item.href;
-      viewerImage.alt = thumbnail && thumbnail.alt ? thumbnail.alt : 'Full-size photo';
+      viewerImage.alt = thumbnail ? thumbnail.alt : '';
       var hasMultiple = currentItems.length > 1;
       previousButton.hidden = !hasMultiple;
       nextButton.hidden = !hasMultiple;
@@ -2605,16 +2725,32 @@
       }
       card.dataset.cardInitialized = '1';
 
+      var pointerStart = null;
+      var dragged = false;
+      card.addEventListener('pointerdown', function (event) {
+        pointerStart = { x: event.clientX, y: event.clientY };
+        dragged = false;
+      });
+      card.addEventListener('pointermove', function (event) {
+        if (pointerStart && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 8) { dragged = true; }
+      });
+      card.addEventListener('pointerup', function () { pointerStart = null; });
+      card.addEventListener('pointercancel', function () { dragged = true; pointerStart = null; });
       card.addEventListener('click', function (event) {
-        if (event.defaultPrevented) {
+        var selection = window.getSelection ? window.getSelection() : null;
+        if (event.defaultPrevented || dragged || (selection && !selection.isCollapsed) ||
+            event.button > 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
           return;
         }
-        if (event.target.closest('a, button, input, textarea, label, select, summary, details, [data-stream-actions-menu]')) {
+        if (event.target.closest('a, button, input, textarea, label, select, summary, details, img, video, audio, iframe, [contenteditable], [role=button], [data-stream-actions-menu]')) {
           return;
         }
         var url = card.getAttribute('data-stream-url');
         if (url) {
-          window.location.href = url;
+          var destination = new URL(url, window.location.href);
+          var current = new URL(window.location.href);
+          if (destination.origin === current.origin && destination.pathname === current.pathname && destination.search === current.search) { return; }
+          window.location.href = destination.href;
         }
       });
     });
@@ -2636,6 +2772,7 @@
       setupQuickEdits(document);
       setupStreamTrash(document);
       setupComments(document);
+      setupPublicInteractionRefresh();
       setupLoadMore();
     }
   });

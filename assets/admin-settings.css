@@ -609,3 +609,32 @@ body.bonumark-admin .settings-danger-zone {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ActivityPub owns record structure; themes do not participate in Admin. */
+body.bonumark-admin .activitypub-admin { min-width: 0; }
+body.bonumark-admin .activitypub-admin .ap-section-nav,
+body.bonumark-admin .activitypub-admin .ap-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; }
+body.bonumark-admin .activitypub-admin .ap-disclosure { border: 1px solid var(--admin-border); border-radius: 12px; padding: 16px; margin: 16px 0; min-width: 0; }
+body.bonumark-admin .activitypub-admin summary { cursor: pointer; font-weight: 750; padding: 8px 0; overflow-wrap: anywhere; }
+body.bonumark-admin .activitypub-admin .ap-record-list { display: grid; gap: 12px; margin-top: 16px; }
+body.bonumark-admin .activitypub-admin .ap-record { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; padding: 16px; border: 1px solid var(--admin-border); border-radius: 10px; align-items: start; }
+body.bonumark-admin .activitypub-admin .ap-record > :last-child { grid-column: 1 / -1; }
+body.bonumark-admin .activitypub-admin .ap-record-failed,
+body.bonumark-admin .activitypub-admin .ap-attention { border-color: var(--danger); }
+body.bonumark-admin .activitypub-admin .settings-record-cell,
+body.bonumark-admin .activitypub-admin .settings-inline-actions,
+body.bonumark-admin .activitypub-admin .ap-identity { min-width: 0; overflow-wrap: anywhere; }
+body.bonumark-admin .activitypub-admin .settings-record-cell small { display: block; margin-top: 6px; }
+body.bonumark-admin .activitypub-admin input[type="text"] { width: 100%; min-width: 0; }
+body.bonumark-admin .activitypub-admin .settings-inline-actions { flex-wrap: wrap; }
+body.bonumark-admin .activitypub-admin .settings-inline-actions button { white-space: normal; }
+body.bonumark-admin .activitypub-admin .ap-record-details { margin-top: 8px; }
+body.bonumark-admin .activitypub-admin .ap-disclosure > .panel { margin-bottom: 0; }
+@media (max-width: 800px) {
+  body.bonumark-admin .activitypub-admin .ap-record { grid-template-columns: minmax(0, 1fr); }
+  body.bonumark-admin .activitypub-admin .settings-record-heading,
+  body.bonumark-admin .activitypub-admin .settings-section-header,
+  body.bonumark-admin .activitypub-admin .settings-workflow-hero { flex-direction: column; align-items: stretch; }
+  body.bonumark-admin .activitypub-admin .ap-disclosure { padding: 12px; }
+  body.bonumark-admin .activitypub-admin .ap-disclosure > .panel { padding: 12px; }
+}

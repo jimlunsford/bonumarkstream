@@ -6,6 +6,7 @@ $declarativeHomeHtml = function_exists('bms_render_public_theme_layout_surface')
     ? bms_render_public_theme_layout_surface('home', $data, $homeTheme)
     : null;
 ml_open_document($data, [
+    'main_label' => 'Stream',
     'fallback_title' => (string)($data['site_name'] ?? 'Bonumark Stream'),
     'og_type' => 'website',
     'feed' => true,

@@ -62,7 +62,7 @@ function bms_default_config(): array
         'analytics_enabled' => '0',
         'analytics_retention_days' => '90',
         'analytics_last_cleanup_date' => '',
-        'version' => '0.8.1',
+        'version' => '0.8.2',
         'author_name' => 'Admin',
         'base_path' => '',
         'base_url' => '',
@@ -1006,7 +1006,19 @@ function bms_asset_url(string $path): string
 {
     $url = bms_url_path($path);
     $version = rawurlencode(bms_version());
-    return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $version;
+    $url .= (str_contains($url, '?') ? '&' : '?') . 'v=' . $version;
+    // Same-version development deployments must not reuse stale PWA/browser assets.
+    static $fingerprints = [];
+    if (preg_match('~^assets/[a-zA-Z0-9_./-]+\.(?:css|js)$~D', $path) === 1 && !str_contains($path, '..')) {
+        if (!array_key_exists($path, $fingerprints)) {
+            $file = bms_public_path($path);
+            $fingerprints[$path] = is_file($file) ? substr((string)hash_file('sha256', $file), 0, 16) : '';
+        }
+        if ($fingerprints[$path] !== '') {
+            $url .= '&h=' . $fingerprints[$path];
+        }
+    }
+    return $url;
 }
 
 
@@ -1107,7 +1119,7 @@ function bms_site_url(string $path = ''): string
 
 function bms_text_length(string $value): int
 {
-    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+    return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : count(preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []);
 }
 
 function bms_text_substr(string $value, int $start, ?int $length = null): string
@@ -1117,7 +1129,8 @@ function bms_text_substr(string $value, int $start, ?int $length = null): string
             ? (string)mb_substr($value, $start, null, 'UTF-8')
             : (string)mb_substr($value, $start, $length, 'UTF-8');
     }
-    return $length === null ? (string)substr($value, $start) : (string)substr($value, $start, $length);
+    $characters = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    return implode('', array_slice($characters, $start, $length));
 }
 
 function bms_text_lower(string $value): string
@@ -1212,12 +1225,12 @@ function bms_stream_limit_text(string $text, int $limit, string $suffix = '…')
         return '';
     }
 
-    $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+    $length = bms_text_length($text);
     if ($length <= $limit) {
         return $text;
     }
 
-    $cut = function_exists('mb_substr') ? mb_substr($text, 0, max(1, $limit - 1)) : substr($text, 0, max(1, $limit - 1));
+    $cut = bms_text_substr($text, 0, max(0, $limit - bms_text_length($suffix)));
     $cut = preg_replace('/\s+\S*$/u', '', $cut) ?: $cut;
     return rtrim($cut, " \t\n\r\0\x0B.,;:!?") . $suffix;
 }
@@ -1871,7 +1884,7 @@ function bms_parse_markdown_string(string $raw): array
 function bms_parse_front_matter(string $raw): array
 {
     $data = [];
-    $lines = preg_split('/\R/', $raw) ?: [];
+    $lines = preg_split('/\R/u', $raw) ?: [];
     $currentKey = null;
 
     foreach ($lines as $line) {
@@ -2267,6 +2280,18 @@ function bms_is_stream_post(array $page): bool
 function bms_filter_stream_posts(array $pages): array
 {
     return array_values(array_filter($pages, 'bms_is_stream_post'));
+}
+
+/** Reply placement is independent of publication/federation eligibility. */
+function bms_filter_main_stream_posts(array $pages): array
+{
+    $pages = bms_filter_stream_posts($pages);
+    if (!$pages || !bms_is_installed() || !function_exists('bms_db')
+        || !bms_database_table_exists(bms_db(), bms_table('activitypub_reply_targets'))) {
+        return $pages;
+    }
+    $replyIds = array_fill_keys(array_map('intval', bms_db()->query('SELECT post_id FROM ' . bms_table('activitypub_reply_targets'))->fetchAll(PDO::FETCH_COLUMN)), true);
+    return array_values(array_filter($pages, static fn(array $page): bool => !isset($replyIds[(int)($page['post_id'] ?? $page['id'] ?? 0)])));
 }
 
 function bms_datetime_sort_timestamp(string $raw, ?DateTimeZone $timezone = null): int

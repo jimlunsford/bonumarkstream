@@ -1,3 +1,23 @@
+## 0.8.2 - Core Interaction and Reliability Pass
+
+- Prepares the accepted develop baseline 8b29f8c627616ac090573c5c5a09943d80f0d6f1 as a patch release candidate. Public release remains v0.8.1; candidate validation is recorded separately and is not implied by prior development acceptance.
+- Unifies approved publicly visible local comments and eligible active remote replies for the current publication generation. Pending, private, deleted, blocked/ineligible, and stale-generation remote replies are excluded.
+- Unifies eligible local and active current-generation remote Like totals without disclosing private reaction identities. Undo/removal, moderation, initial rendering, asynchronous updates, and reloads share the eligibility contract.
+- Keeps published owner federated replies out of ordinary main Stream, pinned, and archive output while preserving local post identity, permalink access, and conversation context.
+- Reuses full local/remote comment identity metadata, readable site-local dates, and ISO datetime values.
+- Reorganizes ActivityPub Admin around owner workflows, ten-row stable pagination, global queue/check summaries, failure-aware disclosures, and an isolated collapsed Danger Zone. Existing authorization, CSRF, mutations, key and actor lifecycle remain unchanged.
+- Corrects UTF-8 front-matter newline parsing and generated-metadata truncation, including the core fallback without mbstring.
+- Retains composer fields and selected files after asynchronous rejection or network failure. Session-backed text/metadata recovery handles full navigation, which still requires native file reselection. Per-form receipts and atomic content creation protect retries; uncertain outcomes block blind replay.
+- Explicitly validates the existing 255-Unicode-code-point media alt contract and retains rejected Admin alt/caption input. Authored descriptions remain authoritative; missing descriptions no longer inherit titles/excerpts, and empty values do not imply decorative intent.
+- Corrects gallery usage queries using distinct native PDO placeholders. Reports current post/Page and legacy import references, explicitly excluding Profile and revisions; unknown usage is not treated as zero. Trash preserves files, and permanent deletion retains its existing explicit-confirmation boundary.
+- Makes card convenience navigation selection-, drag-, cancellation-, modifier-, and child-control-aware. Improves main landmarks and skip destinations without inventing visible post headlines.
+- Adds stable polite comment status, busy/error semantics, conditional focus restoration, draft-preserving updates, and visible Like/Liked action wording. Actual screen-reader listening remains unverified.
+- Fingerprints core CSS/JavaScript and service-worker identity to prevent stale assets during same-version development.
+- Retains development acceptance at 390 x 844 and 360 x 800 plus genuine phone/touch selection, confirmed by Jim. Exact v0.8.2 RC responsive acceptance remains a separate gate.
+- Retains real dev federation evidence: owner reply delivered and absent from the main Stream; remote Like Undo/restoration changed the public total correctly with the fixture restored. Exact candidate RC federation acceptance remains a separate gate.
+- Adds no database migration. Migration files remain unchanged through 0028. Upgrades from public v0.8.1 preserve owner data, configuration, lock, custom themes, signing identity, relationships, and the healthy migration ledger.
+- Aligns release identity, current-version documentation, changelogs, and package metadata while correcting the stale v0.8.1 public-release wording.
+
 ## 0.8.1 - ActivityPub Product Acceptance Corrections
 
 - Prepares the corrected ActivityPub release candidate from accepted functional freeze `fcdb793353bf12c3416a45f07386b0f94c785193`; public release remains v0.7.2 pending separate authorization.

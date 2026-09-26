@@ -7,8 +7,8 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.1** (release candidate)
-- Current public GitHub release: **v0.7.2**
+- Current version: **0.8.2** (release candidate, not publicly released)
+- Current public GitHub release: **v0.8.1**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -35,9 +35,15 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.8.1
+## What's new in the v0.8.2 candidate
 
-v0.8.1 finalizes the ActivityPub release line after product acceptance corrected the original v0.8.0 RC. It includes native frontend replies, visible Like and Boost states, usable phone controls, full-frame single images and galleries, content-warning containment, and private incoming reaction presentation. It adds no migration beyond v0.8.0. The historical v0.8.0 ZIP remains unchanged; v0.8.1 has not yet been publicly released.
+v0.8.2, **Core Interaction and Reliability Pass**, prepares the accepted improvements to public Comment and Like totals, owner reply placement, ActivityPub administration, publishing failure recovery, Unicode metadata, accessibility, and media validation. Adds no database migration. It is not publicly released; v0.8.1 remains the current public release.
+
+Eligible approved remote replies and active remote Likes now contribute to public aggregate totals without exposing private reaction identities. Published owner federated replies remain available in their conversation and by permalink while staying out of the ordinary main Stream. See the [v0.8.2 candidate notes](docs/releases/v0.8.2.md).
+
+### ActivityPub foundation
+
+The public v0.8.1 release introduced optional ActivityPub federation, including native frontend replies, private Following, and owner participation.
 
 Bonumark Stream can now remain the owner's publishing home while also participating in the fediverse. ActivityPub is optional and disabled by default. When enabled, normal Bonumark publication transitions can reach followers on Mastodon, GoToSocial, Misskey, and other compatible platforms without making remote delivery part of the local save transaction.
 
@@ -260,6 +266,7 @@ Project documentation is included under `docs/`:
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [ActivityPub](docs/ACTIVITYPUB.md)
+- [v0.8.2 candidate notes](docs/releases/v0.8.2.md)
 - [v0.8.1 release notes](docs/releases/v0.8.1.md)
 - [Theming](docs/THEMING.md)
 - [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
@@ -273,7 +280,7 @@ Project documentation is included under `docs/`:
 - [Privacy-First Analytics](docs/ANALYTICS.md)
 - [Media Privacy](docs/MEDIA-PRIVACY.md)
 
-Detailed package-by-package development history is kept in `_bonumark_stream/CHANGELOG.md`. The root [CHANGELOG.md](CHANGELOG.md) is intentionally limited to public GitHub release summaries.
+Detailed package-by-package development history is kept in `_bonumark_stream/CHANGELOG.md`. The root [CHANGELOG.md](CHANGELOG.md) tracks public GitHub releases and explicitly marked release candidates.
 
 ## Development and verification
 

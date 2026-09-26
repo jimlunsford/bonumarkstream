@@ -1,6 +1,6 @@
 # Upgrading Bonumark Stream
 
-Bonumark Stream v0.8.1 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
+The v0.8.2 release candidate is not publicly released; the current public release remains v0.8.1. Bonumark Stream v0.8.2 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
 ## Upgrade paths
 
@@ -17,19 +17,19 @@ A locked-down application tree is not a broken Bonumark installation. Do not mak
 On a locked-down server with shell access, run the upgrade as the operating-system account that owns/deploys the Bonumark application tree:
 
 ```sh
-php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.8.1.zip
-php scripts/deploy-update.php /path/to/bonumark-stream-v0.8.1.zip
+php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.8.2.zip
+php scripts/deploy-update.php /path/to/bonumark-stream-v0.8.2.zip
 ```
 
 The owner-run helper uses the same core upgrade engine as Admin → Upgrade. It does not invoke `sudo`, install a privileged daemon, use setuid behavior, or give the web/PHP process additional filesystem rights.
 
 ### First transition from an older locked-down release
 
-Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.8.1 without performing a full manual overlay first, extract the v0.8.1 release outside the live site and run the helper from that extracted release while targeting the live installation:
+Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.8.2 without performing a full manual overlay first, extract the v0.8.2 release outside the live site and run the helper from that extracted release while targeting the live installation:
 
 ```sh
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.8.1.zip
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.8.1.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.8.2.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.8.2.zip
 ```
 
 After the upgrade succeeds, the helper exists inside the live installation for future owner-run upgrades.
@@ -38,9 +38,21 @@ After the upgrade succeeds, the helper exists inside the live installation for f
 
 When PHP cannot replace the application code and shell access is unavailable, use the documented manual/hosting-layer workflow in [`server/MANUAL-DEPLOYMENT.md`](server/MANUAL-DEPLOYMENT.md). Preserve Bonumark owner/runtime data and complete the documented deployment and migration checks before treating the upgrade as finished.
 
+## v0.8.2 - Core Interaction and Reliability Pass
+
+**Release candidate, not publicly released.** Adds no database migration. A healthy public v0.8.1 installation already through migration 0028 has no new migration to run.
+
+Back up the database and complete site files, validate the exact candidate ZIP with the Admin or owner-run package precheck, then use the existing upgrade workflow. The upgrade preserves configuration, installed lock, accounts, posts/Pages, media/uploads, settings, custom themes, ActivityPub identity and signing keys, relationships, publication history, and the migration ledger. Do not reset federation state or rotate a healthy key as part of this upgrade.
+
+After upgrading, run the deployment check and Admin > System Check. Confirm zero pending migrations, package integrity, normal publishing/editing/media, and the existing federation identity and queue. Public Comment and Like totals now include eligible current-generation remote interactions; Undo/removal and moderation update those totals. Owner federated replies stay out of the ordinary main Stream while retaining their permalink and conversation context.
+
+Composer failures retain editable input, with selected files retained during asynchronous failures; a full page navigation still requires file reselection. Uncertain saves block blind retry to protect against duplicate posts. Media descriptions have an explicit 255-Unicode-character limit; correct rejected input rather than silently truncating it.
+
+See the [v0.8.2 candidate notes](releases/v0.8.2.md) for the remaining presentation, accessibility, and verification details.
+
 ## v0.8.1 - ActivityPub Product Acceptance Corrections
 
-v0.8.1 is the corrected ActivityPub release candidate after final product acceptance. The historical v0.8.0 ZIP remains immutable and is not the final candidate. No new migration was introduced by the product/UI corrections or release finalization.
+v0.8.1 was publicly released on September 6, 2026 after final ActivityPub product acceptance. The historical v0.8.0 ZIP remains immutable and is not the final candidate. No new migration was introduced by the product/UI corrections or release finalization.
 
 Compared with public v0.7.2, v0.8.1 adds optional, disabled-by-default ActivityPub federation around the existing single-owner Bonumark publishing system. Normal local publishing remains authoritative. Federation adds discovery, follower relationships, generation-aware publication delivery, inbound interactions, owner participation, private Following, moderation, security, and operational lifecycle controls.
 
@@ -549,7 +561,7 @@ v0.5.25 repairs the legacy timestamp-cutover fallback used by direct upgrades, c
 
 The built-in upgrade tool supports upgrades from v0.4.0 and newer only.
 
-Pre-v0.4 development builds are not supported by the current upgrader. Install the current v0.5.77 package fresh instead of trying to upgrade an older development build.
+Pre-v0.4 development builds are not supported by the current upgrader. Install the current public release fresh instead of trying to upgrade an older development build.
 
 ## What the upgrader preserves
 
