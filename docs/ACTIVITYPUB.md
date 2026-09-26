@@ -16,7 +16,7 @@ When ActivityPub is enabled, the authenticated Admin owner sees **Following** in
 
 Following is chronological and contains only sanitized cached content from accepted outbound Following relationships. It has no ranking, recommendations, or public fediverse timeline. A remote card opens a private conversation. Reply creates a normal Bonumark draft with an ActivityPub reply target. Like, Unlike, Boost, and Unboost are direct owner actions backed by immutable ActivityPub activity history.
 
-Admin is the management surface for configuration, keys, followers, moderation, delivery history, queue repair, cache cleanup, and permanent deactivation. Themes remain code-free and receive only core-prepared semantic presentation data. Core owns routing, federation logic, security, privacy, sanitation, permissions, and structural safety.
+Admin prioritizes the federated profile and shareable handle, Following with feed access, Followers, reply moderation, settings, and diagnostics. Healthy diagnostic details are collapsed; failures remain visible. History and relationship lists use ten-record Previous/Next pages. Permanent deactivation is isolated in a collapsed Danger Zone. Admin retains configuration, keys, delivery history, queue repair, and cache cleanup. Themes remain code-free and receive only core-prepared semantic presentation data. Core owns routing, federation logic, security, privacy, sanitation, permissions, and structural safety.
 
 ## Publishing and media
 
@@ -24,7 +24,7 @@ The first federated publication of a Stream Post sends `Create`. A material edit
 
 Published image posts include ActivityStreams image attachments. Bonumark preserves the image order and sends the stored media alt text as the attachment name when alt text is available. Remote delivery does not expose private media or turn remote media into local Media Library records.
 
-v0.8.1 does not implement followers-only or private federation, direct messages, or another private-post visibility model. Federated Bonumark Stream Posts are public posts.
+v0.8.2 does not implement followers-only or private federation, direct messages, or another private-post visibility model. Federated Bonumark Stream Posts are public posts.
 
 ## Local identity and publication generations
 
@@ -51,7 +51,11 @@ Inbound Follow requests are authenticated and follow the configured manual or au
 
 Outbound Follow accepts a fediverse handle, a conventional profile URL, or a canonical actor URI. Discovery uses HTTPS-only WebFinger and actor fetches through the same SSRF-safe transport. Follow remains pending until the remote actor accepts or rejects it. Unfollow sends an exact Undo of the retained Follow activity.
 
-Inbound remote replies remain separate from local comments internally. Approved remote replies can appear through a core-owned combined presentation model. Inbound Likes and Announces never become local anonymous likes. Owner replies are normal Bonumark posts, and owner Like or Announce actions retain exact Undo history.
+Inbound remote replies remain separate from local comments internally. Public Comment totals combine approved publicly visible local comments with eligible active, approved remote replies for the current publication generation. Pending, private, deleted, blocked/ineligible, and stale-generation remote replies do not count.
+
+Public Like totals combine eligible local Likes with eligible active current-generation remote Likes. Remote interactions remain separate database records, and private reaction identities are not exposed by the public aggregate. Boosts are not counted as Likes. Undo/removal, moderation, and eligibility changes update public totals; asynchronous controls and subsequent page loads use the same contract. Comment metadata shows the full remote identity, a readable site-local date, and a machine-readable datetime.
+
+Owner replies are normal Bonumark posts with retained permalinks and conversation context. Published owner federated replies are excluded from the ordinary main Stream, including its pinned and archive presentation. Owner Like and Announce actions retain exact Undo history.
 
 Remote Actor Delete permanently marks that remote identity deleted locally, retires active follower and Following relationships, hides or tombstones its cached content, and preserves receipts and identity history. A remote actor URI returning `410` receives the same permanent treatment. A `404` is recorded as unavailable and can recover if a later validated fetch succeeds. Repeated permanent inbox failures retire active relationships without deleting their history.
 
@@ -153,7 +157,7 @@ Misskey.io accepted a correctly formed Update delivery during acceptance testing
 
 NodeInfo is intentionally not implemented. Its common usage and user-count fields are designed around social-server deployments and could misrepresent Bonumark's single-owner publishing model or leak private participation data. WebFinger and ActivityPub actor discovery provide the interoperability Bonumark currently needs. A future NodeInfo implementation requires a concrete consumer need and a privacy-safe single-owner reporting contract.
 
-## Deliberately unsupported in v0.8.1
+## Deliberately unsupported in v0.8.2
 
 - NodeInfo;
 - automatic domain migration;

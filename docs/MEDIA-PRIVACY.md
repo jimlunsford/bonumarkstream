@@ -25,3 +25,15 @@ Strict privacy mode is optional and can be enabled from **Admin → Settings →
 - It does not hide admin-only original filename records from administrators.
 
 Existing media remains preserved. Newly uploaded media receives a privacy status in the media library.
+
+## Image descriptions and validation
+
+Authored alt text remains authoritative. Missing alt text does not copy the post title or excerpt. An empty description stays empty, including explicitly decorative Markdown images; an empty stored value does not prove decorative intent. Gallery links identify image position and the authored description, or state that no image description was provided.
+
+Media alt text accepts at most 255 Unicode code points. Invalid or overlong descriptions are rejected explicitly instead of silently truncated. Admin retains rejected alt text and captions for correction. Describe meaningful visual information; leave alt empty only when the image is decorative in its context.
+
+## Current content references
+
+Media Edit reports current post and Page references, including galleries and legacy import files. It does not inventory Profile or revision-history references. A query failure reports usage as unavailable rather than claiming the media is unused.
+
+This report is not a safe-delete guarantee. Trash preserves the file. Permanent deletion requires the existing explicit owner confirmation and can break references, so check usage before proceeding.
