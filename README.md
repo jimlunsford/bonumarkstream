@@ -7,8 +7,8 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.2** (release candidate, not publicly released)
-- Current public GitHub release: **v0.8.1**
+- Current version: **0.8.2**
+- Current public GitHub release: **v0.8.2**
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -29,17 +29,17 @@ That means the project favors:
 - Self-hosting and content ownership
 - Fast short-form publishing
 - A single owner/publisher model
-- Shared-hosting compatibility
+- Shared-hosting and VPS compatibility
 - Portable data and media
 - Privacy-conscious defaults
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in the v0.8.2 candidate
+## What's new in v0.8.2
 
-v0.8.2, **Core Interaction and Reliability Pass**, prepares the accepted improvements to public Comment and Like totals, owner reply placement, ActivityPub administration, publishing failure recovery, Unicode metadata, accessibility, and media validation. Adds no database migration. It is not publicly released; v0.8.1 remains the current public release.
+v0.8.2, **Core Interaction and Reliability Pass**, builds on v0.8.1 with consistent public Comment and Like totals, clearer owner reply placement, improved ActivityPub administration, safer publishing recovery, stronger Unicode metadata handling, accessibility improvements, and media validation. It adds no database migration.
 
-Eligible approved remote replies and active remote Likes now contribute to public aggregate totals without exposing private reaction identities. Published owner federated replies remain available in their conversation and by permalink while staying out of the ordinary main Stream. See the [v0.8.2 candidate notes](docs/releases/v0.8.2.md).
+Eligible approved remote replies and active remote Likes now contribute to public aggregate totals without exposing private reaction identities. Published owner federated replies remain available in their conversation and by permalink while staying out of the ordinary main Stream. See the [v0.8.2 release notes](docs/releases/v0.8.2.md).
 
 ### ActivityPub foundation
 
@@ -47,7 +47,7 @@ The public v0.8.1 release introduced optional ActivityPub federation, including 
 
 Bonumark Stream can now remain the owner's publishing home while also participating in the fediverse. ActivityPub is optional and disabled by default. When enabled, normal Bonumark publication transitions can reach followers on Mastodon, GoToSocial, Misskey, and other compatible platforms without making remote delivery part of the local save transaction.
 
-The owner can follow remote accounts, read a private chronological Following timeline, open private conversation views, reply with normal Bonumark posts, and Like, Unlike, Boost, or Unboost remote posts. Inbound replies, Likes, and boosts remain separate from local accounts and local anonymous Likes, with moderation and blocking under the owner's control.
+The owner can follow remote accounts, read a private chronological Following timeline, open private conversation views, reply with normal Bonumark posts, and Like, Unlike, Boost, or Unboost remote posts. Remote actors and federation interaction state remain separate from local accounts. Eligible approved remote replies and active remote Likes can contribute to the same public Comment and Like totals as eligible local interactions without exposing private remote reaction identities. Moderation and blocking remain under the owner's control.
 
 Bonumark preserves durable local post identity while giving each federated publication lifetime its own ActivityPub object identity. After a federated object is deleted, that identity remains permanently Tombstoned. Republishing keeps the local post but creates a new ActivityPub generation instead of resurrecting a retired object.
 
@@ -266,7 +266,7 @@ Project documentation is included under `docs/`:
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [ActivityPub](docs/ACTIVITYPUB.md)
-- [v0.8.2 candidate notes](docs/releases/v0.8.2.md)
+- [v0.8.2 release notes](docs/releases/v0.8.2.md)
 - [v0.8.1 release notes](docs/releases/v0.8.1.md)
 - [Theming](docs/THEMING.md)
 - [Declarative Layouts](docs/DECLARATIVE-LAYOUTS.md)
