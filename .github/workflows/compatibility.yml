@@ -66,6 +66,29 @@ jobs:
           extensions: pdo_mysql, curl, fileinfo, zip, gd, mbstring
           coverage: none
 
+      - name: Verify repository guidance and archive boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          git ls-files --error-unmatch AGENTS.md >/dev/null
+          node scripts/markdown-link-test.js
+          archive_test_root="$(mktemp -d "$RUNNER_TEMP/bonumark-archive-test.XXXXXX")"
+          trap 'rm -rf "$archive_test_root"' EXIT
+          # Only root AGENTS.md may be omitted; every other tracked file must ship.
+          git ls-tree -r --name-only HEAD | sed '/^AGENTS\.md$/d' | sort > "$archive_test_root/expected"
+          git archive --format=tar HEAD -o "$archive_test_root/source.tar"
+          tar -tf "$archive_test_root/source.tar" | sed '/\/$/d' | sort > "$archive_test_root/tar-files"
+          diff -u "$archive_test_root/expected" "$archive_test_root/tar-files"
+          release_version="$(tr -d '\r\n' < VERSION)"
+          package_name="bonumark-stream-v${release_version}"
+          git archive --format=zip --prefix="${package_name}/" HEAD -o "$archive_test_root/package.zip"
+          unzip -tq "$archive_test_root/package.zip"
+          # Compare full prefixed paths too, so an extra or incorrectly named root fails.
+          sed "s|^|${package_name}/|" "$archive_test_root/expected" > "$archive_test_root/expected-zip"
+          unzip -Z1 "$archive_test_root/package.zip" | sed '/\/$/d' | sort > "$archive_test_root/zip-files"
+          diff -u "$archive_test_root/expected-zip" "$archive_test_root/zip-files"
+
       - name: Prepare clean tracked source tree
         shell: bash
         run: |
