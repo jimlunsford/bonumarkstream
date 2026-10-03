@@ -1,0 +1,2 @@
+# Root agent orientation is repository-only, never distributable software.
+/AGENTS.md export-ignore
