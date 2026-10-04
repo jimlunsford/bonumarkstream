@@ -33,6 +33,31 @@ A Bonumark post's database ID is immutable for the lifetime of that logical post
 
 Trash records retain a nullable reference to the durable post ID. The nullable form preserves compatibility with historical trash records created before durable row identity was enforced. New code must not implement a lifecycle transition by deleting and reinserting an existing logical post.
 
+## Stream creation and slug coordination
+
+New logical content uses `bms_insert_database_content()`. It rejects existing IDs, shares the SQL INSERT implementation with synchronization, and returns only the ID inserted by that execution. Terms and publication observations belong to that inserted row, with a null publication before-state. Remote creation never recovers an ID from a matching slug.
+
+`bms_with_stream_slug_lock()` locks the existing `site_name` settings row with an InnoDB `SELECT ... FOR UPDATE`, without changing its value. This provides installation-scoped coordination using the existing schema and ordinary database permissions. Web PHP, CLI, Admin, API, import, and scheduler processes all use the same database row. Missing coordination state fails closed. This assumes the supported InnoDB schema and cooperating application writers; direct SQL or mixed old/new running code is outside that guarantee.
+
+The lock lasts until the outermost transaction commits or rolls back, including caller-owned media/reply/restore transactions. Savepoints isolate failed inner operations. Slug ownership checks use current locking reads, including aliases, rather than a caller's older repeatable-read snapshot. Term lookup also uses a current read within this boundary. A filesystem lock would not coordinate separate hosts; a connection-owned advisory lock released at helper return would not protect an outer transaction's uncommitted writes. Neither is used for slug ownership.
+
+| Writer | Persistence boundary |
+| --- | --- |
+| Remote draft, scheduled, published creation | Allocate from original intent under the lock; insert only; bounded suffix retries. |
+| Admin quick creation and new owner replies | Insert only; a late conflict rejects the creation. Existing reply transitions retain the returned explicit ID. |
+| Import of new Stream records | Insert only after duplicate filtering; concurrent conflicts cannot become updates. |
+| Admin edit, reschedule, publish/unpublish | Synchronize by explicit post ID under the shared lock; reject foreign slug ownership without automatic renaming. |
+| Revision copy or restore without a surviving ID | Insert only. Restoring over a selected existing object uses its explicit ID. |
+| Trash and restore with a surviving ID | Hold coordination through the lifecycle transaction; restoration conflicts preserve the prior state. |
+| Legacy Markdown import and database metadata synchronization | Retain explicit synchronization semantics, including legacy slug matching; coordinate and reject cross-status ownership conflicts. These are not new-object creation APIs. |
+| Due scheduled publication | Lock and re-read each selected ID, validate ownership, then publish in an independent transaction. |
+
+The existing allocator conservatively reserves Stream slugs in all stored statuses, including Trash, and historical permalink aliases. Existing-object operations exclude only their explicit ID and their own aliases. A preexisting duplicate is rejected; it is not silently renamed, adopted, merged, or reconciled. No schema migration or bulk data repair is performed.
+
+The scheduler records a safe per-post outcome and continues after a conflict or other per-post failure. A blocked post stays scheduled, unrelated due posts may publish, and the existing task result/history reports partial failure and counts. Owner intervention is required for conflicting existing data. The batch limit still bounds each run; this is not a queue redesign.
+
+This coordination protects slug ownership and creation identity. It does not implement the revision fencing specified below. Existing idempotency response storage remains separate from creation, and ActivityPub retains its generation-aware observation/delivery rules.
+
 ## Revision-safe mutation invariant
 
 This is the required design for future revision-safe existing-object mutations, not a claim that current Admin paths or Remote Posting implement it. The [API contract](API.md#future-revision-safe-existing-object-mutations) defines the wire representation and errors. No general remote edit endpoint is currently available.

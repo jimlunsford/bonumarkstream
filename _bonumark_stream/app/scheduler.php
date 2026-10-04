@@ -294,8 +294,9 @@ function bms_scheduled_utc_to_site_date(string $utc): string
     }
 }
 
-function bms_publish_due_scheduled_posts(int $limit = 20): int
+function bms_publish_due_scheduled_posts(int $limit = 20, ?array &$outcomes = null): int
 {
+    $outcomes = [];
     if (!bms_is_installed() || !bms_database_content_columns_ready()) {
         return 0;
     }
@@ -325,56 +326,65 @@ function bms_publish_due_scheduled_posts(int $limit = 20): int
         }
         $published = 0;
         foreach ($ids as $id) {
-            $select = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id AND status = :status LIMIT 1');
-            $select->execute(['id' => $id, 'status' => 'scheduled']);
-            $row = $select->fetch();
-            if (!is_array($row)) {
-                continue;
-            }
-            $scheduledAt = (string)($row['scheduled_at'] ?? '');
-            $publishedAt = $scheduledAt !== '' ? $scheduledAt : gmdate('Y-m-d H:i:s');
-            $datePublished = bms_scheduled_utc_to_site_date($publishedAt);
-            $frontMatter = [];
-            $encodedFrontMatter = (string)($row['content_front_matter'] ?? '');
-            if ($encodedFrontMatter !== '') {
-                $decodedFrontMatter = json_decode($encodedFrontMatter, true);
-                if (is_array($decodedFrontMatter)) {
-                    $frontMatter = $decodedFrontMatter;
+            try {
+                $didPublish = bms_with_stream_slug_lock(static function () use ($pdo, $id): bool {
+                    $select = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id AND status = :status AND scheduled_at <= UTC_TIMESTAMP() LIMIT 1 FOR UPDATE');
+                    $select->execute(['id' => $id, 'status' => 'scheduled']);
+                    $row = $select->fetch();
+                    if (!is_array($row)) {
+                        return false;
+                    }
+                    if (bms_stream_slug_conflicts((string)$row['slug'], $id)) {
+                        throw new BMS_Content_Slug_Conflict();
+                    }
+                    $scheduledAt = (string)($row['scheduled_at'] ?? '');
+                    $publishedAt = $scheduledAt !== '' ? $scheduledAt : gmdate('Y-m-d H:i:s');
+                    $datePublished = bms_scheduled_utc_to_site_date($publishedAt);
+                    $frontMatter = [];
+                    $encodedFrontMatter = (string)($row['content_front_matter'] ?? '');
+                    if ($encodedFrontMatter !== '') {
+                        $decodedFrontMatter = json_decode($encodedFrontMatter, true);
+                        if (is_array($decodedFrontMatter)) {
+                            $frontMatter = $decodedFrontMatter;
+                        }
+                    }
+                    $frontMatter['stream_created_at'] = $publishedAt;
+                    $frontMatter['scheduled_at'] = $scheduledAt;
+                    $contentFrontMatter = json_encode($frontMatter, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    if (!is_string($contentFrontMatter)) {
+                        $contentFrontMatter = $encodedFrontMatter;
+                    }
+                    $contentHash = hash('sha256', (string)($row['content_body'] ?? '') . "\n" . $contentFrontMatter);
+                    $htmlPath = trim(bms_stream_relative_directory_for_post(bms_database_row_to_content_page(array_merge($row, [
+                        'status' => 'published',
+                        'published_at' => $publishedAt,
+                        'date_published' => $datePublished,
+                        'content_front_matter' => $contentFrontMatter,
+                    ]))), '/') . '/index.html';
+                    $update = $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'published', markdown_path = :markdown_path, html_path = :html_path, date_published = :date_published, published_at = :published_at, content_front_matter = :content_front_matter, content_hash = :content_hash, updated_at = UTC_TIMESTAMP() WHERE id = :id AND status = 'scheduled'");
+                    $update->execute([
+                        'markdown_path' => 'content/published/' . basename((string)($row['markdown_path'] ?? ((string)($row['slug'] ?? 'post') . '.md'))),
+                        'html_path' => $htmlPath,
+                        'date_published' => $datePublished,
+                        'published_at' => $publishedAt,
+                        'content_front_matter' => $contentFrontMatter,
+                        'content_hash' => $contentHash,
+                        'id' => $id,
+                    ]);
+                    if ($update->rowCount() < 1) {
+                        return false;
+                    }
+                    bms_database_content_dispatch_saved($row, $id, 'scheduled_tasks');
+                    return true;
+                });
+                if ($didPublish) {
+                    $published++;
                 }
-            }
-            $frontMatter['stream_created_at'] = $publishedAt;
-            $frontMatter['scheduled_at'] = $scheduledAt;
-            $contentFrontMatter = json_encode($frontMatter, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if (!is_string($contentFrontMatter)) {
-                $contentFrontMatter = $encodedFrontMatter;
-            }
-            $contentHash = hash('sha256', (string)($row['content_body'] ?? '') . "\n" . $contentFrontMatter);
-            $htmlPath = trim(bms_stream_relative_directory_for_post(bms_database_row_to_content_page(array_merge($row, [
-                'status' => 'published',
-                'published_at' => $publishedAt,
-                'date_published' => $datePublished,
-                'content_front_matter' => $contentFrontMatter,
-            ]))), '/') . '/index.html';
-            $update = $pdo->prepare("UPDATE " . bms_table('posts') . " SET status = 'published', markdown_path = :markdown_path, html_path = :html_path, date_published = :date_published, published_at = :published_at, content_front_matter = :content_front_matter, content_hash = :content_hash, updated_at = UTC_TIMESTAMP() WHERE id = :id AND status = 'scheduled'");
-            $update->execute([
-                'markdown_path' => 'content/published/' . basename((string)($row['markdown_path'] ?? ((string)($row['slug'] ?? 'post') . '.md'))),
-                'html_path' => $htmlPath,
-                'date_published' => $datePublished,
-                'published_at' => $publishedAt,
-                'content_front_matter' => $contentFrontMatter,
-                'content_hash' => $contentHash,
-                'id' => $id,
-            ]);
-            if ($update->rowCount() > 0) {
-                $published++;
-                try {
-                    $afterSelect = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
-                    $afterSelect->execute(['id' => $id]);
-                    $afterRow = $afterSelect->fetch();
-                    bms_dispatch_publication_transition($row, is_array($afterRow) ? $afterRow : null, ['source' => 'scheduled_tasks']);
-                } catch (Throwable $e) {
-                    error_log('Bonumark Stream scheduled publication transition lookup failed: ' . $e->getMessage());
-                }
+                $outcomes[$id] = $didPublish ? 'published' : 'skipped';
+            } catch (Throwable $e) {
+                $outcomes[$id] = $e instanceof BMS_Content_Slug_Conflict ? 'slug_conflict' : 'failed';
+                // Per-post diagnostics contain identity and classification, no driver text.
+                error_log('Bonumark Stream scheduled post ' . $id . ': ' . $outcomes[$id]);
             }
         }
         bms_set_setting('scheduled_posts_last_due_check', (string)time());
@@ -383,8 +393,9 @@ function bms_publish_due_scheduled_posts(int $limit = 20): int
         }
         return $published;
     } catch (Throwable $e) {
-        error_log('Bonumark Stream scheduled-post runner error: ' . $e->getMessage());
-        return 0;
+        $outcomes[0] = 'failed';
+        error_log('Bonumark Stream scheduled-post runner failed.');
+        return $published ?? 0;
     } finally {
         flock($handle, LOCK_UN);
         fclose($handle);
@@ -420,13 +431,18 @@ function bms_scheduled_task_handlers(): array
         bms_register_scheduled_task_handler(
             'scheduled_posts',
             static function (array $context): array {
-                $published = bms_publish_due_scheduled_posts((int)($context['scheduled_post_limit'] ?? 50));
+                $outcomes = [];
+                $published = bms_publish_due_scheduled_posts((int)($context['scheduled_post_limit'] ?? 50), $outcomes);
+                $failed = count(array_filter($outcomes, static fn(string $outcome): bool => in_array($outcome, ['slug_conflict', 'failed'], true)));
                 return [
-                    'ok' => true,
+                    'ok' => $failed === 0,
+                    'status' => $failed > 0 ? 'partial_failure' : 'completed',
                     'count' => $published,
-                    'message' => $published > 0
+                    'message' => $failed > 0
+                        ? 'Published ' . $published . ' due scheduled posts; ' . $failed . ' failed and require owner review.'
+                        : ($published > 0
                         ? 'Published ' . $published . ' due scheduled post' . ($published === 1 ? '' : 's') . '.'
-                        : 'No due scheduled posts were waiting.',
+                        : 'No due scheduled posts were waiting.'),
                 ];
             },
             ['label' => 'Scheduled posts']

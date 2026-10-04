@@ -433,7 +433,10 @@ Notes:
 - One-step uploads and URL imports inside `POST /api/v1/stream/posts` only work when remote media uploads are enabled and the token also has the `media:upload` scope.
 - URL imports accept public HTTP/HTTPS image URLs only. Bonumark rejects local, private, reserved, unsafe, non-image, oversized, or unsupported remote files.
 - Known fake 1x1 placeholder uploads are rejected with `placeholder_media_rejected`.
-- Slugs are normalized and made unique if needed.
+- Slugs are normalized and made unique if needed, across Stream statuses and reserved permalink aliases.
+- Every successful creation inserts its own logical post. A matching slug never authorizes an update or adoption of another post's ID, including when requests use different idempotency keys.
+- Slug allocation and persistence share a database transaction lock. A creation collision rebuilds slug-dependent metadata from the original request intent using the canonical allocator, with at most five insertion attempts. Exhaustion returns `409 slug_conflict`; unrelated database or lock failures return sanitized `500 server_error`.
+- Already-prepared media is retained across post-insertion retries. Each idempotency key continues to own only its own reservation and stored outcome.
 - `scheduled_at` and `publish_at` use the site timezone for input and are stored internally as UTC.
 
 ### Draft response

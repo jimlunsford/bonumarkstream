@@ -59,6 +59,7 @@ $scenarios = [
     'activitypub_stage6',
     'activitypub_stage6_disabled',
     'deployment_check',
+    'stream_slug_safety',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -183,7 +184,7 @@ function bms_api_smoke_run_child(string $scenario): void
         bms_api_smoke_set_setting('remote_posting_direct_publish_enabled', '1');
         bms_api_smoke_set_setting('remote_posting_publish_confirmation_required', '1');
         bms_api_smoke_set_setting('remote_media_upload_enabled', '1');
-        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['activitypub_observer', 'activitypub_publication', 'activitypub_inbox', 'activitypub_stage5', 'activitypub_stage6'], true) ? '1' : '0');
+        bms_api_smoke_set_setting('activitypub_enabled', in_array($scenario, ['stream_slug_safety', 'activitypub_observer', 'activitypub_publication', 'activitypub_inbox', 'activitypub_stage5', 'activitypub_stage6'], true) ? '1' : '0');
         bms_api_smoke_set_setting('activitypub_follow_policy', 'manual');
 
         $GLOBALS['bms_api_smoke_temp_root'] = $tempRoot;
@@ -233,7 +234,7 @@ function bms_api_smoke_run_child(string $scenario): void
             if ($activityPubEvents < 1 || $activityPubDeliveries < 1 || $unfinished !== 0 || $ownerActions < 4 || $followActions < 4) {
                 throw new RuntimeException('Stage 6 did not leave a completed durable publication and owner-action checkpoint.');
             }
-        } elseif ($scenario !== 'activitypub_publication' && ($activityPubEvents !== 0 || $activityPubDeliveries !== 0)) {
+        } elseif (!in_array($scenario, ['stream_slug_safety', 'activitypub_publication'], true) && ($activityPubEvents !== 0 || $activityPubDeliveries !== 0)) {
             throw new RuntimeException('Default-off Remote API behavior created ActivityPub events or deliveries.');
         }
     } finally {
@@ -245,6 +246,10 @@ function bms_api_smoke_run_child(string $scenario): void
 function bms_api_smoke_run_scenario(string $scenario): void
 {
     switch ($scenario) {
+        case 'stream_slug_safety':
+            require_once __DIR__ . '/stream-slug-safety-scenario.php';
+            bms_api_smoke_stream_slug_safety();
+            return;
         case 'media_error_sanitization':
             require_once __DIR__ . '/media-error-sanitization-scenario.php';
             bms_api_smoke_media_error_sanitization();
