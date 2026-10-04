@@ -8,6 +8,20 @@ The database is the runtime source of truth for posts, pages, accounts, Profiles
 
 Markdown is used for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
 
+## Optional Bonumark Connect boundary
+
+[Bonumark Connect](BONUMARK-CONNECT.md) defines the future optional relay,
+site-authorization protocol, identity and origin bindings, scope/error/discovery
+contracts, initial tool boundaries, shared-core audit, and bounded Gate 5B plan.
+It is an architecture contract, not an implemented service or release claim.
+The self-hosted site remains content and runtime authority; Connect cannot become
+a second CMS, mandatory identity provider, or independent publishing implementation.
+Public Bonumark, Admin, ActivityPub, and local publishing remain usable during a
+relay outage. Stable installation identity is separate from canonical origin and
+the existing owner ID; clones and address changes cannot inherit relay trust.
+Connected-app grants attach to that owner without adding publishers. Existing
+owner-recovery and revision-safe mutation invariants continue to apply.
+
 ## Portability does not equal disaster recovery
 
 Related data movement and recovery mechanisms have distinct contracts:
@@ -102,7 +116,7 @@ The following source mechanisms are useful but do not yet implement this invaria
 | [Quick Edit](../admin/stream-quick-edit.php) and [front-end Trash](../admin/stream-trash.php) | Optionally compare a hash of rendered raw Markdown and return an existing UI-specific 409 on mismatch. Missing hashes are accepted; the check precedes the protected write and is not a resource-wide atomic precondition. |
 | [Trash and publication helpers](../_bonumark_stream/app/renderer.php) | Move to Trash locks the post row and checks original status within a transaction. It does not compare the client-read content under that lock. Publish/unpublish use current lookup, identity, and lifecycle rules without a shared expected revision. |
 | [Restore and permanent deletion](../_bonumark_stream/app/database.php) | Restore checks identity, status, and slug conflicts, then transacts restoration and trash cleanup. Permanent post deletion is conditional on trash status. These are partial expected-state protections, not client revision fencing. |
-| [Scheduler](../_bonumark_stream/app/scheduler.php) | Runner file lock and an update conditional on scheduled status prevent some duplicate transitions; they do not fence a concurrent reschedule that keeps that status. |
+| [Scheduler](../_bonumark_stream/app/scheduler.php) | Runner file lock, shared database slug coordination, and a locking re-read of each selected post's current status/due time protect publication transitions. Per-post failures are isolated. These guards do not implement client resource revisions or revision advancement. |
 | [Profile](../_bonumark_stream/app/profiles.php), [settings](../admin/settings.php), and [theme settings](../admin/theme-settings.php) | Profile identity writes use a transaction; settings use keyed upserts. Neither mechanism compares a client-read resource revision. |
 | [Publication seam](../_bonumark_stream/app/publication.php) and [ActivityPub recording](../_bonumark_stream/app/activitypub-delivery.php) | Material-transition detection, transactions/locks, deduplication, generations, and queued delivery protect federation lifecycle. They do not substitute for fencing the originating resource mutation. |
 
