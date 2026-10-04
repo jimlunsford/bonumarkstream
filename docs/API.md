@@ -25,10 +25,26 @@ Bonumark Stream stores only token hashes. The full token is shown once when crea
 | Scope | Purpose |
 | --- | --- |
 | `status:read` | Allows authenticated API status checks. |
+| `stream:read` | Allows published-only Stream listing and single-post retrieval. |
 | `stream:draft` | Allows remote stream post creation as drafts. |
 | `stream:publish` | Allows remote stream post publishing when direct publishing is enabled. |
-
 | `media:upload` | Allows remote image uploads when remote media uploads are enabled. |
+
+## Future Bonumark Connect contract
+
+[Bonumark Connect architecture](BONUMARK-CONNECT.md) records the future site ID
+and canonical-origin binding, connected-app grants, authorization-code/PKCE flow,
+live scope and revocation semantics, stable errors, capability discovery, and
+initial read/draft/media tool contracts. These are design requirements, not current
+endpoints or fields. Current Remote Posting tokens are not Connect grants.
+
+`stream:read` remains published-only. Future `media:read` is not available now;
+initial Connect tools have no publish authority. Standalone media upload/import
+does not implement creation idempotency, and its client request ID is audit
+metadata only. Future discovery must advertise only implemented capabilities.
+No Connect routes, scopes, site identity, or MCP behavior are added to OpenAPI by
+this documentation. Existing-object remote writes remain subject to the separate
+[revision contract](#future-revision-safe-existing-object-mutations).
 
 ## Admin controls
 
