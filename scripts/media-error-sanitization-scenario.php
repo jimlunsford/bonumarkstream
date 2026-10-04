@@ -52,8 +52,7 @@ function bms_api_smoke_media_error_sanitization(): void
     };
     $marker = 'synthetic_media_private_marker';
     $password = (string)getenv('BMS_DB_PASS');
-    $trigger = bms_table('media_failure_trigger');
-    $triggerCreated = false;
+    $failureColumnAdded = false;
     try {
         $ready = false;
         for ($attempt = 0; $attempt < 50; $attempt++) {
@@ -64,12 +63,10 @@ function bms_api_smoke_media_error_sanitization(): void
             } catch (Throwable $e) { usleep(100000); }
         }
         $assert($ready, 'Media HTTP regression server did not become ready.');
-        // Trigger is confined to this suite's random disposable table prefix.
-        // Include a synthetic SQL diagnostic and the disposable password to prove neither is returned.
-        $diagnostic = $marker . ' INSERT INTO private_media password=' . $password;
-        bms_db()->exec('CREATE TRIGGER ' . $trigger . ' BEFORE INSERT ON ' . bms_table('media')
-            . " FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = " . bms_db()->quote($diagnostic));
-        $triggerCreated = true;
+        // Ordinary table ALTER privileges suffice on MySQL with binary logging enabled.
+        // The missing mandatory value produces a real PDO error naming this synthetic column.
+        bms_db()->exec('ALTER TABLE ' . bms_table('media') . ' ADD COLUMN ' . $marker . ' INT NOT NULL');
+        $failureColumnAdded = true;
         foreach (['standalone', 'embedded'] as $surface) {
             $response = $surface === 'standalone'
                 ? $request('/api/v1/media.php', $upload)
@@ -94,8 +91,8 @@ function bms_api_smoke_media_error_sanitization(): void
             'Embedded pre-creation failure retained its own reservation.');
         $audit = json_encode(bms_db()->query('SELECT message FROM ' . bms_table('api_audit_log'))->fetchAll());
         $assert(!str_contains($audit, $marker) && !str_contains($audit, 'INSERT INTO'), 'API audit messages contain raw diagnostics.');
-        bms_db()->exec('DROP TRIGGER ' . $trigger);
-        $triggerCreated = false;
+        bms_db()->exec('ALTER TABLE ' . bms_table('media') . ' DROP COLUMN ' . $marker);
+        $failureColumnAdded = false;
 
         $invalid = array_replace($upload, ['filename' => 'bad.exe']);
         $json = $expect($request('/api/v1/media.php', $invalid), 422, 'media_upload_invalid');
@@ -139,7 +136,7 @@ function bms_api_smoke_media_error_sanitization(): void
         bms_api_smoke_set_setting('remote_posting_rate_limit_per_minute', '5');
         $expect($request('/api/v1/media.php', $upload), 429, 'rate_limited');
     } finally {
-        if ($triggerCreated) { bms_db()->exec('DROP TRIGGER IF EXISTS ' . $trigger); }
+        if ($failureColumnAdded) { bms_db()->exec('ALTER TABLE ' . bms_table('media') . ' DROP COLUMN ' . $marker); }
         proc_terminate($process);
         proc_close($process);
         @unlink($log);
