@@ -1,6 +1,14 @@
 <?php
 require_once __DIR__ . '/database.php';
 
+/** Only deliberately public-safe input/resource messages belong in this type.
+ * Never wrap infrastructure exception messages in it.
+ */
+class BMS_Media_Validation_Exception extends RuntimeException {}
+
+/** Preserve InvalidArgumentException compatibility for Admin media editing. */
+class BMS_Media_Alt_Text_Exception extends InvalidArgumentException {}
+
 function bms_allowed_media_extensions(): array
 {
     return [
@@ -108,7 +116,12 @@ function bms_current_media_upload_limit_bytes(): int
 
 function bms_media_validate_upload(array $file): array
 {
-    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+    $uploadError = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+    if ($uploadError !== UPLOAD_ERR_OK) {
+        if (in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE, UPLOAD_ERR_PARTIAL, UPLOAD_ERR_NO_FILE], true)) {
+            throw new BMS_Media_Validation_Exception('Upload failed. Choose a media file and try again.');
+        }
+        // Missing temp directory, disk-write/extension failures, and unknown codes are internal.
         throw new RuntimeException('Upload failed. Choose a media file and try again.');
     }
 
@@ -116,16 +129,16 @@ function bms_media_validate_upload(array $file): array
     $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
     $allowed = bms_allowed_media_extensions();
     if (!isset($allowed[$extension])) {
-        throw new RuntimeException('Unsupported media type. Allowed formats: ' . bms_allowed_media_extensions_label() . '.');
+        throw new BMS_Media_Validation_Exception('Unsupported media type. Allowed formats: ' . bms_allowed_media_extensions_label() . '.');
     }
 
     $size = (int)($file['size'] ?? 0);
     if ($size <= 0) {
-        throw new RuntimeException('The uploaded media file was empty.');
+        throw new BMS_Media_Validation_Exception('The uploaded media file was empty.');
     }
     $limitBytes = bms_current_media_upload_limit_bytes();
     if ($size > $limitBytes) {
-        throw new RuntimeException('Media file is too large. Keep uploads under ' . bms_media_human_size($limitBytes) . '.');
+        throw new BMS_Media_Validation_Exception('Media file is too large. Keep uploads under ' . bms_media_human_size($limitBytes) . '.');
     }
 
     $tmp = (string)($file['tmp_name'] ?? '');
@@ -141,7 +154,7 @@ function bms_media_validate_upload(array $file): array
     if ($isImage) {
         $imageInfo = @getimagesize($tmp);
         if (!is_array($imageInfo) || empty($imageInfo[0]) || empty($imageInfo[1])) {
-            throw new RuntimeException('The uploaded file does not appear to be a valid image.');
+            throw new BMS_Media_Validation_Exception('The uploaded file does not appear to be a valid image.');
         }
         $width = (int)$imageInfo[0];
         $height = (int)$imageInfo[1];
@@ -157,7 +170,7 @@ function bms_media_validate_upload(array $file): array
     }
 
     if (!bms_media_mime_matches_extension($extension, $mime)) {
-        throw new RuntimeException('Media type did not match the file extension.');
+        throw new BMS_Media_Validation_Exception('Media type did not match the file extension.');
     }
 
     $normalizedMime = $mime !== '' ? ($mime === 'image/pjpeg' ? 'image/jpeg' : $mime) : (string)$allowed[$extension];
@@ -583,7 +596,7 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
     $altText = bms_media_validate_alt_text($altText);
     $valid = bms_media_validate_upload($file);
     if (!empty($options['image_only']) && !str_starts_with((string)$valid['mime'], 'image/')) {
-        throw new RuntimeException('This upload must be an image file.');
+        throw new BMS_Media_Validation_Exception('This upload must be an image file.');
     }
     $generateDerivatives = array_key_exists('generate_derivatives', $options) ? (bool)$options['generate_derivatives'] : true;
     $relative = bms_media_unique_relative_path((string)$valid['original_name'], (string)$valid['extension']);
@@ -744,10 +757,10 @@ function bms_media_validate_alt_text(string $value): string
 {
     $value = trim($value);
     if (preg_match('//u', $value) !== 1) {
-        throw new InvalidArgumentException('Alt text must be valid UTF-8 text.');
+        throw new BMS_Media_Alt_Text_Exception('Alt text must be valid UTF-8 text.');
     }
     if (bms_text_length($value) > 255) {
-        throw new InvalidArgumentException('Alt text must be 255 characters or fewer. Shorten the description and try again.');
+        throw new BMS_Media_Alt_Text_Exception('Alt text must be 255 characters or fewer. Shorten the description and try again.');
     }
     return $value;
 }

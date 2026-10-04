@@ -602,6 +602,39 @@ Errors use a consistent JSON shape:
 }
 ```
 
+### Media error boundary
+
+Only deliberately public-safe media exceptions may supply messages for API validation
+responses. `BMS_Media_Validation_Exception` extends `RuntimeException` for existing
+Admin/core callers. `BMS_Media_Alt_Text_Exception` extends `InvalidArgumentException`
+to preserve Admin media-edit validation handling. General exception inheritance is
+not evidence that a message is safe to expose.
+
+| Failure | Public API behavior |
+| --- | --- |
+| Upload size/form-size limits, partial/missing uploads, unsupported extension, empty file, invalid image bytes, MIME mismatch, image-only requirement | Deliberate safe message under `422 media_upload_invalid` when raised by core upload validation. Existing adapter checks retain their specific codes, including `media_too_large` and `media_file_required`. |
+| Invalid UTF-8 or alt text over 255 characters | `422 alt_text_invalid`, with the existing safe validation message. |
+| Import URL/address/redirect safety rejection, size limit, redirect limit, remote HTTP status failure, empty response, unsupported image type | Deliberate safe message under `422 media_import_failed` when raised by the importer. API URL preflight retains `unsafe_media_import_url` and other existing specific codes. Remote HTTP errors contain only the numeric status, never a response body. |
+| PDO/database errors; missing/unreadable temporary uploads; upload-directory creation; disk writes; missing cURL or cURL initialization/transport errors; failed privacy processing/storage; unexpected PHP or unclassified exceptions | `500 server_error`: `The API request could not be completed.` Raw messages are not copied into public responses. Existing adapter-generated `500 media_temp_failed` remains a fixed, sanitized message. |
+
+The upload exception boundary is shared by standalone media upload, downloaded URL
+imports, and media embedded in Stream creation. The importer independently enforces
+its public-safe boundary; an internal upload failure cannot be relabeled as a safe
+import failure. Existing authentication, scope, feature-toggle, rate-limit, SSRF,
+and idempotency checks retain their semantics.
+
+Strict privacy-processing failures remain internal because the current core cannot
+distinguish unsupported processing capability from a storage/processing fault at
+that point. No raw cURL diagnostics are public-safe. Import temporary-file write
+failures (including partial writes) are internal and discard the temporary file.
+Upload persistence failures retain the existing original/derivative cleanup.
+
+Unexpected failures in the media adapters use the existing private sanitized logger
+with operation context, exception class, and source basename/line only. They do not
+copy the original message, SQL, credentials, or content into a new log entry or an
+API audit message. An upload failure reached through import can record both contexts.
+The global API error envelope and public validation messages remain unchanged.
+
 Common error codes:
 
 | Code | Meaning |
