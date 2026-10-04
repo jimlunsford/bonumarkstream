@@ -527,46 +527,70 @@ function bms_api_request_hash(array $payload, string $method = '', string $route
     return hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 }
 
-function bms_api_idempotency_begin(int $tokenId, string $key, string $requestHash): ?array
+/**
+ * Only a successful INSERT grants execution-local ownership. Observers never
+ * receive an ID, including completed replays and unique-key collision losers.
+ */
+function bms_api_idempotency_begin(int $tokenId, string $key, string $requestHash, ?int &$reservationId): ?array
 {
+    $reservationId = null;
     if ($key === '') {
         return null;
     }
     try {
-        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('api_idempotency_keys') . ' WHERE token_id = :token_id AND idempotency_key = :idempotency_key LIMIT 1');
-        $stmt->execute([
-            'token_id' => $tokenId,
-            'idempotency_key' => $key,
-        ]);
-        $existing = $stmt->fetch();
-        if (is_array($existing)) {
-            if (!hash_equals((string)($existing['request_hash'] ?? ''), $requestHash)) {
-                throw new BMS_Api_Exception('Idempotency key was already used for a different request.', 409, 'idempotency_key_conflict');
-            }
-            $responseJson = (string)($existing['response_json'] ?? '');
-            if ($responseJson === '') {
-                throw new BMS_Api_Exception('Idempotency key is already processing. Retry after the first request completes.', 409, 'idempotency_key_processing');
-            }
-            $payload = json_decode($responseJson, true);
-            if (!is_array($payload)) {
-                throw new BMS_Api_Exception('Stored idempotency response could not be read.', 500, 'idempotency_response_invalid');
-            }
-            return [
-                'status' => max(200, min(599, (int)($existing['response_status'] ?? 200))),
-                'payload' => $payload,
-            ];
-        }
+        $pdo = bms_db();
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            // Expiry permits reuse of completed outcomes only. An unfinished
+            // row may represent live work or an uncertain committed outcome.
+            $expire = $pdo->prepare('DELETE FROM ' . bms_table('api_idempotency_keys') . " WHERE token_id = :token_id AND idempotency_key = :idempotency_key AND expires_at <= NOW() AND response_json IS NOT NULL AND response_json <> ''");
+            $expire->execute(['token_id' => $tokenId, 'idempotency_key' => $key]);
 
-        $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('api_idempotency_keys') . ' (token_id, idempotency_key, request_hash, response_status, response_json, created_at, last_used_at, expires_at) VALUES (:token_id, :idempotency_key, :request_hash, 0, \'\', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR))');
-        $stmt->execute([
-            'token_id' => $tokenId,
-            'idempotency_key' => $key,
-            'request_hash' => $requestHash,
-        ]);
-        if (random_int(1, 20) === 1) {
-            bms_db()->exec('DELETE FROM ' . bms_table('api_idempotency_keys') . ' WHERE expires_at < NOW()');
+            try {
+                $insert = $pdo->prepare('INSERT INTO ' . bms_table('api_idempotency_keys') . ' (token_id, idempotency_key, request_hash, response_status, response_json, created_at, last_used_at, expires_at) VALUES (:token_id, :idempotency_key, :request_hash, 0, \'\', NOW(), NOW(), DATE_ADD(NOW(), INTERVAL 24 HOUR))');
+                $insert->execute(['token_id' => $tokenId, 'idempotency_key' => $key, 'request_hash' => $requestHash]);
+                $reservationId = (int)$pdo->lastInsertId();
+            } catch (PDOException $e) {
+                // MySQL and MariaDB duplicate-key errors only. Other database
+                // errors must not be misclassified as a successful acquisition.
+                if ((string)$e->getCode() !== '23000' || (int)($e->errorInfo[1] ?? 0) !== 1062) {
+                    throw $e;
+                }
+                $existingStmt = $pdo->prepare('SELECT *, (expires_at <= NOW()) AS expired FROM ' . bms_table('api_idempotency_keys') . ' WHERE token_id = :token_id AND idempotency_key = :idempotency_key LIMIT 1');
+                $existingStmt->execute(['token_id' => $tokenId, 'idempotency_key' => $key]);
+                $existing = $existingStmt->fetch();
+                // The winner may have released or its completed row may have
+                // expired between collision and read. Retry acquisition, bounded.
+                if (!is_array($existing)) {
+                    continue;
+                }
+                $responseJson = (string)($existing['response_json'] ?? '');
+                if ($responseJson !== '' && !empty($existing['expired'])) {
+                    continue;
+                }
+                if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
+                    throw new BMS_Api_Exception('Idempotency key was already used for a different request.', 409, 'idempotency_key_conflict');
+                }
+                if ($responseJson === '') {
+                    throw new BMS_Api_Exception('Idempotency key is already processing. Retry after the first request completes.', 409, 'idempotency_key_processing');
+                }
+                $payload = json_decode($responseJson, true);
+                if (!is_array($payload)) {
+                    throw new BMS_Api_Exception('Stored idempotency response could not be read.', 500, 'idempotency_response_invalid');
+                }
+                return ['status' => max(200, min(599, (int)$existing['response_status'])), 'payload' => $payload];
+            }
+            // Best-effort bounded housekeeping must neither remove unfinished
+            // reservations nor turn a successful acquisition into a failure.
+            try {
+                if (random_int(1, 20) === 1) {
+                    $pdo->exec('DELETE FROM ' . bms_table('api_idempotency_keys') . " WHERE expires_at <= NOW() AND response_json IS NOT NULL AND response_json <> '' LIMIT 100");
+                }
+            } catch (Throwable $e) {
+                // A later acquisition can retry completed-record cleanup.
+            }
+            return null;
         }
-        return null;
+        throw new BMS_Api_Exception('Idempotency key is changing. Retry the same request.', 409, 'idempotency_key_processing');
     } catch (BMS_Api_Exception $e) {
         throw $e;
     } catch (Throwable $e) {
@@ -574,16 +598,21 @@ function bms_api_idempotency_begin(int $tokenId, string $key, string $requestHas
     }
 }
 
-function bms_api_idempotency_store(int $tokenId, string $key, string $requestHash, array $payload, int $status): void
+function bms_api_idempotency_store(int $tokenId, string $key, string $requestHash, array $payload, int $status, ?int $reservationId): void
 {
-    if ($key === '') {
+    if ($key === '' || $reservationId === null || $reservationId < 1) {
         return;
     }
     try {
-        $stmt = bms_db()->prepare('UPDATE ' . bms_table('api_idempotency_keys') . ' SET response_status = :response_status, response_json = :response_json, last_used_at = NOW() WHERE token_id = :token_id AND idempotency_key = :idempotency_key AND request_hash = :request_hash');
+        $responseJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($responseJson)) {
+            return;
+        }
+        $stmt = bms_db()->prepare('UPDATE ' . bms_table('api_idempotency_keys') . " SET response_status = :response_status, response_json = :response_json, last_used_at = NOW() WHERE id = :reservation_id AND token_id = :token_id AND idempotency_key = :idempotency_key AND request_hash = :request_hash AND (response_json IS NULL OR response_json = '')");
         $stmt->execute([
             'response_status' => max(200, min(599, $status)),
-            'response_json' => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'response_json' => $responseJson,
+            'reservation_id' => $reservationId,
             'token_id' => $tokenId,
             'idempotency_key' => $key,
             'request_hash' => $requestHash,
@@ -593,20 +622,21 @@ function bms_api_idempotency_store(int $tokenId, string $key, string $requestHas
     }
 }
 
-function bms_api_idempotency_release(int $tokenId, string $key, string $requestHash): void
+function bms_api_idempotency_release(int $tokenId, string $key, string $requestHash, ?int $reservationId): void
 {
-    if ($key === '') {
+    if ($key === '' || $reservationId === null || $reservationId < 1) {
         return;
     }
     try {
-        $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('api_idempotency_keys') . ' WHERE token_id = :token_id AND idempotency_key = :idempotency_key AND request_hash = :request_hash AND response_json = \'\'');
+        $stmt = bms_db()->prepare('DELETE FROM ' . bms_table('api_idempotency_keys') . " WHERE id = :reservation_id AND token_id = :token_id AND idempotency_key = :idempotency_key AND request_hash = :request_hash AND (response_json IS NULL OR response_json = '')");
         $stmt->execute([
+            'reservation_id' => $reservationId,
             'token_id' => $tokenId,
             'idempotency_key' => $key,
             'request_hash' => $requestHash,
         ]);
     } catch (Throwable $e) {
-        // Ignore cleanup failures.
+        // Ignore cleanup failures; retaining an uncertain reservation is safer.
     }
 }
 
@@ -1708,6 +1738,8 @@ function bms_api_handle_stream_posts_endpoint(): never
     $payload = [];
     $requestId = '';
     $idempotencyKey = '';
+    $reservationId = null;
+    $creationSucceeded = false;
     $requestHash = '';
     $targetStatus = 'draft';
 
@@ -1740,13 +1772,14 @@ function bms_api_handle_stream_posts_endpoint(): never
         $idempotencyKey = bms_api_idempotency_key_from_payload($payload);
         $requestHash = bms_api_request_hash($payload);
 
-        $stored = bms_api_idempotency_begin($tokenId, $idempotencyKey, $requestHash);
+        $stored = bms_api_idempotency_begin($tokenId, $idempotencyKey, $requestHash, $reservationId);
         if ($stored !== null) {
             bms_api_record_audit($tokenId, 'idempotency_replay', true, (int)$stored['status'], 'Idempotency replay returned stored response.', $requestId);
             bms_api_json_response($stored['payload'], (int)$stored['status']);
         }
 
         $post = bms_api_create_remote_stream_post($payload, $token, $targetStatus);
+        $creationSucceeded = true;
         $statusCode = 201;
         $event = $targetStatus === 'published' ? 'remote_post_published' : ($targetStatus === 'scheduled' ? 'remote_post_scheduled' : 'remote_draft_created');
         $message = $targetStatus === 'published'
@@ -1759,14 +1792,14 @@ function bms_api_handle_stream_posts_endpoint(): never
             'post' => $post,
         ];
 
-        bms_api_idempotency_store($tokenId, $idempotencyKey, $requestHash, $response, $statusCode);
+        bms_api_idempotency_store($tokenId, $idempotencyKey, $requestHash, $response, $statusCode, $reservationId);
         bms_api_record_audit($tokenId, $event, true, $statusCode, $message, $requestId);
 
         bms_api_json_response($response, $statusCode);
     } catch (Throwable $e) {
         $tokenId = is_array($token) ? (int)($token['id'] ?? 0) : 0;
-        if ($tokenId > 0 && $idempotencyKey !== '' && $requestHash !== '') {
-            bms_api_idempotency_release($tokenId, $idempotencyKey, $requestHash);
+        if ($reservationId !== null && !$creationSucceeded) {
+            bms_api_idempotency_release($tokenId, $idempotencyKey, $requestHash, $reservationId);
         }
         if ($e instanceof BMS_Api_Exception) {
             $event = $targetStatus === 'published' ? 'remote_publish_error' : ($targetStatus === 'scheduled' ? 'remote_schedule_error' : 'remote_draft_error');
