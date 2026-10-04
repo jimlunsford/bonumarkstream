@@ -8,6 +8,25 @@ The database is the runtime source of truth for posts, pages, accounts, Profiles
 
 Markdown is used for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
 
+## Portability does not equal disaster recovery
+
+Related data movement and recovery mechanisms have distinct contracts:
+
+| Mechanism | Intended contract |
+| --- | --- |
+| Export | A usable representation for moving or preserving selected owner data. |
+| Import | A supported process for bringing an external or Bonumark-produced representation into application state. |
+| Portability package | A package for moving supported owner content or settings between environments. |
+| Software release package | Package-managed Bonumark software and metadata, not owner runtime data. |
+| Backup | Recoverable copies of application state and dependencies intended for restoration. |
+| Disaster recovery | The documented process and complete set of materials required to rebuild service after serious loss. |
+
+Every current or future export, import, portability, site-transfer, backup, migration, or recovery mechanism must state what it includes, what it excludes, and what it is intended to accomplish or prove. Labels such as "complete", "full", "backup", "portable", or "recovery" must not imply capabilities beyond that contract. Recovery documentation must identify separately required materials, including the compatible software/schema version, database, media, configuration, keys, and hosting dependencies as applicable.
+
+A Markdown export can be useful and portable without being a complete disaster-recovery image. A release ZIP supplies software, not a site backup; owner data remains separate from distributable software. A future site-transfer feature must define its own integrity, preflight, identity/media handling, exclusions, execution, and read-back verification contract. Transfer alone does not establish disaster recovery or permit a second runtime source of truth: imported state remains database-authoritative.
+
+Portability mechanisms must not silently include passwords, private keys, server secrets, or other sensitive credentials merely to appear complete. Deliberately private backups can require sensitive state and must disclose and protect it. For example, the current [Admin export](../admin/export.php) distinguishes portable outputs from sensitive database/full exports; that classification is not a claim that either reconstructs the entire hosting environment. Backup and disaster-recovery claims require evidence appropriate to the claim, including restoration evidence wherever the applicable operating standard requires it. Producing a file or snapshot alone does not prove recoverability. See [importers](IMPORTERS.md) and [upgrade preservation and recovery](UPGRADING.md) for their existing contracts.
+
 ## Durable post identity
 
 A Bonumark post's database ID is immutable for the lifetime of that logical post and survives every reversible lifecycle transition. Slug changes, draft, scheduled, and published status changes, unpublish, trash, restore, and republish update the existing `posts` row. Permanent deletion is the only normal lifecycle operation that removes that row.
@@ -22,6 +41,24 @@ Bonumark Stream has two account types:
 - **Commenter**: participation account for comments and Profile/account features when enabled.
 
 The publishing model is intentionally owner-controlled rather than multi-author.
+
+## Owner identity continuity during recovery
+
+Recovery should restore control of the existing owner identity whenever technically possible. Credential replacement should change credentials attached to that identity, not delete the owner and create a new Admin as a shortcut.
+
+This is a future design protection consistent with current [password recovery](../_bonumark_stream/app/password-recovery.php). The reset path updates `password_hash` on the existing active user row by its existing user ID, consumes outstanding password-reset tokens for that user, and calls the existing remember-token revocation helper. It does not recreate the user or replace Profile or ActivityPub identity.
+
+Future recovery designs must account for identity-bound state, including:
+
+- Admin user ID, Stream Post and Page ownership/authorship, and Profile identity.
+- API/integration credentials and future Bonumark Connect grants.
+- Sessions, remember tokens, password-reset/recovery state, and future passkeys or recovery credentials.
+- Audit and operational history associated with the owner.
+- ActivityPub actor identity, keys, and federation relationships wherever they depend on owner identity.
+
+Verify the recovery claimant through the supported recovery mechanism, rotate or replace compromised credentials while retaining the owner, and preserve content ownership relationships. Deliberately decide which sessions and integration credentials are revoked or preserved; their status must not remain ambiguous. Preserve Profile and ActivityPub identity unless an explicit identity migration is being performed. Record appropriate recovery evidence without secrets, and test identity continuity and credential disposition, not merely successful login.
+
+Recovering local Admin access and replacing or migrating federated identity are separate operations. Ordinary password or credential recovery must not casually regenerate or replace ActivityPub identity material; [federation identity and signing-key operations](ACTIVITYPUB.md) retain their own contracts. If owner identity truly must be replaced, perform an explicit identity migration and reconciliation of identity-bound state, never a silent credential-recovery shortcut.
 
 ## Request flow
 
