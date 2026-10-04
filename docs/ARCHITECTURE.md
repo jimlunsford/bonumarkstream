@@ -226,3 +226,12 @@ Stage 6.5 presents that existing owner-participation state through a private `/f
 The upgrader treats configuration, the database, media/uploads, backups, data, and custom themes as protected owner data. Package-managed application files and the bundled theme can be replaced by a validated release package.
 
 Supported upgrades begin at v0.4.0. Earlier v0.1.x, v0.2.x, and v0.3.x development builds require a fresh install.
+
+## Structured upgrade evidence
+
+The shared upgrader records database-backed operations and append-only events through
+migration 0029. Receipt evidence is historical observation, not an alternative
+migration ledger or recovery authority. Legacy `upgrade_history` retains its existing
+meaning. Admin and CLI share the receipt engine; protected JSON is an on-demand
+export. Optional evidence-write failure after mutation must never initiate unsafe
+software rollback. See [Structured upgrade receipts](UPGRADE-RECEIPTS.md).

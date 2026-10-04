@@ -4,6 +4,12 @@ require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/upgrader.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
+bms_require_capability('view_system');
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['receipt'])) {
+    require __DIR__ . '/../_bonumark_stream/app/upgrade-receipt-view.php';
+    exit;
+}
 
 $precheck = null;
 $upgradeRecovery = bms_upgrade_recovery_state_current();
@@ -12,6 +18,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !empty($_GET['post_upgrade']) && !e
     $completedUpgrade = $_SESSION['completed_upgrade'];
     unset($_SESSION['completed_upgrade']);
 
+    if (!empty($completedUpgrade['receipt_id'])) {
+        if (!empty($completedUpgrade['receipt_write_warning'])) {
+            bms_flash('Receipt persistence was incomplete or delayed. Completion may not be recorded. Inspect the private log and recorded history.', 'warning');
+        } else {
+            bms_flash('Upgrade receipt: ' . $completedUpgrade['receipt_id'] . '. Status: ' . $completedUpgrade['receipt_status'] . '. Inspect it in Admin Upgrade.', $completedUpgrade['receipt_status'] === 'complete' ? 'success' : 'warning');
+        }
+        bms_redirect(bms_admin_url(!empty($completedUpgrade['receipt_persisted']) ? 'upgrade.php?receipt=' . $completedUpgrade['receipt_id'] : 'upgrade.php'));
+    }
+    // A pre-receipt upgrader may redirect here after installing this code.
     $migrationCount = count($completedUpgrade['migrations'] ?? []);
     bms_flash('Upgrade complete. Bonumark Stream moved from v' . (string)($completedUpgrade['from'] ?? 'unknown') . ' to v' . (string)($completedUpgrade['to'] ?? bms_version()) . '. Backup created and ' . $migrationCount . ' migration(s) ran. Dynamic public routes now use the upgraded code.', 'success');
 
@@ -48,7 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $result = bms_upgrade_install((string)$pending['zip_path']);
+            $result = bms_upgrade_install((string)$pending['zip_path'], [
+                'method' => 'admin_zip',
+                'expected_zip_sha256' => (string)($pending['zip_sha256'] ?? ''),
+                'confirm_db_backup' => !empty($_POST['confirm_db_backup']),
+            ]);
             $_SESSION['completed_upgrade'] = $result;
             bms_upgrade_clear_pending();
             bms_redirect(bms_admin_url('upgrade.php?post_upgrade=1'));
@@ -102,6 +121,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$receipts = [];
+$receiptUnavailable = false;
+try {
+    $receipts = bms_receipt_recent();
+} catch (Throwable $e) {
+    $receiptUnavailable = true;
+}
 $installedUpgradeCapability = bms_automatic_upgrade_capability();
 
 $upgradeHistory = [];
@@ -116,6 +142,19 @@ bms_admin_header('Upgrade', [
     ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
 ]);
 ?>
+<section class="panel operations-panel">
+  <div class="operations-panel-heading"><div><p class="eyebrow">Upgrade evidence</p><h2>Recent structured receipts</h2><p class="meta">Recorded attempts, including blocked execution and recovery. Open a receipt for evidence and JSON.</p></div></div>
+  <?php if ($receiptUnavailable): ?><p class="warning-text">Receipt storage could not be read. Review System Check and the private log.</p>
+  <?php elseif (!$receipts): ?><p class="meta">No structured receipts recorded. Upgrades started by older code have legacy history only; package hashes, preflight and verification evidence are unavailable.</p>
+  <?php else: ?><div class="operations-record-list">
+  <?php foreach ($receipts as $receipt): $evidence = $receipt['evidence']; ?>
+    <article class="operations-record operations-upgrade-record">
+      <div class="operations-record-cell"><a class="operations-technical-value" href="<?= htmlspecialchars(bms_admin_url('upgrade.php?receipt=' . $receipt['operation_id']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($receipt['operation_id'], ENT_QUOTES, 'UTF-8') ?></a><span><?= htmlspecialchars($evidence['from_version'] . ' → ' . ($evidence['target_version'] ?? 'unknown'), ENT_QUOTES, 'UTF-8') ?></span></div>
+      <div class="operations-record-cell"><strong><?= htmlspecialchars($receipt['status'], ENT_QUOTES, 'UTF-8') ?></strong><span><?= htmlspecialchars($receipt['method'], ENT_QUOTES, 'UTF-8') ?></span><span>Verification: <?= htmlspecialchars($evidence['verification']['state'], ENT_QUOTES, 'UTF-8') ?></span></div>
+      <div class="operations-record-cell"><span><?= htmlspecialchars($receipt['started_at'] . ' UTC', ENT_QUOTES, 'UTF-8') ?></span><span><?= htmlspecialchars(bms_receipt_followup($receipt['status'], $receipt['error_code']), ENT_QUOTES, 'UTF-8') ?></span></div>
+    </article>
+  <?php endforeach; ?></div><?php endif; ?>
+</section>
 <section class="panel operations-hero operations-danger-zone">
   <div class="operations-hero-copy"><p class="eyebrow">High-risk operation</p><h2>Replace Bonumark Stream software only after package and recovery checks pass.</h2><p class="meta">An upgrade can replace PHP, assets, bundled themes, documentation, and version markers, then run database migrations. Configuration, runtime data, uploads, media, backups, and custom themes remain protected.</p></div>
   <span class="operation-risk-label is-destructive">Software replacement</span>
@@ -147,7 +186,7 @@ bms_admin_header('Upgrade', [
       <?php $precheckAutomatic = !empty($precheck['automatic_upgrade']['available']); $precheckBlocked = $precheck['automatic_upgrade']['blocked'] ?? []; ?>
       <div class="upgrade-status-grid"><div class="upgrade-status-card pass"><span>Current version</span><strong>v<?= htmlspecialchars((string)$precheck['current_version'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="upgrade-status-card pass"><span>Uploaded version</span><strong>v<?= htmlspecialchars((string)$precheck['package_version'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="upgrade-status-card <?= !empty($precheck['backup_ready']) ? 'pass' : 'fail' ?>"><span>Backup status</span><strong><?= !empty($precheck['backup_ready']) ? 'Ready' : 'Not writable' ?></strong></div><div class="upgrade-status-card <?= $precheckAutomatic ? 'pass' : 'fail' ?>"><span>Software write access</span><strong><?= $precheckAutomatic ? 'Ready' : 'Manual required' ?></strong></div><div class="upgrade-status-card pass"><span>Migration status</span><strong><?= count($precheck['pending_migrations'] ?? []) ?> pending</strong></div><div class="upgrade-status-card pass"><span>Public output</span><strong><?= (int)($precheck['published_count'] ?? 0) ?> post(s)</strong></div></div>
       <details class="upgrade-details upgrade-precheck-details"><summary>Advanced package and migration details</summary><div><p><strong>Uploaded package:</strong> <?= htmlspecialchars((string)$precheck['uploaded_name'], ENT_QUOTES, 'UTF-8') ?></p><?php if (!$precheckAutomatic && $precheckBlocked): ?><p><strong>Automatic-upgrade blocker:</strong> <code><?= htmlspecialchars((string)($precheckBlocked[0]['relative_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code><?php if (count($precheckBlocked) > 1): ?> (+<?= count($precheckBlocked) - 1 ?> more)<?php endif; ?></p><?php endif; ?><?php if (!empty($precheck['pending_migrations'])): ?><div class="upgrade-migrations-list"><h3>Pending migrations</h3><ul><?php foreach ($precheck['pending_migrations'] as $migration): ?><li><code><?= htmlspecialchars((string)$migration, ENT_QUOTES, 'UTF-8') ?></code></li><?php endforeach; ?></ul></div><?php else: ?><p class="meta">No database migrations appear pending.</p><?php endif; ?><p>Running the upgrade creates a backup, replaces package-managed software, removes obsolete package files, preserves config and runtime data, then runs migrations.</p></div></details>
-      <form method="post" class="operations-form-actions upgrade-confirm-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><button type="submit" name="confirm_upgrade" value="1" class="danger-button" <?= empty($precheck['backup_ready']) || !$precheckAutomatic ? 'disabled' : '' ?>>Run Upgrade</button><button type="submit" name="cancel_upgrade" value="1" class="secondary-button">Cancel Package</button></form>
+      <form method="post" class="operations-form-actions upgrade-confirm-actions"><?php if (!empty($precheck['pending_migrations'])): ?><label><input type="checkbox" name="confirm_db_backup" value="1" required> I confirm that a current external database backup exists. This is not a restore test.</label><?php endif; ?><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><button type="submit" name="confirm_upgrade" value="1" class="danger-button" <?= empty($precheck['backup_ready']) || !$precheckAutomatic ? 'disabled' : '' ?>>Run Upgrade</button><button type="submit" name="cancel_upgrade" value="1" class="secondary-button">Cancel Package</button></form>
       <?php $upgradeBlocked = empty($precheck['backup_ready']) || !$precheckAutomatic; ?>
       <p class="field-help <?= $upgradeBlocked ? 'warning-text' : '' ?>"><?= empty($precheck['backup_ready']) ? 'Upgrade is blocked until the backup folder is writable.' : (!$precheckAutomatic ? 'The package is valid, but web-based upgrade is unavailable because PHP cannot safely replace application software. Use the owner-run CLI upgrade as the application owner, or the documented manual/hosting-layer workflow when shell access is unavailable.' : 'A backup will be created before software files are replaced.') ?></p>
     </section>
@@ -157,7 +196,7 @@ bms_admin_header('Upgrade', [
     <section class="panel operations-panel"><div class="operations-panel-heading"><div><p class="eyebrow">What is protected</p><h2>Runtime and owner data</h2></div></div><dl class="operations-fact-list"><div><dt>Protected</dt><dd>Config, install lock, runtime data, backups, uploads, media, and custom themes.</dd></div><div><dt>Replaced</dt><dd>Package-managed PHP, assets, docs, migrations, bundled themes, and version markers.</dd></div><div><dt>Before migrations</dt><dd>Software-copy failures restore the previous files.</dd></div><div><dt>After migrations begin</dt><dd>The newer files remain and the same package can be retried safely.</dd></div></dl></section>
     <section class="panel operations-danger-zone"><div class="operations-panel-heading"><div><p class="eyebrow">Trust boundary</p><h2>Release ZIPs contain executable PHP.</h2><p class="meta">Manifest and path validation cannot make a malicious trusted-admin package safe.</p></div></div></section>
   </aside>
-  <section class="panel operations-panel operations-workflow-history"><div class="operations-record-heading"><div><p class="eyebrow">History</p><h2>Recent upgrade attempts</h2><p class="meta">Recorded software updates and outcomes.</p></div><span class="static-pill draft"><?= count($upgradeHistory) ?> RECORD<?= count($upgradeHistory) === 1 ? '' : 'S' ?></span></div><?php if (!$upgradeHistory): ?><div class="operations-empty-state"><h3>No upgrade history recorded.</h3><p class="meta">Completed or failed upgrade attempts will appear here.</p></div><?php else: ?><div class="operations-record-header operations-upgrade-record"><span>Version change</span><span>Status</span><span>Ran</span></div><div class="operations-record-list"><?php foreach ($upgradeHistory as $row): ?><article class="operations-record operations-upgrade-record"><div class="operations-record-cell is-version-change"><span class="operations-mobile-label">Version change</span><strong><span>v<?= htmlspecialchars((string)$row['from_version'], ENT_QUOTES, 'UTF-8') ?></span><span aria-hidden="true">→</span><span>v<?= htmlspecialchars((string)$row['to_version'], ENT_QUOTES, 'UTF-8') ?></span></strong></div><div class="operations-record-cell"><span class="operations-mobile-label">Status</span><span class="static-pill <?= strtolower((string)$row['status']) === 'completed' ? 'generated' : 'warning' ?>"><?= htmlspecialchars(strtoupper((string)$row['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="operations-record-cell"><span class="operations-mobile-label">Ran</span><?= htmlspecialchars((string)$row['ran_at'], ENT_QUOTES, 'UTF-8') ?></div></article><?php endforeach; ?></div><?php endif; ?></section>
+  <section class="panel operations-panel operations-workflow-history"><div class="operations-record-heading"><div><p class="eyebrow">History</p><h2>Legacy upgrade history</h2><p class="meta">Compatible summaries only. These rows do not prove package hash, preflight, preservation or post-upgrade verification.</p></div><span class="static-pill draft"><?= count($upgradeHistory) ?> RECORD<?= count($upgradeHistory) === 1 ? '' : 'S' ?></span></div><?php if (!$upgradeHistory): ?><div class="operations-empty-state"><h3>No upgrade history recorded.</h3><p class="meta">Completed or failed upgrade attempts will appear here.</p></div><?php else: ?><div class="operations-record-header operations-upgrade-record"><span>Version change</span><span>Status</span><span>Ran</span></div><div class="operations-record-list"><?php foreach ($upgradeHistory as $row): ?><article class="operations-record operations-upgrade-record"><div class="operations-record-cell is-version-change"><span class="operations-mobile-label">Version change</span><strong><span>v<?= htmlspecialchars((string)$row['from_version'], ENT_QUOTES, 'UTF-8') ?></span><span aria-hidden="true">→</span><span>v<?= htmlspecialchars((string)$row['to_version'], ENT_QUOTES, 'UTF-8') ?></span></strong></div><div class="operations-record-cell"><span class="operations-mobile-label">Status</span><span class="static-pill <?= strtolower((string)$row['status']) === 'completed' ? 'generated' : 'warning' ?>"><?= htmlspecialchars(strtoupper((string)$row['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="operations-record-cell"><span class="operations-mobile-label">Ran</span><?= htmlspecialchars((string)$row['ran_at'], ENT_QUOTES, 'UTF-8') ?></div></article><?php endforeach; ?></div><?php endif; ?></section>
 </div>
 
 <?php bms_admin_footer(); ?>

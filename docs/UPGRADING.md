@@ -2,6 +2,31 @@
 
 The v0.8.2 release candidate is not publicly released; the current public release remains v0.8.1. Bonumark Stream v0.8.2 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
+## Structured upgrade evidence (development)
+
+Receipt-capable builds add migration `0029_structured_upgrade_receipts.php`.
+It creates operational evidence tables without rewriting owner content or legacy
+upgrade history. This development change has not been released as a new version.
+
+After authorizing an Admin ZIP or owner CLI execution, inspect **Admin > Upgrade >
+Recent structured receipts**. Detail views include an authorized JSON download.
+CLI execution prints the same operation identifier and outcome. Upload/precheck and
+`--check` do not create permanent receipt history. Pending migrations require an
+explicit external database backup confirmation; that confirmation is not proof of
+restorability.
+
+Statuses are `running`, `complete`, `blocked`, `failed`, and `recovery_required`.
+A failed verification after software/migrations complete does not undo that upgrade.
+A failed pre-migration attempt records whether software rollback completed. Recovery
+retries retain the same operation and append evidence. An interrupted `running`
+receipt never implies success. System Check remains read-only.
+
+Old Admin code cannot record evidence it never observed. The first transition into
+receipt-capable code may have legacy history only. Do not infer package hashes,
+preflight checks or full owner-data equivalence from those summaries. See the
+[receipt contract](UPGRADE-RECEIPTS.md) for schema, bootstrap, retention and failure
+boundaries.
+
 ## Upgrade paths
 
 Bonumark has two first-class ZIP upgrade paths when the environment supports them.

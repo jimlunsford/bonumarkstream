@@ -566,6 +566,8 @@ function bms_upgrade_recovery_state(): array
         'backup_path' => trim((string)($state['backup_path'] ?? '')),
         'started_at' => trim((string)($state['started_at'] ?? '')),
         'updated_at' => trim((string)($state['updated_at'] ?? '')),
+        'operation_id' => preg_match('/^[a-f0-9]{32}$/D', (string)($state['operation_id'] ?? '')) ? $state['operation_id'] : '',
+        'zip_sha256' => preg_match('/^[a-f0-9]{64}$/D', (string)($state['zip_sha256'] ?? '')) ? $state['zip_sha256'] : '',
     ];
 }
 
@@ -584,6 +586,8 @@ function bms_write_upgrade_recovery_state(array $state): void
         'backup_path' => trim((string)($state['backup_path'] ?? '')),
         'started_at' => trim((string)($state['started_at'] ?? gmdate('c'))),
         'updated_at' => gmdate('c'),
+        'operation_id' => preg_match('/^[a-f0-9]{32}$/D', (string)($state['operation_id'] ?? '')) ? $state['operation_id'] : '',
+        'zip_sha256' => preg_match('/^[a-f0-9]{64}$/D', (string)($state['zip_sha256'] ?? '')) ? $state['zip_sha256'] : '',
     ];
 
     $encoded = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

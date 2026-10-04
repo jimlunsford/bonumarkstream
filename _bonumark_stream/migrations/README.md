@@ -16,3 +16,5 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0026_activitypub_owner_participation.php` adds durable owner Following history, a private cache of followed-actor Notes, owner Like and Announce ledgers, and one-to-one remote reply targets for normal Bonumark Stream Posts.
 - `0027_activitypub_actor_retirement.php` records an irreversible local actor retirement, its immutable Actor Delete activity, and completion of its final follower delivery without modifying non-federation content.
 - `0028_activitypub_remote_actor_lifecycle.php` retains remote actor deletion and fetch-failure state without erasing relationship, interaction, receipt, or tombstone history.
+
+- `0029_structured_upgrade_receipts.php` adds upgrade operations and append-only evidence events without rewriting legacy history or owner content.
