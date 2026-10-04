@@ -63,6 +63,7 @@ $scenarios = [
     'publish_scope',
     'publish_confirmation',
     'media_scope',
+    'media_error_sanitization',
     'idempotency_replay',
     'idempotency_conflict',
     'idempotency_ownership',
@@ -244,6 +245,10 @@ function bms_api_smoke_run_child(string $scenario): void
 function bms_api_smoke_run_scenario(string $scenario): void
 {
     switch ($scenario) {
+        case 'media_error_sanitization':
+            require_once __DIR__ . '/media-error-sanitization-scenario.php';
+            bms_api_smoke_media_error_sanitization();
+            return;
         case 'publishing_safety':
             require_once __DIR__ . '/publishing-safety-scenario.php';
             bms_api_smoke_publishing_safety();

@@ -709,7 +709,7 @@ function bms_api_alt_text(array $payload, array $keys): string
 {
     try {
         return bms_media_validate_alt_text(bms_api_string_field($payload, $keys, 0));
-    } catch (InvalidArgumentException $e) {
+    } catch (BMS_Media_Alt_Text_Exception $e) {
         throw new BMS_Api_Exception($e->getMessage(), 422, 'alt_text_invalid');
     }
 }
@@ -841,6 +841,14 @@ function bms_api_reject_placeholder_media_upload(array $payload, array $file): v
     }
 }
 
+/** Keep diagnostic location/type privately, without copying arbitrary messages or credentials. */
+function bms_api_log_media_failure(string $context, Throwable $e): void
+{
+    bms_log_sanitized_exception($context, new RuntimeException(
+        get_class($e) . ' at ' . basename($e->getFile()) . ':' . $e->getLine()
+    ));
+}
+
 function bms_api_create_remote_media(array $payload, array $token, array $file): array
 {
     if (!bms_api_remote_media_upload_enabled()) {
@@ -855,8 +863,11 @@ function bms_api_create_remote_media(array $payload, array $token, array $file):
             'image_only' => true,
             'uploaded_by' => $uploadedBy,
         ]);
-    } catch (RuntimeException $e) {
+    } catch (BMS_Media_Validation_Exception $e) {
         throw new BMS_Api_Exception($e->getMessage(), 422, 'media_upload_invalid');
+    } catch (Throwable $e) {
+        bms_api_log_media_failure('api-media-upload', $e);
+        throw $e;
     }
     return bms_api_media_response($media);
 }
@@ -898,8 +909,11 @@ function bms_api_import_remote_media(array $payload, array $token): array
         return $media;
     } catch (BMS_Api_Exception $e) {
         throw $e;
-    } catch (RuntimeException $e) {
+    } catch (BMS_Media_Validation_Exception $e) {
         throw new BMS_Api_Exception($e->getMessage(), 422, 'media_import_failed');
+    } catch (Throwable $e) {
+        bms_api_log_media_failure('api-media-import', $e);
+        throw $e;
     } finally {
         if (is_array($download) && !empty($download['path']) && is_file((string)$download['path'])) {
             @unlink((string)$download['path']);

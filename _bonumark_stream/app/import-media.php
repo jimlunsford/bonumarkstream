@@ -171,7 +171,7 @@ function bms_import_fetch_remote_image_once(string $url, int $maxBytes): array
 {
     $target = bms_import_remote_image_fetch_target($url);
     if ($target === null) {
-        throw new RuntimeException('Remote image URL was rejected for safety.');
+        throw new BMS_Media_Validation_Exception('Remote image URL was rejected for safety.');
     }
     if (!function_exists('curl_init')) {
         throw new RuntimeException('Safe remote media imports require the PHP cURL extension. Ask the host to enable cURL.');
@@ -228,19 +228,20 @@ function bms_import_fetch_remote_image_once(string $url, int $maxBytes): array
     curl_close($ch);
 
     if ($primaryIp !== '' && (!bms_import_remote_image_ip_is_public($primaryIp) || !in_array($primaryIp, $resolved, true))) {
-        throw new RuntimeException('Remote image request connected to an unsafe address.');
+        throw new BMS_Media_Validation_Exception('Remote image request connected to an unsafe address.');
     }
     if ($tooLarge) {
-        throw new RuntimeException('Remote image exceeds the import size limit.');
+        throw new BMS_Media_Validation_Exception('Remote image exceeds the import size limit.');
     }
     if ($error !== '') {
-        $safeError = trim(preg_replace('/\s+/', ' ', $error) ?? $error);
+        // Transport diagnostics remain internal; this is not a public-safe exception.
+        $diagnostic = trim(preg_replace('/\s+/', ' ', $error) ?? $error);
         if (function_exists('mb_substr')) {
-            $safeError = bms_text_substr($safeError, 0, 160);
+            $diagnostic = bms_text_substr($diagnostic, 0, 160);
         } else {
-            $safeError = substr($safeError, 0, 160);
+            $diagnostic = substr($diagnostic, 0, 160);
         }
-        throw new RuntimeException($safeError !== '' ? 'Remote image download failed: ' . $safeError . '.' : 'Remote image download failed.');
+        throw new RuntimeException($diagnostic !== '' ? 'Remote image download failed: ' . $diagnostic . '.' : 'Remote image download failed.');
     }
 
     $location = '';
@@ -258,7 +259,7 @@ function bms_import_fetch_remote_image_once(string $url, int $maxBytes): array
 function bms_import_download_remote_image(string $url): array
 {
     if (!bms_import_remote_image_url_is_safe($url)) {
-        throw new RuntimeException('Remote image URL was rejected for safety.');
+        throw new BMS_Media_Validation_Exception('Remote image URL was rejected for safety.');
     }
 
     $maxBytes = bms_import_remote_image_max_bytes();
@@ -269,7 +270,7 @@ function bms_import_download_remote_image(string $url): array
 
     while (true) {
         if (!bms_import_remote_image_url_is_safe($finalUrl)) {
-            throw new RuntimeException('Remote image URL was rejected for safety.');
+            throw new BMS_Media_Validation_Exception('Remote image URL was rejected for safety.');
         }
 
         $response = bms_import_fetch_remote_image_once($finalUrl, $maxBytes);
@@ -279,18 +280,18 @@ function bms_import_download_remote_image(string $url): array
         if ($status >= 300 && $status < 400) {
             $redirects++;
             if ($redirects > 3) {
-                throw new RuntimeException('Remote image redirected too many times.');
+                throw new BMS_Media_Validation_Exception('Remote image redirected too many times.');
             }
             $nextUrl = bms_import_absolute_redirect_url((string)$response['location'], $finalUrl);
             if ($nextUrl === '' || !bms_import_remote_image_url_is_safe($nextUrl)) {
-                throw new RuntimeException('Remote image redirect target was rejected for safety.');
+                throw new BMS_Media_Validation_Exception('Remote image redirect target was rejected for safety.');
             }
             $finalUrl = $nextUrl;
             continue;
         }
 
         if ($status > 0 && ($status < 200 || $status >= 300)) {
-            throw new RuntimeException('Remote image returned HTTP ' . $status . '.');
+            throw new BMS_Media_Validation_Exception('Remote image returned HTTP ' . $status . '.');
         }
 
         $data = (string)$response['data'];
@@ -298,7 +299,7 @@ function bms_import_download_remote_image(string $url): array
     }
 
     if ($data === '') {
-        throw new RuntimeException('Remote image was empty.');
+        throw new BMS_Media_Validation_Exception('Remote image was empty.');
     }
 
     if (str_contains($mime, ';')) {
@@ -309,28 +310,35 @@ function bms_import_download_remote_image(string $url): array
     if ($tmp === false) {
         throw new RuntimeException('Could not create a temporary file for imported media.');
     }
-    file_put_contents($tmp, $data);
-
-    if ($mime === '' && function_exists('finfo_open')) {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        if ($finfo) {
-            $mime = strtolower((string)finfo_file($finfo, $tmp));
-            finfo_close($finfo);
+    // A failed/partial write is infrastructure failure, not an invalid remote image.
+    try {
+        if (file_put_contents($tmp, $data) !== strlen($data)) {
+            throw new RuntimeException('Could not store temporary imported media.');
         }
-    }
 
-    $extension = bms_import_image_extension_from_url_or_mime($finalUrl, $mime);
-    if ($extension === '') {
+        if ($mime === '' && function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mime = strtolower((string)finfo_file($finfo, $tmp));
+                finfo_close($finfo);
+            }
+        }
+
+        $extension = bms_import_image_extension_from_url_or_mime($finalUrl, $mime);
+        if ($extension === '') {
+            throw new BMS_Media_Validation_Exception('Remote file is not a supported image type.');
+        }
+
+        return [
+            'path' => $tmp,
+            'mime' => $mime !== '' ? $mime : bms_media_expected_mime_for_extension($extension),
+            'size' => filesize($tmp) ?: strlen($data),
+            'filename' => bms_import_remote_image_filename($finalUrl, $extension),
+        ];
+    } catch (Throwable $e) {
         @unlink($tmp);
-        throw new RuntimeException('Remote file is not a supported image type.');
+        throw $e;
     }
-
-    return [
-        'path' => $tmp,
-        'mime' => $mime !== '' ? $mime : bms_media_expected_mime_for_extension($extension),
-        'size' => filesize($tmp) ?: strlen($data),
-        'filename' => bms_import_remote_image_filename($finalUrl, $extension),
-    ];
 }
 
 function bms_import_image_extension_from_url_or_mime(string $url, string $mime): string
