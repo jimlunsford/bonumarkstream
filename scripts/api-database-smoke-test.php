@@ -65,6 +65,8 @@ $scenarios = [
     'media_scope',
     'idempotency_replay',
     'idempotency_conflict',
+    'idempotency_ownership',
+    'idempotency_lifecycle',
 ];
 
 foreach ($scenarios as $name) {
@@ -567,6 +569,14 @@ function bms_api_smoke_run_scenario(string $scenario): void
             });
             return;
 
+        case 'idempotency_lifecycle':
+            bms_api_smoke_idempotency_lifecycle();
+            return;
+
+        case 'idempotency_ownership':
+            bms_api_smoke_idempotency_ownership();
+            return;
+
         case 'idempotency_replay':
             $tokenData = bms_api_create_token('Idempotency token', ['status:read', 'stream:draft'], null, 1);
             $tokenId = (int)(($tokenData['token']['id'] ?? 0));
@@ -575,11 +585,12 @@ function bms_api_smoke_run_scenario(string $scenario): void
             }
             $key = 'smoke-replay';
             $hash = 'hash-replay';
-            if (bms_api_idempotency_begin($tokenId, $key, $hash) !== null) {
+            $reservationId = null;
+            if (bms_api_idempotency_begin($tokenId, $key, $hash, $reservationId) !== null) {
                 throw new RuntimeException('New idempotency key unexpectedly returned a stored response.');
             }
-            bms_api_idempotency_store($tokenId, $key, $hash, ['ok' => true, 'smoke' => 'replay'], 201);
-            $stored = bms_api_idempotency_begin($tokenId, $key, $hash);
+            bms_api_idempotency_store($tokenId, $key, $hash, ['ok' => true, 'smoke' => 'replay'], 201, $reservationId);
+            $stored = bms_api_idempotency_begin($tokenId, $key, $hash, $reservationId);
             if (!is_array($stored) || (int)($stored['status'] ?? 0) !== 201 || (($stored['payload']['smoke'] ?? '') !== 'replay')) {
                 throw new RuntimeException('Idempotency replay did not return the stored response.');
             }
@@ -592,15 +603,215 @@ function bms_api_smoke_run_scenario(string $scenario): void
                 throw new RuntimeException('Token ID was not created for idempotency conflict test.');
             }
             $key = 'smoke-conflict';
-            bms_api_idempotency_begin($tokenId, $key, 'hash-one');
-            bms_api_idempotency_store($tokenId, $key, 'hash-one', ['ok' => true], 201);
+            $reservationId = null;
+            bms_api_idempotency_begin($tokenId, $key, 'hash-one', $reservationId);
+            bms_api_idempotency_store($tokenId, $key, 'hash-one', ['ok' => true], 201, $reservationId);
             bms_api_smoke_expect_api_exception('idempotency_key_conflict', function () use ($tokenId, $key): void {
-                bms_api_idempotency_begin($tokenId, $key, 'hash-two');
+                $observer = null;
+                bms_api_idempotency_begin($tokenId, $key, 'hash-two', $observer);
             });
             return;
     }
 
     throw new RuntimeException('Unknown API smoke scenario: ' . $scenario);
+}
+
+/** INSERT-first acquisition deterministically exercises the real unique-key
+ * collision path for each existing-row state, without timing hooks or sleeps. */
+function bms_api_smoke_idempotency_lifecycle(): void
+{
+    $data = bms_api_create_token('Lifecycle regression', ['stream:draft'], null, 1);
+    $tokenId = (int)$data['token']['id'];
+    $key = 'lifecycle-regression';
+    $hash = hash('sha256', 'lifecycle-request');
+    $table = bms_table('api_idempotency_keys');
+    $read = static function () use ($tokenId, $key, $table): mixed {
+        $stmt = bms_db()->prepare('SELECT * FROM ' . $table . ' WHERE token_id = ? AND idempotency_key = ?');
+        $stmt->execute([$tokenId, $key]);
+        return $stmt->fetch();
+    };
+    $assert = static function (bool $condition, string $message): void {
+        if (!$condition) { throw new RuntimeException($message); }
+    };
+    $owner = null;
+    $assert(bms_api_idempotency_begin($tokenId, $key, $hash, $owner) === null && $owner > 0,
+        'Fresh reservation did not acquire ownership.');
+    $original = $read();
+    foreach ([$hash => 'idempotency_key_processing', hash('sha256', 'different') => 'idempotency_key_conflict'] as $requestHash => $code) {
+        $observer = $owner; // begin must clear even a previously populated variable.
+        try {
+            bms_api_idempotency_begin($tokenId, $key, $requestHash, $observer);
+            throw new RuntimeException('Unique-key collision unexpectedly acquired ownership.');
+        } catch (BMS_Api_Exception $e) {
+            $assert($e->apiCode === $code && $e->statusCode === 409 && $observer === null,
+                'Collision did not produce normal semantics without ownership.');
+        }
+        bms_api_idempotency_release($tokenId, $key, $requestHash, $observer);
+        bms_api_idempotency_store($tokenId, $key, $requestHash, ['wrong' => true], 201, $observer);
+        $assert($read() === $original, 'A non-owner changed the reservation.');
+    }
+    $noKey = $owner;
+    $assert(bms_api_idempotency_begin($tokenId, '', $hash, $noKey) === null && $noKey === null,
+        'A keyless request acquired ownership.');
+    bms_api_idempotency_store($tokenId, '', $hash, ['wrong' => true], 201, $noKey);
+    bms_api_idempotency_release($tokenId, '', $hash, $noKey);
+    $assert($read() === $original, 'Keyless cleanup changed an existing reservation.');
+
+    // A genuine owner failure may release; its stale handle cannot affect the replacement.
+    bms_api_idempotency_release($tokenId, $key, $hash, $owner);
+    $assert($read() === false, 'Owner failure did not release its unfinished row.');
+    $replacement = null;
+    bms_api_idempotency_begin($tokenId, $key, $hash, $replacement);
+    $assert($replacement > $owner, 'Replacement reused the old ownership handle.');
+    $replacementRow = $read();
+    bms_api_idempotency_store($tokenId, $key, $hash, ['stale' => true], 201, $owner);
+    bms_api_idempotency_release($tokenId, $key, $hash, $owner);
+    $assert($read() === $replacementRow, 'An old execution changed its replacement.');
+
+    // Failed encoding and database storage/cleanup remain best effort.
+    bms_api_idempotency_store($tokenId, $key, $hash, ['invalid' => "\xFF"], 201, $replacement);
+    $assert($read() === $replacementRow, 'Failed response encoding changed the reservation.');
+    bms_db()->exec('RENAME TABLE ' . $table . ' TO ' . $table . '_storage_failure');
+    try {
+        bms_api_idempotency_store($tokenId, $key, $hash, ['ok' => true], 201, $replacement);
+        bms_api_idempotency_release($tokenId, $key, $hash, $replacement);
+    } finally {
+        bms_db()->exec('RENAME TABLE ' . $table . '_storage_failure TO ' . $table);
+    }
+    $assert($read() === $replacementRow, 'Storage/cleanup failure altered the reservation.');
+
+    $response = ['ok' => true, 'value' => 'original response'];
+    bms_api_idempotency_store($tokenId, $key, $hash, $response, 201, $replacement);
+    $completed = $read();
+    $observer = $replacement;
+    $replay = bms_api_idempotency_begin($tokenId, $key, $hash, $observer);
+    $assert($observer === null && $replay === ['status' => 201, 'payload' => $response],
+        'Completed unique-key collision did not replay without ownership.');
+    bms_api_idempotency_release($tokenId, $key, $hash, $replacement);
+    bms_api_idempotency_store($tokenId, $key, $hash, ['overwrite' => true], 202, $replacement);
+    $assert($read() === $completed, 'Completed reservation was released or rewritten.');
+
+    // Only completed expired rows are reusable, without unrelated random cleanup.
+    bms_db()->exec('UPDATE ' . $table . ' SET expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND) WHERE id = ' . $replacement);
+    $afterExpiry = null;
+    bms_api_idempotency_begin($tokenId, $key, $hash, $afterExpiry);
+    $assert($afterExpiry > $replacement && (string)$read()['response_json'] === '',
+        'Expired completed key did not become reusable on access.');
+    bms_api_idempotency_store($tokenId, $key, $hash, $response, 201, $replacement);
+    bms_api_idempotency_release($tokenId, $key, $hash, $replacement);
+    $assert((int)$read()['id'] === $afterExpiry && (string)$read()['response_json'] === '',
+        'Expired owner changed the new reservation.');
+
+    // Age is not evidence that unfinished work failed or is safe to repeat.
+    bms_db()->exec('UPDATE ' . $table . ' SET expires_at = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE id = ' . $afterExpiry);
+    $unfinishedExpired = $read();
+    $observer = null;
+    bms_api_smoke_expect_api_exception('idempotency_key_processing', function () use ($tokenId, $key, $hash, &$observer): void {
+        bms_api_idempotency_begin($tokenId, $key, $hash, $observer);
+    });
+    $assert($observer === null && $read() === $unfinishedExpired, 'Expiry removed active or uncertain work.');
+    // The true owner can still finish its aged reservation.
+    bms_api_idempotency_store($tokenId, $key, $hash, $response, 201, $afterExpiry);
+    $newHash = hash('sha256', 'new after expiry');
+    $newOwner = null;
+    bms_api_idempotency_begin($tokenId, $key, $newHash, $newOwner);
+    $assert($newOwner > $afterExpiry && $read()['request_hash'] === $newHash,
+        'Expired completed key did not permit a new request.');
+    bms_api_idempotency_release($tokenId, $key, $newHash, $newOwner);
+}
+
+/** Exercise the actual endpoint catch path while A owns an unfinished DB row. */
+function bms_api_smoke_idempotency_ownership(): void
+{
+    $data = bms_api_create_token('Ownership regression', ['stream:draft'], null, 1);
+    $token = $data['token'];
+    $tokenId = (int)$token['id'];
+    $key = 'ownership-regression';
+    $payload = ['content' => 'Exactly one ownership regression draft.', 'status' => 'draft'];
+    $route = '/api/v1/stream/posts.php';
+    $hash = bms_api_request_hash($payload, 'POST', $route);
+    $owner = null;
+    bms_api_idempotency_begin($tokenId, $key, $hash, $owner);
+    $read = static function () use ($tokenId, $key): mixed {
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('api_idempotency_keys') . ' WHERE token_id = ? AND idempotency_key = ?');
+        $stmt->execute([$tokenId, $key]);
+        return $stmt->fetch();
+    };
+    $before = $read();
+    if (!is_array($before) || (string)$before['response_json'] !== '') {
+        throw new RuntimeException('A did not acquire an unfinished reservation.');
+    }
+    $root = (string)$GLOBALS['bms_api_smoke_temp_root'];
+    $port = random_int(44100, 44999);
+    $log = $root . '/idempotency-server.log';
+    $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $root],
+        [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $root, array_merge($_ENV, getenv()));
+    if (!is_resource($process)) {
+        throw new RuntimeException('Could not start the idempotency endpoint test server.');
+    }
+    fclose($pipes[0]);
+    try {
+        $ready = false;
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            try {
+                bms_api_smoke_http_request('http://127.0.0.1:' . $port . '/api/v1/status.php');
+                $ready = true;
+                break;
+            } catch (Throwable $e) {
+                usleep(100000); // Server readiness only; interleaving below is deterministic.
+            }
+        }
+        if (!$ready) {
+            throw new RuntimeException('Idempotency endpoint test server did not become ready.');
+        }
+        $headers = ['Authorization: Bearer ' . $data['plain_token'], 'Content-Type: application/json', 'Idempotency-Key: ' . $key];
+        $url = 'http://127.0.0.1:' . $port . $route;
+        $rejected = bms_api_smoke_http_request($url, 'POST', $headers, json_encode($payload));
+        $error = json_decode($rejected['body'], true);
+        if ($rejected['status'] !== 409 || ($error['error']['code'] ?? '') !== 'idempotency_key_processing') {
+            throw new RuntimeException('B did not receive the processing response: ' . $rejected['body']);
+        }
+        if ($read() !== $before) {
+            throw new RuntimeException('Rejected duplicate B removed or changed A\'s reservation.');
+        }
+        if ($owner !== (int)$before['id']) {
+            throw new RuntimeException('A did not retain its exact reservation ownership handle.');
+        }
+        $postCount = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts'))->fetchColumn();
+        $post = bms_api_create_remote_stream_post($payload, $token, 'draft');
+        $response = ['ok' => true, 'post' => $post];
+        bms_api_idempotency_store($tokenId, $key, $hash, $response, 201, $owner);
+        $replay = bms_api_smoke_http_request($url, 'POST', $headers, json_encode($payload));
+        if ($replay['status'] !== 201 || json_decode($replay['body'], true) !== $response
+            || (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts'))->fetchColumn() !== $postCount + 1) {
+            throw new RuntimeException('A completion and HTTP replay did not represent exactly one creation.');
+        }
+        // No-key requests still create normally through the actual endpoint.
+        $noKeyHeaders = array_slice($headers, 0, 2);
+        for ($i = 0; $i < 2; $i++) {
+            $noKeyResponse = bms_api_smoke_http_request($url, 'POST', $noKeyHeaders,
+                json_encode(['content' => 'Keyless regression draft ' . $i, 'status' => 'draft']));
+            if ($noKeyResponse['status'] !== 201) {
+                throw new RuntimeException('A keyless draft failed: ' . $noKeyResponse['body']);
+            }
+        }
+        if ((int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts'))->fetchColumn() !== $postCount + 3) {
+            throw new RuntimeException('Keyless requests did not create independent drafts.');
+        }
+        // A pre-creation validation failure releases only the reservation it acquired.
+        $invalidHeaders = ['Authorization: Bearer ' . $data['plain_token'], 'Content-Type: application/json', 'Idempotency-Key: owner-failure'];
+        $invalid = bms_api_smoke_http_request($url, 'POST', $invalidHeaders, '{"content":"","status":"draft"}');
+        if ($invalid['status'] !== 422 || (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('api_idempotency_keys') . " WHERE idempotency_key = 'owner-failure'")->fetchColumn() !== 0) {
+            throw new RuntimeException('Endpoint owner failure retained its unfinished reservation.');
+        }
+        if (str_contains($replay['body'], 'reservation_id')) {
+            throw new RuntimeException('Internal reservation ownership leaked into the API.');
+        }
+    } finally {
+        proc_terminate($process);
+        proc_close($process);
+        @unlink($log);
+    }
 }
 
 function bms_api_smoke_verify_deployment_check(string $tempRoot): void

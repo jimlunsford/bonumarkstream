@@ -71,6 +71,12 @@ or:
 
 If the same token repeats the same request with the same key, Bonumark Stream returns the stored response instead of creating a duplicate post. If the same key is reused for different request content, the API returns `409 idempotency_key_conflict`.
 
+An identical unfinished request returns `409 idempotency_key_processing`. Only the execution that inserted the reservation may complete or release that exact internal row. A rejected duplicate or replay receives no reservation ownership. Unique-key acquisition collisions use the same replay, processing, or conflict responses.
+
+Completed responses expire 24 hours after reservation acquisition. An expired completed key is reusable when accessed, with bounded opportunistic cleanup of other expired completed records. Unfinished reservations are never removed merely because their expiry timestamp passed: they may represent active work or an uncertain committed result. Such requests remain processing (or conflicting for a different payload) until their outcome is resolved. Do not use a new key to blindly repeat an uncertain creation.
+
+Response storage remains best effort and separate from post creation. Cache-write failure does not turn a successful creation into an API failure, and this protection is not a permanent exactly-once guarantee. Recovery of abandoned or uncertain unfinished reservations is not automated by this change. Internal reservation IDs are not returned to clients.
+
 ## Status endpoint
 
 ```text
@@ -230,7 +236,7 @@ Future endpoint methods must preserve HTTP semantics as well as this contract. I
 
 ### Idempotency ordering and failure boundary
 
-Current creation keys are scoped to the authenticated token. Header `Idempotency-Key` takes precedence over body `idempotency_key`, `client_request_id`, or the supported `request_id` fallback. The current fingerprint covers method, route, and recursively normalized payload. A stored exact response replays its status and JSON; changed content gets `409 idempotency_key_conflict`, and an empty in-progress response gets `409 idempotency_key_processing`. Reservations carry a 24-hour expiry with opportunistic cleanup, not a permanent exactly-once guarantee. Current response storage is best effort and separate from creation; this gate does not alter or strengthen that implementation by assertion.
+Current creation keys are scoped to the authenticated token. Header `Idempotency-Key` takes precedence over body `idempotency_key`, `client_request_id`, or the supported `request_id` fallback. The current fingerprint covers method, route, and recursively normalized payload. A stored exact response replays its status and JSON; changed content gets `409 idempotency_key_conflict`, and an empty in-progress response gets `409 idempotency_key_processing`. Completed responses have the 24-hour retention and unfinished-reservation protections described in [Idempotency](#idempotency), not a permanent exactly-once guarantee. Current response storage is best effort and separate from creation; this gate does not alter or strengthen that implementation by assertion.
 
 Future fenced operations that support idempotency must follow this ordering:
 
