@@ -911,7 +911,9 @@ function bms_activitypub_save_owner_reply_post(array $page, string $section, str
     }
     try {
         $draft = bms_database_content_page_for_status($page, 'draft', 'stream');
-        $postId = bms_upsert_database_content($draft, 'drafts', $filename, $authorId);
+        $postId = (int)($draft['post_id'] ?? $draft['id'] ?? 0) > 0
+            ? bms_upsert_database_content($draft, 'drafts', $filename, $authorId)
+            : bms_insert_database_content($draft, 'drafts', $filename, $authorId);
         bms_activitypub_attach_owner_reply_target($postId, $object);
         if ($section === 'scheduled') {
             $scheduled = bms_database_content_page_for_status($page, 'scheduled', 'stream');

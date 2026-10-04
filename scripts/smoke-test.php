@@ -848,7 +848,7 @@ foreach (['data-stream-action="draft"', 'data-stream-action="continue"', 'data-s
         bm_smoke_fail($failures, 'Unified Stream composer is missing required control: ' . $requiredComposerText);
     }
 }
-foreach (["['publish', 'schedule', 'draft', 'continue']", 'bms_sync_stream_metadata($page, $targetSection', 'edit.php?type=draft&file='] as $requiredQuickPostText) {
+foreach (["['publish', 'schedule', 'draft', 'continue']", 'bms_insert_database_content($page, $targetSection', 'edit.php?type=draft&file='] as $requiredQuickPostText) {
     if (!str_contains($quickPostSource, $requiredQuickPostText)) {
         bm_smoke_fail($failures, 'Front composer save route is missing unified workflow behavior: ' . $requiredQuickPostText);
     }
@@ -2047,8 +2047,10 @@ if (!str_contains($functionDefaults, "'activitypub_enabled' => '0'")
     bm_smoke_fail($failures, 'The default-off ActivityPub capability and protected signing-key foundation is incomplete.');
 }
 if (!str_contains($publicationSource, 'function bms_dispatch_publication_transition')
-    || !str_contains($databaseSource, "['source' => 'database_upsert']")
-    || !str_contains($schedulerSource, "['source' => 'scheduled_tasks']")) {
+    || !str_contains($databaseSource, "bms_database_content_dispatch_saved(\$existing, \$postId, 'database_upsert')")
+    || !str_contains($databaseSource, "bms_database_content_dispatch_saved(null, \$postId, 'database_insert')")
+    || !str_contains($databaseSource, "bms_dispatch_publication_transition(\$existing, is_array(\$after) ? \$after : null")
+    || !str_contains($schedulerSource, "bms_database_content_dispatch_saved(\$row, \$id, 'scheduled_tasks')")) {
     bm_smoke_fail($failures, 'The core publication-transition seam is incomplete.');
 }
 if (!str_contains($schedulerSource, 'function bms_register_scheduled_task_handler')

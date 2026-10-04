@@ -1541,7 +1541,7 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
     $seoTitle = bms_api_string_field($payload, ['seo_title'], 190);
     $robots = bms_api_string_field($payload, ['robots'], 80);
 
-    $fields = bms_stream_prepare_metadata_fields([
+    $fields = [
         'title' => $title,
         'slug' => $slugInput,
         'status' => $targetStatus,
@@ -1556,42 +1556,10 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'scheduled_at' => $scheduledAtUtc,
         'seo_title' => $seoTitle,
         'robots' => $robots,
-    ], $body, '');
+    ];
 
-    if ($slugInput !== '') {
-        $fields['slug'] = bms_stream_unique_slug((string)$fields['slug']);
-    }
-
-    $raw = bms_build_markdown_document($fields, $body);
-    if (strlen($raw) > 1024 * 1024 * 2) {
-        throw new BMS_Api_Exception('Remote post is too large.', 413, 'post_too_large');
-    }
-
-    $page = bms_parse_markdown_string($raw);
+    [$page, $postId] = bms_api_insert_remote_stream_post($fields, $body, bms_api_token_author_id($token));
     $filename = (string)$page['slug'] . '.md';
-    $authorId = bms_api_token_author_id($token);
-    $postId = 0;
-
-    $section = match ($targetStatus) {
-        'published' => 'published',
-        'scheduled' => 'scheduled',
-        default => 'drafts',
-    };
-
-    if ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
-        $postId = bms_schedule_post_page($page, 'scheduled', $filename, $authorId, $scheduledAtUtc);
-    } elseif (function_exists('bms_upsert_database_content') && bms_database_content_columns_ready()) {
-        $postId = bms_upsert_database_content($page, $section, $filename, $authorId);
-    } elseif (function_exists('bms_sync_stream_metadata')) {
-        bms_sync_stream_metadata($page, $section, $filename, $authorId);
-        $found = bms_find_database_content_by_slug_status((string)$page['slug'], $targetStatus, 'stream');
-        $postId = is_array($found) ? (int)($found['id'] ?? 0) : 0;
-    }
-
-    if ($postId < 1) {
-        $found = function_exists('bms_find_database_content_by_slug_status') ? bms_find_database_content_by_slug_status((string)$page['slug'], $targetStatus, 'stream') : null;
-        $postId = is_array($found) ? (int)($found['id'] ?? 0) : 0;
-    }
 
     $editType = $targetStatus === 'published' ? 'published' : ($targetStatus === 'scheduled' ? 'scheduled' : 'draft');
     $editUrl = bms_site_url('admin/edit.php?type=' . $editType . '&file=' . urlencode($filename));
@@ -1611,6 +1579,37 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
         'media_gallery' => $mediaGallery,
         'media_position' => (string)($embeddedMedia['position'] ?? 'after'),
     ];
+}
+
+/** Persist prepared creation intent; media preparation must stay outside retries. */
+function bms_api_insert_remote_stream_post(array $intent, string $body, ?int $authorId): array
+{
+    return bms_with_stream_slug_lock(static function () use ($intent, $body, $authorId): array {
+        $section = match ((string)($intent['status'] ?? 'draft')) {
+            'published' => 'published',
+            'scheduled' => 'scheduled',
+            default => 'drafts',
+        };
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $fields = bms_stream_prepare_metadata_fields($intent, $body, '');
+            if (trim((string)($intent['slug'] ?? '')) !== '') {
+                $fields['slug'] = bms_stream_unique_slug((string)$fields['slug']);
+            }
+            $raw = bms_build_markdown_document($fields, $body);
+            if (strlen($raw) > 1024 * 1024 * 2) {
+                throw new BMS_Api_Exception('Remote post is too large.', 413, 'post_too_large');
+            }
+            $page = bms_parse_markdown_string($raw);
+            try {
+                $postId = bms_insert_database_content($page, $section, (string)$page['slug'] . '.md', $authorId);
+                return [$page, $postId];
+            } catch (BMS_Content_Slug_Conflict $e) {
+                // A non-cooperating/older writer may still hit the database index.
+                // Only the failed post attempt is rolled back; media is retained.
+            }
+        }
+        throw new BMS_Api_Exception('A unique post slug could not be allocated. Retry the request.', 409, 'slug_conflict');
+    });
 }
 
 function bms_api_create_remote_draft(array $payload, array $token): array

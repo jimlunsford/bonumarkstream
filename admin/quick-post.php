@@ -156,10 +156,8 @@ try {
     $filename = $slug . '.md';
     if ($replyObjectUri !== '') {
         bms_activitypub_save_owner_reply_post($page, $targetSection, $filename, bms_current_user_id(), $replyObjectUri);
-    } elseif ($targetStatus === 'scheduled' && function_exists('bms_schedule_post_page')) {
-        bms_schedule_post_page($page, 'scheduled', $filename, bms_current_user_id(), (string)$scheduledAtUtc);
-    } elseif (function_exists('bms_sync_stream_metadata')) {
-        bms_sync_stream_metadata($page, $targetSection, $filename, bms_current_user_id());
+    } else {
+        bms_insert_database_content($page, $targetSection, $filename, bms_current_user_id());
     }
 
     $commitAttempted = true;

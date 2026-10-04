@@ -499,7 +499,7 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
                 bms_sync_page_metadata($page, $databaseSection, $filename, $authorId);
             }
         } elseif (function_exists('bms_sync_stream_metadata')) {
-            bms_sync_stream_metadata($page, $databaseSection, $filename, $authorId);
+            bms_insert_database_content($page, $databaseSection, $filename, $authorId);
         }
         if ($status === 'published') {
             $summary['published']++;

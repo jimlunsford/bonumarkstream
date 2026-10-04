@@ -1226,6 +1226,7 @@ function bms_delete_content_file(string $type, string $filename): array
     $afterRow = null;
     $pdo->beginTransaction();
     try {
+        bms_with_stream_slug_lock(static fn() => null);
         $before = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id FOR UPDATE');
         $before->execute(['id' => $postId]);
         $beforeRow = $before->fetch();

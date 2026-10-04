@@ -893,6 +893,15 @@ function bms_database_slug_exists(string $slug, string $currentSlug = '', string
     if ($slug === '' || ($currentSlug !== '' && $slug === $currentSlug)) {
         return false;
     }
+    if ($postType === 'stream' && !empty($GLOBALS['bms_stream_slug_lock_depth'])) {
+        $currentPostId = 0;
+        if ($currentSlug !== '') {
+            $current = bms_db()->prepare("SELECT id FROM " . bms_table('posts') . " WHERE slug = ? AND post_type = 'stream' LIMIT 1 FOR UPDATE");
+            $current->execute([$currentSlug]);
+            $currentPostId = (int)($current->fetchColumn() ?: 0);
+        }
+        return bms_stream_slug_conflicts($slug, $currentPostId);
+    }
     try {
         $sql = 'SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE slug = :slug';
         $params = ['slug' => $slug];
@@ -1079,7 +1088,154 @@ function bms_database_content_record_from_page(array $page, string $section, str
     ];
 }
 
+class BMS_Content_Slug_Conflict extends RuntimeException
+{
+    public function __construct()
+    {
+        parent::__construct('Another Stream Post already owns this slug. Rename the post before retrying.');
+    }
+}
+
+/**
+ * Serialize slug writers on an existing installation row. InnoDB owns the lock
+ * until the OUTERMOST transaction ends, including Admin media/reply/restore work.
+ * Locking reads below must not use a caller's older REPEATABLE READ snapshot.
+ * No setting value is changed and no advisory-lock privilege or filesystem is used.
+ */
+function bms_with_stream_slug_lock(callable $operation): mixed
+{
+    $pdo = bms_db();
+    $ownsTransaction = !$pdo->inTransaction();
+    static $sequence = 0;
+    $savepoint = 'bms_slug_' . (++$sequence);
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    }
+    $saved = false;
+    try {
+        $lock = $pdo->query("SELECT setting_key FROM " . bms_table('settings') . " WHERE setting_key = 'site_name' FOR UPDATE");
+        if ($lock->fetchColumn() !== 'site_name') {
+            throw new RuntimeException('Stream slug coordination is unavailable.');
+        }
+        $pdo->exec('SAVEPOINT ' . $savepoint);
+        $saved = true;
+        $GLOBALS['bms_stream_slug_lock_depth'] = (int)($GLOBALS['bms_stream_slug_lock_depth'] ?? 0) + 1;
+        try {
+            $result = $operation();
+        } finally {
+            $GLOBALS['bms_stream_slug_lock_depth']--;
+        }
+        $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        if ($ownsTransaction) {
+            $pdo->commit();
+        }
+        return $result;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            if ($ownsTransaction) {
+                $pdo->rollBack();
+            } elseif ($saved) {
+                $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+        }
+        throw $e;
+    }
+}
+
+/** Current, fail-closed ownership check. Caller must hold the slug lock. */
+function bms_stream_slug_conflicts(string $slug, int $postId = 0): bool
+{
+    $pdo = bms_db();
+    if (!$pdo->inTransaction() || empty($GLOBALS['bms_stream_slug_lock_depth'])) {
+        throw new LogicException('Stream slug checks require the mutation lock.');
+    }
+    $stmt = $pdo->prepare("SELECT id FROM " . bms_table('posts') . " WHERE post_type = 'stream' AND slug = ? AND id <> ? LIMIT 1 FOR UPDATE");
+    $stmt->execute([bms_slugify($slug), $postId]);
+    if ($stmt->fetchColumn() !== false) {
+        return true;
+    }
+    if (bms_database_table_exists($pdo, bms_table('activitypub_permalink_aliases'))) {
+        $alias = $pdo->prepare('SELECT post_id FROM ' . bms_table('activitypub_permalink_aliases') . ' WHERE slug = ? AND post_id <> ? LIMIT 1 FOR UPDATE');
+        $alias->execute([bms_slugify($slug), $postId]);
+        return $alias->fetchColumn() !== false;
+    }
+    return false;
+}
+
+/** Only classify a duplicate from the posts INSERT, never a later terms write. */
+function bms_is_posts_slug_duplicate(PDOException $error): bool
+{
+    return (string)($error->errorInfo[0] ?? '') === '23000'
+        && (int)($error->errorInfo[1] ?? 0) === 1062
+        && preg_match('/for key [\'`](?:[^\'`]+\.)?post_type_slug_status[\'`]/i', (string)($error->errorInfo[2] ?? '')) === 1;
+}
+
+/** Internal shared INSERT. The caller holds the transaction/slug boundary. */
+function bms_insert_database_content_record(array $record): int
+{
+    $pdo = bms_db();
+    try {
+        $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
+        $stmt->execute([
+            'author_id' => $record['author_id'], 'title' => $record['title'], 'slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type'], 'description' => $record['description'],
+            'content_body' => $record['content_body'], 'content_front_matter' => $record['content_front_matter'], 'content_source' => $record['content_source'], 'storage_mode' => $record['storage_mode'],
+            'category' => $record['category'], 'category_slug' => $record['category_slug'], 'markdown_path' => $record['markdown_path'], 'html_path' => $record['html_path'], 'date_published' => $record['date_published'], 'scheduled_at' => ($record['scheduled_at'] !== '' ? $record['scheduled_at'] : null), 'content_hash' => $record['content_hash'], 'published_at' => $record['status'] === 'published' ? gmdate('Y-m-d H:i:s') : null,
+        ]);
+        $postId = (int)$pdo->lastInsertId();
+    } catch (PDOException $e) {
+        if ($record['post_type'] === 'stream' && bms_is_posts_slug_duplicate($e)) {
+            throw new BMS_Content_Slug_Conflict();
+        }
+        throw $e;
+    }
+    if ($postId < 1) {
+        throw new RuntimeException('Content insertion did not return an identity.');
+    }
+    return $postId;
+}
+
+/** New logical content only. A matching slug is never an existing-object ID. */
+function bms_insert_database_content(array $page, string $section, string $filename, ?int $authorId = null): int
+{
+    if (!bms_is_installed() || !bms_database_content_columns_ready()) {
+        throw new RuntimeException('Database-first content is unavailable.');
+    }
+    if (!empty($page['post_id']) || !empty($page['id'])) {
+        throw new InvalidArgumentException('Creation cannot carry an existing post identity.');
+    }
+    return bms_with_stream_slug_lock(static function () use ($page, $section, $filename, $authorId): int {
+        $record = bms_database_content_record_from_page($page, $section, $filename, $authorId ?? bms_current_user_id());
+        if ($record['post_type'] === 'stream' && bms_stream_slug_conflicts((string)$record['slug'])) {
+            throw new BMS_Content_Slug_Conflict();
+        }
+        $postId = bms_insert_database_content_record($record);
+        bms_sync_post_terms($postId, $page);
+        bms_database_content_dispatch_saved(null, $postId, 'database_insert');
+        return $postId;
+    });
+}
+
+function bms_database_content_dispatch_saved(?array $existing, int $postId, string $source): void
+{
+    $afterStmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
+    $afterStmt->execute(['id' => $postId]);
+    $after = $afterStmt->fetch();
+    bms_dispatch_publication_transition($existing, is_array($after) ? $after : null, ['source' => $source]);
+}
+
+/** Synchronization retains its legacy slug lookup; new creators use INSERT. */
 function bms_upsert_database_content(array $page, string $section, string $filename, ?int $authorId = null): int
+{
+    if (!bms_is_installed() || !bms_database_content_columns_ready()) {
+        return 0;
+    }
+    return bms_with_stream_slug_lock(static function () use ($page, $section, $filename, $authorId): int {
+        return bms_upsert_database_content_locked($page, $section, $filename, $authorId);
+    });
+}
+
+function bms_upsert_database_content_locked(array $page, string $section, string $filename, ?int $authorId = null): int
 {
     if (!bms_is_installed() || !bms_database_content_columns_ready()) {
         return 0;
@@ -1088,24 +1244,24 @@ function bms_upsert_database_content(array $page, string $section, string $filen
     $pdo = bms_db();
     $existing = null;
     $requestedPostId = (int)($page['post_id'] ?? $page['id'] ?? 0);
-    try {
-        if ($requestedPostId > 0) {
-            $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
-            $stmt->execute(['id' => $requestedPostId]);
-        } else {
-            $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE slug = :slug AND status = :status AND post_type = :post_type LIMIT 1');
-            $stmt->execute(['slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type']]);
-        }
-        $row = $stmt->fetch();
-        $existing = is_array($row) ? $row : null;
-    } catch (Throwable $e) {
-        $existing = null;
+    if ($requestedPostId > 0) {
+        $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1 FOR UPDATE');
+        $stmt->execute(['id' => $requestedPostId]);
+    } else {
+        $stmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE slug = :slug AND status = :status AND post_type = :post_type LIMIT 1 FOR UPDATE');
+        $stmt->execute(['slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type']]);
     }
+    $row = $stmt->fetch();
+    $existing = is_array($row) ? $row : null;
     if ($requestedPostId > 0 && !$existing) {
         throw new RuntimeException('The existing logical post could not be found. Bonumark will not recreate it with a different identity.');
     }
     if ($existing && (string)($existing['post_type'] ?? '') !== (string)$record['post_type']) {
         throw new RuntimeException('The existing post identity belongs to a different content type.');
+    }
+
+    if ($record['post_type'] === 'stream' && bms_stream_slug_conflicts((string)$record['slug'], (int)($existing['id'] ?? 0))) {
+        throw new BMS_Content_Slug_Conflict();
     }
 
     if ($authorId === null && $existing) {
@@ -1155,23 +1311,10 @@ function bms_upsert_database_content(array $page, string $section, string $filen
             $likeSlug->execute(['current_slug' => $currentSlug, 'post_id' => $postId]);
         }
     } else {
-        $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
-        $stmt->execute([
-            'author_id' => $record['author_id'], 'title' => $record['title'], 'slug' => bms_slugify((string)$record['slug']), 'status' => $record['status'], 'post_type' => $record['post_type'], 'description' => $record['description'],
-            'content_body' => $record['content_body'], 'content_front_matter' => $record['content_front_matter'], 'content_source' => $record['content_source'], 'storage_mode' => $record['storage_mode'],
-            'category' => $record['category'], 'category_slug' => $record['category_slug'], 'markdown_path' => $record['markdown_path'], 'html_path' => $record['html_path'], 'date_published' => $record['date_published'], 'scheduled_at' => ($record['scheduled_at'] !== '' ? $record['scheduled_at'] : null), 'content_hash' => $record['content_hash'], 'published_at' => $record['status'] === 'published' ? gmdate('Y-m-d H:i:s') : null,
-        ]);
-        $postId = (int)$pdo->lastInsertId();
+        $postId = bms_insert_database_content_record($record);
     }
     bms_sync_post_terms($postId, $page);
-    try {
-        $afterStmt = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id LIMIT 1');
-        $afterStmt->execute(['id' => $postId]);
-        $after = $afterStmt->fetch();
-        bms_dispatch_publication_transition($existing, is_array($after) ? $after : null, ['source' => 'database_upsert']);
-    } catch (Throwable $e) {
-        error_log('Bonumark Stream publication transition lookup failed: ' . $e->getMessage());
-    }
+    bms_database_content_dispatch_saved($existing, $postId, 'database_upsert');
     return $postId;
 }
 
@@ -1372,66 +1515,7 @@ function bms_sync_stream_metadata(array $page, string $section, string $filename
         return;
     }
 
-    $status = $section === 'published' ? 'published' : 'draft';
-    $markdownPath = 'content/' . $section . '/' . basename($filename);
-    $htmlPath = $status === 'published' ? trim(bms_stream_relative_directory_for_post($page), '/') . '/index.html' : null;
-    $contentHash = hash('sha256', (string)($page['raw'] ?? ''));
-
-    $pdo = bms_db();
-    $existing = bms_find_post_by_slug_status((string)$page['slug'], $status);
-
-    if ($authorId === null && $existing) {
-        $existingAuthorId = (int)($existing['author_id'] ?? 0);
-        $authorId = $existingAuthorId > 0 ? $existingAuthorId : null;
-    }
-
-    if ($authorId === null) {
-        $pathAuthorId = bms_content_author_id_for_file($section, $filename);
-        $authorId = $pathAuthorId !== null ? $pathAuthorId : null;
-    }
-
-    if ($authorId === null && !$existing) {
-        $authorId = bms_current_user_id();
-    }
-
-    if ($existing) {
-        $stmt = $pdo->prepare('UPDATE ' . bms_table('posts') . ' SET author_id = COALESCE(:author_id, author_id), title = :title, post_type = :post_type, description = :description, category = :category, category_slug = :category_slug, markdown_path = :markdown_path, html_path = :html_path, date_published = :date_published, content_hash = :content_hash, updated_at = NOW(), published_at = CASE WHEN :published_status = \'published\' THEN COALESCE(published_at, NOW()) ELSE published_at END WHERE id = :id');
-        $stmt->execute([
-            'author_id' => $authorId,
-            'title' => (string)$page['title'],
-            'post_type' => 'stream',
-            'description' => (string)($page['description'] ?? ''),
-            'category' => (string)($page['category'] ?? 'Uncategorized'),
-            'category_slug' => (string)($page['category_slug'] ?? bms_term_slug((string)($page['category'] ?? 'Uncategorized'))),
-            'markdown_path' => $markdownPath,
-            'html_path' => $htmlPath,
-            'date_published' => (string)($page['date'] ?? date('Y-m-d')),
-            'content_hash' => $contentHash,
-            'published_status' => $status,
-            'id' => (int)$existing['id'],
-        ]);
-        $postId = (int)$existing['id'];
-    } else {
-        $stmt = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, category, category_slug, markdown_path, html_path, date_published, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :category, :category_slug, :markdown_path, :html_path, :date_published, :content_hash, NOW(), NOW(), :published_at)');
-        $stmt->execute([
-            'author_id' => $authorId,
-            'title' => (string)$page['title'],
-            'slug' => (string)$page['slug'],
-            'status' => $status,
-            'post_type' => 'stream',
-            'description' => (string)($page['description'] ?? ''),
-            'category' => (string)($page['category'] ?? 'Uncategorized'),
-            'category_slug' => (string)($page['category_slug'] ?? bms_term_slug((string)($page['category'] ?? 'Uncategorized'))),
-            'markdown_path' => $markdownPath,
-            'html_path' => $htmlPath,
-            'date_published' => (string)($page['date'] ?? date('Y-m-d')),
-            'content_hash' => $contentHash,
-            'published_at' => $status === 'published' ? gmdate('Y-m-d H:i:s') : null,
-        ]);
-        $postId = (int)$pdo->lastInsertId();
-    }
-
-    bms_sync_post_terms($postId, $page);
+    throw new RuntimeException('Database-first content is unavailable. Complete the database upgrade before saving Stream Posts.');
 }
 
 
@@ -1587,7 +1671,8 @@ function bms_get_or_create_term(string $type, string $name): int
 {
     $pdo = bms_db();
     $slug = bms_term_slug($name);
-    $stmt = $pdo->prepare('SELECT id FROM ' . bms_table('terms') . ' WHERE term_type = :term_type AND slug = :slug LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id FROM ' . bms_table('terms') . ' WHERE term_type = :term_type AND slug = :slug LIMIT 1'
+        . (!empty($GLOBALS['bms_stream_slug_lock_depth']) ? ' FOR UPDATE' : ''));
     $stmt->execute(['term_type' => $type, 'slug' => $slug]);
     $id = $stmt->fetchColumn();
     if ($id !== false) {
@@ -1688,7 +1773,8 @@ function bms_restore_revision_as_draft(int $id): array
     $page['slug'] = $slug;
     $restored = bms_database_content_page_for_status($page, 'draft', 'stream');
     $filename = bms_database_content_filename_for_page($restored);
-    bms_sync_stream_metadata($restored, 'drafts', $filename, bms_revision_original_author_id($revision));
+    unset($restored['post_id'], $restored['id']);
+    bms_insert_database_content($restored, 'drafts', $filename, bms_revision_original_author_id($revision));
     return $restored + ['filename' => $filename];
 }
 
@@ -1860,7 +1946,12 @@ function bms_restore_trash_item(int $id): array
     $pdo = bms_db();
     $pdo->beginTransaction();
     try {
-        bms_sync_stream_metadata($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
+        if ($linkedPostId > 0) {
+            bms_sync_stream_metadata($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
+        } else {
+            unset($restored['post_id'], $restored['id']);
+            bms_insert_database_content($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
+        }
         $pdo->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
         $pdo->commit();
     } catch (Throwable $e) {
@@ -2089,7 +2180,12 @@ function bms_restore_revision_over_current(int $id): array
         $restored['id'] = $restored['post_id'];
     }
     $filename = bms_database_content_filename_for_page($restored);
-    bms_sync_stream_metadata($restored, $section, $filename, $targetAuthorId ?? bms_revision_original_author_id($revision));
+    if ($currentPage) {
+        bms_sync_stream_metadata($restored, $section, $filename, $targetAuthorId ?? bms_revision_original_author_id($revision));
+    } else {
+        unset($restored['post_id'], $restored['id']);
+        bms_insert_database_content($restored, $section, $filename, bms_revision_original_author_id($revision));
+    }
     if ($section === 'published') {
     }
     return $restored + ['filename' => $filename, 'restored_status' => $targetStatus];
