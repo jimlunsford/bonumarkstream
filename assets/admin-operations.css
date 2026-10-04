@@ -786,3 +786,8 @@ body.admin-screen-analytics .analytics-danger-zone {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Receipt navigation keeps the operations workflow's touch-target contract. */
+body.bonumark-admin .admin-page-actions .operations-receipt-action {
+  min-height: 44px;
+}

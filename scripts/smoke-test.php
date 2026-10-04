@@ -225,7 +225,7 @@ if (!str_contains($upgradeSourceEarly, "require_once __DIR__ . '/../_bonumark_st
 }
 if (!str_contains($ownerUpgradeSource, "PHP_SAPI !== 'cli'")
     || !str_contains($ownerUpgradeSource, 'bms_upgrade_inspect_package($zipPath)')
-    || !str_contains($ownerUpgradeSource, 'bms_upgrade_install($zipPath)')
+    || !str_contains($ownerUpgradeSource, 'bms_upgrade_install($zipPath, [')
     || !str_contains($ownerUpgradeSource, '--confirm-db-backup')
     || !str_contains($ownerUpgradeSource, '--site-root=')
     || !str_contains($ownerUpgradeSource, 'Refusing to run as root by default')
@@ -332,7 +332,8 @@ if (!str_contains($manualThemeDocs, '_bonumark_stream/themes/<slug>/')
     || !str_contains($manualThemeDocs, 'Theme Health')) {
     bm_smoke_fail($failures, 'Manual locked-tree theme deployment documentation is incomplete.');
 }
-$deploymentCheckSource = @file_get_contents($root . '/scripts/deployment-check.php') ?: '';
+$deploymentCheckSource = (@file_get_contents($root . '/scripts/deployment-check.php') ?: '')
+    . (@file_get_contents($root . '/_bonumark_stream/app/deployment-verification.php') ?: '');
 if (!str_contains($deploymentCheckSource, 'Read-only installed-site deployment check')
     || !str_contains($deploymentCheckSource, 'bms_database_server_compatibility')
     || !str_contains($deploymentCheckSource, 'bms_runtime_directory_definitions()')

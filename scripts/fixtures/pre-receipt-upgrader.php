@@ -12,8 +12,6 @@ declare(strict_types=1);
 if (!function_exists('bms_db')) {
     require_once __DIR__ . '/database.php';
 }
-require_once __DIR__ . '/upgrade-receipts.php';
-require_once __DIR__ . '/deployment-verification.php';
 
 function bms_upgrade_zip_entry_is_symlink(ZipArchive $zip, int $index): bool
 {
@@ -1009,7 +1007,6 @@ function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName
             'token' => $token,
             'zip_path' => $pendingZip,
             'uploaded_name' => basename($uploadedName),
-            'zip_sha256' => hash_file('sha256', $pendingZip) ?: '',
             'current_version' => $currentVersion,
             'package_version' => $packageVersion,
             'backup_ready' => $backupReady,
@@ -1039,65 +1036,8 @@ function bms_upgrade_clear_pending(): void
     unset($_SESSION['pending_upgrade']);
 }
 
-/** Both adapters enter here only after explicit execution authorization. */
-function bms_upgrade_install(string $zipPath, array $options = []): array
+function bms_upgrade_install(string $zipPath): array
 {
-    $method = (string)($options['method'] ?? (PHP_SAPI === 'cli' ? 'owner_cli' : 'admin_zip'));
-    $operation = null;
-    $lock = null;
-    $GLOBALS['bms_upgrade_receipt_id'] = null;
-    try {
-        $lockDirectory = bms_root_path('tmp/upgrades');
-        if (!is_dir($lockDirectory)) {
-            @mkdir($lockDirectory, 0755, true);
-        }
-        $lock = @fopen($lockDirectory . '/execution.lock', 'c');
-        if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
-            $operation = bms_receipt_begin($method);
-            $GLOBALS['bms_upgrade_receipt_id'] = $operation['operation_id'];
-            bms_receipt_outcome($operation, 'blocked', 'execution_locked');
-            throw new RuntimeException('Another upgrade is running, or the upgrade lock is unavailable.');
-        }
-        $recovery = bms_upgrade_recovery_state_current();
-        if (!empty($recovery['operation_id']) && bms_receipt_schema_available()) {
-            $prior = bms_receipt_read((string)$recovery['operation_id']);
-            $hash = is_file($zipPath) ? hash_file('sha256', $zipPath) : false;
-            if ($prior && $recovery['status'] === 'recovery_required'
-                && is_string($hash) && !empty($recovery['zip_sha256'])
-                && hash_equals((string)$recovery['zip_sha256'], $hash)) {
-                unset($prior['events']);
-                $operation = $prior + ['persisted' => true, 'queue' => [], 'write_warning' => false];
-                $operation['status'] = 'running';
-                $operation['error_code'] = null;
-                $operation['completed_at'] = null;
-                bms_receipt_event($operation, 'recovery_resumed', ['method' => $method], true);
-            }
-        }
-        if ($operation === null) {
-            $operation = bms_receipt_begin($method);
-        }
-        $GLOBALS['bms_upgrade_receipt_id'] = $operation['operation_id'];
-        return bms_upgrade_install_engine($zipPath, $options, $operation);
-    } catch (Throwable $e) {
-        if (is_array($operation) && $operation['status'] === 'running') {
-            $operation['evidence']['preflight']['state'] = 'blocked';
-            bms_receipt_outcome($operation, 'blocked', $operation['error_code'] ?? 'preflight_failed');
-        }
-        throw $e;
-    } finally {
-        if (is_array($operation) && !empty($operation['temporary_path'])) {
-            bms_upgrade_remove_temp($operation['temporary_path']);
-        }
-        if (is_resource($lock)) {
-            flock($lock, LOCK_UN);
-            fclose($lock);
-        }
-    }
-}
-
-function bms_upgrade_install_engine(string $zipPath, array $options, array &$operation): array
-{
-    $operation['error_code'] = 'package_invalid';
     if (!class_exists('ZipArchive')) {
         throw new RuntimeException('The PHP ZipArchive extension is not available on this server. Ask the host to enable it before using admin ZIP upgrades.');
     }
@@ -1105,22 +1045,14 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
     $currentVersion = bms_version();
     bms_upgrade_assert_supported_current_version($currentVersion);
     $publicRoot = bms_public_path();
-    $timestamp = date('Ymd-His') . '-' . bin2hex(random_bytes(4));
+    $timestamp = date('Ymd-His');
     $tmpRoot = bms_root_path('tmp/upgrades/' . $timestamp . '-' . bin2hex(random_bytes(4)));
     $backupRoot = bms_root_path('backups/upgrades/' . $timestamp);
-    $operation['temporary_path'] = $tmpRoot;
 
     if (!is_dir($tmpRoot) && !mkdir($tmpRoot, 0755, true)) {
         throw new RuntimeException('Could not create upgrade temp directory.');
     }
 
-    // Capture the accepted bytes privately; hash and extract the same snapshot.
-    $capturedZip = $tmpRoot . '/accepted.zip';
-    $extractRoot = $tmpRoot . '/extracted';
-    if (!copy($zipPath, $capturedZip) || !mkdir($extractRoot, 0700)) {
-        throw new RuntimeException('Could not capture the accepted upgrade package.');
-    }
-    $zipPath = $capturedZip;
     $zip = new ZipArchive();
     $opened = $zip->open($zipPath);
     if ($opened !== true) {
@@ -1129,61 +1061,26 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
     }
 
     try {
-        bms_upgrade_safe_extract($zip, $extractRoot);
+        bms_upgrade_safe_extract($zip, $tmpRoot);
     } finally {
         $zip->close();
     }
 
-    $packageRoot = bms_upgrade_find_package_root($extractRoot);
+    $packageRoot = bms_upgrade_find_package_root($tmpRoot);
     $packageVersion = bms_upgrade_package_version($packageRoot);
     bms_upgrade_verify_manifest($packageRoot);
     $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
-    $packageMeta = json_decode((string)file_get_contents($packageRoot . '/_bonumark_stream/PACKAGE.json'), true);
-    $operation['evidence']['target_version'] = $packageVersion;
-    $operation['evidence']['package'] = [
-        'identity' => 'bonumark-stream',
-        'release_name' => (string)($packageMeta['release_name'] ?? ''),
-        'zip_sha256' => hash_file('sha256', $zipPath) ?: null,
-        'manifest' => 'verified', 'manifest_file_count' => count($manifestFiles),
-        'managed_file_count' => count(array_filter(array_keys($manifestFiles), 'bms_package_managed_software_path')),
-    ];
-    if (!empty($options['expected_zip_sha256']) && !hash_equals((string)$options['expected_zip_sha256'], (string)$operation['evidence']['package']['zip_sha256'])) {
-        $operation['error_code'] = 'package_changed';
-        throw new RuntimeException('Upgrade ZIP changed after precheck.');
-    }
     $recovery = bms_upgrade_recovery_state_current();
     $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
-    if ($recoveryResume && !empty($recovery['zip_sha256']) && !hash_equals((string)$recovery['zip_sha256'], (string)$operation['evidence']['package']['zip_sha256'])) {
-        $operation['error_code'] = 'recovery_package_mismatch';
-        throw new RuntimeException('Recovery requires the exact original ZIP bytes.');
-    }
-    $operation['evidence']['recovery'] = ['state' => $recoveryResume ? 'resuming' : 'clear', 'resumed' => $recoveryResume];
     $historyFromVersion = $recoveryResume && trim((string)($recovery['from_version'] ?? '')) !== ''
         ? trim((string)$recovery['from_version'])
         : $currentVersion;
 
     if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=') && !$recoveryResume) {
-        $operation['error_code'] = 'package_not_newer';
         bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
     }
 
-    if ($operation['evidence']['bootstrap'] === 'deferred_until_schema' && !isset($manifestFiles['_bonumark_stream/migrations/0029_structured_upgrade_receipts.php'])) {
-        $operation['error_code'] = 'receipt_bootstrap_migration_missing';
-        throw new RuntimeException('Bootstrap requires the receipt schema migration in the target package.');
-    }
-    $operation['evidence']['from_version'] = $historyFromVersion;
-    $pendingMigrations = bms_upgrade_pending_migrations_from_package($packageRoot);
-    if ($pendingMigrations === ['Could not check pending migrations safely.']) {
-        $operation['error_code'] = 'migration_preflight_unavailable';
-        throw new RuntimeException('Could not check pending migrations safely.');
-    }
-    $operation['evidence']['migrations']['expected'] = $operation['evidence']['migrations']['expected'] ?? $pendingMigrations;
-    $operation['evidence']['backup']['external_database'] = !empty($options['confirm_db_backup']) ? 'operator_confirmed' : ($pendingMigrations === [] ? 'not_required' : 'not_confirmed');
-    if ($pendingMigrations !== [] && empty($options['confirm_db_backup'])) {
-        $operation['error_code'] = 'database_backup_confirmation_required';
-        throw new RuntimeException('Confirm a current external database backup before running pending migrations.');
-    }
     $softwareItems = bms_upgrade_software_items($packageRoot);
     $existingManifestFiles = bms_upgrade_existing_manifest_file_set($publicRoot, $manifestFiles);
     $candidateSoftwarePaths = array_values(array_unique(array_merge(
@@ -1192,31 +1089,18 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
     )));
     $automaticUpgrade = bms_automatic_upgrade_capability($candidateSoftwarePaths);
     if (empty($automaticUpgrade['available'])) {
-        $operation['error_code'] = 'software_not_writable';
         $blocked = $automaticUpgrade['blocked'] ?? [];
         $firstPath = (string)($blocked[0]['relative_path'] ?? 'package-managed application files');
         bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('This PHP process cannot safely replace package-managed application files. First blocked path: ' . $firstPath . '. If this is the web/PHP-FPM process, keep the application tree locked and use php scripts/deploy-update.php as the application owner.');
     }
 
-    $operation['error_code'] = null;
-    $operation['evidence']['preflight'] = ['state' => 'accepted', 'deployment_available' => true, 'pending_migrations' => $pendingMigrations];
-    $operation['evidence']['backup']['readiness'] = 'not_observed';
-    bms_receipt_event($operation, 'preflight_accepted', ['preflight' => $operation['evidence']['preflight'], 'package' => $operation['evidence']['package'], 'backup' => $operation['evidence']['backup'], 'recovery' => $operation['evidence']['recovery']]);
-
-    $operation['error_code'] = 'software_backup_failed';
     if (!is_dir($backupRoot) && !mkdir($backupRoot, 0755, true)) {
         bms_upgrade_remove_temp($tmpRoot);
         throw new RuntimeException('Could not create upgrade backup directory.');
     }
 
-    $operation['evidence']['backup']['readiness'] = 'ready';
     bms_upgrade_backup_existing($softwareItems, $backupRoot, $publicRoot);
-    $operation['error_code'] = null;
-    $operation['evidence']['backup']['created'][] = basename($backupRoot);
-    bms_receipt_event($operation, 'software_backup_created', ['identifier' => basename($backupRoot)]);
-    $protectedBefore = bms_receipt_protected_fingerprints($publicRoot);
-    $operation['evidence']['execution']['phase'] = 'software_replacement';
 
     $ran = [];
     $removed = [];
@@ -1234,13 +1118,7 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
             bms_upgrade_copy_recursive($source, $publicRoot . '/' . $item, $changedPackageFiles, $publicRoot);
         }
 
-        $operation['evidence']['execution']['changed_file_count'] = count($changedPackageFiles);
-        bms_receipt_event($operation, 'software_replaced', ['file_count' => count($changedPackageFiles)]);
         $removed = bms_upgrade_cleanup_obsolete_files($publicRoot, $manifestFiles, $backupRoot, $removedDuringInstall);
-        $operation['evidence']['execution']['cleanup_count'] = count($removed);
-        $operation['evidence']['preservation']['policy'] = 'package_managed_replacement_and_protected_cleanup';
-        $operation['evidence']['preservation']['config_and_lock'] = in_array(null, $protectedBefore, true) || in_array(false, $protectedBefore, true) ? 'not_observed' : ($protectedBefore === bms_receipt_protected_fingerprints($publicRoot) ? 'unchanged' : 'changed');
-        bms_receipt_event($operation, 'cleanup_completed', ['count' => count($removed), 'preservation' => $operation['evidence']['preservation']]);
 
         // A host may keep old compiled PHP in OPcache after files on disk are
         // replaced. Invalidate individual copied PHP files during copy, then
@@ -1263,18 +1141,13 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
             bms_write_upgrade_recovery_state([
                 'status' => 'migration_in_progress',
                 'phase' => 'database_migration',
-                'operation_id' => $operation['operation_id'],
-                'zip_sha256' => $operation['evidence']['package']['zip_sha256'],
                 'from_version' => $historyFromVersion,
                 'to_version' => $packageVersion,
                 'backup_path' => $backupRoot,
                 'started_at' => $migrationStartedAt,
             ]);
             $migrationPhaseStarted = true;
-            $operation['evidence']['execution']['phase'] = 'database_migration';
-            bms_receipt_event($operation, 'migration_phase_started');
             $ran = bms_run_migrations($historyFromVersion);
-            bms_receipt_observe_migrations($operation);
         }
 
         bms_upgrade_record_history($historyFromVersion, $packageVersion, $ran, $removed);
@@ -1282,16 +1155,11 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
             bms_clear_upgrade_recovery_state();
         }
     } catch (Throwable $e) {
-        $operation['evidence']['execution']['changed_file_count'] = count($changedPackageFiles);
-        $operation['evidence']['execution']['cleanup_count'] = count($removedDuringInstall);
         if ($migrationPhaseStarted) {
-            bms_receipt_observe_migrations($operation);
             try {
                 bms_write_upgrade_recovery_state([
                     'status' => 'recovery_required',
                     'phase' => 'database_migration',
-                    'operation_id' => $operation['operation_id'],
-                    'zip_sha256' => $operation['evidence']['package']['zip_sha256'],
                     'from_version' => $historyFromVersion,
                     'to_version' => $packageVersion,
                     'backup_path' => $backupRoot,
@@ -1302,20 +1170,12 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
                 bms_log_admin_exception('upgrade-recovery-marker', $recoveryError);
             }
 
-            try {
-                $recordedRecovery = bms_upgrade_recovery_state_current();
-                $operation['evidence']['recovery']['state'] = $recordedRecovery['status'] ?? 'not_observed';
-            } catch (Throwable $markerReadError) {
-                $operation['evidence']['recovery']['state'] = 'not_observed';
-            }
-            bms_receipt_outcome($operation, 'recovery_required', 'migration_phase_failed');
             bms_upgrade_remove_temp($tmpRoot);
             bms_log_admin_exception('upgrade-install', $e);
             throw new RuntimeException('Upgrade stopped after the database migration phase began. New software files were kept so they remain compatible with the database. Retry this exact release package using the same upgrade workflow to resume safely.');
         }
 
         if ($changedPackageFiles === [] && $removedDuringInstall === []) {
-            bms_receipt_outcome($operation, 'failed', 'software_unchanged');
             bms_upgrade_remove_temp($tmpRoot);
             bms_log_admin_exception('upgrade-install', $e);
             throw new RuntimeException('Upgrade stopped before any package-managed software files were changed. No rollback was necessary. Review System Check. On a locked application tree, run php scripts/deploy-update.php as the application owner instead of broadening web/PHP write access.');
@@ -1331,16 +1191,11 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
                 $manifestFiles
             );
         } catch (Throwable $rollbackError) {
-            $operation['evidence']['execution']['rollback'] = 'failed';
-            bms_receipt_outcome($operation, 'failed', 'rollback_failed');
             bms_upgrade_remove_temp($tmpRoot);
             bms_log_admin_exception('upgrade-install', $e);
             bms_log_admin_exception('upgrade-rollback', $rollbackError);
             throw new RuntimeException('Upgrade failed before database migration began and recovery of changed software could not complete. Restore the upgrade backup before trying again.');
         }
-        $operation['evidence']['execution']['rollback'] = 'complete';
-        bms_receipt_event($operation, 'software_rollback', ['restored' => count($rollback['restored']), 'removed_new' => count($rollback['removed_new']), 'restored_obsolete' => count($rollback['restored_obsolete'])]);
-        bms_receipt_outcome($operation, 'failed', 'software_rolled_back');
         bms_upgrade_remove_temp($tmpRoot);
         bms_log_admin_exception('upgrade-install', $e);
         throw new RuntimeException(
@@ -1353,16 +1208,7 @@ function bms_upgrade_install_engine(string $zipPath, array $options, array &$ope
 
     bms_upgrade_remove_temp($tmpRoot);
 
-    $operation['evidence']['execution']['phase'] = 'software_and_migrations_complete';
-    $operation['evidence']['recovery']['state'] = 'clear';
-    bms_receipt_verify($operation, $publicRoot, $packageVersion);
-    bms_receipt_outcome($operation, $operation['evidence']['verification']['state'] === 'pass' ? 'complete' : 'failed', $operation['evidence']['verification']['state'] === 'pass' ? null : 'verification_failed');
-
     return [
-        'receipt_id' => $operation['operation_id'],
-        'receipt_persisted' => $operation['persisted'],
-        'receipt_status' => $operation['status'],
-        'receipt_write_warning' => $operation['write_warning'] || !$operation['persisted'] || $operation['queue'] !== [],
         'from' => $historyFromVersion,
         'to' => $packageVersion,
         'backup' => $backupRoot,

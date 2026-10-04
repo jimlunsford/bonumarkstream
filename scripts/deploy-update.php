@@ -109,22 +109,23 @@ try {
 
 bms_owner_upgrade_print_plan($plan, $identity, $zipPath);
 
-$capability = is_array($plan['deployment_capability'] ?? null) ? $plan['deployment_capability'] : [];
-if (empty($plan['backup_ready'])) {
-    fwrite(STDERR, "BLOCKED: The private upgrade backup location cannot be created or written by the current CLI user.\n");
-    exit(1);
-}
-if (empty($capability['available'])) {
-    $blocked = is_array($capability['blocked'] ?? null) ? $capability['blocked'] : [];
-    $first = (string)($blocked[0]['relative_path'] ?? 'package-managed application files');
-    fwrite(STDERR, "BLOCKED: The current CLI user cannot safely replace the application tree. First blocked path: {$first}\n");
-    fwrite(STDERR, "Run this command as the Bonumark application owner. Do not make the PHP-FPM/web process own the application just to enable upgrades.\n");
-    exit(1);
-}
-
 if ($options['check']) {
+    $capability = is_array($plan['deployment_capability'] ?? null) ? $plan['deployment_capability'] : [];
+    if (empty($plan['backup_ready'])) {
+        fwrite(STDERR, "BLOCKED: The private upgrade backup location cannot be created or written by the current CLI user.\n");
+        exit(1);
+    }
+    if (empty($capability['available'])) {
+        $blocked = is_array($capability['blocked'] ?? null) ? $capability['blocked'] : [];
+        $first = (string)($blocked[0]['relative_path'] ?? 'package-managed application files');
+        fwrite(STDERR, "BLOCKED: The current CLI user cannot safely replace the application tree. First blocked path: {$first}\n");
+        fwrite(STDERR, "Run this command as the Bonumark application owner. Do not make the PHP-FPM/web process own the application just to enable upgrades.\n");
+        exit(1);
+    }
+
     echo "\nPrecheck passed. No files were changed.\n";
     exit(0);
+
 }
 
 $pendingMigrations = is_array($plan['pending_migrations'] ?? null) ? $plan['pending_migrations'] : [];
@@ -143,30 +144,19 @@ if (!$options['yes']) {
     }
 }
 
-$expectedZipHash = trim((string)($plan['zip_sha256'] ?? ''));
-$actualZipHash = hash_file('sha256', $zipPath) ?: '';
-if ($expectedZipHash === '' || $actualZipHash === '' || !hash_equals($expectedZipHash, $actualZipHash)) {
-    fwrite(STDERR, "Upgrade ZIP changed after precheck. Refusing to continue.\n");
-    exit(1);
-}
-
-if ($pendingMigrations !== [] && !$options['confirm_db_backup']) {
-    if (!$interactive) {
-        fwrite(STDERR, "This release has pending database migrations. Back up the database and rerun with --confirm-db-backup.\n");
-        exit(1);
-    }
-    echo "\nThis release has pending database migrations. Confirm that a current external database backup exists.\n";
-    echo "Type BACKUP CONFIRMED to continue: ";
-    $answer = trim((string)fgets(STDIN));
-    if (!hash_equals('BACKUP CONFIRMED', $answer)) {
-        fwrite(STDERR, "Upgrade cancelled before software replacement.\n");
-        exit(1);
-    }
+if ($pendingMigrations !== [] && !$options['confirm_db_backup'] && $interactive) {
+    echo "\nType BACKUP CONFIRMED to confirm that a current external database backup exists: ";
+    $options['confirm_db_backup'] = hash_equals('BACKUP CONFIRMED', trim((string)fgets(STDIN)));
 }
 
 try {
-    $result = bms_upgrade_install($zipPath);
+    $result = bms_upgrade_install($zipPath, [
+        'method' => 'owner_cli',
+        'confirm_db_backup' => $options['confirm_db_backup'],
+        'expected_zip_sha256' => $plan['zip_sha256'],
+    ]);
 } catch (Throwable $e) {
+    bms_owner_upgrade_print_receipt();
     fwrite(STDERR, "\nUpgrade failed: " . $e->getMessage() . "\n");
     exit(1);
 }
@@ -174,6 +164,14 @@ try {
 $migrations = is_array($result['migrations'] ?? null) ? $result['migrations'] : [];
 $removed = is_array($result['removed'] ?? null) ? $result['removed'] : [];
 
+bms_owner_upgrade_print_receipt();
+if (!empty($result['receipt_write_warning'])) {
+    fwrite(STDERR, "WARNING: Receipt persistence was incomplete or delayed. Inspect the private log.\n");
+}
+if (($result['receipt_status'] ?? '') !== 'complete') {
+    fwrite(STDERR, "Software and migrations completed, but verification needs attention. Do not roll back migrated software.\n");
+    exit(1);
+}
 echo "\nBonumark Stream upgrade completed.\n";
 echo 'Version: v' . (string)($result['from'] ?? 'unknown') . ' -> v' . (string)($result['to'] ?? 'unknown') . "\n";
 echo 'Software backup: ' . (string)($result['backup'] ?? 'unknown') . "\n";
@@ -272,4 +270,14 @@ function bms_owner_upgrade_print_plan(array $plan, array $identity, string $zipP
     }
     echo "Preserved owner/runtime data: config, install lock, runtime data, backups, content/import staging, media/uploads, and non-package custom themes.\n";
     echo "Privilege escalation: NONE\n";
+}
+
+function bms_owner_upgrade_print_receipt(): void
+{
+    try {
+        $id = $GLOBALS['bms_upgrade_receipt_id'] ?? null;
+        echo bms_receipt_cli_report(is_string($id) && bms_receipt_schema_available() ? bms_receipt_read($id) : null);
+    } catch (Throwable $e) {
+        fwrite(STDERR, "Receipt readback unavailable. Review Admin Upgrade and the private log.\n");
+    }
 }
