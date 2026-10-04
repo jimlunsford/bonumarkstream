@@ -33,6 +33,56 @@ A Bonumark post's database ID is immutable for the lifetime of that logical post
 
 Trash records retain a nullable reference to the durable post ID. The nullable form preserves compatibility with historical trash records created before durable row identity was enforced. New code must not implement a lifecycle transition by deleting and reinserting an existing logical post.
 
+## Revision-safe mutation invariant
+
+This is the required design for future revision-safe existing-object mutations, not a claim that current Admin paths or Remote Posting implement it. The [API contract](API.md#future-revision-safe-existing-object-mutations) defines the wire representation and errors. No general remote edit endpoint is currently available.
+
+### One resource-wide concurrency state
+
+Core must issue an opaque, application-controlled revision for each eligible mutable resource. It identifies a committed concurrency state of that specific resource on that installation. Clients may retain and compare tokens for equality but must not decode, order, increment, or construct them. A token is neither authorization nor an ActivityPub publication identity.
+
+The default is one resource-wide revision, not separate hidden versions for individual operations or fields. For a Stream Post it covers content, title/slug, metadata, taxonomy, ordered media references and authored descriptions, pin state, scheduling, publication state, and trash/restoration state, including relevant state stored outside the posts row. A change that can invalidate a prepared mutation must invalidate its token. Profile and settings resources must explicitly declare their aggregate boundaries before exposure; a settings resource can be a named settings group, but cannot silently omit fields that its save replaces.
+
+Tokens must be stable across reads of unchanged state and must never be reused after an intervening committed mutation, including an A-to-B-to-A edit, restoration of old content, or republishing. Changes within the same second must be distinguishable. They must not alias another resource, a recreated object, or a divergent installation restored from backup. Recovery or cloning that can otherwise reuse issued tokens must invalidate the old revision namespace before accepting writes. Exact encoding and storage remain private implementation choices. A durable per-resource version plus an installation/incarnation namespace is a suitable implementation direction; second-resolution timestamps, revision snapshot IDs, and hashes of selected fields alone do not meet this contract. Existing `content_hash` and `modified_at` retain their current meanings.
+
+Every accepted first execution of a fenced mutation advances the revision, even if submitted editable values equal current values. This keeps successful mutation results unambiguous. Advancing only the concurrency marker must not manufacture a content-history snapshot or an ActivityPub Update. An exact idempotency replay is not another execution and does not advance it again. Unrelated analytics, delivery-attempt counters, and append-only interactions do not by themselves change the editable resource revision; they must not be silently included in an overwrite payload.
+
+### Authoritative mutation boundary
+
+Admin, REST, MCP, scheduler, imports, and other writers of an eligible resource must ultimately participate in the same core concurrency semantics. Before enabling a remote fenced mutation, all paths that alter its concurrency-relevant state must advance that resource's revision within the authoritative write boundary. Adapting only the remote endpoint would leave stale-write holes. A client-driven read/modify/write submits its expected revision; a scheduler or other internal transition obtains and validates its current state under the same protection rather than inventing a client token.
+
+The core service receives resource identity, the expected opaque revision, the authorized actor, and the intended operation. It must acquire a transaction/lock or equivalent compare-and-swap boundary, read authoritative current state, compare the revision, validate current lifecycle conditions, apply the complete transition, and persist the next revision before releasing that boundary. All participating writers must serialize on that boundary. A compare-and-swap implementation must check its affected-row result and roll back all dependent writes if it loses. Merely starting a transaction around an earlier unprotected read is insufficient. Reads must return the resource and its revision from one consistent snapshot.
+
+A stale request changes no resource or business state: no post/metadata changes, history revisions, schedule changes, trash/restore records, publication generations, tombstones, publication events, delivery work, or externally visible media/filesystem effects. Private staging may be discarded; security/audit entries, rate-limit accounting, and idempotency reservation cleanup may record rejection without being business mutation effects. A failed transition must not leave a partially advanced token or partially committed dependent writes. The caller receives the committed result's revision, never a separately reread token for a later writer's state.
+
+### Operations and exceptions
+
+Fencing is required when exposed remotely for Stream Post editing and metadata changes, rescheduling/canceling schedules, publish/unpublish/republish, trash, permanent deletion, restoration (including restoring an old revision over current state), future Page editing, and Profile/settings/theme-setting saves that can overwrite unseen changes. Restore uses the current resource's revision, not the revision of the historical snapshot being restored. A trashed resource requires an authorized read of its current state before restoration or deletion.
+
+Creation has no existing resource revision and normally uses idempotency. Append-only actions may have independent semantics. A purpose-built toggle or narrowly scoped operation may use a dedicated precondition only through an explicit contract that proves it cannot overwrite unseen state. Such an operation must still advance the parent resource revision when it changes concurrency-relevant parent state. Exceptions are not a general unconditional-write escape hatch.
+
+### Scheduling and federation
+
+A due scheduler transition advances the post revision. If it commits first, a remote edit or reschedule based on the prior revision fails without effects. If an edit or reschedule commits first, the scheduler must re-evaluate the latest status and due time inside the shared boundary; an earlier list of due IDs is not authority to publish. These are requirements for later implementation, not a scheduler redesign in this gate.
+
+Revision fencing protects local state. Only an accepted, committed local transition may result in actionable ActivityPub work. Publication events and delivery intents may be staged transactionally with that transition or derived afterward from its committed evidence; rollback or stale rejection must leave none. Network delivery remains queued after commit and cannot hold the mutation boundary open. Preserve the existing generation-aware lifecycle, immutable object URI per publication generation, and retained tombstones. A new local revision does not necessarily cause a federation event, and a new publication generation is not the local revision token. See [ActivityPub](ACTIVITYPUB.md).
+
+### Existing protections and implementation gap
+
+The following source mechanisms are useful but do not yet implement this invariant:
+
+| Path | Current protection and limitation |
+| --- | --- |
+| [Admin editor](../admin/edit.php) and [revision history](../_bonumark_stream/app/database.php) | Saves recovery snapshots and retains durable post identity. The editor does not submit an expected resource revision; snapshot recording is best effort, not a concurrency fence. |
+| [Quick Edit](../admin/stream-quick-edit.php) and [front-end Trash](../admin/stream-trash.php) | Optionally compare a hash of rendered raw Markdown and return an existing UI-specific 409 on mismatch. Missing hashes are accepted; the check precedes the protected write and is not a resource-wide atomic precondition. |
+| [Trash and publication helpers](../_bonumark_stream/app/renderer.php) | Move to Trash locks the post row and checks original status within a transaction. It does not compare the client-read content under that lock. Publish/unpublish use current lookup, identity, and lifecycle rules without a shared expected revision. |
+| [Restore and permanent deletion](../_bonumark_stream/app/database.php) | Restore checks identity, status, and slug conflicts, then transacts restoration and trash cleanup. Permanent post deletion is conditional on trash status. These are partial expected-state protections, not client revision fencing. |
+| [Scheduler](../_bonumark_stream/app/scheduler.php) | Runner file lock and an update conditional on scheduled status prevent some duplicate transitions; they do not fence a concurrent reschedule that keeps that status. |
+| [Profile](../_bonumark_stream/app/profiles.php), [settings](../admin/settings.php), and [theme settings](../admin/theme-settings.php) | Profile identity writes use a transaction; settings use keyed upserts. Neither mechanism compares a client-read resource revision. |
+| [Publication seam](../_bonumark_stream/app/publication.php) and [ActivityPub recording](../_bonumark_stream/app/activitypub-delivery.php) | Material-transition detection, transactions/locks, deduplication, generations, and queued delivery protect federation lifecycle. They do not substitute for fencing the originating resource mutation. |
+
+These paths remain unchanged. Their existing UI responses, hashes, snapshots, and partial guards must not be relabeled as the new contract. Later implementation must test real interleavings and rollback, as specified in the [API acceptance matrix](API.md#required-implementation-tests).
+
 ## Account model
 
 Bonumark Stream has two account types:

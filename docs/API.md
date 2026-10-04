@@ -172,6 +172,99 @@ curl -H "Authorization: Bearer YOUR_API_TOKEN_HERE" \
   "https://example.com/api/v1/stream/posts?id=42&include_html=1"
 ```
 
+## Future revision-safe existing-object mutations
+
+**Design contract only, not implemented endpoint behavior.** Current Remote Posting reads published Stream Posts (including `id` selection) and creates new posts. It has no general existing-post edit operation, opaque `revision` field, or ETag/If-Match concurrency behavior. Current read fields include `id`, `content`, `content_hash`, `modified_at`, publication timestamps, pin state, and public metadata. Neither `content_hash` nor `modified_at` is the revision defined here. Current creation and OpenAPI remain unchanged.
+
+The [core invariant](ARCHITECTURE.md#revision-safe-mutation-invariant) governs future interfaces. Revision fencing prevents overwriting unseen state; idempotency prevents re-executing the same request. Neither replaces authentication, scopes, publication confirmation, validation, or lifecycle rules.
+
+### Revision representation and HTTP preconditions
+
+An eligible resource read exposes an opaque, case-sensitive JSON string named `revision`. A canonical single-resource REST read also sends a **strong** `ETag` whose quoted opaque value is exactly that string. For example, an illustrative resource fragment `{"id":42,"revision":"opaque-A"}` corresponds to `ETag: "opaque-A"`. Examples here do not define a currently callable mutation route or a token encoding.
+
+The canonical mutation representation must be deterministic for a given revision. It must exclude independently changing counters, derived HTML, request-specific fields, and negotiated variants that would change bytes without changing that validator. The same strong ETag must not label different representation bytes or content codings. Implementations must use a fixed canonical representation/coding for this contract, or separately validate alternate representations; alternate-view and collection ETags are not mutation tokens. A collection may expose each item's `revision` only if each item and token are a consistent snapshot. Its HTTP ETag, if any, describes the collection, never one post. Current `include_html` reads do not acquire concurrency semantics through this documentation.
+
+A future REST mutation targets the same resource identity and canonical representation and supplies **exactly one strong quoted token** in `If-Match`, for example `If-Match: "opaque-A"`. This API deliberately requires one specific version: wildcard `*`, weak tags (`W/`), lists, empty values, unquoted values, and multiple header occurrences are rejected with `400 invalid_revision`. A body-level `revision` precondition is not accepted by this REST contract; its presence is also `400 invalid_revision`, whether it agrees with the header or not. This prevents two competing inputs. `If-Unmodified-Since`, content hashes, and publish confirmation cannot substitute for `If-Match`.
+
+This restricted application profile uses strong comparison and failed-precondition semantics from [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1), and the required-precondition response from [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-3). It does not turn ETags into credentials. A well-formed single token that is not current for this resource is a conflict, including a token issued for another resource; clients cannot infer object existence or permissions from tokens.
+
+### MCP and other application clients
+
+MCP and other non-HTTP adapters accept the opaque string as a required `revision` input. REST removes HTTP quoting and passes exactly the same expected value into the common core service. Core uses one resource-wide comparison model for every adapter. Successful non-HTTP results contain the new `revision`; errors retain the stable codes below and their reread meaning without requiring HTTP headers. Admin must ultimately use the same core semantics, with presentation appropriate to its forms.
+
+### Errors and client recovery
+
+After authentication, authorization, and ordinary request validation, fenced operations use:
+
+| Condition | HTTP status | Stable error code | Client action |
+| --- | --- | --- | --- |
+| Required `If-Match` absent (or non-HTTP revision input absent) | 428 Precondition Required | `revision_required` | Read the authorized resource and prepare the operation with its revision. |
+| Present but invalid/unsupported revision input | 400 Bad Request | `invalid_revision` | Correct the input; do not drop the precondition. |
+| Valid expected token differs from current state at the mutation boundary | 412 Precondition Failed | `revision_conflict` | Reread current authorized state, reassess the intended change, and obtain any required renewed approval. |
+| Existing idempotency key reused with different request identity | 409 Conflict | `idempotency_key_conflict` | Use a new key for a newly prepared request. |
+| Exact idempotent request is still in progress | 409 Conflict | `idempotency_key_processing` | Resolve the original outcome before another execution. |
+
+The existing error envelope is preserved. For a stale mutation:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "revision_conflict",
+    "message": "The resource changed. Read its current state before preparing another mutation."
+  }
+}
+```
+
+The code itself is the machine-readable instruction to reread; clients must not parse message text. Conflict responses contain neither the current object nor a replacement token/ETag. Send `Cache-Control: no-store` on revision errors (428 responses must not be cached). No blind retry, automatic overwrite, or automatic merge is permitted. A new read does not alone authorize reapplying an old change. If the resource is no longer available to an authorized read, stop and resolve that state. Normal authentication/authorization responses retain precedence. For a first execution, ordinary not-found responses also take precedence; a missing or inaccessible resource does not become a token-disclosure oracle. If a resource disappears after initial lookup, re-evaluate that result under the mutation boundary and return the ordinary not-found result without side effects. An authorized exact completed replay is resolved before the first-execution existence check, including a replay of successful deletion.
+
+`revision_required` is distinct from the existing `publish_confirmation_required`, even though both can use HTTP 428. Valid revision input never grants publishing authority or confirms publication.
+
+### Successful mutation
+
+A successful first execution returns the committed canonical resource with its new JSON `revision` and matching strong `ETag`, captured within the mutation boundary. Use a response with a JSON body, not a bare 204 that hides the application revision. A later concurrent write can make that result stale immediately; the returned revision describes this operation's committed outcome, not a promise of continued currency. Even a successful identical-value save advances the revision; an exact replay returns the original revision and performs no new save.
+
+Trash, unpublish, and restoration retain the logical resource and return its new revision under authorized access. Permanent deletion is the explicit terminal exception to a live-resource representation: return an outcome containing the stable resource ID, `deleted: true`, and a newly issued terminal `revision`. It records the deletion outcome and is never valid for another write. Do not emit a resource ETag for an absent representation or fabricate a live post. An exact stored idempotency replay can return that deletion outcome; other reads/mutations use the ordinary not-found result. This does not require retaining deleted content or changing the existing ActivityPub tombstone contract. MCP returns the same terminal result semantics.
+
+Future endpoint methods must preserve HTTP semantics as well as this contract. In particular, an implementation using PUT with server-side transformation cannot emit a validator contrary to RFC 9110 section 9.3.4; choose a mutation method/representation that can return the canonical committed result and validator correctly.
+
+### Idempotency ordering and failure boundary
+
+Current creation keys are scoped to the authenticated token. Header `Idempotency-Key` takes precedence over body `idempotency_key`, `client_request_id`, or the supported `request_id` fallback. The current fingerprint covers method, route, and recursively normalized payload. A stored exact response replays its status and JSON; changed content gets `409 idempotency_key_conflict`, and an empty in-progress response gets `409 idempotency_key_processing`. Reservations carry a 24-hour expiry with opportunistic cleanup, not a permanent exactly-once guarantee. Current response storage is best effort and separate from creation; this gate does not alter or strengthen that implementation by assertion.
+
+Future fenced operations that support idempotency must follow this ordering:
+
+1. Authenticate and verify current authorization/scopes and ordinary request validity, including required revision presence/shape, before disclosing a replay. A revoked token cannot retrieve a stored response. Keep publication confirmation and other action safeguards independent.
+2. Resolve the caller-scoped idempotency key and request fingerprint. The fingerprint must bind method/operation, canonical target identity, mutation payload, and expected revision, including REST's header value. Changing the revision with the same key is a different request. Return a key conflict before attempting a new revision comparison when an existing key has a different fingerprint.
+3. A completed exact replay returns the original stored outcome and its original revision/ETag, where applicable, without comparing that old expected token to today's revision and without repeating the mutation or side effects. Treat it as historical execution evidence, not a fresh read. An in-progress duplicate returns its distinct processing error.
+4. For a first execution, reserve/deduplicate the request, then compare the expected revision inside the real authoritative mutation boundary. A new key never bypasses that check. On conflict, apply no business state, release only the uncompleted reservation owned by this execution, and return `412 revision_conflict`. A duplicate must never release another in-flight execution's reservation.
+5. Commit the accepted mutation, next revision, and recoverable idempotency outcome coherently. Later implementation must close the commit/response-storage crash window, either transactionally or with durable recovery of that exact outcome. Do not assume current creation's best-effort cache proves this future guarantee. Failed/uncertain execution must never be rerun blindly; cleanup cannot discard evidence of a committed mutation.
+
+After a stale conflict, a newly prepared request uses a new key and the newly read revision. After an uncertain response, retry the exact original request/key to resolve its outcome. If its record has expired or is unavailable, revision fencing still applies to any first execution; do not promise an indefinite replay window.
+
+### Coverage and implementation prerequisite
+
+Apply this contract to remote existing Stream Post edits and metadata, rescheduling, publish/unpublish/republish, trash/permanent deletion, restoration, future Page edits, and Profile/settings/theme-setting saves that risk unseen overwrites. Resource-wide fencing is the default. Creation normally needs idempotency rather than a revision. Append-only actions and explicitly contracted narrow toggles can use dedicated semantics; they cannot silently become general writes. The [architecture invariant](ARCHITECTURE.md#revision-safe-mutation-invariant) defines aggregate coverage, writer participation, scheduler ordering, and ActivityPub boundaries.
+
+Before exposing a mutation, provide authorized reads for every state it can target, including drafts, scheduled posts, and trash where applicable. Today's published-only read endpoint is insufficient for those operations. This is an implementation prerequisite, not authorization to add routes in this gate. All relevant local writers must participate before remote fencing can be claimed effective.
+
+### Required implementation tests
+
+These are acceptance requirements for future implementation, not tests claimed to pass today:
+
+| Scenario | Required evidence |
+| --- | --- |
+| Consistent reads and HTTP validators | Resource and token come from one snapshot; canonical JSON revision and strong ETag agree; alternate HTML/coding/collection validators cannot be confused with the mutation validator. |
+| Current, missing, malformed, and stale preconditions | Current succeeds; absent returns 428; weak/wildcard/list/duplicate/unquoted/empty/body inputs return 400; old or wrong-resource token returns 412 with stable codes and no replacement token. |
+| Rapid and reversible changes | Two changes in one second, A-to-B-to-A, metadata-only changes, pinning, restore, and republish invalidate old tokens; repeated reads do not. Recreated resources and restored/cloned divergent installations cannot reuse old tokens. |
+| Competing writers | Deliberately interleave two writes from the same revision: only one commits, including Admin-versus-REST and REST-versus-MCP. Exercise all participating writer paths and both database families. |
+| Partial failure and stale rejection | Compare all affected rows/history, schedules, trash, media/files, publication generations/events, tombstones, and delivery queues before and after; a failed/stale mutation leaves no business effects or partial token advance. Allowed audit/accounting is checked separately. |
+| Idempotency | Exact completed replay after a later edit returns the original outcome without execution; different payload/target/revision conflicts; concurrent duplicate is processing; expired/missing record cannot bypass fencing. Exercise crash recovery after commit and before response delivery. |
+| Scheduler race | Scheduler-first makes the old remote revision stale; reschedule/edit-first forces reevaluation of current due time/status. No stale scheduler snapshot publishes a newly postponed post. |
+| Federation | Accepted material transitions preserve Create/Update/Delete and generation rules; stale/rolled-back requests create no activity or delivery; identical-value accepted saves advance revision without spurious federation events. |
+| Lifecycle and permissions | Restoration checks the current trashed/resource revision; deletion returns a terminal result; replay and new requests still enforce authorization; vanished/inaccessible resources expose no current state. |
+| Client behavior | Clients reread and reassess after `revision_conflict`; they never substitute the latest token onto an old payload automatically. |
+
 ## Create stream post
 
 ```text
