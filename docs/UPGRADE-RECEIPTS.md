@@ -123,7 +123,7 @@ It tests the shared engine, actual owner CLI, actual Admin authorization/detail/
 route, migration failure and exact-byte recovery, rollback failure, evidence writer
 failure before and after replacement, secrets, schema replay, and both bootstrap
 paths. Fault injection edits only disposable fixture code or creates test-database
-triggers; production code has no fault-injection switch. The Compatibility matrix
+constraints; production code has no fault-injection switch. The Compatibility matrix
 runs this coverage on both supported MySQL and MariaDB floor/reference targets.
 
 ## Admin UI reuse

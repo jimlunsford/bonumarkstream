@@ -253,7 +253,8 @@ try {
 
     foreach (['operation_started', 'software_replaced', 'post_verification'] as $failAt) {
         [$site, $prefix] = receipt_fixture('writer-' . $failAt);
-        $pdo->exec("CREATE TRIGGER {$prefix}writer_failure BEFORE INSERT ON {$prefix}upgrade_operation_events FOR EACH ROW BEGIN IF NEW.event_type = '{$failAt}' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'SYNTHETIC_DB_CREDENTIAL'; END IF; END");
+        // A real database insert failure without MySQL SUPER or binary-log changes.
+        $pdo->exec("ALTER TABLE {$prefix}upgrade_operation_events ADD CONSTRAINT {$prefix}SYNTHETIC_DB_CREDENTIAL CHECK (event_type <> '{$failAt}')");
         $r = receipt_child($site, 'install', $zip, ['method' => 'owner_cli']);
         if ($failAt === 'operation_started') {
             receipt_assert($r['error'] !== null && $r['version'] === '0.8.2', 'initial writer failure blocks mutation');
