@@ -301,6 +301,8 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         'upgrade_history',
         'upgrade_operations',
         'upgrade_operation_events',
+        'connect_control', 'connect_clients', 'connect_sessions', 'connect_grants',
+        'connect_codes', 'connect_credentials', 'connect_audit', 'connect_limits',
         'api_tokens',
         'api_audit_log',
         'api_rate_limit_attempts',

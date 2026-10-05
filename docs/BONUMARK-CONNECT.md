@@ -16,6 +16,19 @@ The current roadmap and Connect product plan supplied the planning direction.
 The roadmap's Gate 4 closeout SHA is historical; this audit uses the newer
 explicit checkpoint above. No roadmap status is advanced here.
 
+## Gate 6A source implementation status
+
+The accepted architecture below remains the authority contract. Gate 6A now has a
+source candidate implementing migration 0030, explicit site initialization,
+provisioned clients, site authorization, live grants, local owner controls and a
+separate Node 24 / MariaDB-MySQL relay. Concrete paths, limits, recovery steps and
+scope boundaries are recorded in [Connect authorization](CONNECT-AUTHORIZATION.md)
+and [implementation evidence](development/connect-gate6a.md). Service source is
+repository-only under `services/bonumark-connect/`, excluded from Stream packages.
+This section settles those implementation choices only. Deployment, the real
+hostname, hosted acceptance and Gate 7 tools remain future work; no gate is closed
+by this candidate. Earlier baseline observations below are historical audit context.
+
 ## Authority and failure boundary
 
 Bonumark Stream remains fully functional without Connect. The self-hosted site's
@@ -554,18 +567,20 @@ exception redesign, or slug coordination redesign is needed. New grant/credentia
 storage and request authorization are Gate 6 implementation, not disguised
 prerequisite refactors. Broad cleanup or merely symmetrical services are excluded.
 
-## Deferred implementation and acceptance
+## Implementation and deferred acceptance
 
 | Gate | Deferred work |
 | --- | --- |
-| 6 | Site ID/setup and recovery guards; client/grant/credential storage and migrations as needed; code/PKCE/state routes and Admin UI; live grant authorization; discovery/audit additions; account/site routing; encrypted relay credentials; health, logging, abuse limits; hosted service, hostname, VPS/Nginx/TLS/DNS and backups only with separate authorization. |
+| 6A | Source candidate now implements site ID/setup/recovery, migration 0030, client/grant/credential state, code/PKCE/state routes, Admin controls, live authorization, discovery/audit, account/site routing, encryption, health and source limits. Human source acceptance remains required. |
+| 6B / 6C | Hosted service identity, VPS/Nginx/TLS/DNS, operational budgets and backups/restore, then hosted development-site acceptance. Separate executions only. |
 | 7 | Actual seven tool implementations; media-read scope/endpoint/projection; site-info/Stream/draft/media calls through relay; streamed transfer; custom-domain and MCP end-to-end proof. |
 | 8 | Resource revision runtime across every relevant writer; edits and scheduling mutations; concurrent/stale-write and no-side-effect proof. |
 | 9 | Direct Connect publishing, destruction/restoration and final high-risk confirmation/approval model. |
 
-Gate 6 still chooses service hostname, account login integration, implementation
-language/database, deployed resource budgets, logging retention and operating
-procedures. These do not reopen the site authority, origin binding, grant, code,
+Gate 6A selects Node 24 with MariaDB/MySQL, a provider-neutral provisioned
+development account, bounded source defaults and the separate service directory.
+Gate 6B still chooses the real hostname, deployed resource budgets, operational log
+retention and operating procedures; final plugin account integration is Gate 11. These do not reopen the site authority, origin binding, grant, code,
 scope, and recovery contracts here. Protocol implementation must test wrong
 callback/state/verifier/issuer, parallel exchange, denial/expiry, cross-account
 linking, origin changes/clones, restored revoked credentials, live scope reduction,

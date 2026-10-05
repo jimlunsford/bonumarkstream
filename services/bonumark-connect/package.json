@@ -1,0 +1,30 @@
+{
+  "name": "@bonumark/connect-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:database": "node --test test/database.integration.mjs",
+    "start": "node src/main.mjs",
+    "admin": "node src/admin.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "ipaddr.js": "2.5.0",
+    "mysql2": "3.24.5"
+  },
+  "files": [
+    "src/",
+    "schema.sql",
+    "README.md",
+    "config.example.json"
+  ],
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -463,6 +463,7 @@ function bms_current_user_can(string $capability, ?array $subject = null): bool
 function bms_admin_route_capability(string $script): ?string
 {
     return match ($script) {
+        'connected-applications.php', 'connect-authorize.php' => 'manage_settings',
         'index.php', 'welcome.php', 'help.php', 'user.php' => 'view_admin',
         'content.php', 'new.php', 'edit.php', 'preview.php', 'preview-current.php', 'quick-edit.php', 'stream-quick-edit.php', 'stream-trash.php', 'delete.php', 'restore.php', 'delete-permanent.php' => 'edit_content',
         'share-target.php' => 'publish_content',

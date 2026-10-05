@@ -18,3 +18,7 @@ MySQL and MariaDB implicitly commit DDL statements. Bonumark Stream therefore tr
 - `0028_activitypub_remote_actor_lifecycle.php` retains remote actor deletion and fetch-failure state without erasing relationship, interaction, receipt, or tombstone history.
 
 - `0029_structured_upgrade_receipts.php` adds upgrade operations and append-only evidence events without rewriting legacy history or owner content.
+- `0030_connect_authorization_foundation.php` adds the isolated Connect client,
+  request, code, grant, credential, audit and abuse-control tables. It preserves
+  owner data and does not enable Connect or create an installation ID from an
+  anonymous request. The owner initializes the durable UUIDv4 site ID explicitly.

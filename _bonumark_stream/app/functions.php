@@ -2533,6 +2533,15 @@ function bms_send_security_headers(): void
         return;
     }
 
+    if (defined('BMS_CONNECT_AUTHORIZATION_SURFACE') && BMS_CONNECT_AUTHORIZATION_SURFACE) {
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
+        return;
+    }
+
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');

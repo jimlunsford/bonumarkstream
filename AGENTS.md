@@ -31,4 +31,4 @@ Before version, packaging, release, migration, or public-release work, consult t
 
 ## Repository-only guidance
 
-This root `AGENTS.md` is tracked development guidance and must not ship in distributable packages. The root `.gitattributes` excludes it from `git archive`; the compatibility workflow verifies both the clean source archive and canonical ZIP boundary. Keep this file concise, durable, and free of temporary branch/version state, backlogs, and private planning links.
+This root `AGENTS.md` is tracked development guidance and must not ship in distributable packages. The root `.gitattributes` excludes it and the repository-only `services/` tree from `git archive`; the compatibility workflow verifies both the clean source archive and canonical ZIP boundary. Keep this file concise, durable, and free of temporary branch/version state, backlogs, and private planning links.

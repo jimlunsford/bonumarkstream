@@ -1,0 +1,12 @@
+{
+  "baseUrl": "https://connect.example.com",
+  "callbackUrl": "https://connect.example.com/callback",
+  "clientId": "provision_a_random_client_id",
+  "keyFile": "/private/operator-selected-path/keys.json",
+  "database": { "host": "127.0.0.1", "port": 3306, "database": "bmc_connect", "user": "dedicated_connect_user", "password": "SET_OUTSIDE_THE_REPOSITORY" },
+  "port": 8088,
+  "accountPerMinute": 60,
+  "discoveryPerMinute": 5,
+  "outboundPerMinute": 20,
+  "maxConcurrent": 16
+}

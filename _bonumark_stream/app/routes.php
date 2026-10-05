@@ -154,7 +154,7 @@ function bms_handle_account_route(): void
             }
             if ($action === 'reset_password') {
                 bms_password_recovery_reset_password((string)($_POST['token'] ?? ''), (string)($_POST['new_password'] ?? ''), (string)($_POST['confirm_password'] ?? ''));
-                $notice = 'Password updated. You can sign in now.';
+                $notice = 'Password updated. You can sign in now. If you manage this site, review Admin > Settings > Connected Applications. A normal password reset preserves approved connections; use the recovery revocation action if compromise is suspected.';
                 $noticeType = 'success';
                 $accountAction = '';
                 $resetToken = '';
