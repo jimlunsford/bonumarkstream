@@ -65,6 +65,7 @@ $scenarios = [
     'publish_confirmation',
     'media_scope',
     'media_error_sanitization',
+    'media_search_native_prepares',
     'idempotency_replay',
     'idempotency_conflict',
     'idempotency_ownership',
@@ -246,6 +247,10 @@ function bms_api_smoke_run_child(string $scenario): void
 function bms_api_smoke_run_scenario(string $scenario): void
 {
     switch ($scenario) {
+        case 'media_search_native_prepares':
+            require_once __DIR__ . '/media-search-native-prepares-scenario.php';
+            bms_api_smoke_media_search_native_prepares();
+            return;
         case 'stream_slug_safety':
             require_once __DIR__ . '/stream-slug-safety-scenario.php';
             bms_api_smoke_stream_slug_safety();
