@@ -38,6 +38,7 @@ Each matrix job then runs:
 - the disposable database smoke test covering both current fresh-install schema creation and historical supported-upgrade migration replay
 - the migration-recovery smoke test
 - the disposable Remote Posting API database smoke test
+- Connect site authorization, migration-0030 retry, one-use code races, owner binding, rollback, revocation and HTTP-flow tests
 
 Release-branch pushes are held to the strict package boundary. The workflow does not allow the source-branch manifest exemption on `release/**`. It verifies the final release manifest, builds the canonical versioned ZIP from the commit, extracts it into a clean directory, and repeats PHP, JavaScript, JSON, package, ActivityPub, migration, and Remote API validation against the extracted archive on all four matrix combinations. The PHP 8.3/MySQL 8.4 job also retains the validated ZIP as a short-lived workflow artifact for release-candidate inspection.
 
@@ -63,3 +64,17 @@ php scripts/deploy-update.php /path/to/bonumark-stream-vX.Y.Z.zip
 The helper uses the same core upgrade engine as Admin → Upgrade, does not elevate privileges, and automatically runs the installed-site deployment check after success. The lower-level `scripts/run-migrations.php` and `scripts/deployment-check.php` helpers remain available for manual/hosting-layer deployments and recovery work.
 
 When a manual deployment introduces database migrations, back up the database and use the explicit owner-run migration command documented in `docs/server/MANUAL-DEPLOYMENT.md` before considering the deployment complete.
+
+## Isolated Connect service verification
+
+`AGENTS.md` and the entire `services/` directory are excluded from normal Stream
+archives. Compatibility compares both tar and canonical ZIP file lists against
+that exact exclusion, including every other tracked package file. The source-tree
+smoke exemption never regenerates a public manifest.
+
+The independent `.github/workflows/connect-service.yml` checks the Node 24 relay
+with both MySQL 8.0 and MariaDB 10.6. It verifies pinned dependency integrity,
+production dependency audit, syntax, encryption, SSRF/DNS pinning, real TLS limits,
+account/session binding, real PHP authorization, browser layout at desktop/tablet/
+phone sizes, revocation, clean service packaging and committed-secret patterns.
+Its dependencies and test fixtures never enter the ordinary Stream distribution.

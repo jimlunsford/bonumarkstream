@@ -410,6 +410,189 @@
           }
         }
       }
+    },
+    "/api/connect/v1/discovery.php": {
+      "get": {
+        "summary": "Connect discovery",
+        "description": "Anonymous enabled-site discovery. No owner ID, credentials, grants or private content. Only connection status is implemented.",
+        "operationId": "connectDiscovery",
+        "tags": [
+          "Connect authorization"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; all responses use Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectDiscovery"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe Connect error. Includes a server-generated request ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connect/v1/token.php": {
+      "post": {
+        "summary": "Connect token",
+        "description": "One-use S256 code exchange with exact binding. Protocol mismatches return generic invalid_grant. No refresh or automatic retry.",
+        "operationId": "connectToken",
+        "tags": [
+          "Connect authorization"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; all responses use Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectTokenResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe Connect error. Includes a server-generated request ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "JSON object, at most 8192 bytes.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectExchange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connect/v1/status.php": {
+      "get": {
+        "summary": "Connect status",
+        "description": "Live owner-bound grant health. Requires status:read and the exact registered client. No content or Gate 7 tools.",
+        "operationId": "connectStatus",
+        "tags": [
+          "Connect authorization"
+        ],
+        "security": [
+          {
+            "connectBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; all responses use Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectStatusResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe Connect error. Includes a server-generated request ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Bonumark-Client",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/connect/v1/revoke.php": {
+      "post": {
+        "summary": "Connect revoke",
+        "description": "Revoke this credential's grant, including an empty-scope grant. Site state is authoritative.",
+        "operationId": "connectRevoke",
+        "tags": [
+          "Connect authorization"
+        ],
+        "security": [
+          {
+            "connectBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; all responses use Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectRevokeResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Safe Connect error. Includes a server-generated request ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Bonumark-Client",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "JSON object, at most 8192 bytes.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "example": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -418,6 +601,12 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "Bonumark Stream API token"
+      },
+      "connectBearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "bmsc_ + 64 lowercase hex",
+        "description": "Dedicated Connect credential, bound to an exact active owner, client, site and live grant. Existing Remote Posting tokens are not accepted."
       }
     },
     "responses": {
@@ -1134,6 +1323,424 @@
             "maxLength": 120
           }
         }
+      },
+      "ConnectBinding": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "base_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "canonical_origin",
+          "base_path"
+        ]
+      },
+      "ConnectGrant": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "base_path": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "grant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "status:read",
+                "stream:read",
+                "stream:draft",
+                "media:upload"
+              ]
+            },
+            "maxItems": 4,
+            "uniqueItems": true
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Absolute UTC Unix seconds, at most 90 days after approval."
+          }
+        },
+        "required": [
+          "site_id",
+          "canonical_origin",
+          "base_path",
+          "client_id",
+          "grant_id",
+          "scopes",
+          "expires_at"
+        ]
+      },
+      "ConnectError": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "request_id",
+          "error"
+        ]
+      },
+      "ConnectDiscovery": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "base_path": {
+            "type": "string"
+          },
+          "protocol_versions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            }
+          },
+          "supported_scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "status:read",
+                "stream:read",
+                "stream:draft",
+                "media:upload"
+              ]
+            },
+            "maxItems": 4,
+            "uniqueItems": true
+          },
+          "endpoints": {
+            "type": "object",
+            "properties": {
+              "authorize": {
+                "type": "string",
+                "format": "uri"
+              },
+              "token": {
+                "type": "string",
+                "format": "uri"
+              },
+              "status": {
+                "type": "string",
+                "format": "uri"
+              },
+              "revoke": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "authorize",
+              "token",
+              "status",
+              "revoke"
+            ]
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "connection_status": {
+                "type": "object",
+                "properties": {
+                  "implemented": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "required_scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "status:read"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "implemented",
+                  "enabled",
+                  "required_scopes"
+                ]
+              }
+            },
+            "required": [
+              "connection_status"
+            ]
+          },
+          "authorization": {
+            "type": "object",
+            "properties": {
+              "pkce_methods": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "S256"
+                  ]
+                }
+              },
+              "session_max_seconds": {
+                "type": "integer",
+                "enum": [
+                  600
+                ]
+              },
+              "code_max_seconds": {
+                "type": "integer",
+                "enum": [
+                  60
+                ]
+              },
+              "credential_max_seconds": {
+                "type": "integer",
+                "enum": [
+                  7776000
+                ]
+              },
+              "refresh_supported": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "pkce_methods",
+              "session_max_seconds",
+              "code_max_seconds",
+              "credential_max_seconds",
+              "refresh_supported"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "request_id",
+          "site_id",
+          "canonical_origin",
+          "base_path",
+          "protocol_versions",
+          "supported_scopes",
+          "endpoints",
+          "capabilities",
+          "authorization"
+        ]
+      },
+      "ConnectExchange": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonical_origin": {
+            "type": "string",
+            "format": "uri"
+          },
+          "base_path": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "code_verifier": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 128
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "site_id",
+          "canonical_origin",
+          "base_path",
+          "code",
+          "code_verifier",
+          "client_id",
+          "redirect_uri"
+        ]
+      },
+      "ConnectTokenResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConnectGrant"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "request_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "access_token": {
+                "type": "string",
+                "pattern": "^bmsc_[a-f0-9]{64}$",
+                "description": "Returned once; never log or store plaintext."
+              },
+              "token_type": {
+                "type": "string",
+                "enum": [
+                  "Bearer"
+                ]
+              }
+            },
+            "required": [
+              "ok",
+              "request_id",
+              "access_token",
+              "token_type"
+            ]
+          }
+        ]
+      },
+      "ConnectStatusResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConnectGrant"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "request_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "connected": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "required": [
+              "ok",
+              "request_id",
+              "connected"
+            ]
+          }
+        ]
+      },
+      "ConnectRevokeResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revoked": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "request_id",
+          "revoked"
+        ]
       }
     }
   }

@@ -274,3 +274,13 @@ migration ledger or recovery authority. Legacy `upgrade_history` retains its exi
 meaning. Admin and CLI share the receipt engine; protected JSON is an on-demand
 export. Optional evidence-write failure after mutation must never initiate unsafe
 software rollback. See [Structured upgrade receipts](UPGRADE-RECEIPTS.md).
+
+## Optional Connect authorization boundary
+
+The Gate 6A source candidate adds a separate site authorization module and migration
+0030, plus repository-only relay source. Normal public, Admin, publishing, media,
+scheduler and federation paths make no relay calls. The site owns every grant and
+live permission decision; the relay stores only routing state and encrypted outbound
+credentials. Node and the relay database are not Stream installation requirements.
+See [Connect authorization](CONNECT-AUTHORIZATION.md) for implemented surfaces and
+[the accepted contract](BONUMARK-CONNECT.md) for the continuing authority boundary.

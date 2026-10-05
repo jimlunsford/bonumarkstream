@@ -25,6 +25,7 @@ media/*
 # Local exports, logs, and archives
 *.log
 *.sql
+!services/bonumark-connect/schema.sql
 *.sqlite
 *.zip
 *.tar
@@ -41,3 +42,9 @@ Thumbs.db
 
 # Keep sample config versioned
 !_bonumark_stream/config.sample.php
+# Hosted service is repository-only; local dependencies and private state never commit.
+services/**/node_modules/
+services/**/config.local.json
+services/**/keys*.json
+services/**/*.log
+services/**/*.tgz

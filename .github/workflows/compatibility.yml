@@ -75,8 +75,8 @@ jobs:
           node scripts/markdown-link-test.js
           archive_test_root="$(mktemp -d "$RUNNER_TEMP/bonumark-archive-test.XXXXXX")"
           trap 'rm -rf "$archive_test_root"' EXIT
-          # Only root AGENTS.md may be omitted; every other tracked file must ship.
-          git ls-tree -r --name-only HEAD | sed '/^AGENTS\.md$/d' | sort > "$archive_test_root/expected"
+          # Agent guidance and isolated hosted service are repository-only.
+          git ls-tree -r --name-only HEAD | sed -e '/^AGENTS\.md$/d' -e '/^services\//d' | sort > "$archive_test_root/expected"
           git archive --format=tar HEAD -o "$archive_test_root/source.tar"
           tar -tf "$archive_test_root/source.tar" | sed '/\/$/d' | sort > "$archive_test_root/tar-files"
           diff -u "$archive_test_root/expected" "$archive_test_root/tar-files"
@@ -253,6 +253,7 @@ jobs:
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/api-database-smoke-test.php
+          php scripts/connect-authorization-test.php
 
       - name: Build and extract canonical release package
         if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}
@@ -320,6 +321,7 @@ jobs:
           php scripts/migration-recovery-smoke-test.php
           php scripts/upgrade-receipts-test.php
           php scripts/api-database-smoke-test.php
+          php scripts/connect-authorization-test.php
 
       - name: Record release package checksum
         if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}

@@ -232,6 +232,7 @@ function bms_admin_header(string $title, array $actions = []): void
             ['label' => 'Writing', 'href' => bms_admin_url('settings-writing.php'), 'files' => ['settings-writing.php']],
             ['label' => 'Reading', 'href' => bms_admin_url('settings-reading.php'), 'files' => ['settings-reading.php']],
             ['label' => 'Security', 'href' => bms_admin_url('security.php'), 'files' => ['security.php']],
+            ['label' => 'Connected Applications', 'href' => bms_admin_url('connected-applications.php'), 'files' => ['connected-applications.php', 'connect-authorize.php']],
             ['label' => 'Registration', 'href' => bms_admin_url('registration.php'), 'files' => ['registration.php']],
             ['label' => 'Mail', 'href' => bms_admin_url('mail.php'), 'files' => ['mail.php']],
         ];
