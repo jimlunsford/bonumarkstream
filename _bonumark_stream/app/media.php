@@ -668,48 +668,55 @@ function bms_media_upload(array $file, string $altText = '', string $caption = '
     }
 }
 
+/** Bounded core read; callers own authorization and failure presentation. */
+function bms_media_query(int $limit = 100, string $search = '', string $status = 'active'): array
+{
+    $limit = max(1, min(500, $limit));
+    $status = bms_media_normalize_status($status);
+    $sql = 'SELECT * FROM ' . bms_table('media');
+    $params = [];
+    $where = [];
+
+    [$ownerWhere, $ownerParams] = bms_media_user_scope_sql();
+    if ($ownerWhere !== '') {
+        $where[] = $ownerWhere;
+        $params = array_merge($params, $ownerParams);
+    }
+
+    if ($status === 'trash') {
+        $where[] = 'trashed_at IS NOT NULL';
+    } elseif ($status === 'active') {
+        $where[] = 'trashed_at IS NULL';
+    }
+
+    $search = trim($search);
+    if ($search !== '') {
+        $where[] = '(original_filename LIKE :search_original_filename OR filename LIKE :search_filename OR alt_text LIKE :search_alt_text OR caption LIKE :search_caption)';
+        // Native PDO prepares require a distinct placeholder per comparison.
+        $pattern = '%' . $search . '%';
+        $params['search_original_filename'] = $pattern;
+        $params['search_filename'] = $pattern;
+        $params['search_alt_text'] = $pattern;
+        $params['search_caption'] = $pattern;
+    }
+
+    if ($where) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+
+    $sql .= $status === 'trash'
+        ? ' ORDER BY trashed_at DESC, updated_at DESC, id DESC LIMIT ' . $limit
+        : ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit;
+    $stmt = bms_db()->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll() ?: [];
+}
+
+/** Preserve the existing Admin empty-list fallback on internal failure. */
 function bms_media_list(int $limit = 100, string $search = '', string $status = 'active'): array
 {
     try {
-        $limit = max(1, min(500, $limit));
-        $status = bms_media_normalize_status($status);
-        $sql = 'SELECT * FROM ' . bms_table('media');
-        $params = [];
-        $where = [];
-
-        [$ownerWhere, $ownerParams] = bms_media_user_scope_sql();
-        if ($ownerWhere !== '') {
-            $where[] = $ownerWhere;
-            $params = array_merge($params, $ownerParams);
-        }
-
-        if ($status === 'trash') {
-            $where[] = 'trashed_at IS NOT NULL';
-        } elseif ($status === 'active') {
-            $where[] = 'trashed_at IS NULL';
-        }
-
-        $search = trim($search);
-        if ($search !== '') {
-            $where[] = '(original_filename LIKE :search_original_filename OR filename LIKE :search_filename OR alt_text LIKE :search_alt_text OR caption LIKE :search_caption)';
-            // Native PDO prepares require a distinct placeholder per comparison.
-            $pattern = '%' . $search . '%';
-            $params['search_original_filename'] = $pattern;
-            $params['search_filename'] = $pattern;
-            $params['search_alt_text'] = $pattern;
-            $params['search_caption'] = $pattern;
-        }
-
-        if ($where) {
-            $sql .= ' WHERE ' . implode(' AND ', $where);
-        }
-
-        $sql .= $status === 'trash'
-            ? ' ORDER BY trashed_at DESC, updated_at DESC, id DESC LIMIT ' . $limit
-            : ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit;
-        $stmt = bms_db()->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll() ?: [];
+        return bms_media_query($limit, $search, $status);
     } catch (Throwable $e) {
         return [];
     }

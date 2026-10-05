@@ -6,6 +6,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/link-preview.php';
 require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
 require_once __DIR__ . '/../_bonumark_stream/app/places.php';
 require_once __DIR__ . '/../_bonumark_stream/app/composer.php';
+require_once __DIR__ . '/../_bonumark_stream/app/stream-commands.php';
 bms_require_login();
 bms_require_capability('edit_content');
 
@@ -136,28 +137,29 @@ try {
         $fields = array_merge($fields, bms_link_preview_front_matter_fields(bms_link_preview_payload_from_request()));
     }
     $fields = array_merge($fields, $locationFields);
-    $fields = bms_stream_prepare_metadata_fields($fields, $body);
+    if ($replyObjectUri !== '') {
+        $fields = bms_stream_prepare_metadata_fields($fields, $body);
 
-    $raw = bms_build_markdown_document($fields, $body);
-    $page = bms_parse_markdown_string($raw);
-    $slug = bms_slugify((string)($page['slug'] ?? ''));
-    if ($slug === '') {
-        throw new RuntimeException('Bonumark Stream could not create a valid post URL. Add more post text or enter a slug under Advanced.');
-    }
+        $raw = bms_build_markdown_document($fields, $body);
+        $page = bms_parse_markdown_string($raw);
+        $slug = bms_slugify((string)($page['slug'] ?? ''));
+        if ($slug === '') {
+            throw new RuntimeException('Bonumark Stream could not create a valid post URL. Add more post text or enter a slug under Advanced.');
+        }
 
-    if (function_exists('bms_find_database_content_by_slug_status')) {
-        foreach (['draft', 'published', 'scheduled'] as $existingStatus) {
-            if (bms_find_database_content_by_slug_status($slug, $existingStatus, 'stream')) {
-                throw new RuntimeException('Another stream post already uses this slug. Change the Advanced slug or edit the existing post.');
+        if (function_exists('bms_find_database_content_by_slug_status')) {
+            foreach (['draft', 'published', 'scheduled'] as $existingStatus) {
+                if (bms_find_database_content_by_slug_status($slug, $existingStatus, 'stream')) {
+                    throw new RuntimeException('Another stream post already uses this slug. Change the Advanced slug or edit the existing post.');
+                }
             }
         }
-    }
 
-    $filename = $slug . '.md';
-    if ($replyObjectUri !== '') {
+        $filename = $slug . '.md';
         bms_activitypub_save_owner_reply_post($page, $targetSection, $filename, bms_current_user_id(), $replyObjectUri);
     } else {
-        bms_insert_database_content($page, $targetSection, $filename, bms_current_user_id());
+        [$page, $postId] = bms_stream_create_prepared($fields, $body, bms_current_user_id(), 'reject_prepared');
+        $filename = (string)$page['slug'] . '.md';
     }
 
     $commitAttempted = true;

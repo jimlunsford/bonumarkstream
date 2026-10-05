@@ -357,22 +357,28 @@ function bms_slug_safety_http(callable $assert, callable $row, callable $state, 
     }
 }
 
-/** Exercise the unchanged API retry loop with deterministic injected collisions.
+/** Exercise the extracted retry loop through the unchanged API adapter with deterministic injected collisions.
  * Each injected collision is backed by a real duplicate INSERT, not SQLSTATE guessing.
  * Only the disposable namespaced copy substitutes the primitive; no runtime hook exists.
  */
 function bms_slug_safety_retry_budget(callable $assert, callable $intent, array $token): void
 {
     $root = (string)$GLOBALS['bms_api_smoke_temp_root'];
-    $reflection = new ReflectionFunction('bms_api_insert_remote_stream_post');
-    $source = implode('', array_slice(file($reflection->getFileName()), $reflection->getStartLine() - 1,
-        $reflection->getEndLine() - $reflection->getStartLine() + 1));
+    $source = '';
+    foreach (['bms_api_insert_remote_stream_post', 'bms_stream_create_prepared'] as $function) {
+        $reflection = new ReflectionFunction($function);
+        $source .= implode('', array_slice(file($reflection->getFileName()), $reflection->getStartLine() - 1,
+            $reflection->getEndLine() - $reflection->getStartLine() + 1)) . "\n";
+    }
     $fixture = $root . '/slug-retry-budget.php';
     file_put_contents($fixture, <<<'FIXTURE'
 <?php
 namespace BmsSlugRetryRegression;
 use \BMS_Api_Exception;
 use \BMS_Content_Slug_Conflict;
+use \BMS_Stream_Creation_Conflict;
+use \BMS_Stream_Document_Too_Large;
+use \InvalidArgumentException;
 function bms_insert_database_content(array $page, string $section, string $filename, ?int $authorId): int
 {
     $GLOBALS['slug_retry_calls']++;

@@ -5,6 +5,8 @@ require_once __DIR__ . '/media.php';
 require_once __DIR__ . '/import-media.php';
 require_once __DIR__ . '/markdown.php';
 require_once __DIR__ . '/places.php';
+require_once __DIR__ . '/stream-commands.php';
+require_once __DIR__ . '/stream-query.php';
 
 class BMS_Api_Exception extends RuntimeException
 {
@@ -1368,9 +1370,7 @@ function bms_api_read_stream_posts(): array
     $postId = bms_api_query_integer('id', 0, 0, PHP_INT_MAX);
     $includeHtml = in_array(strtolower(trim((string)($_GET['include_html'] ?? '0'))), ['1', 'true', 'yes'], true);
     if ($postId > 0) {
-        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id AND post_type = :post_type AND status = :status LIMIT 1');
-        $stmt->execute(['id' => $postId, 'post_type' => 'stream', 'status' => 'published']);
-        $row = $stmt->fetch();
+        $row = bms_stream_find_published($postId);
         if (!is_array($row)) {
             throw new BMS_Api_Exception('Stream post not found.', 404, 'stream_post_not_found');
         }
@@ -1384,39 +1384,17 @@ function bms_api_read_stream_posts(): array
     $orderby = bms_api_query_choice('orderby', ['id', 'created_at', 'updated_at', 'published_at'], 'id');
     $modifiedAfter = bms_api_modified_after_utc();
 
-    $where = ['post_type = :post_type', 'status = :status'];
-    $params = ['post_type' => 'stream', 'status' => $status];
-    if ($modifiedAfter !== '') {
-        $where[] = 'updated_at > :modified_after';
-        $params['modified_after'] = $modifiedAfter;
-    }
-    $whereSql = implode(' AND ', $where);
-    $count = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('posts') . ' WHERE ' . $whereSql);
-    $count->execute($params);
-    $total = (int)$count->fetchColumn();
-    $totalPages = max(1, (int)ceil($total / $perPage));
-    if ($page > $totalPages && $total > 0) {
+    try {
+        $result = bms_stream_query_published([
+            'page' => $page, 'per_page' => $perPage, 'order' => $order,
+            'orderby' => $orderby, 'modified_after' => $modifiedAfter,
+        ]);
+    } catch (BMS_Stream_Page_Out_Of_Range $e) {
         throw new BMS_Api_Exception('Requested page is outside the available catalog.', 400, 'page_out_of_range');
     }
-    $orderColumns = [
-        'id' => 'id',
-        'created_at' => 'created_at',
-        'updated_at' => 'updated_at',
-        'published_at' => 'published_at',
-    ];
-    $offset = ($page - 1) * $perPage;
-    $sql = 'SELECT * FROM ' . bms_table('posts') . ' WHERE ' . $whereSql
-        . ' ORDER BY ' . $orderColumns[$orderby] . ' ' . strtoupper($order) . ', id ' . strtoupper($order)
-        . ' LIMIT ' . $perPage . ' OFFSET ' . $offset;
-    $stmt = bms_db()->prepare($sql);
-    $stmt->execute($params);
-    $rows = [];
+    $rows = $result['rows'];
     $postIds = [];
-    foreach ($stmt->fetchAll() as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-        $rows[] = $row;
+    foreach ($rows as $row) {
         $postId = (int)($row['id'] ?? 0);
         if ($postId > 0) {
             $postIds[] = $postId;
@@ -1431,13 +1409,7 @@ function bms_api_read_stream_posts(): array
     return [
         'single' => false,
         'posts' => $posts,
-        'pagination' => [
-            'page' => $page,
-            'per_page' => $perPage,
-            'returned' => count($posts),
-            'total' => $total,
-            'total_pages' => $totalPages,
-        ],
+        'pagination' => $result['pagination'],
         'filters' => [
             'status' => $status,
             'orderby' => $orderby,
@@ -1581,35 +1553,16 @@ function bms_api_create_remote_stream_post(array $payload, array $token, string 
     ];
 }
 
-/** Persist prepared creation intent; media preparation must stay outside retries. */
+/** Map neutral creation failures to the existing Remote API contract. */
 function bms_api_insert_remote_stream_post(array $intent, string $body, ?int $authorId): array
 {
-    return bms_with_stream_slug_lock(static function () use ($intent, $body, $authorId): array {
-        $section = match ((string)($intent['status'] ?? 'draft')) {
-            'published' => 'published',
-            'scheduled' => 'scheduled',
-            default => 'drafts',
-        };
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $fields = bms_stream_prepare_metadata_fields($intent, $body, '');
-            if (trim((string)($intent['slug'] ?? '')) !== '') {
-                $fields['slug'] = bms_stream_unique_slug((string)$fields['slug']);
-            }
-            $raw = bms_build_markdown_document($fields, $body);
-            if (strlen($raw) > 1024 * 1024 * 2) {
-                throw new BMS_Api_Exception('Remote post is too large.', 413, 'post_too_large');
-            }
-            $page = bms_parse_markdown_string($raw);
-            try {
-                $postId = bms_insert_database_content($page, $section, (string)$page['slug'] . '.md', $authorId);
-                return [$page, $postId];
-            } catch (BMS_Content_Slug_Conflict $e) {
-                // A non-cooperating/older writer may still hit the database index.
-                // Only the failed post attempt is rolled back; media is retained.
-            }
-        }
+    try {
+        return bms_stream_create_prepared($intent, $body, $authorId, 'allocate_retry');
+    } catch (BMS_Stream_Document_Too_Large $e) {
+        throw new BMS_Api_Exception('Remote post is too large.', 413, 'post_too_large');
+    } catch (BMS_Stream_Creation_Conflict $e) {
         throw new BMS_Api_Exception('A unique post slug could not be allocated. Retry the request.', 409, 'slug_conflict');
-    });
+    }
 }
 
 function bms_api_create_remote_draft(array $payload, array $token): array
