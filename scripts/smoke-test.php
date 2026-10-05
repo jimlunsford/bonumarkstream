@@ -848,7 +848,7 @@ foreach (['data-stream-action="draft"', 'data-stream-action="continue"', 'data-s
         bm_smoke_fail($failures, 'Unified Stream composer is missing required control: ' . $requiredComposerText);
     }
 }
-foreach (["['publish', 'schedule', 'draft', 'continue']", 'bms_insert_database_content($page, $targetSection', 'edit.php?type=draft&file='] as $requiredQuickPostText) {
+foreach (["['publish', 'schedule', 'draft', 'continue']", "bms_stream_create_prepared(\$fields, \$body, bms_current_user_id(), 'reject_prepared')", 'edit.php?type=draft&file='] as $requiredQuickPostText) {
     if (!str_contains($quickPostSource, $requiredQuickPostText)) {
         bm_smoke_fail($failures, 'Front composer save route is missing unified workflow behavior: ' . $requiredQuickPostText);
     }
@@ -1700,9 +1700,16 @@ $apiRuntime = @file_get_contents($root . '/_bonumark_stream/app/api.php') ?: '';
 $createPostPosition = strpos($apiRuntime, 'function bms_api_create_remote_stream_post');
 $embedCallPosition = strpos($apiRuntime, '$embeddedMedia = bms_api_embedded_media($payload, $token)');
 $bodyPersistPosition = strpos($apiRuntime, 'bms_api_body_with_embedded_media($body');
-$buildPosition = strpos($apiRuntime, 'bms_build_markdown_document($fields, $body)');
+$buildPosition = strpos($apiRuntime, 'bms_api_insert_remote_stream_post($fields, $body');
 if ($createPostPosition === false || $embedCallPosition === false || $bodyPersistPosition === false || $buildPosition === false || $embedCallPosition < $createPostPosition || $bodyPersistPosition < $embedCallPosition || $buildPosition < $bodyPersistPosition) {
     bm_smoke_fail($failures, 'Remote stream post creation must embed media into the post body before persistence.');
+}
+$streamCommands = (string)file_get_contents($root . '/_bonumark_stream/app/stream-commands.php');
+if (!str_contains($streamCommands, 'bms_build_markdown_document($fields, $body)')
+    || !str_contains($streamCommands, 'bms_insert_database_content($page, $section')
+    || str_contains($streamCommands, 'bms_api_embedded_media')
+    || !str_contains($apiRuntime, "bms_stream_create_prepared(\$intent, \$body, \$authorId, 'allocate_retry')")) {
+    bm_smoke_fail($failures, 'Prepared creation must delegate insert-only persistence without repeating media preparation.');
 }
 if (!str_contains($apiRuntime, 'Content or embedded media is required.')) {
     bm_smoke_fail($failures, 'Remote media-only posts must be allowed when embedded media is supplied.');

@@ -145,6 +145,48 @@ function bms_api_smoke_publishing_safety(): void
             throw new RuntimeException('Successful save left the failed draft in the composer.');
         }
 
+        // Gate 5B: the real composer routes all ordinary creation modes through core.
+        foreach (['draft' => 'draft', 'continue' => 'draft', 'schedule' => 'scheduled', 'publish' => 'published'] as $action => $status) {
+            $form = bms_api_smoke_http_request($base . '/admin/stream-composer.php', 'GET', ['Cookie: ' . $cookie]);
+            if (!preg_match('/name="composer_request_key"[^>]*value="([a-f0-9]+)"/', $form['body'], $keyMatch)) {
+                throw new RuntimeException('Composer did not provide a new request key.');
+            }
+            $modePayload = array_replace($payload, [
+                'composer_request_key' => $keyMatch[1], 'stream_submit_action' => $action,
+                'stream_slug' => 'core-admin-' . $action, 'stream_scheduled_at' => '2099-01-01T12:00',
+            ]);
+            $response = $submit($modePayload);
+            $stored = bms_db()->query('SELECT * FROM ' . bms_table('posts') . " WHERE slug='core-admin-" . $action . "'")->fetch();
+            if ($response['status'] !== 200 || !is_array($stored) || $stored['status'] !== $status || (int)$stored['author_id'] !== 1) {
+                throw new RuntimeException('Composer creation mode failed: ' . $action . ' ' . $response['body']);
+            }
+            if ($action === 'continue' && !str_contains($response['body'], 'edit.php?type=draft&file=core-admin-continue.md')) {
+                throw new RuntimeException('Continue no longer returns the full editor URL.');
+            }
+            if ($action === 'schedule' && $stored['scheduled_at'] !== bms_scheduled_input_to_utc('2099-01-01T12:00')) {
+                throw new RuntimeException('Composer schedule changed.');
+            }
+        }
+        $form = bms_api_smoke_http_request($base . '/admin/stream-composer.php', 'GET', ['Cookie: ' . $cookie]);
+        preg_match('/name="composer_request_key"[^>]*value="([a-f0-9]+)"/', $form['body'], $keyMatch);
+        $collision = $submit(array_replace($payload, ['composer_request_key' => $keyMatch[1],
+            'stream_submit_action' => 'draft', 'stream_slug' => 'core-admin-publish']));
+        if ($collision['status'] !== 422 || !str_contains($collision['body'], 'Another stream post already uses this slug.')
+            || bms_find_database_content_by_slug_status('core-admin-publish-2', 'draft', 'stream')) {
+            throw new RuntimeException('Admin collision rejection became Remote suffixing.');
+        }
+        // A persisted working receipt must reject another creation after an uncertain result.
+        bms_start_secure_session();
+        $uncertainKey = bms_composer_request_key();
+        $_SESSION['bms_composer_requests'][$uncertainKey]['state'] = 'working';
+        session_write_close();
+        $beforeUncertain = (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts'))->fetchColumn();
+        $uncertain = $submit(array_replace($payload, ['composer_request_key' => $uncertainKey, 'stream_slug' => 'uncertain-core-create']));
+        if ($uncertain['status'] !== 422 || !str_contains($uncertain['body'], 'could not be confirmed')
+            || (int)bms_db()->query('SELECT COUNT(*) FROM ' . bms_table('posts'))->fetchColumn() !== $beforeUncertain) {
+            throw new RuntimeException('Uncertain composer receipt allowed a duplicate mutation.');
+        }
+
         $admin = bms_api_smoke_http_request($base . '/admin/activitypub.php', 'GET', ['Cookie: ' . $cookie]);
         if ($admin['status'] !== 200 || !str_contains($admin['body'], 'Federated profile') || !str_contains($admin['body'], 'id="ap-danger"') || !str_contains($admin['body'], 'class="admin-footer"') || str_contains($admin['body'], 'Fatal error')) {
             throw new RuntimeException('The authenticated ActivityPub Admin workflow did not render.');

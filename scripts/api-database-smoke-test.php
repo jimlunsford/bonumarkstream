@@ -60,6 +60,7 @@ $scenarios = [
     'activitypub_stage6_disabled',
     'deployment_check',
     'stream_slug_safety',
+    'connect_core_prerequisites',
     'draft_create',
     'publish_scope',
     'publish_confirmation',
@@ -247,6 +248,10 @@ function bms_api_smoke_run_child(string $scenario): void
 function bms_api_smoke_run_scenario(string $scenario): void
 {
     switch ($scenario) {
+        case 'connect_core_prerequisites':
+            require_once __DIR__ . '/connect-core-prerequisites-scenario.php';
+            bms_api_smoke_connect_core_prerequisites();
+            return;
         case 'media_search_native_prepares':
             require_once __DIR__ . '/media-search-native-prepares-scenario.php';
             bms_api_smoke_media_search_native_prepares();
