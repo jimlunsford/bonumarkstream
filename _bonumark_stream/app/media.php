@@ -691,8 +691,13 @@ function bms_media_list(int $limit = 100, string $search = '', string $status = 
 
         $search = trim($search);
         if ($search !== '') {
-            $where[] = '(original_filename LIKE :search OR filename LIKE :search OR alt_text LIKE :search OR caption LIKE :search)';
-            $params['search'] = '%' . $search . '%';
+            $where[] = '(original_filename LIKE :search_original_filename OR filename LIKE :search_filename OR alt_text LIKE :search_alt_text OR caption LIKE :search_caption)';
+            // Native PDO prepares require a distinct placeholder per comparison.
+            $pattern = '%' . $search . '%';
+            $params['search_original_filename'] = $pattern;
+            $params['search_filename'] = $pattern;
+            $params['search_alt_text'] = $pattern;
+            $params['search_caption'] = $pattern;
         }
 
         if ($where) {
