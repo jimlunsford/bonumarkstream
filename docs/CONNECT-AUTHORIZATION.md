@@ -103,8 +103,15 @@ surface in this gate. An empty approval grants no operational authority.
    alone never enables health routing. Abandoned approvals receive one bounded
    site-revocation attempt; uncertain outcomes require local owner review.
 
-Both site and relay use no-store, no-referrer, frame denial and restrictive resource
-policies. Approval uses the shared Admin shell without third-party resources.
+Both site and relay use no-store, frame denial and restrictive resource policies.
+The relay's successful `/login` and authenticated `/` HTML form pages alone use
+`Referrer-Policy: same-origin` so native POSTs supply the exact configured Origin;
+callbacks, errors and other relay responses retain `no-referrer`. Login additionally
+requires a short-lived signed host-only cookie and bound hidden form proof before
+credential authentication. Only login may tolerate an absent Origin with valid
+proof; explicit null/foreign Origins fail. Authenticated mutations always require
+exact Origin plus the session-bound CSRF proof. The site retains no-referrer;
+approval uses the shared Admin shell without third-party resources.
 Credentials and verifiers never appear in browser URLs. Callback query strings do
 contain short-lived codes: web server access logging must omit query strings on
 these surfaces. Application logs never serialize request URLs or raw exceptions.

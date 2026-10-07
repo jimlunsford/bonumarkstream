@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { csrf, verifyCSRF } from './relay.mjs';
+import { createLoginCSRF } from './login-csrf.mjs';
 import { safeLog, uuid, SafeError } from './security.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[x]);
@@ -12,6 +13,7 @@ async function body(request) {
   throw new SafeError('invalid_request');
 }
 export function createServer(relay, { log = line => process.stdout.write(line) } = {}) {
+  const loginCSRF = createLoginCSRF(relay.config.baseUrl);
   let concurrent = 0;
   const server = http.createServer({ maxHeaderSize: 8192, requestTimeout: 10000, headersTimeout: 5000, keepAliveTimeout: 2000 }, async (request, response) => {
     const requestId = uuid();
@@ -31,16 +33,24 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
         await relay.db.query('SELECT 1'); send({ ready: true, database_ready: true, build: relay.config.buildId }); return;
       }
       await relay.db.limit('service', 300);
-      if (request.method === 'POST' && request.headers.origin !== relay.config.baseUrl) throw new SafeError('csrf_invalid', 403);
+      // Only login may omit Origin, and only with its independent cookie/form
+      // proof below. Explicit null/foreign/malformed Origins always fail closed.
+      if (request.method === 'POST' && request.headers.origin !== relay.config.baseUrl
+        && !(url.pathname === '/session' && request.headers.origin === undefined)) throw new SafeError('csrf_invalid', 403);
       if (url.pathname === '/login' && request.method === 'GET') {
-        send(page('Sign in to Bonumark Connect', '<p>Use your separately provisioned development account credential. Do not enter your Bonumark site password.</p><form method="post" action="/session"><label for="credential">Development account credential</label><input id="credential" name="credential" type="password" autocomplete="current-password" required><button>Sign in</button></form>'), true); return;
+        const login = loginCSRF.issue();
+        const html = page('Sign in to Bonumark Connect', `<p>Use your separately provisioned development account credential. Do not enter your Bonumark site password.</p><form method="post" action="/session"><input type="hidden" name="login_csrf" value="${login.proof}"><label for="credential">Development account credential</label><input id="credential" name="credential" type="password" autocomplete="current-password" required><button>Sign in</button></form>`);
+        response.setHeader('Set-Cookie', login.cookie);
+        response.setHeader('Referrer-Policy', 'same-origin');
+        send(html, true); return;
       }
       if (url.pathname === '/session' && request.method === 'POST') {
         // No forwarded-IP trust is needed for this development service. Global
         // and account limits supplement this conservative local proxy bucket.
         await relay.db.limit(`login:${request.socket.remoteAddress}`, 10);
-        const input = await body(request); const session = await relay.login(input.credential);
-        response.setHeader('Set-Cookie', `__Host-bmc_session=${session.token}; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`);
+        const input = await body(request); loginCSRF.verify(request.headers.cookie, input.login_csrf);
+        const session = await relay.login(input.credential);
+        response.setHeader('Set-Cookie', [`__Host-bmc_session=${session.token}; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`, loginCSRF.clear()]);
         redirect('/'); return;
       }
       const cookie = /(?:^|;\s*)__Host-bmc_session=([a-f0-9]{64})(?:;|$)/.exec(request.headers.cookie ?? '')?.[1];
@@ -50,7 +60,9 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
       const field = `<input type="hidden" name="csrf" value="${csrf(cookie)}">`;
       if (request.method === 'GET' && url.pathname === '/') {
         const rows = await relay.list(session);
-        send(page('Connected sites', `<form method="post" action="/connections/start">${field}<label for="site">Bonumark site URL</label><input id="site" type="url" name="site" required><button>Connect site</button></form><ul>${rows.map(r => `<li>${escape(r.canonical_origin + r.base_path)}: ${escape(r.state)} (${escape(r.scopes.join(', '))})<form method="post" action="/connections/${r.connection_id}/confirm">${field}<button>Confirm connection</button></form><form method="post" action="/connections/${r.connection_id}/health">${field}<button>Check connection</button></form><form method="post" action="/connections/${r.connection_id}/disconnect">${field}<button>Disconnect</button></form></li>`).join('')}</ul>`), true); return;
+        const html = page('Connected sites', `<form method="post" action="/connections/start">${field}<label for="site">Bonumark site URL</label><input id="site" type="url" name="site" required><button>Connect site</button></form><ul>${rows.map(r => `<li>${escape(r.canonical_origin + r.base_path)}: ${escape(r.state)} (${escape(r.scopes.join(', '))})<form method="post" action="/connections/${r.connection_id}/confirm">${field}<button>Confirm connection</button></form><form method="post" action="/connections/${r.connection_id}/health">${field}<button>Check connection</button></form><form method="post" action="/connections/${r.connection_id}/disconnect">${field}<button>Disconnect</button></form></li>`).join('')}</ul>`);
+        response.setHeader('Referrer-Policy', 'same-origin');
+        send(html, true); return;
       }
       if (request.method === 'GET' && url.pathname === '/callback') {
         const result = await relay.callback(session, Object.fromEntries(url.searchParams));
@@ -71,6 +83,7 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
       }
       throw new SafeError('not_found', 404);
     } catch (error) {
+      response.setHeader('Referrer-Policy', 'no-referrer');
       const safe = error instanceof SafeError ? error : new SafeError('server_error', 500, 'relay', 'unknown');
       response.statusCode = safe.status;
       response.setHeader('Content-Type', 'application/json');

@@ -11,6 +11,7 @@ import { Database } from '../src/database.mjs';
 import { Transport } from '../src/transport.mjs';
 import { Relay, csrf } from '../src/relay.mjs';
 import { browserChecks } from './browser.mjs';
+import { relayBrowserChecks } from './relay-browser.mjs';
 import { createServer } from '../src/server.mjs';
 import { keyring, secret, uuid, digest, SafeError } from '../src/security.mjs';
 
@@ -60,6 +61,7 @@ test('real database and PHP authorization end-to-end', { timeout: 90000 }, async
     const keys = { first: secret(), second: secret() };
     const config = { baseUrl: 'https://relay.example.com', callbackUrl: 'https://relay.example.com/callback', clientId: 'bmc_test_client_0123456789', accountPerMinute: 120, discoveryPerMinute: 20, outboundPerMinute: 60, maxConcurrent: 16, buildId: 'development' };
     const relay = new Relay(db, transport, keyring(keys, 'first'), config);
+    if (process.env.BMC_BROWSER_TEST === '1') await t.test('HTTPS relay browser login and native mutation forms', async t => relayBrowserChecks(t, relay));
     const account = await relay.provisionAccount(); const otherAccount = await relay.provisionAccount();
     const session = await relay.login(account.token); const other = await relay.login(otherAccount.token);
     server = createServer(relay, { log: line => logs += line }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
