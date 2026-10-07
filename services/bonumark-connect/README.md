@@ -82,8 +82,30 @@ about undocumented ChatGPT account identifiers. Gate 11 owns the normal plugin
 identity integration. `/login` accepts the development account credential only,
 never the Bonumark owner password. Secure, HttpOnly, SameSite=Lax host-only cookies
 expire after eight hours. Accounts may have at most ten live browser sessions.
-POSTs require the configured Origin; authenticated actions also require session-
-bound CSRF. Exact Host validation prevents arbitrary forwarded-host trust.
+Successful GET `/login` and authenticated GET `/` HTML form pages alone use
+`Referrer-Policy: same-origin`. Native form POSTs then carry the configured Origin
+instead of the literal `null` produced under `no-referrer`. Referrers are sent only
+within the relay origin. Callback handling, redirects, JSON/error responses and
+other pages retain `no-referrer`; no-store, frame denial and the script-free CSP
+are unchanged. Exact Host validation prevents arbitrary forwarded-host trust.
+
+GET `/login` issues a fresh random, HMAC-SHA256-signed `__Host-bmc_login` cookie
+with Secure, HttpOnly, SameSite=Strict, Path=/ and a ten-minute lifetime, plus a
+domain-separated hidden form proof bound to the complete cookie. The signature
+binds the nonce, expiry and configured origin; validation checks server-side
+expiry and rejects ambiguous duplicate cookies before credential authentication.
+Signing keys are process-local: restarting the single relay invalidates open login
+forms, which must be refreshed. No anonymous SQL session or persistent key is
+created. Successful login clears the temporary cookie and issues the existing
+eight-hour authenticated session cookie. This is a short-lived CSRF proof, not
+an account credential or a durable, one-use authorization code.
+
+POST `/session` always requires the independent login cookie/form proof. Only
+this route may accept a genuinely absent Origin with valid proof. Explicit
+`Origin: null`, foreign, empty and malformed Origins are rejected even with valid
+proof. Authenticated Connect, confirm, health and disconnect POSTs still require
+the exact configured Origin, a valid session and session-bound CSRF. Missing or
+null Origin is never accepted there. Fetch Metadata is not an authority substitute.
 
 ## Protocol and routing
 
@@ -161,7 +183,13 @@ new acceptance and drain connections with a 10-second shutdown deadline.
 
 Logs are JSON projections of UTC time, fixed event, random request ID and HTTP
 status. Raw URLs, headers, bodies, exceptions, codes, verifiers and credentials are
-never serialized. Proposed operational log retention is seven days, enforced later
+never serialized. Login credentials, cookies and form proofs are likewise excluded.
+The HTTPS relay browser regression uses an ephemeral TLS proxy, real Chromium,
+the production request handler and disposable SQL accounts. It verifies native
+Origin headers, login proof failures, cookie clearing, authenticated forms and
+response policies without collecting secret-bearing browser artifacts. It runs
+with the existing `BMC_BROWSER_TEST=1 npm run test:database` checks in CI.
+Proposed operational log retention is seven days, enforced later
 by Gate 6B. Source maintenance runs once per minute without overlap: removes up to
 100 expired sessions, retires up to 100 expired pending exchanges, handles up to ten
 unconfirmed approvals and removes up to 100 terminal history rows older than 90

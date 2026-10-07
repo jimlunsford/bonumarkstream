@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createLoginCSRF } from '../src/login-csrf.mjs';
+import { digest } from '../src/security.mjs';
+
+test('login proof is signed, cookie-bound, short-lived and invalidated on restart', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1800000000000 });
+  const login = createLoginCSRF('https://relay.example.com');
+  const first = login.issue(); const second = login.issue();
+  const cookie = first.cookie.split(';')[0];
+  assert.ok(first.cookie.includes('; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=600'));
+  assert.ok(!first.cookie.includes('Domain='));
+  assert.ok(!first.cookie.includes(first.proof));
+  assert.ok(first.proof !== second.proof && first.cookie !== second.cookie);
+  login.verify(cookie, first.proof);
+  const rejects = (header, proof) => assert.throws(() => login.verify(header, proof), { code: 'csrf_invalid', status: 403 });
+  rejects(undefined, first.proof); rejects(cookie, undefined); rejects(cookie, 'bad');
+  rejects(second.cookie.split(';')[0], first.proof);
+  rejects(`${cookie}; ${cookie}`, first.proof);
+  rejects('__Host-bmc_login=malformed', first.proof);
+  const changed = cookie.slice(cookie.indexOf('=') + 1).replace(/^[a-f0-9]/, c => c === 'a' ? 'b' : 'a');
+  rejects(`__Host-bmc_login=${changed}`, digest('login-form', changed));
+  const extended = cookie.slice(cookie.indexOf('=') + 1).replace('.1800000600.', '.1800001200.');
+  rejects(`__Host-bmc_login=${extended}`, digest('login-form', extended));
+  assert.throws(() => createLoginCSRF('https://relay.example.com').verify(cookie, first.proof), { code: 'csrf_invalid' });
+  assert.throws(() => createLoginCSRF('https://other.example.com').verify(cookie, first.proof), { code: 'csrf_invalid' });
+  t.mock.timers.tick(599000); login.verify(cookie, first.proof);
+  t.mock.timers.tick(1000); rejects(cookie, first.proof);
+  assert.equal(login.clear(), '__Host-bmc_login=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+});
