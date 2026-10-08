@@ -32,6 +32,10 @@ try {
             bms_connect_owner($ownerId);
             return bms_connect_request((string)$_GET['request'], $ownerId);
         });
+        // Chromium checks the initiating document's form-action across the 303.
+        // Use only this owner-bound request's revalidated, provisioned callback;
+        // the redirect response alone cannot relax the form document's policy.
+        define('BMS_CONNECT_APPROVAL_FORM_CALLBACK', $request['request']['redirect_uri']);
     } else {
         $input = $_GET;
         $input['scopes'] = isset($_GET['scope']) && is_string($_GET['scope']) && $_GET['scope'] !== '' ? explode(' ', $_GET['scope']) : [];

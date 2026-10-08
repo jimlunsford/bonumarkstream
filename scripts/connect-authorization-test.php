@@ -179,6 +179,10 @@ try {
     $approval = connect_http($base . '/admin/connect-authorize.php?request=' . $httpRequest['session_id'] . '&decision=approve');
     connect_assert($approval['status'] === 200 && str_contains($approval['body'], 'Trusted Connect'), 'Trusted identity on approval GET');
     connect_assert(($approval['headers']['cache-control'] ?? '') === 'no-store' && ($approval['headers']['referrer-policy'] ?? '') === 'no-referrer', 'Authorization privacy headers');
+    $approvalPolicy = "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self' https://relay.example.com/callback; frame-ancestors 'none'; object-src 'none'";
+    connect_assert(($approval['headers']['content-security-policy'] ?? '') === $approvalPolicy, 'Rendered approval form allows only its trusted callback alongside self');
+    $injected = connect_http($base . '/admin/connect-authorize.php?request=' . $httpRequest['session_id'] . '&redirect_uri=https%3A%2F%2Fforeign.example%2Fcallback');
+    connect_assert(($injected['headers']['content-security-policy'] ?? '') === $approvalPolicy, 'Browser callback parameter cannot alter stored request policy');
     connect_assert(bms_connect_query('SELECT status FROM ' . bms_table('connect_sessions') . ' WHERE session_id = ?', [$httpRequest['session_id']])->fetchColumn() === 'pending', 'GET never approves');
     preg_match('/name="csrf_token" value="([a-f0-9]+)"/', $approval['body'], $match);
     $csrf = $match[1] ?? '';
@@ -186,6 +190,8 @@ try {
     connect_assert(connect_http($base . '/admin/connect-authorize.php', 'POST', $posted)['status'] === 403, 'Approval rejects missing CSRF');
     $approved = connect_http($base . '/admin/connect-authorize.php', 'POST', $posted + ['csrf_token' => $csrf]);
     connect_assert($approved['status'] === 303, 'Explicit approval redirects');
+    $completed = connect_http($base . '/admin/connect-authorize.php?request=' . $httpRequest['session_id']);
+    connect_assert($completed['status'] === 400 && ($completed['headers']['content-security-policy'] ?? '') === str_replace(' https://relay.example.com/callback', '', $approvalPolicy), 'Completed request fails closed with default CSP');
     parse_str(parse_url($approved['headers']['location'] ?? '', PHP_URL_QUERY) ?: '', $callback);
     $exchangeInput = $identity + ['code' => $callback['code'] ?? '', 'code_verifier' => $verifier, 'client_id' => $r['client_id'], 'redirect_uri' => $r['redirect_uri']];
     $tokenResponse = connect_http($base . '/api/connect/v1/token.php', 'POST', $exchangeInput, ['Content-Type: application/json'], true);

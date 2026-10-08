@@ -112,6 +112,24 @@ credential authentication. Only login may tolerate an absent Origin with valid
 proof; explicit null/foreign Origins fail. Authenticated mutations always require
 exact Origin plus the session-bound CSRF proof. The site retains no-referrer;
 approval uses the shared Admin shell without third-party resources.
+The successfully validated approval GET also permits that stored request's exact
+provisioned callback in `form-action`, alongside `'self'`. The Admin shell retains
+this request-local policy when rendering. Chromium applies the initiating form
+document's CSP to the cross-origin 303; allowing the callback only on the POST
+response is insufficient. Initial request redirects, invalid/completed requests,
+and other site surfaces keep their default policy. The callback comes from renewed
+owner, site-binding and trusted-client validation, never an extra browser query
+parameter. CSP is defense in depth: exact callback matching remains enforced by
+the authorization and exchange protocol, including on browsers whose redirect
+matching does not enforce source-expression paths. No lifetime, PKCE, cookie,
+Referrer-Policy, CSRF or relay-confirmation rule changes.
+
+`BMC_BROWSER_TEST=1 npm run test:database` in the relay directory exercises native
+HTTPS site and relay login, discovery, approval, cross-origin redirect, code
+exchange and explicit confirmation with real PHP/SQL and Chromium. It also checks
+denial, missing relay session, invalid CSRF, foreign callbacks/forms and completed
+requests. Only safe header/navigation and lifecycle metadata is emitted; no browser
+artifacts or callback query values are retained.
 Credentials and verifiers never appear in browser URLs. Callback query strings do
 contain short-lived codes: web server access logging must omit query strings on
 these surfaces. Application logs never serialize request URLs or raw exceptions.

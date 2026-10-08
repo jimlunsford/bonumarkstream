@@ -2538,7 +2538,10 @@ function bms_send_security_headers(): void
         header('Referrer-Policy: no-referrer');
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: DENY');
-        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
+        // Set only by the approval endpoint after owner/request/client validation.
+        // The Admin shell reapplies these headers when rendering the form.
+        $callback = defined('BMS_CONNECT_APPROVAL_FORM_CALLBACK') ? ' ' . BMS_CONNECT_APPROVAL_FORM_CALLBACK : '';
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'" . $callback . "; frame-ancestors 'none'; object-src 'none'");
         return;
     }
 

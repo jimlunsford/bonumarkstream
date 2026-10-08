@@ -15,6 +15,15 @@ if ($action === 'setup') {
     $owner = (int)bms_connect_query('SELECT id FROM ' . bms_table('users') . ' WHERE username = ?', ['connectowner'])->fetchColumn();
     bms_connect_initialize($owner);
     bms_connect_provision_client($owner, ['client_id' => 'bmc_test_client_0123456789', 'display_name' => 'Trusted Connect', 'callbacks' => ['https://relay.example.com/callback']]);
+} elseif ($action === 'inspect-request') {
+    $id = $input['request'];
+    $session = bms_connect_query('SELECT status FROM ' . bms_table('connect_sessions') . ' WHERE session_id = ?', [$id])->fetchColumn();
+    $grants = bms_connect_query('SELECT state FROM ' . bms_table('connect_grants') . ' WHERE session_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN);
+    $codes = bms_connect_query('SELECT consumed_at IS NOT NULL AS consumed FROM ' . bms_table('connect_codes') . ' WHERE session_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN);
+    $credentials = (int)bms_connect_query('SELECT COUNT(*) FROM ' . bms_table('connect_credentials') . ' c JOIN ' . bms_table('connect_grants') . ' g ON c.grant_id = g.grant_id WHERE g.session_id = ?', [$id])->fetchColumn();
+    $audit = bms_connect_query('SELECT operation FROM ' . bms_table('connect_audit') . ' a JOIN ' . bms_table('connect_grants') . ' g ON a.grant_id = g.grant_id WHERE g.session_id = ? ORDER BY a.id', [$id])->fetchAll(PDO::FETCH_COLUMN);
+    echo json_encode(['session' => $session, 'grants' => $grants, 'codes' => array_map('intval', $codes), 'credentials' => $credentials, 'audit' => $audit], JSON_THROW_ON_ERROR);
+    exit;
 } elseif ($action === 'cleanup') {
     foreach (bms_db()->query('SHOW TABLES LIKE ' . bms_db()->quote(bms_table_prefix() . '%'))->fetchAll(PDO::FETCH_COLUMN) as $table) {
         if (str_starts_with($table, bms_table_prefix())) { bms_db()->exec('DROP TABLE `' . $table . '`'); }
