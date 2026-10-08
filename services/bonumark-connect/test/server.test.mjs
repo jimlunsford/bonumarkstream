@@ -45,7 +45,7 @@ test('HTTP login and mutation security boundaries', async t => {
       assert.equal(res.status, 200); assert.equal(res.headers['referrer-policy'], 'same-origin');
       assert.equal(res.headers['cache-control'], 'no-store'); assert.equal(res.headers['x-frame-options'], 'DENY');
       assert.equal(res.headers['x-content-type-options'], 'nosniff');
-      assert.equal(res.headers['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+      assert.equal(res.headers['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; style-src 'self'");
       assert.ok(res.headers['set-cookie'][0].includes('Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=600'));
       assert.ok(!res.headers['set-cookie'][0].includes('Domain='));
       assert.ok(!res.text.includes(credential)); assert.ok(res.text.includes('method="post" action="/session"'));
@@ -148,6 +148,10 @@ test('browser action presentation preserves JSON authority and safe notices', as
       };
       for (const [value, actions] of Object.entries(expected)) {
         state = value; const res = await request('/');
+        const specialLabels = { awaiting_confirmation: 'Awaiting confirmation', revoked_or_expired: 'Revoked or expired', disconnect_pending: 'Disconnect pending' };
+        const readable = Object.hasOwn(specialLabels, value) ? specialLabels[value] : (['unknown', 'constructor'].includes(value) ? value : value[0].toUpperCase() + value.slice(1));
+        assert.ok(res.text.includes(`>${readable}</span>`), `${value}: truthful state label`);
+        assert.ok(!res.text.replace(/<[^>]*>/g, '').includes(id), 'UUID is not displayed');
         for (const action of ['confirm', 'health', 'disconnect']) assert.equal(res.text.includes(`/connections/${id}/${action}`), actions.includes(action), `${value}: ${action}`);
       }
     });
@@ -160,6 +164,7 @@ test('browser action presentation preserves JSON authority and safe notices', as
           assert.equal(res.status, html ? 303 : 200);
           assert.equal(res.headers['referrer-policy'], 'no-referrer'); assert.equal(res.headers['cache-control'], 'no-store');
           assert.equal(res.headers['x-frame-options'], 'DENY');
+          assert.equal(res.headers['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
           if (html) { assert.equal(res.headers.location, '/?notice=' + notice); assert.equal(res.text, ''); }
           else assert.equal(JSON.parse(res.text).private_fixture, 'NEVER_IN_HTML');
         }

@@ -20,6 +20,7 @@
   },
   "files": [
     "src/",
+    "assets/connect.css",
     "schema.sql",
     "README.md",
     "config.example.json"

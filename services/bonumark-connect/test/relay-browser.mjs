@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { presentationChecks } from './presentation-browser.mjs';
 import http from 'node:http';
 import https from 'node:https';
 import { once } from 'node:events';
@@ -52,6 +53,10 @@ export async function relayBrowserChecks(t, fixture) {
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     browser = await chromium.launch({ executablePath: process.env.BMC_BROWSER_EXECUTABLE || undefined, args: ['--no-sandbox', '--no-proxy-server', `--ignore-certificate-errors-spki-list=${spki}`] });
     const context = await browser.newContext(); const page = await context.newPage(); page.setDefaultTimeout(10000);
+    let styleViolations = 0; let externalRequests = 0; let stylesheetResponses = 0;
+    page.on('console', message => { if (/style.*(?:Content Security Policy|violates)|Refused to load the stylesheet/i.test(message.text())) styleViolations++; });
+    page.on('request', request => { if (new URL(request.url()).origin !== origin) externalRequests++; });
+    page.on('response', response => { if (new URL(response.url()).pathname === '/assets/connect.css' && response.status() === 200) stylesheetResponses++; });
     const remember = async () => {
       for (const cookie of await context.cookies()) if (cookie.value) sensitive.push(cookie.value);
       for (const input of await page.locator('input[type=hidden]').all()) { const value = await input.inputValue(); if (value) sensitive.push(value); }
@@ -60,7 +65,7 @@ export async function relayBrowserChecks(t, fixture) {
       const res = await page.goto(origin + '/login');
       assert.equal(res.status(), 200); assert.equal(res.headers()['referrer-policy'], 'same-origin');
       assert.equal(res.headers()['cache-control'], 'no-store'); assert.equal(res.headers()['x-frame-options'], 'DENY');
-      assert.equal(res.headers()['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+      assert.equal(res.headers()['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; style-src 'self'");
       const cookie = (await context.cookies()).find(c => c.name === '__Host-bmc_login');
       assert.ok(cookie && cookie.secure && cookie.httpOnly && cookie.sameSite === 'Strict' && cookie.domain === 'localhost' && cookie.path === '/', 'Browser accepts the protected host-only login cookie');
       assert.ok(cookie.expires > Date.now() / 1000 && cookie.expires <= Date.now() / 1000 + 601);
@@ -77,7 +82,7 @@ export async function relayBrowserChecks(t, fixture) {
       if (value === undefined) delete headers.origin; else headers.origin = value;
     };
     await t.test('native HTTPS login sends exact Origin and a fake credential reaches authentication', async () => {
-      await openLogin(); await page.getByLabel('Development account credential').fill('deliberately-invalid-fixture');
+      await openLogin(); await presentationChecks(page, 'login'); await page.getByLabel('Development account credential').fill('deliberately-invalid-fixture');
       const before = calls.login; const res = await submit('Sign in', '/session');
       assert.equal(observed.origin, origin); assert.equal((await res.request().allHeaders()).origin, origin);
       assert.equal(res.status(), 401); assert.equal((await res.json()).error.code, 'authentication_required');
@@ -114,6 +119,7 @@ export async function relayBrowserChecks(t, fixture) {
           assert.ok(session && session.secure && session.httpOnly && session.sameSite === 'Lax');
           assert.equal(await page.getByRole('heading', { name: 'Connected sites', exact: true }).count(), 1);
           assert.equal(await page.evaluate(() => document.cookie), '');
+          if (!omit) await presentationChecks(page, 'empty connections');
         } finally { rewriteOrigin = undefined; }
       });
     }
@@ -141,6 +147,7 @@ export async function relayBrowserChecks(t, fixture) {
       assert.equal((await res.request().allHeaders()).origin, origin); assert.equal(calls.start, before + 1);
       assert.equal(res.headers()['referrer-policy'], 'no-referrer');
       assert.equal(await page.getByRole('heading', { name: 'Approve on your Bonumark site', exact: true }).count(), 1);
+      await presentationChecks(page, 'approval start');
       t.diagnostic(`Native POST /connections/start Origin: ${observed.origin}; real Relay discovery and SQL succeed (200).`);
     });
     // The new row has not been site-approved: confirm and health must reach the
@@ -167,6 +174,25 @@ export async function relayBrowserChecks(t, fixture) {
         t.diagnostic(`Native ${method} POST Origin: ${observed.origin}; real Relay operation reached (303, ${notice}).`);
       });
     }
+    await t.test('connection cards safely wrap long values and preserve active-state actions', async () => {
+      const originalList = relay.list;
+      try {
+        relay.list = async () => [{ connection_id: '00000000-0000-4000-8000-000000000001', canonical_origin: 'https://' + 'long'.repeat(14) + '.example.com', base_path: '/' + 'path'.repeat(30), scopes: ['status:read', 'fixture:' + 'scope'.repeat(30)], state: 'active' }];
+        await page.goto(origin + '/?notice=healthy');
+        await presentationChecks(page, 'long active connection and success notice');
+        assert.equal(await page.locator('.state-pill').textContent(), 'Active');
+        assert.equal(await page.getByRole('button', { name: 'Confirm connection', exact: true }).count(), 0);
+        assert.equal(await page.getByRole('button', { name: 'Check connection', exact: true }).count(), 1);
+      } finally { relay.list = originalList; }
+      await page.goto(origin + '/?notice=review');
+      await presentationChecks(page, 'owner review warning');
+      await page.goto(origin + '/?notice=confirm_failed');
+      await presentationChecks(page, 'confirmation failure notice');
+      assert.equal(styleViolations, 0, 'No stylesheet CSP console violations');
+      assert.equal(externalRequests, 0, 'No external browser network requests');
+      assert.ok(stylesheetResponses > 0, 'Stylesheet requests succeeded');
+      t.diagnostic('Connect login, empty, approval, active, success and warning layouts passed at 1280x900, 768x1024, 390x844 and 360x800; text/control contrast, focus, labels, targets, local CSS and no external requests passed.');
+    });
     await t.test('callback and auth errors keep no-referrer; browser and relay logs persist no secret artifacts', async () => {
       assert.equal(urlLeak, false, 'Login credentials, proof cookies and form CSRF never enter URLs');
       const code = secret(); sensitive.push(code);

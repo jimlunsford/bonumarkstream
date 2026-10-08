@@ -1,10 +1,13 @@
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import { loginPage, connectedPage, approvalPage } from './pages.mjs';
 import { csrf, verifyCSRF } from './relay.mjs';
 import { createLoginCSRF } from './login-csrf.mjs';
 import { safeLog, uuid, SafeError } from './security.mjs';
 
-const escape = value => String(value).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[x]);
-const page = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)}</title></head><body><main><h1>${escape(title)}</h1>${body}</main></body></html>`;
+const stylesheet = readFileSync(new URL('../assets/connect.css', import.meta.url));
+const baseCSP = "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+const htmlCSP = baseCSP + "; style-src 'self'";
 // Presentation only: these values never select an authority path or an endpoint.
 const notices = Object.freeze({
   confirmed: 'Connection confirmed.',
@@ -44,9 +47,9 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
     const requestId = uuid();
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('Referrer-Policy', 'no-referrer');
     response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('X-Frame-Options', 'DENY');
-    response.setHeader('Content-Security-Policy', "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+    response.setHeader('Content-Security-Policy', baseCSP);
     let counted = false;
-    const send = (value, html = false) => { response.setHeader('Content-Type', html ? 'text/html; charset=utf-8' : 'application/json'); response.end(html ? value : JSON.stringify({ ok: true, request_id: requestId, ...value })); };
+    const send = (value, html = false) => { if (html) response.setHeader('Content-Security-Policy', htmlCSP); response.setHeader('Content-Type', html ? 'text/html; charset=utf-8' : 'application/json'); response.end(html ? value : JSON.stringify({ ok: true, request_id: requestId, ...value })); };
     const redirect = path => { response.writeHead(303, { Location: path }); response.end(); };
     try {
       if (concurrent >= relay.config.maxConcurrent) throw new SafeError('rate_limited', 429);
@@ -58,13 +61,20 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
         await relay.db.query('SELECT 1'); send({ ready: true, database_ready: true, build: relay.config.buildId }); return;
       }
       await relay.db.limit('service', 300);
+      // One literal public asset, never a request-derived filesystem path. Match
+      // the raw target too, so normalized traversal/encoded aliases cannot serve it.
+      if (request.method === 'GET' && request.url === '/assets/connect.css') {
+        response.setHeader('Content-Type', 'text/css; charset=utf-8');
+        response.setHeader('Cache-Control', 'no-cache');
+        response.end(stylesheet); return;
+      }
       // Only login may omit Origin, and only with its independent cookie/form
       // proof below. Explicit null/foreign/malformed Origins always fail closed.
       if (request.method === 'POST' && request.headers.origin !== relay.config.baseUrl
         && !(url.pathname === '/session' && request.headers.origin === undefined)) throw new SafeError('csrf_invalid', 403);
       if (url.pathname === '/login' && request.method === 'GET') {
         const login = loginCSRF.issue();
-        const html = page('Sign in to Bonumark Connect', `<p>Use your separately provisioned development account credential. Do not enter your Bonumark site password.</p><form method="post" action="/session"><input type="hidden" name="login_csrf" value="${login.proof}"><label for="credential">Development account credential</label><input id="credential" name="credential" type="password" autocomplete="current-password" required><button>Sign in</button></form>`);
+        const html = loginPage(login.proof);
         response.setHeader('Set-Cookie', login.cookie);
         response.setHeader('Referrer-Policy', 'same-origin');
         send(html, true); return;
@@ -86,7 +96,7 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
       if (request.method === 'GET' && url.pathname === '/') {
         const rows = await relay.list(session);
         const notice = Object.hasOwn(notices, url.searchParams.get('notice')) ? notices[url.searchParams.get('notice')] : '';
-        const html = page('Connected sites', `${notice ? `<p role="status">${notice}</p>` : ''}<form method="post" action="/connections/start">${field}<label for="site">Bonumark site URL</label><input id="site" type="url" name="site" required><button>Connect site</button></form><ul>${rows.map(r => `<li>${escape(r.canonical_origin + r.base_path)}: ${escape(r.state)} (${escape(r.scopes.join(', '))})${(Object.hasOwn(actions, r.state) ? actions[r.state] : []).map(action => `<form method="post" action="/connections/${escape(r.connection_id)}/${action}">${field}<button>${labels[action]}</button></form>`).join('')}</li>`).join('')}</ul>`);
+        const html = connectedPage(rows, field, url.searchParams.get('notice'), notice, actions, labels);
         response.setHeader('Referrer-Policy', 'same-origin');
         send(html, true); return;
       }
@@ -101,7 +111,7 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
         if (url.pathname === '/connections/start') {
           if (Object.keys(input).some(k => !['csrf', 'site'].includes(k))) throw new SafeError('invalid_request');
           const result = await relay.start(session, input.site);
-          send(page('Approve on your Bonumark site', `<p>Continue to ${escape(result.site)} to sign in and approve.</p><p><a href="${escape(result.authorization_url)}" rel="noreferrer">Open site approval</a></p><p>Return here to confirm the connection afterward.</p>`), true); return;
+          send(approvalPage(result), true); return;
         }
         if (Object.keys(input).some(k => k !== 'csrf')) throw new SafeError('invalid_request');
         const match = /^\/connections\/([a-f0-9-]{36})\/(confirm|health|disconnect)$/.exec(url.pathname);
@@ -122,6 +132,7 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
       }
       throw new SafeError('not_found', 404);
     } catch (error) {
+      response.setHeader('Content-Security-Policy', baseCSP);
       response.setHeader('Referrer-Policy', 'no-referrer');
       const safe = error instanceof SafeError ? error : new SafeError('server_error', 500, 'relay', 'unknown');
       response.statusCode = safe.status;

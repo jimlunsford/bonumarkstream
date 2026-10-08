@@ -198,8 +198,8 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
       if (method === 'health') assert.equal(calls.status, before.status + 1, 'One live site health call');
       if (method === 'disconnect') assert.equal(calls.revoke, before.revoke + 1, 'One outbound revocation attempt');
       assert.equal((await relay.db.query('SELECT state FROM connections WHERE connection_id = ?', [actionConnection]))[0].state, state);
-      const row = page.locator('li').filter({ hasText: 'https://site.example.com: ' + state + ' (' }).first();
-      assert.ok((await row.textContent()).includes(': ' + state + ' ('));
+      const row = page.locator(`.connection-card[data-state="${state}"]`).filter({ hasText: 'https://site.example.com' }).first();
+      assert.equal(await row.getAttribute('data-state'), state);
       assert.equal(await row.getByRole('button', { name: 'Confirm connection', exact: true }).count(), 0);
       assert.equal(await row.getByRole('button', { name: 'Check connection', exact: true }).count(), state === 'active' ? 1 : 0);
       assert.equal(await row.getByRole('button', { name: 'Disconnect', exact: true }).count(), state === 'active' ? 1 : 0);
