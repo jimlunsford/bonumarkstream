@@ -15,6 +15,10 @@ if ($action === 'setup') {
     $owner = (int)bms_connect_query('SELECT id FROM ' . bms_table('users') . ' WHERE username = ?', ['connectowner'])->fetchColumn();
     bms_connect_initialize($owner);
     bms_connect_provision_client($owner, ['client_id' => 'bmc_test_client_0123456789', 'display_name' => 'Trusted Connect', 'callbacks' => ['https://relay.example.com/callback']]);
+} elseif ($action === 'reset-rate-limits') {
+    // Isolate independent browser and protocol suites in this disposable fixture.
+    // Production thresholds and the requests within each suite remain unchanged.
+    bms_connect_query('DELETE FROM ' . bms_table('connect_limits'));
 } elseif ($action === 'inspect-request') {
     $id = $input['request'];
     $session = bms_connect_query('SELECT status FROM ' . bms_table('connect_sessions') . ' WHERE session_id = ?', [$id])->fetchColumn();
