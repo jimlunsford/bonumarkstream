@@ -145,14 +145,26 @@ export async function relayBrowserChecks(t, fixture) {
     });
     // The new row has not been site-approved: confirm and health must reach the
     // real operation and reject that state, not silently create site authority.
-    for (const [method, label, status, code] of [['confirm', 'Confirm connection', 400, 'authorization_state_invalid'], ['health', 'Check connection', 409, 'connection_unavailable'], ['disconnect', 'Disconnect', 200, null]]) {
+    for (const [method, label, notice] of [['confirm', 'Confirm connection', 'confirm_failed'], ['health', 'Check connection', 'health_failed'], ['disconnect', 'Disconnect', 'review']]) {
       await t.test(`native ${method} form sends exact Origin and reaches the real operation`, async () => {
         await openRoot(); const [row] = await relay.db.query('SELECT connection_id FROM connections WHERE account_id = ?', [account.account_id]);
-        assert.ok(row); const before = calls[method]; const res = await submit(label, `/connections/${row.connection_id}/${method}`);
-        assert.equal(observed.origin, origin); assert.equal(res.status(), status); assert.equal(calls[method], before + 1);
+        assert.ok(row);
+        if (method !== 'disconnect') {
+          assert.equal(await page.getByRole('button', { name: label, exact: true }).count(), 0, 'Invalid pending-state action is hidden');
+          // A stale/tampered native form still reaches unchanged state authority.
+          await page.locator('form[action="/connections/start"]').evaluate((form, { id, method, label }) => {
+            const stale = form.cloneNode(true); stale.action = `/connections/${id}/${method}`;
+            stale.querySelector('[name=site]').remove(); stale.querySelector('button').textContent = label;
+            document.querySelector('main').append(stale);
+          }, { id: row.connection_id, method, label });
+        }
+        const before = calls[method]; const res = await submit(label, `/connections/${row.connection_id}/${method}`);
+        assert.equal(observed.origin, origin); assert.equal(res.status(), 303); assert.equal(calls[method], before + 1);
         assert.equal(res.headers()['referrer-policy'], 'no-referrer');
-        if (code) assert.equal((await res.json()).error.code, code);
-        t.diagnostic(`Native ${method} POST Origin: ${observed.origin}; real Relay operation reached (${status}).`);
+        await page.waitForURL(origin + '/?notice=' + notice);
+        assert.equal(await page.getByRole('heading', { name: 'Connected sites', exact: true }).count(), 1);
+        assert.equal(await page.getByRole('status').count(), 1);
+        t.diagnostic(`Native ${method} POST Origin: ${observed.origin}; real Relay operation reached (303, ${notice}).`);
       });
     }
     await t.test('callback and auth errors keep no-referrer; browser and relay logs persist no secret artifacts', async () => {

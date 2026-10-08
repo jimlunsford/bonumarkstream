@@ -205,3 +205,39 @@ must preserve existing SSH, UFW and Fail2ban policies. None is performed by this
 source candidate. Gate 6C must prove a development installation through that hosted
 service, including confirmation, health, revocation, reconnect, conflicts and relay
 failure isolation. No content tool, media listing scope or public release is added.
+
+## Browser connection actions
+
+Confirm, Check connection and Disconnect use the same Relay methods for every
+caller. Authenticated, CSRF-valid form POSTs accepting `text/html` return HTTP 303
+to `/?notice=<fixed-name>` and render the Connected sites page. Only server-defined
+notice names and fixed non-secret messages are supported. No service result,
+credential, upstream error, or connection identifier enters the redirect URL.
+Notices describe the preceding action and confer no authority; the listed state
+is always freshly loaded. Reloading the result page never repeats the operation.
+Explicit `Accept: application/json` (including alongside HTML), absent Accept, and
+wildcard-only Accept retain JSON results and error status/certainty. Media ranges
+with zero or invalid quality do not opt into either representation.
+
+Operation failures return fixed, conservative browser notices, including uncertain
+disconnect outcomes. Authentication, Host, Origin, CSRF, malformed input and
+pre-operation admission failures retain their existing JSON HTTP errors. There
+are no automatic retries. Confirmed site revocation and routing disabled with
+owner review required have distinct notices; an unconfirmed revocation is never
+reported as successful.
+
+| Listed state | Browser actions |
+| --- | --- |
+| awaiting_confirmation | Confirm connection, Disconnect |
+| active | Check connection, Disconnect |
+| pending | Disconnect (cancel pending routing) |
+| suspended, revoked_or_expired | Disconnect |
+| exchanging | None while exchange is in flight |
+| disconnect_pending | None; owner review, no browser retry |
+| disconnected, denied, failed, abandoned, unknown | None |
+
+This is presentation only. Existing ownership, originating-session confirmation,
+expiry, live-health authority, and routing-before-revocation rules are unchanged.
+The HTTPS approval regression now follows confirmation, health, and both disconnect
+outcomes through the final HTML page, checking single operation execution and
+reload safety. All fixtures are disposable; hosted connections are untouched.

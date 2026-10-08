@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash, X509Certificate } from 'node:crypto';
 import { chromium } from 'playwright';
 import { createServer } from '../src/server.mjs';
-import { digest } from '../src/security.mjs';
+import { digest, SafeError } from '../src/security.mjs';
 
 // Native HTTPS navigation through the real PHP and relay handlers. DNS/port
 // mapping and ephemeral TLS terminate locally; no response or Location rewrite,
@@ -21,6 +21,28 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
   const records = []; const sensitive = [password]; let logs = '';
   let browser; let proxy; let tunnel; let server; let phase = 'setup';
   const sockets = new Set();
+  const calls = { confirm: 0, health: 0, disconnect: 0, status: 0, revoke: 0 };
+  const originals = Object.fromEntries(['confirm', 'health', 'disconnect'].map(method => [method, relay[method]]));
+  const originalTransport = relay.transport.json;
+  let revokeOutage = false; let healthOutage = false;
+  for (const method of Object.keys(originals)) relay[method] = async function (...args) {
+    calls[method]++; return originals[method].apply(this, args);
+  };
+  relay.transport.json = async function (url, options) {
+    if (new URL(url).pathname.endsWith('/status.php')) {
+      calls.status++;
+      if (healthOutage) throw new SafeError('target_site_unavailable', 503);
+    }
+    if (new URL(url).pathname.endsWith('/revoke.php')) {
+      calls.revoke++;
+      const [row] = await relay.db.query('SELECT state FROM connections WHERE connection_id = ?', [actionConnection]);
+      assert.equal(row.state, 'disconnect_pending', 'Routing disabled before outbound revocation');
+      if (revokeOutage) throw new SafeError('target_site_unavailable', 503);
+    }
+    return originalTransport.call(this, url, options);
+  };
+  let actionConnection;
+
   const snapshot = request => {
     const result = spawnSync(process.env.PHP_BINARY ?? 'php', [driver, root, 'inspect-request'], { input: JSON.stringify({ request }), encoding: 'utf8' });
     assert.equal(result.status, 0, 'Safe lifecycle query succeeded');
@@ -96,17 +118,20 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
       } else await page.goto(origin + '/');
       if (previousConnection) {
         const endpoint = `/connections/${previousConnection}/disconnect`;
-        const response = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === endpoint);
-        await page.locator(`form[action="${endpoint}"]`).getByRole('button', { name: 'Disconnect', exact: true }).click();
-        assert.equal((await response).status(), 200, 'Normal disconnect isolates browser scenarios');
-        await page.goto(origin + '/');
+        if (await page.locator(`form[action="${endpoint}"]`).count()) {
+          const response = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === endpoint);
+          await page.locator(`form[action="${endpoint}"]`).getByRole('button', { name: 'Disconnect', exact: true }).click();
+          assert.equal((await response).status(), 303, 'Normal disconnect isolates browser scenarios');
+          await page.waitForURL(origin + '/?notice=review');
+          await page.goto(origin + '/');
+        }
       }
       await page.getByLabel('Bonumark site URL').fill(site);
       assert.equal((await submit('Connect site', '/connections/start')).status(), 200);
       const link = page.getByRole('link', { name: 'Open site approval', exact: true });
       const state = new URL(await link.getAttribute('href')).searchParams.get('state'); sensitive.push(state);
       const [connection] = await relay.db.query('SELECT connection_id FROM connections WHERE state_hash = ?', [digest('state', state)]);
-      previousConnection = connection.connection_id;
+      previousConnection = connection.connection_id; actionConnection = previousConnection;
       if (foreignCallback) await link.evaluate(a => { const u = new URL(a.href); u.searchParams.set('redirect_uri', 'https://foreign.example/callback'); a.href = u.href; });
       await link.click();
       if (foreignCallback) return { account: browserAccount, connection: connection.connection_id };
@@ -152,16 +177,68 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
     for (const record of [approvalPage, ...posts, ...callbacks]) {
       assert.equal(record.csp_headers, 1); assert.equal(record.no_store, true); assert.equal(record.frame_denial, true);
     }
-    phase = 'explicit relay confirmation';
-    assert.equal((await submit('Confirm connection', (await page.locator('form:has(button:text-is("Confirm connection"))').getAttribute('action')))).status(), 200);
-    assert.equal((await relay.db.query('SELECT state FROM connections WHERE account_id = ?', [account.account_id]))[0].state, 'active');
+    const action = async (method, label, notice, message, state) => {
+      phase = `native ${method} final page`;
+      const endpoint = `/connections/${actionConnection}/${method}`;
+      const before = { ...calls }; const begin = records.length;
+      const res = await submit(label, endpoint);
+      assert.equal(res.status(), 303); assert.equal(res.headers()['location'], '/?notice=' + notice);
+      assert.equal(res.headers()['referrer-policy'], 'no-referrer');
+      assert.equal(res.headers()['cache-control'], 'no-store');
+      assert.equal(res.headers()['x-frame-options'], 'DENY');
+      assert.equal(res.headers()['content-security-policy'], "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+      await page.waitForURL(origin + '/?notice=' + notice);
+      assert.equal(await page.getByRole('heading', { name: 'Connected sites', exact: true }).count(), 1);
+      assert.equal(await page.getByRole('status').textContent(), message);
+      assert.equal(await page.locator('pre').count(), 0, 'Browser never lands on a JSON document');
+      const posts = records.slice(begin).filter(r => r.method === 'POST');
+      assert.equal(posts.length, 1); assert.equal(posts[0].path, endpoint); assert.equal(posts[0].origin, 'relay');
+      assert.equal((await res.request().allHeaders()).origin, origin);
+      assert.equal(calls[method], before[method] + 1, 'One underlying operation, valid session CSRF');
+      if (method === 'health') assert.equal(calls.status, before.status + 1, 'One live site health call');
+      if (method === 'disconnect') assert.equal(calls.revoke, before.revoke + 1, 'One outbound revocation attempt');
+      assert.equal((await relay.db.query('SELECT state FROM connections WHERE connection_id = ?', [actionConnection]))[0].state, state);
+      const row = page.locator('li').filter({ hasText: 'https://site.example.com: ' + state + ' (' }).first();
+      assert.ok((await row.textContent()).includes(': ' + state + ' ('));
+      assert.equal(await row.getByRole('button', { name: 'Confirm connection', exact: true }).count(), 0);
+      assert.equal(await row.getByRole('button', { name: 'Check connection', exact: true }).count(), state === 'active' ? 1 : 0);
+      assert.equal(await row.getByRole('button', { name: 'Disconnect', exact: true }).count(), state === 'active' ? 1 : 0);
+      const afterCalls = { ...calls };
+      await page.reload(); assert.deepEqual(calls, afterCalls, 'Reload never replays a POST');
+      t.diagnostic(JSON.stringify({ action: method, post_count: posts.length, origin: posts[0].origin, status: res.status(), final: new URL(page.url()).pathname, notice, state }));
+    };
+    assert.equal(await page.getByRole('button', { name: 'Confirm connection', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: 'Check connection', exact: true }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Disconnect', exact: true }).count(), 1);
+    await action('confirm', 'Confirm connection', 'confirmed', 'Connection confirmed.', 'active');
+    await action('health', 'Check connection', 'healthy', 'Connection health check passed.', 'active');
+    healthOutage = true;
+    await action('health', 'Check connection', 'health_failed', 'Connection health check did not pass. Review the current connection state.', 'active');
+    healthOutage = false;
+    await action('disconnect', 'Disconnect', 'disconnected', 'Disconnected. Site revocation confirmed.', 'disconnected');
+    previousConnection = undefined;
     phase = 'completed request cannot issue another code';
+    const completed = snapshot(request);
     const used = await page.goto(site + '/admin/connect-authorize.php?request=' + request);
     assert.equal(used.status(), 400);
     assert.equal(await page.getByRole('button', { name: 'Approve connection', exact: true }).count(), 0);
-    assert.deepEqual(snapshot(request), after);
+    assert.deepEqual(snapshot(request), completed);
     const defaultPolicy = formPolicy.replace(' https://relay.example.com/callback', '');
     assert.equal(used.headers()['content-security-policy'], defaultPolicy);
+
+    phase = 'owner review disconnect setup';
+    await startApproval();
+    await page.getByRole('button', { name: 'Approve connection', exact: true }).click();
+    await page.waitForURL(origin + '/');
+    await action('confirm', 'Confirm connection', 'confirmed', 'Connection confirmed.', 'active');
+    revokeOutage = true;
+    await action('disconnect', 'Disconnect', 'review', 'Routing disabled. Site revocation is not confirmed; owner review required.', 'disconnect_pending');
+    revokeOutage = false;
+    // Dispose only this test grant through the existing operation after asserting
+    // no browser retry/action is exposed for the uncertain disconnect.
+    const token = (await context.cookies()).find(c => c.name === '__Host-bmc_session').value;
+    await relay.disconnect(await relay.authenticate(token), actionConnection);
+    previousConnection = undefined;
 
     for (const scenario of ['foreign callback', 'bad CSRF', 'foreign form target', 'denial', 'missing relay session']) {
       phase = scenario;
@@ -212,6 +289,8 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
     t.diagnostic(JSON.stringify({ phase, records: records.filter(r => !r.path.startsWith('/assets/')), network_error: /net::[A-Z_]+/.exec(error.message)?.[0] ?? null }));
     throw new Error(`Browser handoff failed during ${phase}${error.code === 'ERR_ASSERTION' ? ': ' + error.message.split('\n')[0] : ''}`);
   } finally {
+    for (const [method, original] of Object.entries(originals)) relay[method] = original;
+    relay.transport.json = originalTransport;
     if (browser) await browser.close();
     for (const socket of sockets) socket.destroy();
     for (const listener of [tunnel, proxy, server]) if (listener) { listener.closeAllConnections(); await new Promise(resolve => listener.close(resolve)); }

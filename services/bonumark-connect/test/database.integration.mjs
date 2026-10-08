@@ -64,6 +64,7 @@ test('real database and PHP authorization end-to-end', { timeout: 90000 }, async
     const relay = new Relay(db, transport, keyring(keys, 'first'), config);
     if (process.env.BMC_BROWSER_TEST === '1') await t.test('native HTTPS site approval and cross-origin callback', async t => approvalBrowserChecks(t, relay, siteBase, root, driver, password));
     if (process.env.BMC_BROWSER_TEST === '1') await t.test('HTTPS relay browser login and native mutation forms', async t => relayBrowserChecks(t, relay));
+    if (process.env.BMC_BROWSER_TEST === '1') driverCall('reset-rate-limits');
     const account = await relay.provisionAccount(); const otherAccount = await relay.provisionAccount();
     const session = await relay.login(account.token); const other = await relay.login(otherAccount.token);
     server = createServer(relay, { log: line => logs += line }); server.listen(0, '127.0.0.1'); await once(server, 'listening');

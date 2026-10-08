@@ -116,3 +116,86 @@ test('HTTP login and mutation security boundaries', async t => {
     });
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+
+test('browser action presentation preserves JSON authority and safe notices', async t => {
+  const token = secret(); const id = uuid(); const origin = 'https://relay.example.com';
+  let state = 'awaiting_confirmation'; let calls = 0; let failure; let revoked = true;
+  const relay = {
+    config: { baseUrl: origin, maxConcurrent: 16 }, db: { limit: async () => {} },
+    authenticate: async value => { if (value !== token) throw new SafeError('authentication_required', 401); return {}; },
+    list: async () => [{ connection_id: id, canonical_origin: 'https://site.example.com', base_path: '', state, scopes: ['status:read'] }]
+  };
+  for (const method of ['confirm', 'health', 'disconnect']) relay[method] = async () => {
+    calls++; if (failure) throw failure;
+    return { connection_id: id, site_revocation_confirmed: revoked, private_fixture: 'NEVER_IN_HTML' };
+  };
+  const server = createServer(relay, { log: () => {} });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const request = (path, { accept, post = false, proof = csrf(token), originHeader = origin, host = 'relay.example.com', cookie = token } = {}) => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: server.address().port, path, method: post ? 'POST' : 'GET', headers: {
+      Host: host, Cookie: `__Host-bmc_session=${cookie}`, Origin: originHeader,
+      'Content-Type': 'application/x-www-form-urlencoded', ...(accept === undefined ? {} : { Accept: accept })
+    } }, res => { let text = ''; res.on('data', part => text += part); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text })); });
+    req.on('error', reject); req.end(post ? new URLSearchParams({ csrf: proof }).toString() : undefined);
+  });
+  try {
+    await t.test('all existing states render the narrow action set', async () => {
+      const expected = {
+        awaiting_confirmation: ['confirm', 'disconnect'], active: ['health', 'disconnect'],
+        pending: ['disconnect'], suspended: ['disconnect'], revoked_or_expired: ['disconnect'],
+        exchanging: [], disconnect_pending: [], disconnected: [], denied: [], failed: [], abandoned: [],
+        unknown: [], constructor: []
+      };
+      for (const [value, actions] of Object.entries(expected)) {
+        state = value; const res = await request('/');
+        for (const action of ['confirm', 'health', 'disconnect']) assert.equal(res.text.includes(`/connections/${id}/${action}`), actions.includes(action), `${value}: ${action}`);
+      }
+    });
+    await t.test('HTML redirects once, JSON/default retain result and security headers', async () => {
+      for (const [method, notice] of [['confirm', 'confirmed'], ['health', 'healthy'], ['disconnect', 'disconnected']]) {
+        for (const accept of ['text/html,application/xhtml+xml,*/*;q=0.8', 'text/html;q=0.5', undefined, '*/*', 'application/json', 'text/html,application/json', 'text/html;q=0', 'text/html;q=garbage']) {
+          const before = calls; const res = await request(`/connections/${id}/${method}`, { post: true, accept });
+          assert.equal(calls, before + 1);
+          const html = accept?.startsWith('text/html') && !accept.includes('application/json') && !accept.endsWith('q=0') && !accept.endsWith('q=garbage');
+          assert.equal(res.status, html ? 303 : 200);
+          assert.equal(res.headers['referrer-policy'], 'no-referrer'); assert.equal(res.headers['cache-control'], 'no-store');
+          assert.equal(res.headers['x-frame-options'], 'DENY');
+          if (html) { assert.equal(res.headers.location, '/?notice=' + notice); assert.equal(res.text, ''); }
+          else assert.equal(JSON.parse(res.text).private_fixture, 'NEVER_IN_HTML');
+        }
+      }
+      revoked = false;
+      const res = await request(`/connections/${id}/disconnect`, { post: true, accept: 'text/html' });
+      assert.equal(res.headers.location, '/?notice=review');
+      const root = await request(res.headers.location);
+      assert.ok(root.text.includes('Site revocation is not confirmed; owner review required.'));
+      assert.ok(!root.text.includes('NEVER_IN_HTML'));
+    });
+    await t.test('operation errors are fixed notices, JSON keeps HTTP classification and certainty', async () => {
+      for (const method of ['confirm', 'health', 'disconnect']) {
+        for (const error of [new SafeError('fixture_failure', 409, 'site', 'unknown'), new Error('PRIVATE_UPSTREAM_MESSAGE')]) {
+          failure = error;
+          const before = calls; const res = await request(`/connections/${id}/${method}`, { post: true, accept: 'text/html' });
+          assert.equal(calls, before + 1); assert.equal(res.status, 303);
+          assert.equal(res.headers.location, `/?notice=${method}_failed`);
+          const root = await request(res.headers.location);
+          assert.ok(root.text.includes('role="status"')); assert.ok(!root.text.includes('PRIVATE_UPSTREAM_MESSAGE'));
+          const json = await request(`/connections/${id}/${method}`, { post: true, accept: 'application/json' });
+          assert.equal(json.status, error instanceof SafeError ? 409 : 500);
+          assert.equal(JSON.parse(json.text).error.outcome_certainty, 'unknown');
+        }
+      }
+      failure = undefined;
+    });
+    await t.test('HTML preference cannot bypass security or reflect untrusted notices', async () => {
+      for (const options of [{ proof: 'bad' }, { originHeader: 'null' }, { originHeader: 'https://foreign.example' }, { cookie: 'bad' }, { host: 'foreign.example' }]) {
+        const before = calls; const res = await request(`/connections/${id}/confirm`, { post: true, accept: 'text/html', ...options });
+        assert.ok(res.status >= 400); assert.equal(calls, before); assert.equal(res.headers.location, undefined);
+      }
+      for (const value of ['<script>untrusted</script>', 'constructor', '__proto__', 'toString']) {
+        const res = await request('/?notice=' + encodeURIComponent(value));
+        assert.ok(!res.text.includes('role="status"')); assert.ok(!res.text.includes('untrusted'));
+      }
+    });
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});

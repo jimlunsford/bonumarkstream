@@ -5,6 +5,31 @@ import { safeLog, uuid, SafeError } from './security.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[x]);
 const page = (title, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)}</title></head><body><main><h1>${escape(title)}</h1>${body}</main></body></html>`;
+// Presentation only: these values never select an authority path or an endpoint.
+const notices = Object.freeze({
+  confirmed: 'Connection confirmed.',
+  healthy: 'Connection health check passed.',
+  disconnected: 'Disconnected. Site revocation confirmed.',
+  review: 'Routing disabled. Site revocation is not confirmed; owner review required.',
+  confirm_failed: 'Confirmation could not be completed. Review the current connection state before taking further action.',
+  health_failed: 'Connection health check did not pass. Review the current connection state.',
+  disconnect_failed: 'Disconnect could not be confirmed. Routing and site revocation may be incomplete; owner review required.'
+});
+const actions = Object.freeze({
+  pending: ['disconnect'], awaiting_confirmation: ['confirm', 'disconnect'],
+  active: ['health', 'disconnect'], suspended: ['disconnect'], revoked_or_expired: ['disconnect']
+});
+const labels = { confirm: 'Confirm connection', health: 'Check connection', disconnect: 'Disconnect' };
+// Native navigation explicitly accepts HTML. JSON stays the default, and an
+// explicit application/json preference wins. Fetch metadata is not authority.
+const browserResponse = request => {
+  const accepted = (request.headers.accept ?? '').toLowerCase().split(',').map(part => {
+    const [type, ...params] = part.trim().split(';');
+    const q = params.map(p => p.trim()).find(p => p.startsWith('q='));
+    return { type: type.trim(), quality: q === undefined ? 1 : Number(q.slice(2)) };
+  }).filter(item => item.quality > 0 && item.quality <= 1);
+  return accepted.some(item => item.type === 'text/html') && !accepted.some(item => item.type === 'application/json');
+};
 async function body(request) {
   let size = 0; const chunks = [];
   for await (const chunk of request) { size += chunk.length; if (size > 8192) throw new SafeError('request_too_large', 413); chunks.push(chunk); }
@@ -60,7 +85,8 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
       const field = `<input type="hidden" name="csrf" value="${csrf(cookie)}">`;
       if (request.method === 'GET' && url.pathname === '/') {
         const rows = await relay.list(session);
-        const html = page('Connected sites', `<form method="post" action="/connections/start">${field}<label for="site">Bonumark site URL</label><input id="site" type="url" name="site" required><button>Connect site</button></form><ul>${rows.map(r => `<li>${escape(r.canonical_origin + r.base_path)}: ${escape(r.state)} (${escape(r.scopes.join(', '))})<form method="post" action="/connections/${r.connection_id}/confirm">${field}<button>Confirm connection</button></form><form method="post" action="/connections/${r.connection_id}/health">${field}<button>Check connection</button></form><form method="post" action="/connections/${r.connection_id}/disconnect">${field}<button>Disconnect</button></form></li>`).join('')}</ul>`);
+        const notice = Object.hasOwn(notices, url.searchParams.get('notice')) ? notices[url.searchParams.get('notice')] : '';
+        const html = page('Connected sites', `${notice ? `<p role="status">${notice}</p>` : ''}<form method="post" action="/connections/start">${field}<label for="site">Bonumark site URL</label><input id="site" type="url" name="site" required><button>Connect site</button></form><ul>${rows.map(r => `<li>${escape(r.canonical_origin + r.base_path)}: ${escape(r.state)} (${escape(r.scopes.join(', '))})${(Object.hasOwn(actions, r.state) ? actions[r.state] : []).map(action => `<form method="post" action="/connections/${escape(r.connection_id)}/${action}">${field}<button>${labels[action]}</button></form>`).join('')}</li>`).join('')}</ul>`);
         response.setHeader('Referrer-Policy', 'same-origin');
         send(html, true); return;
       }
@@ -79,7 +105,20 @@ export function createServer(relay, { log = line => process.stdout.write(line) }
         }
         if (Object.keys(input).some(k => k !== 'csrf')) throw new SafeError('invalid_request');
         const match = /^\/connections\/([a-f0-9-]{36})\/(confirm|health|disconnect)$/.exec(url.pathname);
-        if (match) { send(await relay[match[2]](session, match[1])); return; }
+        if (match) {
+          const html = browserResponse(request);
+          let result;
+          try { result = await relay[match[2]](session, match[1]); }
+          catch (error) {
+            if (!html) throw error;
+            redirect('/?notice=' + { confirm: 'confirm_failed', health: 'health_failed', disconnect: 'disconnect_failed' }[match[2]]);
+            return;
+          }
+          if (!html) { send(result); return; }
+          const notice = match[2] === 'confirm' ? 'confirmed' : match[2] === 'health' ? 'healthy'
+            : result.site_revocation_confirmed === true ? 'disconnected' : 'review';
+          redirect('/?notice=' + notice); return;
+        }
       }
       throw new SafeError('not_found', 404);
     } catch (error) {
