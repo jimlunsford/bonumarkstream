@@ -274,6 +274,19 @@ export async function approvalBrowserChecks(t, relay, siteBase, root, driver, pa
           if (scenario === 'bad CSRF') assert.equal(records.findLast(r => r.method === 'POST' && r.path === '/admin/connect-authorize.php').status, 403);
           else { assert.ok(violations.slice(violationCount).includes('form-action')); assert.equal(records.slice(begin).filter(r => r.method === 'POST' && r.path === '/admin/connect-authorize.php').length, 0); }
         }
+        // The proxy records response headers before Chromium commits navigation.
+        // Finish that navigation before the next scenario opens the relay, or
+        // the pending rejected POST can interrupt the next page.goto(). The
+        // foreign-target case intentionally has no navigation to wait for.
+        if (scenario === 'bad CSRF') {
+          await page.getByText('Invalid request token.', { exact: true }).waitFor();
+          await page.waitForLoadState('load');
+        } else if (scenario === 'denial') {
+          await page.waitForURL(origin + '/');
+        } else if (scenario === 'missing relay session') {
+          await page.waitForURL(url => url.origin === origin && url.pathname === '/callback');
+          await page.waitForLoadState('load');
+        }
       }
       const [row] = await relay.db.query('SELECT state FROM connections WHERE connection_id = ?', [pending.connection]);
       assert.equal(row.state, scenario === 'denial' ? 'denied' : 'pending');
