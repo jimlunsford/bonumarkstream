@@ -18,7 +18,8 @@ OAuth provider, MCP implementation or normal-site runtime dependency is introduc
 `services/` is repository-only and excluded by `.gitattributes` from Stream's
 normal tar and ZIP archives. The Compatibility workflow compares both archives
 against the complete expected file list. The independent service package contains
-only `src`, schema, README, example configuration, package manifest and lockfile.
+only `src`, `assets/connect.css`, schema, README, example configuration, package
+manifest and lockfile.
 It excludes tests, node_modules, local configuration, keys, logs and database files.
 
 ## Development commands
@@ -86,8 +87,9 @@ Successful GET `/login` and authenticated GET `/` HTML form pages alone use
 `Referrer-Policy: same-origin`. Native form POSTs then carry the configured Origin
 instead of the literal `null` produced under `no-referrer`. Referrers are sent only
 within the relay origin. Callback handling, redirects, JSON/error responses and
-other pages retain `no-referrer`; no-store, frame denial and the script-free CSP
-are unchanged. Exact Host validation prevents arbitrary forwarded-host trust.
+other pages retain `no-referrer`. HTML remains no-store with frame denial; the
+script-free CSP permits same-origin CSS only on successful HTML pages as described
+below. Exact Host validation prevents arbitrary forwarded-host trust.
 
 GET `/login` issues a fresh random, HMAC-SHA256-signed `__Host-bmc_login` cookie
 with Secure, HttpOnly, SameSite=Strict, Path=/ and a ten-minute lifetime, plus a
@@ -241,3 +243,44 @@ expiry, live-health authority, and routing-before-revocation rules are unchanged
 The HTTPS approval regression now follows confirmation, health, and both disconnect
 outcomes through the final HTML page, checking single operation execution and
 reload safety. All fixtures are disposable; hosted connections are untouched.
+
+## Connect presentation
+
+The service-owned `src/pages.mjs` shell and `assets/connect.css` follow Stream's
+`assets/admin-shell.css` tokens, `assets/admin.css` forms/panels, and the Settings
+and Connected Applications hierarchy. Warm-neutral primary controls, dark raised
+panels, readable state pills and permissions, quiet destructive controls, and fixed
+status notices share that visual language without importing Stream assets or its
+navigation. Login and approval use a narrow card; Connected sites uses a centered
+960px container with a dedicated connection form, cards and an intentional empty
+state. Cards and controls stack on phones. There is no client-side JavaScript,
+external font, image, stylesheet, animation, or third-party network dependency.
+
+GET `/assets/connect.css` is the only static route. It matches the literal request
+target, is publicly readable for login, and serves fixed package bytes as
+`text/css; charset=utf-8` with `nosniff` and `Cache-Control: no-cache`. Query,
+encoded and traversal aliases are rejected. It remains behind Host, concurrency
+and service-rate checks, with no account information or filesystem path mapping.
+The independent package copies that exact asset and imports the runtime from a
+clean production-only install, so a missing stylesheet fails package validation.
+
+Successful login, Connected sites and approval-start HTML alone append
+`style-src 'self'` to the existing CSP. `default-src 'none'`, form-action, base and
+frame restrictions remain intact. CSS, redirects, callback, readiness, JSON and
+errors retain the original CSP. HTML stays no-store, and the two existing
+same-origin Referrer-Policy exceptions are unchanged. No inline styles or script
+permissions are introduced. Labels, state tones and notices are presentation only;
+PR #20's action map and all Relay methods are unchanged. UUIDs occur only where
+required in action targets, never as displayed record metadata.
+
+The presentation tests check the exact asset allowlist, escaping, package policy,
+state actions, fixed notices and response-specific CSP. Disposable HTTPS browser
+fixtures check CSS loading and no external requests/CSP style violations, login,
+empty connections, approval, active/success and owner-review warning states at
+1280×900, 768×1024, 390×844 and 360×800. Long site addresses and scope values wrap;
+visible labels, keyboard focus, 44px controls, text contrast of at least 4.5:1 and
+control contrast of at least 3:1 are asserted. Existing login, native site approval,
+callback, single action execution and reload-safety regressions still run.
+This candidate does not deploy, alter a hosted connection, close Gate 6C, or begin
+Gate 7. Hosted visual acceptance remains Jim's review after a separately authorized
+deployment.
