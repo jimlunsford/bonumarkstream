@@ -62,6 +62,11 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .connect-fields .button { flex: 0 0 auto; }
 .connections { margin-top: 32px; }
 .connections > h2 { margin-bottom: 14px; }
+.connection-history { margin-top: 24px; }
+.connection-history summary { min-height: 44px; padding: 10px 0; color: var(--muted); font-weight: 650; cursor: pointer; overflow-wrap: anywhere; }
+.history-records { margin-top: 14px; }
+.scope-label { display: block; font-size: 0.9rem; font-weight: 600; }
+.scope-label + code { display: block; color: var(--muted); }
 .connection-card + .connection-card { margin-top: 14px; }
 .connection-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .site-address { min-width: 0; overflow-wrap: anywhere; }

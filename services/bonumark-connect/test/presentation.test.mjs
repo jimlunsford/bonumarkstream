@@ -76,3 +76,41 @@ test('presentation asset allowlist and response policy boundaries', async () => 
     const error = await request('/', { auth: true }); assert.equal(error.status, 500); assert.equal(error.headers['content-security-policy'], baseCSP);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+
+test('history grouping is explicit, stable, complete and presentation-only', async () => {
+  const { connectedPage } = await import('../src/pages.mjs');
+  const states = ['failed', 'active', 'pending', 'abandoned', 'awaiting_confirmation', 'exchanging', 'disconnected', 'suspended', 'revoked_or_expired', 'denied', 'disconnect_pending', 'future', 'constructor', 'active'];
+  const rows = Object.freeze(states.map((state, i) => Object.freeze({ connection_id: String(i), canonical_origin: 'https://same.example', base_path: '', scopes: Object.freeze(['status:read']), state })));
+  const before = JSON.stringify(rows);
+  const html = connectedPage(rows, '', '', '', {}, {});
+  const [current, history] = html.split('<details class="connection-history">');
+  const values = text => [...text.matchAll(/data-state="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(values(current), ['active', 'pending', 'awaiting_confirmation', 'exchanging', 'suspended', 'revoked_or_expired', 'disconnect_pending', 'future', 'constructor', 'active']);
+  assert.deepEqual(values(history), ['failed', 'abandoned', 'disconnected', 'denied']);
+  assert.match(history, /<summary>Connection history \(4\)<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+  assert.equal((html.match(/Read site status/g) ?? []).length, rows.length);
+  assert.equal((html.match(/<code>status:read<\/code>/g) ?? []).length, rows.length);
+  assert.equal(JSON.stringify(rows), before);
+});
+
+test('history-only and empty dashboards keep distinct truthful empty states', async () => {
+  const { connectedPage } = await import('../src/pages.mjs');
+  const render = rows => connectedPage(rows, '', '', '', {}, {});
+  assert.match(render([]), /No sites connected yet/);
+  assert.doesNotMatch(render([]), /<details/);
+  const html = render([{ state: 'denied', canonical_origin: 'https://site.example', base_path: '', scopes: [], connection_id: 'fixture' }]);
+  assert.match(html, /No current connections/); assert.match(html, /Connection history \(1\)/);
+  assert.doesNotMatch(html, /No sites connected yet/); assert.match(html, /No permissions granted/);
+});
+
+test('unknown states and scopes remain exact escaped text in their appropriate groups', async () => {
+  const { connectedPage } = await import('../src/pages.mjs');
+  const unknown = '<img src=x onerror="fixture">&\'';
+  const rows = [unknown, 'failed'].map(state => ({ state, canonical_origin: 'https://site.example', base_path: '', connection_id: 'fixture', scopes: ['status:read', unknown, 'constructor'] }));
+  const html = connectedPage(rows, '', '', '', {}, {});
+  assert.doesNotMatch(html, /<img|<script/);
+  assert.equal((html.match(/<code>&lt;img src=x onerror=&quot;fixture&quot;&gt;&amp;&#39;<\/code>/g) ?? []).length, 2);
+  assert.equal((html.match(/<code>constructor<\/code>/g) ?? []).length, 2);
+  assert.match(html.split('<details')[0], /data-state="&lt;img/);
+});
