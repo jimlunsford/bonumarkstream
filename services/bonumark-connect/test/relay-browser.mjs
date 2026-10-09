@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { historyBrowserChecks } from './history-browser.mjs';
 import { presentationChecks } from './presentation-browser.mjs';
 import http from 'node:http';
 import https from 'node:https';
@@ -193,6 +194,12 @@ export async function relayBrowserChecks(t, fixture) {
       assert.ok(stylesheetResponses > 0, 'Stylesheet requests succeeded');
       t.diagnostic('Connect login, empty, approval, active, success and warning layouts passed at 1280x900, 768x1024, 390x844 and 360x800; text/control contrast, focus, labels, targets, local CSS and no external requests passed.');
     });
+    const historyContext = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      await historyContext.addCookies(await context.cookies());
+      const historyPage = await historyContext.newPage();
+      await historyBrowserChecks(t, historyPage, relay, origin);
+    } finally { await historyContext.close(); }
     await t.test('callback and auth errors keep no-referrer; browser and relay logs persist no secret artifacts', async () => {
       assert.equal(urlLeak, false, 'Login credentials, proof cookies and form CSRF never enter URLs');
       const code = secret(); sensitive.push(code);

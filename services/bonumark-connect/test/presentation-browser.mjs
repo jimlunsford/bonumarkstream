@@ -25,7 +25,7 @@ export async function presentationChecks(page, kind) {
       const luminance = values => values.slice(0, 3).map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
       const contrast = (a, b) => { const x = luminance(a); const y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
       const background = el => { for (let node = el; node; node = node.parentElement) { const color = rgb(getComputedStyle(node).backgroundColor); if (color.length === 3 || color[3] === 1) return color; } return [10, 13, 18]; };
-      const text = [...document.querySelectorAll('h1,h2,h3,h4,p,label,code,.button,.state-pill,.brand,.brand span,.footer')];
+      const text = [...document.querySelectorAll('h1,h2,h3,h4,p,label,code,.button,.state-pill,.brand,.brand span,.footer,summary,.scope-label')];
       const controls = [...document.querySelectorAll('input:not([type=hidden]),.button')];
       return {
         textContrast: text.every(el => contrast(rgb(getComputedStyle(el).color), background(el)) >= 4.5),
