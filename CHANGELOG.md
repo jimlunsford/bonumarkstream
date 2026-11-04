@@ -2,9 +2,21 @@
 
 This file tracks public GitHub release milestones and the explicitly marked pending release candidate. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
+## 0.8.3 - Timestamp Correction Hotfix
+
+**Prepared release candidate, not publicly released.** The current public release remains v0.8.2. Production deployment is not authorized.
+
+- Corrects RSS `pubDate` to represent the same publication instant as the public post, including scheduled posts, instead of interpreting UTC storage as local time and shifting the result by the local offset.
+- Interprets sitemap database creation/modification fields as UTC, preserves explicit offsets and authored local fallbacks, and retains modification-date precedence for individual content plus existing collection aggregation behavior.
+- Preserves the historical `stream_published_at_utc_cutover` policy, including the distinction between pre-cutover local values and later UTC values. No stored timestamps or owner content are rewritten.
+- Includes permanent coverage for EST/EDT, both daylight-saving transitions, explicit offsets, legacy/cutover values, scheduled publication, and independent RSS versus sitemap semantics.
+- Aligns version/package/cache metadata and corrects stale documentation that described public v0.8.2 as unreleased.
+
+Adds no database migration. A healthy v0.8.2 installation through migration 0028 has no new migration to run. Existing upgrade validation, owner-data preservation, and rollback/recovery rules remain unchanged. See the [candidate notes](docs/releases/v0.8.3.md) and [upgrade guide](docs/UPGRADING.md). Exact package checksums and completed verification are recorded separately in the candidate report.
+
 ## 0.8.2 - Core Interaction and Reliability Pass
 
-**Release candidate, not publicly released.** The current public release remains v0.8.1.
+**Publicly released September 26, 2026.** This remains the current public release while v0.8.3 is prepared for review.
 
 - Corrects federation interaction presentation: eligible public local and remote comments and Likes share consistent totals, including moderation, Undo/removal, and live synchronization. Owner federated replies stay in their conversation context and out of the ordinary main Stream.
 - Reorganizes ActivityPub Admin around profile, Following, Followers, moderation, settings, and diagnostics, with bounded history pagination and a separate Danger Zone.
@@ -13,7 +25,7 @@ This file tracks public GitHub release milestones and the explicitly marked pend
 - Validates media descriptions explicitly, preserves authored or empty alt text, and corrects gallery usage reporting with clear limits on what references it covers.
 - Fingerprints core assets and strengthens interaction, publishing, accessibility, Admin, database, and compatibility regression coverage.
 
-Adds no database migration. Upgrades from public v0.8.1 retain the existing schema/migration ledger and owner/runtime data. See the [candidate notes](docs/releases/v0.8.2.md) and [upgrade guide](docs/UPGRADING.md).
+Adds no database migration. Upgrades from public v0.8.1 retain the existing schema/migration ledger and owner/runtime data. See the [release notes](docs/releases/v0.8.2.md) and [upgrade guide](docs/UPGRADING.md).
 
 ## 0.8.1 - ActivityPub Product Acceptance Corrections
 

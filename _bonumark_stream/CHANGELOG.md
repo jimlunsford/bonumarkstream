@@ -1,6 +1,18 @@
+## 0.8.3 - Timestamp Correction Hotfix
+
+**Prepared release candidate, not publicly released.** The current public release remains v0.8.2. Production deployment is not authorized.
+
+- Corrects RSS `pubDate` to represent the same publication instant as the public post, including scheduled posts, instead of interpreting UTC storage as local time and shifting the result by the local offset.
+- Interprets sitemap database creation/modification fields as UTC, preserves explicit offsets and authored local fallbacks, and retains modification-date precedence for individual content plus existing collection aggregation behavior.
+- Preserves the historical `stream_published_at_utc_cutover` policy, including the distinction between pre-cutover local values and later UTC values. No stored timestamps or owner content are rewritten.
+- Includes permanent coverage for EST/EDT, both daylight-saving transitions, explicit offsets, legacy/cutover values, scheduled publication, and independent RSS versus sitemap semantics.
+- Aligns version/package/cache metadata and corrects stale documentation that described public v0.8.2 as unreleased.
+
+Adds no database migration. A healthy v0.8.2 installation through migration 0028 has no new migration to run. Existing upgrade validation, owner-data preservation, and rollback/recovery rules remain unchanged. See the [candidate notes](../docs/releases/v0.8.3.md) and [upgrade guide](../docs/UPGRADING.md). Exact package checksums and completed verification are recorded separately in the candidate report.
+
 ## 0.8.2 - Core Interaction and Reliability Pass
 
-- Prepares the accepted develop baseline 8b29f8c627616ac090573c5c5a09943d80f0d6f1 as a patch release candidate. Public release remains v0.8.1; candidate validation is recorded separately and is not implied by prior development acceptance.
+- Publicly released September 26, 2026. Originally prepared from the accepted historical develop baseline 8b29f8c627616ac090573c5c5a09943d80f0d6f1. The preparation and development evidence below is retained as history; the public release record documents final acceptance.
 - Unifies approved publicly visible local comments and eligible active remote replies for the current publication generation. Pending, private, deleted, blocked/ineligible, and stale-generation remote replies are excluded.
 - Unifies eligible local and active current-generation remote Like totals without disclosing private reaction identities. Undo/removal, moderation, initial rendering, asynchronous updates, and reloads share the eligibility contract.
 - Keeps published owner federated replies out of ordinary main Stream, pinned, and archive output while preserving local post identity, permalink access, and conversation context.
@@ -13,8 +25,8 @@
 - Makes card convenience navigation selection-, drag-, cancellation-, modifier-, and child-control-aware. Improves main landmarks and skip destinations without inventing visible post headlines.
 - Adds stable polite comment status, busy/error semantics, conditional focus restoration, draft-preserving updates, and visible Like/Liked action wording. Actual screen-reader listening remains unverified.
 - Fingerprints core CSS/JavaScript and service-worker identity to prevent stale assets during same-version development.
-- Retains development acceptance at 390 x 844 and 360 x 800 plus genuine phone/touch selection, confirmed by Jim. Exact v0.8.2 RC responsive acceptance remains a separate gate.
-- Retains real dev federation evidence: owner reply delivered and absent from the main Stream; remote Like Undo/restoration changed the public total correctly with the fixture restored. Exact candidate RC federation acceptance remains a separate gate.
+- Retains development acceptance at 390 x 844 and 360 x 800 plus genuine phone/touch selection, confirmed by Jim. Final v0.8.2 acceptance subsequently passed at both viewport sizes, as recorded in the public release.
+- Retains real dev federation evidence: owner reply delivered and absent from the main Stream; remote Like Undo/restoration changed the public total correctly with the fixture restored. Final candidate application and federation acceptance was subsequently recorded in the public release.
 - Adds no database migration. Migration files remain unchanged through 0028. Upgrades from public v0.8.1 preserve owner data, configuration, lock, custom themes, signing identity, relationships, and the healthy migration ledger.
 - Aligns release identity, current-version documentation, changelogs, and package metadata while correcting the stale v0.8.1 public-release wording.
 

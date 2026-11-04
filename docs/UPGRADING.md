@@ -1,6 +1,6 @@
 # Upgrading Bonumark Stream
 
-The v0.8.2 release candidate is not publicly released; the current public release remains v0.8.1. Bonumark Stream v0.8.2 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
+The prepared v0.8.3 release candidate is not publicly released; the current public release is v0.8.2, published September 26, 2026. Production deployment of v0.8.3 is not authorized. Bonumark Stream v0.8.3 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
 ## Upgrade paths
 
@@ -17,19 +17,19 @@ A locked-down application tree is not a broken Bonumark installation. Do not mak
 On a locked-down server with shell access, run the upgrade as the operating-system account that owns/deploys the Bonumark application tree:
 
 ```sh
-php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.8.2.zip
-php scripts/deploy-update.php /path/to/bonumark-stream-v0.8.2.zip
+php scripts/deploy-update.php --check /path/to/bonumark-stream-v0.8.3.zip
+php scripts/deploy-update.php /path/to/bonumark-stream-v0.8.3.zip
 ```
 
 The owner-run helper uses the same core upgrade engine as Admin → Upgrade. It does not invoke `sudo`, install a privileged daemon, use setuid behavior, or give the web/PHP process additional filesystem rights.
 
 ### First transition from an older locked-down release
 
-Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to v0.8.2 without performing a full manual overlay first, extract the v0.8.2 release outside the live site and run the helper from that extracted release while targeting the live installation:
+Bonumark v0.6.0 did not yet contain `scripts/deploy-update.php`. To move a locked-down v0.6.0 installation to a later version without performing a full manual overlay first, extract the target package outside the live site and run the helper from that extracted release while targeting the live installation:
 
 ```sh
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.8.2.zip
-php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.8.2.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark --check /path/to/bonumark-stream-v0.8.3.zip
+php scripts/deploy-update.php --site-root=/path/to/live/bonumark /path/to/bonumark-stream-v0.8.3.zip
 ```
 
 After the upgrade succeeds, the helper exists inside the live installation for future owner-run upgrades.
@@ -38,9 +38,19 @@ After the upgrade succeeds, the helper exists inside the live installation for f
 
 When PHP cannot replace the application code and shell access is unavailable, use the documented manual/hosting-layer workflow in [`server/MANUAL-DEPLOYMENT.md`](server/MANUAL-DEPLOYMENT.md). Preserve Bonumark owner/runtime data and complete the documented deployment and migration checks before treating the upgrade as finished.
 
+## v0.8.3 - Timestamp Correction Hotfix
+
+**Prepared candidate only.** The examples above identify the candidate package for isolated validation; they do not authorize production deployment. Adds no database migration. A healthy public v0.8.2 installation already through migration 0028 has no new migration to run.
+
+Use the existing Admin ZIP or owner-run workflow with a verified backup. Package validation and newer-version enforcement remain mandatory. Preserve configuration, installed lock, posts/Pages, accounts, media/uploads, settings, custom themes, ActivityPub identity and state, and the migration ledger. Pre-migration rollback and forward-only migration recovery are unchanged.
+
+The correction changes interpretation at RSS and sitemap output, not stored timestamps. Retain the existing `stream_published_at_utc_cutover` setting. Do not rewrite historical dates, alter timezone settings, reset scheduled posts, or reset federation state as part of the upgrade. RSS uses the public publication instant, including the scheduled instant when applicable. Sitemap modification dates continue to prioritize `updated_at`; they are not forced to equal RSS publication dates after an edit.
+
+After an approved upgrade, check package integrity and pending migrations, compare RSS dates to public post timestamps, and check sitemap modification dates independently. Publishing and scheduled-post behavior should remain unchanged. See the [v0.8.3 candidate notes](releases/v0.8.3.md).
+
 ## v0.8.2 - Core Interaction and Reliability Pass
 
-**Release candidate, not publicly released.** Adds no database migration. A healthy public v0.8.1 installation already through migration 0028 has no new migration to run.
+**Publicly released September 26, 2026.** Adds no database migration. A healthy public v0.8.1 installation already through migration 0028 has no new migration to run.
 
 Back up the database and complete site files, validate the exact candidate ZIP with the Admin or owner-run package precheck, then use the existing upgrade workflow. The upgrade preserves configuration, installed lock, accounts, posts/Pages, media/uploads, settings, custom themes, ActivityPub identity and signing keys, relationships, publication history, and the migration ledger. Do not reset federation state or rotate a healthy key as part of this upgrade.
 
@@ -48,7 +58,7 @@ After upgrading, run the deployment check and Admin > System Check. Confirm zero
 
 Composer failures retain editable input, with selected files retained during asynchronous failures; a full page navigation still requires file reselection. Uncertain saves block blind retry to protect against duplicate posts. Media descriptions have an explicit 255-Unicode-character limit; correct rejected input rather than silently truncating it.
 
-See the [v0.8.2 candidate notes](releases/v0.8.2.md) for the remaining presentation, accessibility, and verification details.
+See the [v0.8.2 release notes](releases/v0.8.2.md) for the remaining presentation, accessibility, and verification details.
 
 ## v0.8.1 - ActivityPub Product Acceptance Corrections
 
