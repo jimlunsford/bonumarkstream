@@ -1,6 +1,6 @@
 # Upgrading Bonumark Stream
 
-The prepared v0.8.3 release candidate is not publicly released; the current public release is v0.8.2, published September 26, 2026. Production deployment of v0.8.3 is not authorized. Bonumark Stream v0.8.3 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
+The current public release is v0.8.3, published November 4, 2026, superseding v0.8.2. Bonumark Stream v0.8.3 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
 ## Upgrade paths
 
@@ -40,19 +40,19 @@ When PHP cannot replace the application code and shell access is unavailable, us
 
 ## v0.8.3 - Timestamp Correction Hotfix
 
-**Prepared candidate only.** The examples above identify the candidate package for isolated validation; they do not authorize production deployment. Adds no database migration. A healthy public v0.8.2 installation already through migration 0028 has no new migration to run.
+**Publicly released November 4, 2026.** The examples above identify the official release package. Adds no database migration. A healthy public v0.8.2 installation already through migration 0028 has no new migration to run.
 
 Use the existing Admin ZIP or owner-run workflow with a verified backup. Package validation and newer-version enforcement remain mandatory. Preserve configuration, installed lock, posts/Pages, accounts, media/uploads, settings, custom themes, ActivityPub identity and state, and the migration ledger. Pre-migration rollback and forward-only migration recovery are unchanged.
 
 The correction changes interpretation at RSS and sitemap output, not stored timestamps. Retain the existing `stream_published_at_utc_cutover` setting. Do not rewrite historical dates, alter timezone settings, reset scheduled posts, or reset federation state as part of the upgrade. RSS uses the public publication instant, including the scheduled instant when applicable. Sitemap modification dates continue to prioritize `updated_at`; they are not forced to equal RSS publication dates after an edit.
 
-After an approved upgrade, check package integrity and pending migrations, compare RSS dates to public post timestamps, and check sitemap modification dates independently. Publishing and scheduled-post behavior should remain unchanged. See the [v0.8.3 candidate notes](releases/v0.8.3.md).
+After upgrading, check package integrity and pending migrations, compare RSS dates to public post timestamps, and check sitemap modification dates independently. Publishing and scheduled-post behavior should remain unchanged. See the [v0.8.3 release notes](releases/v0.8.3.md).
 
 ## v0.8.2 - Core Interaction and Reliability Pass
 
 **Publicly released September 26, 2026.** Adds no database migration. A healthy public v0.8.1 installation already through migration 0028 has no new migration to run.
 
-Back up the database and complete site files, validate the exact candidate ZIP with the Admin or owner-run package precheck, then use the existing upgrade workflow. The upgrade preserves configuration, installed lock, accounts, posts/Pages, media/uploads, settings, custom themes, ActivityPub identity and signing keys, relationships, publication history, and the migration ledger. Do not reset federation state or rotate a healthy key as part of this upgrade.
+Back up the database and complete site files, validate the official v0.8.2 ZIP with the Admin or owner-run package precheck, then use the existing upgrade workflow. The upgrade preserves configuration, installed lock, accounts, posts/Pages, media/uploads, settings, custom themes, ActivityPub identity and signing keys, relationships, publication history, and the migration ledger. Do not reset federation state or rotate a healthy key as part of this upgrade.
 
 After upgrading, run the deployment check and Admin > System Check. Confirm zero pending migrations, package integrity, normal publishing/editing/media, and the existing federation identity and queue. Public Comment and Like totals now include eligible current-generation remote interactions; Undo/removal and moderation update those totals. Owner federated replies stay out of the ordinary main Stream while retaining their permalink and conversation context.
 

@@ -1,6 +1,6 @@
 # Install Bonumark Stream
 
-Bonumark Stream v0.8.3 is the prepared release candidate, not a public release. The current public GitHub release is v0.8.2, published September 26, 2026. Use v0.8.3 only for deliberate isolated candidate validation until publication and deployment receive separate approval.
+Bonumark Stream v0.8.3 is the current public release, published November 4, 2026. Download the official, checksum-verified ZIP from [GitHub Releases](https://github.com/jimlunsford/bonumarkstream/releases/tag/v0.8.3).
 
 ## Runtime storage contract
 
