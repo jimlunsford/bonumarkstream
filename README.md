@@ -7,9 +7,9 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.3** (prepared release candidate, not publicly released)
-- Current public GitHub release: **v0.8.2**, published September 26, 2026
-- v0.8.3 publication and production deployment require separate approval.
+- Current version: **0.8.3**
+- Current public GitHub release: **v0.8.3**, published November 4, 2026
+- [Download the official v0.8.3 release](https://github.com/jimlunsford/bonumarkstream/releases/tag/v0.8.3).
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -36,11 +36,11 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## Prepared v0.8.3 candidate
+## What's new in v0.8.3
 
 v0.8.3, **Timestamp Correction Hotfix**, corrects RSS publication times and sitemap modification dates by interpreting each stored field in its intended timezone. It preserves historical local timestamps, EST/EDT transitions, scheduled-post timing, and existing publishing behavior. It adds no database migration and supports upgrading from public v0.8.2 through the existing upgrade workflow.
 
-This candidate has not been publicly released or authorized for production deployment. See the [v0.8.3 candidate notes](docs/releases/v0.8.3.md) for scope and verification boundaries, and the [v0.8.2 release notes](docs/releases/v0.8.2.md) for the current public release.
+v0.8.3 was publicly released on November 4, 2026. See the [v0.8.3 release notes](docs/releases/v0.8.3.md) for the correction and verification details, or the [v0.8.2 release notes](docs/releases/v0.8.2.md) for the previous public release.
 
 ### ActivityPub foundation
 
@@ -267,7 +267,7 @@ Project documentation is included under `docs/`:
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [ActivityPub](docs/ACTIVITYPUB.md)
-- [v0.8.3 candidate notes](docs/releases/v0.8.3.md)
+- [v0.8.3 release notes](docs/releases/v0.8.3.md)
 - [v0.8.2 release notes](docs/releases/v0.8.2.md)
 - [v0.8.1 release notes](docs/releases/v0.8.1.md)
 - [Theming](docs/THEMING.md)
