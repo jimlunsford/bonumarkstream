@@ -1,5 +1,7 @@
 # Next-release core development
 
+**Historical development record for public v0.8.2, released September 26, 2026.** Branch names, permissions, pending gates, and public-release references below describe their dated development checkpoints. They are not the current release state. The former develop branch has been retired; current candidate preparation targets main. See the [v0.8.2 release notes](../releases/v0.8.2.md) and [v0.8.3 candidate notes](../releases/v0.8.3.md).
+
 Development branch: `feature/next-release-core`
 Integration target: `develop`
 Starting commit: `2d31fcf0f72c297f7bf501e26a4deac96f6c2980`

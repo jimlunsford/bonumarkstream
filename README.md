@@ -7,8 +7,9 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.2**
-- Current public GitHub release: **v0.8.2**
+- Current version: **0.8.3** (prepared release candidate, not publicly released)
+- Current public GitHub release: **v0.8.2**, published September 26, 2026
+- v0.8.3 publication and production deployment require separate approval.
 
 Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
@@ -35,11 +36,11 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.8.2
+## Prepared v0.8.3 candidate
 
-v0.8.2, **Core Interaction and Reliability Pass**, builds on v0.8.1 with consistent public Comment and Like totals, clearer owner reply placement, improved ActivityPub administration, safer publishing recovery, stronger Unicode metadata handling, accessibility improvements, and media validation. It adds no database migration.
+v0.8.3, **Timestamp Correction Hotfix**, corrects RSS publication times and sitemap modification dates by interpreting each stored field in its intended timezone. It preserves historical local timestamps, EST/EDT transitions, scheduled-post timing, and existing publishing behavior. It adds no database migration and supports upgrading from public v0.8.2 through the existing upgrade workflow.
 
-Eligible approved remote replies and active remote Likes now contribute to public aggregate totals without exposing private reaction identities. Published owner federated replies remain available in their conversation and by permalink while staying out of the ordinary main Stream. See the [v0.8.2 release notes](docs/releases/v0.8.2.md).
+This candidate has not been publicly released or authorized for production deployment. See the [v0.8.3 candidate notes](docs/releases/v0.8.3.md) for scope and verification boundaries, and the [v0.8.2 release notes](docs/releases/v0.8.2.md) for the current public release.
 
 ### ActivityPub foundation
 
@@ -266,6 +267,7 @@ Project documentation is included under `docs/`:
 - [Compatibility](docs/COMPATIBILITY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [ActivityPub](docs/ACTIVITYPUB.md)
+- [v0.8.3 candidate notes](docs/releases/v0.8.3.md)
 - [v0.8.2 release notes](docs/releases/v0.8.2.md)
 - [v0.8.1 release notes](docs/releases/v0.8.1.md)
 - [Theming](docs/THEMING.md)

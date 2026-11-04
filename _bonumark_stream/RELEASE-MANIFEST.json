@@ -1,11 +1,11 @@
 {
   "name": "bonumark-stream",
-  "version": "0.8.2",
-  "generated_at": "2026-09-26T15:35:50.080549+00:00",
+  "version": "0.8.3",
+  "generated_at": "2026-11-04T12:10:43.321867+00:00",
   "files": [
     {
       "path": ".github/workflows/compatibility.yml",
-      "sha256": "9dfe5d6c1c286952a3cd5f5ea8dec5ca5ed6404af901ff3110ba3f90137b5e9d"
+      "sha256": "62fd6a0fb33fc58b335eea9dfc10a2ea0ab0c6e0357f0fe84a2cd37c3d57e2d7"
     },
     {
       "path": ".gitignore",
@@ -17,7 +17,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "7b2b853e79c6ebeed1343a66ca7414db5ab12c2ed60d094fdb34fded49a3e0e7"
+      "sha256": "8ba156bcea722bba65c24f2d187bfaaad6069f5ffea5ffd261f9cec37795b5f2"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -29,7 +29,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "6e9e3172b27780baea76713cfda6b3cd23055b24eff4a43ac2d106ccd32bd967"
+      "sha256": "0f2fe5d96b4a053b86d6643aa9c15a2161ede4dd176de166d419bae1137d1440"
     },
     {
       "path": "SECURITY.md",
@@ -37,7 +37,7 @@
     },
     {
       "path": "VERSION",
-      "sha256": "ceb9b2c03afb769df3b1e518520c4e1798e9a3313a1c5ffffcb054fef5d6d6fb"
+      "sha256": "780363b8ef02ff7e83eb72709f6396b09dec21a26403bb44f58ea8d6757fe33d"
     },
     {
       "path": "_bonumark_stream/.htaccess",
@@ -45,15 +45,15 @@
     },
     {
       "path": "_bonumark_stream/CHANGELOG.md",
-      "sha256": "ab452ef523aae5be31a5528fd6747e6817b339a96eeb620185c017acabb1c8c7"
+      "sha256": "13b748c2a7f955113c4c19c2efa5f0806e7ff2c2ae3dd37117291b1b1ce2f1fe"
     },
     {
       "path": "_bonumark_stream/PACKAGE.json",
-      "sha256": "81281690639af3628e34993a07b1dc35b93ba83195270f9a825a045e48f160c4"
+      "sha256": "7bb2cfd20dcedadaec3340b860a9490ec3cb4a510facdb42e9d73e50c9ee2dfd"
     },
     {
       "path": "_bonumark_stream/VERSION",
-      "sha256": "ceb9b2c03afb769df3b1e518520c4e1798e9a3313a1c5ffffcb054fef5d6d6fb"
+      "sha256": "780363b8ef02ff7e83eb72709f6396b09dec21a26403bb44f58ea8d6757fe33d"
     },
     {
       "path": "_bonumark_stream/app/activitypub-delivery.php",
@@ -129,7 +129,7 @@
     },
     {
       "path": "_bonumark_stream/app/functions.php",
-      "sha256": "efed8a7df1b92c6cbd7f8a027f0f3af2b990d2eba22c2e30a85f1d9d2973c9e3"
+      "sha256": "bfcd57cd02fb49d9cd400f63e80c6514d2506c42a1df4b2c630a3cc0d3863493"
     },
     {
       "path": "_bonumark_stream/app/import-media.php",
@@ -237,7 +237,7 @@
     },
     {
       "path": "_bonumark_stream/app/renderer.php",
-      "sha256": "ee8fd1bf398adf93e95291c7750fd8f2517e361654f55fef5ccb421ae93bfe2b"
+      "sha256": "d18e2da92bd3900018077e6974698b9180b7e2a369a8f6741986c2f1eed8a6d4"
     },
     {
       "path": "_bonumark_stream/app/routes.php",
@@ -249,7 +249,7 @@
     },
     {
       "path": "_bonumark_stream/app/sitemap.php",
-      "sha256": "0d32762f6fd776ac7ed17506a097b8fc36c8f684249244d1f9ee774025055cce"
+      "sha256": "9fdf857c6f9509f9ead4775b1f5cbba044a27e9b8e692143571ddb0257166c67"
     },
     {
       "path": "_bonumark_stream/app/stream-like-endpoint.php",
@@ -469,7 +469,7 @@
     },
     {
       "path": "_bonumark_stream/config.sample.php",
-      "sha256": "59f4da9080547af960faee80e7a1383903256ec88dab4b1f78a77555f814fd9d"
+      "sha256": "c3214e3d68b3093e5ca7533b1cc9ef8b7ba32fda0bff9497b4ca6158804f2d67"
     },
     {
       "path": "_bonumark_stream/data/.gitkeep",
@@ -1093,7 +1093,7 @@
     },
     {
       "path": "docs/ACTIVITYPUB.md",
-      "sha256": "bb127111b21e90b82e9b162b863599010be493bd8ce76f1538913595bf42c1c2"
+      "sha256": "cdbc57fab5f143eb399ff923316e099de2e93dfdd423c9425143a5b4541a252a"
     },
     {
       "path": "docs/ADMIN-UI-GUIDELINES.md",
@@ -1105,7 +1105,7 @@
     },
     {
       "path": "docs/API.md",
-      "sha256": "da47951d936e6c333c5c2f7bdf025ef56cb24912e26a22315a7275d726c7b580"
+      "sha256": "39a59da159d4b7b478d892eee4ea7fa0c7e12e9858c714a3fa0db6e35e7da1b6"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -1117,7 +1117,7 @@
     },
     {
       "path": "docs/COMPATIBILITY.md",
-      "sha256": "480952de709b63f70c739fe384a1e4ea14b4667ab5c39624e5315c61d6ccd14e"
+      "sha256": "7007c00171ebb1fba6dce29199dcd1f2c7946e76f5fbe9c91d185d1599e0d610"
     },
     {
       "path": "docs/DECLARATIVE-LAYOUTS.md",
@@ -1133,7 +1133,7 @@
     },
     {
       "path": "docs/INSTALL.md",
-      "sha256": "7ee7af7b882457c9af8c2570c150507c9bc0d542b4f41c0b873d3b626cb69a60"
+      "sha256": "b2666d97999879a26939684106997582a45d3f91fb1a56ace4b6b790e2df81c9"
     },
     {
       "path": "docs/MEDIA-PRIVACY.md",
@@ -1145,7 +1145,7 @@
     },
     {
       "path": "docs/REMOTE-POSTING.md",
-      "sha256": "ec3c6e594b02c2169e65928960162b69147576d8ea86b31f398ce79949138c59"
+      "sha256": "ff4d1c2b035e834850593069ea7c9ad0fe3889a8db4ede49d8fbdbb440c126fb"
     },
     {
       "path": "docs/SCHEDULED-TASKS.md",
@@ -1157,15 +1157,15 @@
     },
     {
       "path": "docs/UPGRADING.md",
-      "sha256": "1307782a764de746d0d641e11574ef23296abefb302d243a7b95fb5219301bfd"
+      "sha256": "a6ad52214b24f15894757fc5657f42bbf20586e860a02898d4bb08cf205b9809"
     },
     {
       "path": "docs/development/next-release-core.md",
-      "sha256": "28e3803dbec9c39d70ae2bae6be8e20bb9077a38189c48ab6ffa6bd84f0f6d33"
+      "sha256": "011910ae2dbe8ddae98f85d43eefc61ce0fca2cd8e28f877e930d3dee0ba8558"
     },
     {
       "path": "docs/openapi/bonumark-stream-api.json",
-      "sha256": "797fef7faa3a3dadddde28a83a8760bddfed4959496903d0e161b969265890a7"
+      "sha256": "de5188e34efd3677baa24b438aa0c53c99306d58f57a134ea655751be0f46aa0"
     },
     {
       "path": "docs/releases/v0.8.0.md",
@@ -1177,7 +1177,11 @@
     },
     {
       "path": "docs/releases/v0.8.2.md",
-      "sha256": "fc0517c8eef944104277305ccd7519fed85d01a66bda834205d7a385e6b7b65f"
+      "sha256": "d6e8ca542e6e9f38ae0fe101c6d512044959d0087d01b99418abd7594397695b"
+    },
+    {
+      "path": "docs/releases/v0.8.3.md",
+      "sha256": "b557298cf260fc36593ffb4e2ed3bdcfb2226ae26be69ca2930a79d110dd9b6e"
     },
     {
       "path": "docs/server/MANUAL-DEPLOYMENT.md",
@@ -1380,6 +1384,10 @@
       "sha256": "5a6aefcdedf3f8177344f7c1e25366e367783711660a7e7424634164295b504c"
     },
     {
+      "path": "scripts/timestamp-regression-test.php",
+      "sha256": "e241945145c1ab731cf6aadd5314792bea558e0d212a83c111319fbc20a09f58"
+    },
+    {
       "path": "scripts/unicode-metadata-test.php",
       "sha256": "81b43b1980015aaf146b2e4b96d29ff30d40f5fdb485dc8f5223e0d4ce910131"
     },
@@ -1393,7 +1401,7 @@
     },
     {
       "path": "sw.js",
-      "sha256": "e4be0f1e05904b1a65ab4faa3f8335af58169f10a97baa0ce50f9953762de19f"
+      "sha256": "0dd5fc7323d764303b2907d06427496da22c7cc716a9efee4a01bb73630594b3"
     }
   ]
 }

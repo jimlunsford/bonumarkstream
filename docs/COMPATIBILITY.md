@@ -32,6 +32,7 @@ Each matrix job then runs:
 - JavaScript syntax checks
 - JSON validation
 - Markdown relative-link validation
+- public interaction, Admin UI, public semantics, timestamp (RSS/sitemap), and Unicode metadata regression tests, including the no-mbstring fallback
 - the clean-package smoke test
 - all ActivityPub Stages 1 through 7 and Stage 6.5 regression suites
 - the Admin comments runtime regression test
