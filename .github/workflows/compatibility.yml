@@ -100,6 +100,7 @@ jobs:
           node scripts/public-interactions-test.js
           php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
+          php scripts/timestamp-regression-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php
 
@@ -254,6 +255,7 @@ jobs:
           node scripts/public-interactions-test.js
           php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
+          php scripts/timestamp-regression-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php
           php scripts/smoke-test.php

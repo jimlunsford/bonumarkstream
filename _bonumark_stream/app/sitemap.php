@@ -39,14 +39,48 @@ function bms_sitemap_absolute_url(string $pathOrUrl): string
     return bms_site_url($pathOrUrl);
 }
 
-function bms_sitemap_datetime(string $raw): string
+function bms_sitemap_timestamp(string $raw, ?DateTimeZone $timezone = null): ?int
 {
     $raw = trim($raw);
-    $time = $raw !== '' ? strtotime($raw) : false;
-    if ($time === false) {
-        $time = time();
+    if ($raw === '') {
+        return null;
     }
-    return date('c', $time);
+    try {
+        // An offset in the value takes precedence over the field's default zone.
+        return (new DateTimeImmutable($raw, $timezone ?? bms_site_timezone()))->getTimestamp();
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function bms_sitemap_datetime(string $raw, ?DateTimeZone $timezone = null): string
+{
+    return date('c', bms_sitemap_timestamp($raw, $timezone) ?? time());
+}
+
+function bms_sitemap_content_timestamp(array $item, string $key): ?int
+{
+    $raw = trim((string)($item[$key] ?? ($item['front_matter'][$key] ?? '')));
+    $timezone = bms_site_timezone();
+    if (in_array($key, ['updated_at', 'created_at'], true)) {
+        // These database fields are written through the UTC database connection.
+        $timezone = bms_utc_timezone();
+    } elseif ($key === 'published_at') {
+        $timezone = bms_stream_published_at_is_utc(['published_at' => $raw])
+            ? bms_utc_timezone() : bms_site_timezone();
+    } elseif ($key === 'stream_created_at') {
+        // Hydrated records mirror scheduled_at/published_at into this field;
+        // authored/imported fallback values otherwise remain site-local.
+        $status = (string)($item['status'] ?? $item['content_status'] ?? '');
+        $scheduled = trim((string)($item['scheduled_at'] ?? ($item['front_matter']['scheduled_at'] ?? '')));
+        $published = trim((string)($item['published_at'] ?? ''));
+        if (in_array($status, ['published', 'scheduled'], true) && $scheduled !== '' && $raw === $scheduled) {
+            $timezone = bms_utc_timezone();
+        } elseif ($status === 'published' && $published !== '' && $raw === $published) {
+            $timezone = bms_stream_published_at_is_utc($item) ? bms_utc_timezone() : bms_site_timezone();
+        }
+    }
+    return bms_sitemap_timestamp($raw, $timezone);
 }
 
 function bms_sitemap_lastmod_from_content(array $item): string
@@ -54,7 +88,7 @@ function bms_sitemap_lastmod_from_content(array $item): string
     foreach (['updated_at', 'published_at', 'stream_created_at', 'date_published', 'date', 'created_at'] as $key) {
         $value = trim((string)($item[$key] ?? ($item['front_matter'][$key] ?? '')));
         if ($value !== '') {
-            return bms_sitemap_datetime($value);
+            return date('c', bms_sitemap_content_timestamp($item, $key) ?? time());
         }
     }
     return bms_sitemap_datetime('');
@@ -102,8 +136,8 @@ function bms_sitemap_latest_lastmod(array $items): string
             if ($raw === '') {
                 continue;
             }
-            $time = strtotime($raw);
-            if ($time !== false && $time > $latest) {
+            $time = bms_sitemap_content_timestamp($item, $key);
+            if ($time !== null && $time > $latest) {
                 $latest = $time;
             }
         }
@@ -141,7 +175,7 @@ function bms_sitemap_profile_lastmod(array $user): string
             $stmt->execute(['user_id' => $userId]);
             $profileUpdated = trim((string)$stmt->fetchColumn());
             if ($profileUpdated !== '') {
-                return bms_sitemap_datetime($profileUpdated);
+                return bms_sitemap_datetime($profileUpdated, bms_utc_timezone());
             }
         } catch (Throwable $e) {
             // Older upgraded installs that have not created user_profiles yet
@@ -149,7 +183,7 @@ function bms_sitemap_profile_lastmod(array $user): string
         }
     }
 
-    return bms_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? ''));
+    return bms_sitemap_datetime((string)($user['updated_at'] ?? $user['created_at'] ?? ''), bms_utc_timezone());
 }
 
 function bms_sitemap_url_entries(?array $streamPosts = null, ?array $pages = null): array

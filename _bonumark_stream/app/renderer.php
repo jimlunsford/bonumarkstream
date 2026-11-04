@@ -1053,9 +1053,9 @@ function bms_xml_escape(string $value): string
     return htmlspecialchars($value, ENT_XML1 | ENT_COMPAT, 'UTF-8');
 }
 
-function bms_rss_date(string $raw): string
+function bms_rss_date(string|int $raw): string
 {
-    $time = strtotime($raw);
+    $time = is_int($raw) ? $raw : strtotime($raw);
     return date(DATE_RSS, $time !== false ? $time : time());
 }
 
@@ -1082,7 +1082,7 @@ function bms_render_rss_feed(array $pages, string $feedType = 'stream'): string
             $title = 'Stream Post';
         }
         $link = bms_site_url(trim(bms_stream_relative_directory_for_post($page), '/') . '/');
-        $rawDate = (string)($page['stream_created_at'] ?? $page['date'] ?? '');
+        $publishedTime = bms_stream_public_datetime_timestamp($page) ?? time();
         $description = bms_stream_seo_description($page);
         $bodyHtml = bms_markdown_to_html((string)($page['body'] ?? ''));
         if ($bodyHtml === '') {
@@ -1093,7 +1093,7 @@ function bms_render_rss_feed(array $pages, string $feedType = 'stream'): string
             . '      <title>' . bms_xml_escape($title) . '</title>' . "\n"
             . '      <link>' . bms_xml_escape($link) . '</link>' . "\n"
             . '      <guid isPermaLink="true">' . bms_xml_escape($link) . '</guid>' . "\n"
-            . '      <pubDate>' . bms_rss_date($rawDate) . '</pubDate>' . "\n"
+            . '      <pubDate>' . bms_rss_date($publishedTime) . '</pubDate>' . "\n"
             . '      <description>' . bms_cdata($description) . '</description>' . "\n"
             . '      <content:encoded>' . bms_cdata($bodyHtml) . '</content:encoded>' . "\n"
             . '    </item>' . "\n";
