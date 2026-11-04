@@ -1,10 +1,10 @@
 # Bonumark Stream Changelog
 
-This file tracks public GitHub release milestones and the explicitly marked pending release candidate. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
+This file tracks public GitHub release milestones. Detailed package-by-package development history is retained in [`_bonumark_stream/CHANGELOG.md`](_bonumark_stream/CHANGELOG.md).
 
 ## 0.8.3 - Timestamp Correction Hotfix
 
-**Prepared release candidate, not publicly released.** The current public release remains v0.8.2. Production deployment is not authorized.
+**Publicly released November 4, 2026.** This is the current public release. Its approved source, tag, and ZIP remain immutable.
 
 - Corrects RSS `pubDate` to represent the same publication instant as the public post, including scheduled posts, instead of interpreting UTC storage as local time and shifting the result by the local offset.
 - Interprets sitemap database creation/modification fields as UTC, preserves explicit offsets and authored local fallbacks, and retains modification-date precedence for individual content plus existing collection aggregation behavior.
@@ -12,11 +12,11 @@ This file tracks public GitHub release milestones and the explicitly marked pend
 - Includes permanent coverage for EST/EDT, both daylight-saving transitions, explicit offsets, legacy/cutover values, scheduled publication, and independent RSS versus sitemap semantics.
 - Aligns version/package/cache metadata and corrects stale documentation that described public v0.8.2 as unreleased.
 
-Adds no database migration. A healthy v0.8.2 installation through migration 0028 has no new migration to run. Existing upgrade validation, owner-data preservation, and rollback/recovery rules remain unchanged. See the [candidate notes](docs/releases/v0.8.3.md) and [upgrade guide](docs/UPGRADING.md). Exact package checksums and completed verification are recorded separately in the candidate report.
+Adds no database migration. A healthy v0.8.2 installation through migration 0028 has no new migration to run. Existing upgrade validation, owner-data preservation, and rollback/recovery rules remain unchanged. See the [v0.8.3 release notes](docs/releases/v0.8.3.md) and [upgrade guide](docs/UPGRADING.md). The [public GitHub release](https://github.com/jimlunsford/bonumarkstream/releases/tag/v0.8.3) records the exact approved package checksum and verification.
 
 ## 0.8.2 - Core Interaction and Reliability Pass
 
-**Publicly released September 26, 2026.** This remains the current public release while v0.8.3 is prepared for review.
+**Publicly released September 26, 2026.** Superseded by v0.8.3 on November 4, 2026.
 
 - Corrects federation interaction presentation: eligible public local and remote comments and Likes share consistent totals, including moderation, Undo/removal, and live synchronization. Owner federated replies stay in their conversation context and out of the ordinary main Stream.
 - Reorganizes ActivityPub Admin around profile, Following, Followers, moderation, settings, and diagnostics, with bounded history pagination and a separate Danger Zone.
