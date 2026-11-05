@@ -268,6 +268,7 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . $adminPwaTags;
     echo '<link rel="stylesheet" href="' . $styleUrl . '"><link rel="stylesheet" href="' . $adminStyleUrl . '"><link rel="stylesheet" href="' . $adminShellStyleUrl . '"><link rel="stylesheet" href="' . $adminContentListStyleUrl . '"><link rel="stylesheet" href="' . $adminEditorWorkflowStyleUrl . '"><link rel="stylesheet" href="' . $adminMediaLibraryStyleUrl . '"><link rel="stylesheet" href="' . $adminCommentsStyleUrl . '"><link rel="stylesheet" href="' . $adminAccountsStyleUrl . '"><link rel="stylesheet" href="' . $adminRegistrationStyleUrl . '"><link rel="stylesheet" href="' . $adminAppearanceStyleUrl . '"><link rel="stylesheet" href="' . $adminSettingsStyleUrl . '"><link rel="stylesheet" href="' . $adminPlacesStyleUrl . '"><link rel="stylesheet" href="' . $adminOperationsStyleUrl . '"><script src="' . $adminScriptUrl . '" defer></script><script src="' . $adminPlacesScriptUrl . '" defer></script></head>';
     echo '<body class="bonumark-admin admin-screen-' . htmlspecialchars($screenSlug, ENT_QUOTES, 'UTF-8') . '" data-scheduled-runner-url="' . $scheduledRunnerUrl . '" data-scheduled-runner-csrf="' . $csrf . '">';
+    echo '<a class="screen-reader-text admin-skip-link" href="#admin-main-content">Skip to content</a>';
     echo '<div class="admin-shell">';
 
     echo '<header class="admin-mobile-bar">';
@@ -313,7 +314,7 @@ function bms_admin_header(string $title, array $actions = []): void
 
     echo '<section class="admin-main">';
     echo '<header class="admin-topbar"><div class="admin-topbar-context"><span>Bonumark Stream</span><strong>Administration</strong></div><div class="admin-topbar-actions"><a class="admin-topbar-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site <span aria-hidden="true">↗</span></a><a class="admin-user" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="admin-user-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a></div></header>';
-    echo '<main class="admin-content">';
+    echo '<main class="admin-content" id="admin-main-content" tabindex="-1">';
 
     $flashes = bms_get_flash();
     if ($flashes) {
@@ -350,7 +351,7 @@ function bms_admin_header(string $title, array $actions = []): void
         }
     }
 
-    echo '<div class="admin-page-title"><div class="admin-page-heading-copy"><p class="admin-page-kicker">Administration</p><h1>' . $safeTitle . '</h1></div>';
+    echo '<div class="admin-page-title"><div class="admin-page-heading-copy"><h1>' . $safeTitle . '</h1></div>';
     if ($actions) {
         echo '<div class="admin-page-actions">';
         foreach ($actions as $action) {

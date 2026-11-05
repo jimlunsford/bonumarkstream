@@ -1,34 +1,89 @@
-/* Bonumark Stream Admin Shell Foundation Pass
-   Shared application shell, navigation, hierarchy, touch targets, and mobile behavior. */
+/* Bonumark Stream Admin visual foundation.
+   Existing navigation structure and no-JavaScript access are retained. Public themes do not
+   load this sheet. Dark remains the current runtime presentation. */
 
 body.bonumark-admin {
-  --admin-bg: #0a0d12;
-  --admin-surface: #121720;
-  --admin-surface-2: #181e28;
-  --admin-surface-3: #0f131a;
-  --admin-surface-raised: #1d2430;
-  --admin-text: #f4f1e9;
-  --admin-muted: #a9a397;
-  --admin-subtle: #777f8b;
-  --admin-border: rgba(255, 255, 255, 0.1);
-  --admin-border-strong: rgba(255, 255, 255, 0.17);
-  --admin-sidebar: #080b10;
-  --admin-sidebar-hover: rgba(255, 255, 255, 0.065);
-  --admin-sidebar-text: #e9e5dc;
-  --admin-accent: #e8e0cf;
-  --admin-accent-dark: #c9bea8;
-  --admin-danger: #df6666;
-  --admin-success: #78c486;
-  --admin-warning: #dfb75f;
-  --admin-radius-sm: 9px;
+  --admin-bg: #131719;
+  --admin-surface: #181e21;
+  --admin-surface-2: #181e21;
+  --admin-surface-3: #131719;
+  --admin-surface-raised: #253b35;
+  --admin-text: #f2f4f3;
+  --admin-muted: #abb5bc;
+  --admin-subtle: #abb5bc;
+  --admin-border: #384248;
+  --admin-border-strong: #73818b;
+  --admin-control-outline: #73818b;
+  --admin-sidebar: #181e21;
+  --admin-sidebar-hover: #253b35;
+  --admin-sidebar-text: #f2f4f3;
+  --admin-accent: #9dd8ca;
+  --admin-accent-dark: #b7e5d9;
+  --admin-accent-text: #131719;
+  --admin-blue: var(--admin-accent);
+  --admin-blue-dark: var(--admin-accent-dark);
+  --admin-selected: #253b35;
+  --admin-danger: #f4a4a7;
+  --admin-success: #9dd8ca;
+  --admin-warning: #e9cc7b;
+  --admin-warning-surface: #30291c;
+  --admin-radius-sm: 6px;
   --admin-radius: 14px;
   --admin-radius-lg: 18px;
   --admin-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
-  --admin-sidebar-width: 264px;
+  --admin-sidebar-width: 224px;
+  --admin-color-scheme: dark;
+  /* Keep legacy shared components on the Admin palette without changing :root. */
+  --bg: var(--admin-bg);
+  --panel: var(--admin-surface);
+  --panel-2: var(--admin-surface-2);
+  --text: var(--admin-text);
+  --muted: var(--admin-muted);
+  --line: var(--admin-border);
+  --accent: var(--admin-accent);
+  --danger: var(--admin-danger);
+  --success: var(--admin-success);
   background: var(--admin-bg);
   color: var(--admin-text);
+  color-scheme: var(--admin-color-scheme);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
   margin: 0;
   min-width: 320px;
+}
+
+/* Secondary presentation for isolated review and future appearance integration.
+   No application markup or script activates this class. It deliberately adds no
+   preference, storage, OS override, or dependency on a public theme. */
+body.bonumark-admin.admin-appearance-light {
+  --admin-bg: #ffffff;
+  --admin-surface: #f5f6f7;
+  --admin-surface-2: #f5f6f7;
+  --admin-surface-3: #ffffff;
+  --admin-surface-raised: #e9f2ef;
+  --admin-text: #192126;
+  --admin-muted: #58636b;
+  --admin-subtle: #58636b;
+  --admin-border: #dde2e5;
+  --admin-border-strong: #78848d;
+  --admin-control-outline: #78848d;
+  --admin-sidebar: #f5f6f7;
+  --admin-sidebar-hover: #e9f2ef;
+  --admin-sidebar-text: #192126;
+  --admin-accent: #175f58;
+  --admin-accent-dark: #124e48;
+  --admin-accent-text: #ffffff;
+  --admin-selected: #e9f2ef;
+  --admin-danger: #a62d32;
+  --admin-success: #175f58;
+  --admin-warning: #775511;
+  --admin-warning-surface: #fbf6e8;
+  --admin-color-scheme: light;
+}
+
+body.bonumark-admin a {
+  color: var(--admin-accent);
 }
 
 body.bonumark-admin *,
@@ -130,15 +185,15 @@ body.bonumark-admin .admin-brand {
 body.bonumark-admin .admin-brand:hover {
   background: var(--admin-sidebar-hover);
   border-radius: var(--admin-radius-sm);
-  color: #fff;
+  color: var(--admin-text);
   opacity: 1;
 }
 
 body.bonumark-admin .admin-brand-mark {
   align-items: center;
-  background: var(--admin-accent);
-  border-radius: 10px;
-  color: #0a0d12;
+  background: #e8e0cf;
+  border-radius: var(--admin-radius-sm);
+  color: #192126;
   display: inline-flex;
   flex: 0 0 34px;
   font-size: 0.95rem;
@@ -160,6 +215,7 @@ body.bonumark-admin .admin-brand-copy strong {
   color: var(--admin-text);
   font-size: 0.96rem;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 body.bonumark-admin .admin-brand-copy small {
@@ -178,7 +234,7 @@ body.bonumark-admin .admin-sidebar-nav {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 12px 10px 22px;
-  scrollbar-color: #353d49 transparent;
+  scrollbar-color: var(--admin-border-strong) transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -192,7 +248,7 @@ body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-track {
 }
 
 body.bonumark-admin .admin-sidebar-nav::-webkit-scrollbar-thumb {
-  background: #353d49;
+  background: var(--admin-border-strong);
   border: 2px solid var(--admin-sidebar);
   border-radius: 999px;
 }
@@ -204,7 +260,7 @@ body.bonumark-admin .admin-sidebar-nav .admin-nav-link {
   appearance: none;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-sidebar-text);
   cursor: pointer;
   display: flex;
@@ -214,7 +270,7 @@ body.bonumark-admin .admin-sidebar-nav .admin-nav-link {
   gap: 10px;
   line-height: 1.25;
   margin: 2px 0;
-  min-height: 42px;
+  min-height: 44px;
   padding: 10px 12px;
   text-align: left;
   text-decoration: none;
@@ -225,14 +281,25 @@ body.bonumark-admin .admin-sidebar-nav a:hover,
 body.bonumark-admin .admin-sidebar-nav .nav-form button:hover,
 body.bonumark-admin .admin-sidebar-nav .admin-nav-link:hover {
   background: var(--admin-sidebar-hover);
-  color: #fff;
+  color: var(--admin-text);
   opacity: 1;
 }
 
 body.bonumark-admin .admin-sidebar-nav .admin-nav-link.is-active {
-  background: rgba(232, 224, 207, 0.12);
-  color: #fff;
+  background: var(--admin-selected);
+  color: var(--admin-accent);
+  font-weight: 750;
   position: relative;
+}
+
+body.bonumark-admin .admin-nav-link > span,
+body.bonumark-admin .admin-nav-heading > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin #admin-main-content {
+  scroll-margin-top: 76px;
 }
 
 body.bonumark-admin .admin-sidebar-nav .admin-nav-link.is-active::before {
@@ -272,18 +339,18 @@ body.bonumark-admin .admin-nav-section {
 body.bonumark-admin .admin-nav-section > summary.admin-nav-heading {
   align-items: center;
   background: transparent;
-  border-radius: 10px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-subtle);
   cursor: pointer;
   display: flex;
-  font-size: 0.69rem;
-  font-weight: 800;
+  font-size: 0.875rem;
+  font-weight: 700;
   justify-content: space-between;
-  letter-spacing: 0.13em;
+  letter-spacing: normal;
   list-style: none;
-  min-height: 38px;
+  min-height: 44px;
   padding: 9px 11px;
-  text-transform: uppercase;
+  text-transform: none;
   user-select: none;
 }
 
@@ -304,7 +371,7 @@ body.bonumark-admin .admin-nav-section[open] > summary.admin-nav-heading::after 
 
 body.bonumark-admin .admin-nav-section > summary.admin-nav-heading:hover,
 body.bonumark-admin .admin-nav-section.is-active > summary.admin-nav-heading {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--admin-sidebar-hover);
   color: var(--admin-muted);
 }
 
@@ -314,16 +381,16 @@ body.bonumark-admin .admin-nav-links {
 }
 
 body.bonumark-admin .admin-nav-links .admin-nav-link {
-  color: #c7c1b7;
-  font-size: 0.84rem;
+  color: var(--admin-sidebar-text);
+  font-size: 0.875rem;
   font-weight: 550;
-  min-height: 38px;
+  min-height: 44px;
   padding: 8px 12px;
 }
 
 body.bonumark-admin .admin-sidebar-footer {
   align-items: center;
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--admin-sidebar);
   border-top: 1px solid var(--admin-border);
   display: grid;
   flex: 0 0 auto;
@@ -334,7 +401,7 @@ body.bonumark-admin .admin-sidebar-footer {
 
 body.bonumark-admin .admin-sidebar-profile {
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-text);
   display: flex;
   gap: 9px;
@@ -345,7 +412,7 @@ body.bonumark-admin .admin-sidebar-profile {
 
 body.bonumark-admin .admin-sidebar-profile:hover {
   background: var(--admin-sidebar-hover);
-  color: #fff;
+  color: var(--admin-text);
   opacity: 1;
 }
 
@@ -363,6 +430,17 @@ body.bonumark-admin .admin-user-avatar-image {
   height: 34px;
   object-fit: cover;
   width: 34px;
+}
+
+body.bonumark-admin .admin-user-avatar-image.stream-author-initials {
+  align-items: center;
+  background: var(--admin-selected);
+  color: var(--admin-text);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
 }
 
 body.bonumark-admin .admin-sidebar-profile-copy strong,
@@ -393,21 +471,21 @@ body.bonumark-admin .admin-sidebar-logout button {
   appearance: none;
   background: transparent;
   border: 1px solid var(--admin-border);
-  border-radius: 9px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-muted);
   cursor: pointer;
   font: inherit;
   font-size: 0.74rem;
   font-weight: 700;
   margin: 0;
-  min-height: 34px;
+  min-height: 44px;
   padding: 7px 9px;
 }
 
 body.bonumark-admin .admin-sidebar-logout button:hover {
   background: var(--admin-sidebar-hover);
   border-color: var(--admin-border-strong);
-  color: #fff;
+  color: var(--admin-text);
 }
 
 body.bonumark-admin .admin-main {
@@ -418,8 +496,7 @@ body.bonumark-admin .admin-main {
 
 body.bonumark-admin .admin-topbar {
   align-items: center;
-  backdrop-filter: blur(18px);
-  background: rgba(10, 13, 18, 0.86);
+  background: var(--admin-bg);
   border-bottom: 1px solid var(--admin-border);
   display: flex;
   gap: 24px;
@@ -458,11 +535,14 @@ body.bonumark-admin .admin-topbar-actions {
 }
 
 body.bonumark-admin .admin-topbar-site {
+  align-items: center;
   border: 1px solid var(--admin-border);
-  border-radius: 9px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-muted);
+  display: inline-flex;
   font-size: 0.78rem;
   font-weight: 700;
+  min-height: 44px;
   padding: 8px 10px;
   text-decoration: none;
 }
@@ -470,13 +550,13 @@ body.bonumark-admin .admin-topbar-site {
 body.bonumark-admin .admin-topbar-site:hover {
   background: var(--admin-surface-2);
   border-color: var(--admin-border-strong);
-  color: #fff;
+  color: var(--admin-text);
   opacity: 1;
 }
 
 body.bonumark-admin .admin-user {
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--admin-radius-sm);
   color: var(--admin-text);
   display: flex;
   gap: 9px;
@@ -489,7 +569,7 @@ body.bonumark-admin .admin-user {
 
 body.bonumark-admin .admin-user:hover {
   background: var(--admin-surface-2);
-  color: #fff;
+  color: var(--admin-text);
   opacity: 1;
 }
 
@@ -533,10 +613,10 @@ body.bonumark-admin .admin-page-kicker {
 body.bonumark-admin .admin-page-title h1,
 body.bonumark-admin h1 {
   color: var(--admin-text);
-  font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+  font-size: 1.75rem;
   font-weight: 760;
   letter-spacing: -0.035em;
-  line-height: 1.08;
+  line-height: 1.2143;
   margin: 0;
 }
 
@@ -574,7 +654,7 @@ body.bonumark-admin .panel:first-child {
 }
 
 body.bonumark-admin h2 {
-  font-size: clamp(1.12rem, 1.5vw, 1.35rem);
+  font-size: 1.1875rem;
   font-weight: 740;
   letter-spacing: -0.018em;
   line-height: 1.25;
@@ -595,13 +675,64 @@ body.bonumark-admin button,
 body.bonumark-admin .button-link,
 body.bonumark-admin .primary-button {
   align-items: center;
-  border-radius: 10px;
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-accent-text);
   display: inline-flex;
-  font-size: 0.84rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
   justify-content: center;
   line-height: 1.2;
-  min-height: 40px;
+  min-height: 44px;
   padding: 9px 14px;
+}
+
+body.bonumark-admin button:hover,
+body.bonumark-admin .button-link:hover,
+body.bonumark-admin .primary-button:hover {
+  background: var(--admin-accent-dark);
+  border-color: var(--admin-accent-dark);
+  color: var(--admin-accent-text);
+  opacity: 1;
+}
+
+body.bonumark-admin .button-link.secondary,
+body.bonumark-admin .secondary,
+body.bonumark-admin .secondary-button {
+  background: transparent;
+  border-color: var(--admin-control-outline);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin .button-link.secondary:hover,
+body.bonumark-admin .secondary:hover,
+body.bonumark-admin .secondary-button:hover {
+  background: var(--admin-selected);
+  border-color: var(--admin-control-outline);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin button.danger,
+body.bonumark-admin button.danger:hover,
+body.bonumark-admin .button-link.danger-link,
+body.bonumark-admin .button-link.danger-link:hover {
+  background: transparent;
+  border: 1px solid var(--admin-danger);
+  color: var(--admin-danger);
+}
+
+body.bonumark-admin .link-button,
+body.bonumark-admin .link-button:hover {
+  background: transparent;
+  border: 0;
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin .danger-link,
+body.bonumark-admin .danger-link:hover {
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin input:not([type]),
@@ -609,6 +740,8 @@ body.bonumark-admin input[type="text"],
 body.bonumark-admin input[type="password"],
 body.bonumark-admin input[type="date"],
 body.bonumark-admin input[type="datetime-local"],
+body.bonumark-admin input[type="time"],
+body.bonumark-admin input[type="month"],
 body.bonumark-admin input[type="url"],
 body.bonumark-admin input[type="email"],
 body.bonumark-admin input[type="tel"],
@@ -616,13 +749,72 @@ body.bonumark-admin input[type="number"],
 body.bonumark-admin input[type="search"],
 body.bonumark-admin select,
 body.bonumark-admin textarea {
-  border-radius: 10px;
-  min-height: 42px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  box-shadow: none;
+  color: var(--admin-text);
+  color-scheme: var(--admin-color-scheme);
+  font: inherit;
+  min-height: 44px;
 }
 
 body.bonumark-admin input[type="file"] {
-  border-radius: 10px;
-  min-height: 42px;
+  background: var(--admin-bg);
+  border-color: var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  box-shadow: none;
+  color: var(--admin-text);
+  min-height: 44px;
+}
+
+body.bonumark-admin select {
+  appearance: auto;
+}
+
+body.bonumark-admin input:focus,
+body.bonumark-admin select:focus,
+body.bonumark-admin textarea:focus {
+  border-color: var(--admin-accent);
+  box-shadow: none;
+}
+
+body.bonumark-admin input[type="checkbox"],
+body.bonumark-admin input[type="radio"] {
+  accent-color: var(--admin-accent);
+}
+
+body.bonumark-admin :is(a, button, input, select, textarea, summary, [tabindex], [contenteditable="true"]):focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+
+body.bonumark-admin input::placeholder,
+body.bonumark-admin textarea::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+/* Override the legacy fixed-dark autofill inset, including its important rules. */
+body.bonumark-admin input:is(:autofill, :-webkit-autofill),
+body.bonumark-admin input:is(:autofill, :-webkit-autofill):hover,
+body.bonumark-admin input:is(:autofill, :-webkit-autofill):focus,
+body.bonumark-admin input:is(:autofill, :-webkit-autofill):active {
+  -webkit-text-fill-color: var(--admin-text) !important;
+  background-color: var(--admin-bg) !important;
+  border-color: var(--admin-control-outline);
+  -webkit-box-shadow: 0 0 0 1000px var(--admin-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--admin-bg) inset !important;
+  caret-color: var(--admin-text);
+  color: var(--admin-text) !important;
+  transition: none;
+}
+
+body.bonumark-admin input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="date"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="time"]::-webkit-calendar-picker-indicator,
+body.bonumark-admin input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: none;
 }
 
 body.bonumark-admin .notice-stack {
@@ -640,7 +832,8 @@ body.bonumark-admin .flash.notice {
   background: var(--admin-surface-2);
   border: 1px solid var(--admin-border);
   border-left: 3px solid var(--admin-accent);
-  border-radius: 12px;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
   display: flex;
   gap: 12px;
   margin: 0;
@@ -661,7 +854,7 @@ body.bonumark-admin .flash.notice.warning {
 
 body.bonumark-admin .notice-icon {
   align-items: center;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--admin-selected);
   border-radius: 999px;
   display: inline-flex;
   flex: 0 0 24px;
@@ -693,9 +886,7 @@ body.bonumark-admin .admin-footer {
 
 /* Dashboard reference screen */
 body.bonumark-admin .dashboard-hero {
-  background:
-    radial-gradient(circle at top right, rgba(232, 224, 207, 0.09), transparent 34%),
-    var(--admin-surface);
+  background: var(--admin-surface);
   border-color: var(--admin-border-strong);
   padding: clamp(24px, 3vw, 36px);
 }
@@ -747,7 +938,7 @@ body.bonumark-admin .dashboard-action-grid .primary-button {
 body.bonumark-admin .dashboard-list-row,
 body.bonumark-admin .dashboard-attention-item,
 body.bonumark-admin .dashboard-status-item {
-  border-radius: 10px;
+  border-radius: var(--admin-radius-sm);
 }
 
 body.bonumark-admin .dashboard-list-row:hover,
@@ -770,8 +961,7 @@ body.bonumark-admin .dashboard-status-item:hover {
 
   html.admin-js-ready body.bonumark-admin .admin-mobile-bar {
     align-items: center;
-    backdrop-filter: blur(18px);
-    background: rgba(10, 13, 18, 0.94);
+    background: var(--admin-bg);
     border-bottom: 1px solid var(--admin-border);
     display: grid;
     gap: 10px;
@@ -789,22 +979,22 @@ body.bonumark-admin .dashboard-status-item:hover {
     appearance: none;
     background: transparent;
     border: 1px solid var(--admin-border);
-    border-radius: 10px;
+    border-radius: var(--admin-radius-sm);
     color: var(--admin-text);
     cursor: pointer;
     display: inline-flex;
-    height: 42px;
+    height: 44px;
     justify-content: center;
     margin: 0;
     padding: 0;
-    width: 42px;
+    width: 44px;
   }
 
   body.bonumark-admin .admin-mobile-menu-button:hover,
   body.bonumark-admin .admin-sidebar-close:hover {
     background: var(--admin-surface-2);
     border-color: var(--admin-border-strong);
-    color: #fff;
+    color: var(--admin-text);
   }
 
   body.bonumark-admin .admin-menu-icon {
@@ -847,10 +1037,11 @@ body.bonumark-admin .dashboard-status-item:hover {
     align-items: center;
     border-radius: 999px;
     display: flex;
-    height: 42px;
+    height: 44px;
     justify-content: center;
     justify-self: end;
-    width: 42px;
+    text-decoration: none;
+    width: 44px;
   }
 
   body.bonumark-admin .admin-mobile-profile .admin-user-avatar-image {
@@ -875,6 +1066,7 @@ body.bonumark-admin .dashboard-status-item:hover {
     min-height: 100vh;
     position: fixed;
     transform: translateX(-105%);
+    visibility: hidden;
     transition: transform 180ms ease;
     width: min(86vw, 310px);
     z-index: 70;
@@ -890,11 +1082,12 @@ body.bonumark-admin .dashboard-status-item:hover {
 
   html.admin-js-ready body.bonumark-admin.admin-nav-open .admin-sidebar {
     transform: translateX(0);
+    visibility: visible;
   }
 
   body.bonumark-admin .admin-sidebar-close {
     display: inline-flex;
-    flex: 0 0 42px;
+    flex: 0 0 44px;
     font-size: 1.45rem;
   }
 
@@ -986,13 +1179,13 @@ body.bonumark-admin .dashboard-status-item:hover {
   body.bonumark-admin.admin-screen-edit .admin-content,
   body.bonumark-admin.admin-screen-page-edit .admin-content,
   body.bonumark-admin.admin-screen-new .admin-content {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   body.bonumark-admin .admin-page-title h1,
   body.bonumark-admin h1 {
-    font-size: 1.7rem;
+    font-size: 1.75rem;
   }
 
   body.bonumark-admin .admin-page-actions {

@@ -137,6 +137,13 @@ Requirements:
 
 Do not create a single uninterrupted wall of settings.
 
+General Settings is the first flat form in the updated Admin foundation. Its
+four fields use a single column up to 640px, ordinary labels and help text, one
+Save changes action, and a native Installation details disclosure. Reuse this
+pattern for short forms when separately authorized. Do not wrap each field in a
+panel or repeat its current value above the form. Existing complex workflows
+retain their controls and layouts until their own redesign stage.
+
 ## Actions and destructive behavior
 
 Each screen should have one obvious primary action when a primary action exists.
@@ -272,6 +279,16 @@ A new stylesheet is not a substitute for reusing existing classes.
 ## Design tokens and visual language
 
 Use the Admin tokens defined in `admin-shell.css` for colors, surfaces, borders, radius, shadows, and status meaning.
+
+The foundation uses charcoal surfaces, restrained teal actions, a distinct
+essential-control outline, and visible keyboard focus. Keep decorative separators
+separate from essential control boundaries. General Settings uses 16px mobile
+margins and 44px controls. Admin remains fixed dark at runtime. The dormant
+`admin-appearance-light` body class supplies a secondary palette for isolated
+review of the shell and General form; no application code activates it. A mode
+selector or operating-system preference integration requires a separate behavior
+decision and regression checks for the remaining legacy screens. Do not connect
+Admin appearance to public themes or introduce stored preferences implicitly.
 
 Do not introduce a feature-specific palette, button system, corner radius, shadow language, or typography scale without a product-level decision to extend the design system.
 

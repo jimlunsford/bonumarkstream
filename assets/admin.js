@@ -322,8 +322,9 @@
     const backdrop = document.querySelector('.admin-sidebar-backdrop');
     const mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
     const main = document.querySelector('.admin-main');
+    const mobileBar = document.querySelector('.admin-mobile-bar');
+    const skipLink = document.querySelector('.admin-skip-link');
     let returnFocus = null;
-    let lockedScrollY = 0;
 
     if (!body || !sidebar || !openButton || !backdrop) {
       return;
@@ -335,17 +336,24 @@
 
     function setOpen(open) {
       const shouldOpen = Boolean(open && isMobile());
+      if (shouldOpen) {
+        returnFocus = document.activeElement;
+      }
       body.classList.toggle('admin-nav-open', shouldOpen);
       openButton.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
       sidebar.setAttribute('aria-hidden', shouldOpen || !isMobile() ? 'false' : 'true');
       backdrop.hidden = !shouldOpen;
-      if (main && 'inert' in main) {
-        main.inert = shouldOpen;
+      if ('inert' in sidebar) {
+        sidebar.inert = isMobile() && !shouldOpen;
       }
+      [main, mobileBar, skipLink].forEach(function (element) {
+        if (element && 'inert' in element) {
+          element.inert = shouldOpen;
+        }
+      });
       if (shouldOpen) {
         sidebar.setAttribute('role', 'dialog');
         sidebar.setAttribute('aria-modal', 'true');
-        returnFocus = document.activeElement;
         const firstTarget = sidebar.querySelector('a, button, summary');
         if (firstTarget) {
           window.setTimeout(function () { firstTarget.focus(); }, 0);
@@ -412,12 +420,12 @@
           setOpen(false);
           sidebar.setAttribute('aria-hidden', 'false');
         } else if (!body.classList.contains('admin-nav-open')) {
-          sidebar.setAttribute('aria-hidden', 'true');
+          setOpen(false);
         }
       });
     }
 
-    sidebar.setAttribute('aria-hidden', isMobile() ? 'true' : 'false');
+    setOpen(false);
   }
 
 
@@ -464,9 +472,27 @@
     });
   }
 
+  // Echo the exact IANA value below the native select so narrow controls do not
+  // hide its full identifier. This does not change option values or submission.
+  function attachSettingsTimezoneLabel() {
+    const select = document.querySelector('[data-settings-timezone]');
+    const label = document.querySelector('[data-settings-timezone-label]');
+    const value = document.querySelector('[data-settings-timezone-value]');
+    if (!select || !label || !value) {
+      return;
+    }
+    function updateLabel() {
+      label.textContent = 'Selected timezone: ';
+      value.textContent = select.value;
+    }
+    select.addEventListener('change', updateLabel);
+    updateLabel();
+  }
+
   attachAdminNavigation();
 
   document.addEventListener('DOMContentLoaded', function () {
+    attachSettingsTimezoneLabel();
     attachAltTextValidation();
     attachSelectAllControls();
     attachMediaSelectAllControls();
