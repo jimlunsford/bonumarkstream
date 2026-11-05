@@ -638,3 +638,130 @@ body.bonumark-admin .activitypub-admin .ap-disclosure > .panel { margin-bottom: 
   body.bonumark-admin .activitypub-admin .ap-disclosure { padding: 12px; }
   body.bonumark-admin .activitypub-admin .ap-disclosure > .panel { padding: 12px; }
 }
+
+/* General Settings: the first flat form in the approved Admin visual system.
+   Keep other settings workflows and their operational controls unchanged. */
+body.bonumark-admin.admin-screen-settings .admin-content {
+  max-width: 1164px;
+}
+
+body.bonumark-admin.admin-screen-settings .admin-page-title {
+  border: 0;
+  margin-bottom: 24px;
+  padding-bottom: 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general {
+  max-width: 640px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-form {
+  display: grid;
+  gap: 24px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-field {
+  min-width: 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-field label {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-field input,
+body.bonumark-admin.admin-screen-settings .settings-general-field select {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-control-outline);
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--admin-text);
+  font: inherit;
+  min-height: 44px;
+  min-width: 0;
+  padding: 9px 12px;
+  width: 100%;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-field .field-help {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-timezone-identifier {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-timezone-warning {
+  color: var(--admin-warning);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-actions button {
+  font-size: 1rem;
+  margin: 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details {
+  border-block: 1px solid var(--admin-border);
+  margin-top: 32px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1.5;
+  list-style-position: inside;
+  padding: 20px 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details summary span {
+  color: var(--admin-muted);
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details dl {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 20px;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details dt {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-installation-details dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-identity {
+  margin: 16px 0 0;
+}
+
+body.bonumark-admin.admin-screen-settings .settings-general-identity a {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 650;
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin.admin-screen-settings .admin-content {
+    padding: 28px 16px 52px;
+  }
+}
+
+@media (max-width: 620px) {
+  body.bonumark-admin.admin-screen-settings .settings-general-actions button {
+    width: 100%;
+  }
+}

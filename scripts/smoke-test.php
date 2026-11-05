@@ -1172,7 +1172,10 @@ $pageNewAdmin = @file_get_contents($root . '/admin/page-new.php') ?: '';
 $editorApp = @file_get_contents($root . '/_bonumark_stream/app/editor.php') ?: '';
 $editorJs = @file_get_contents($root . '/assets/editor.js') ?: '';
 $mediaAdmin = @file_get_contents($root . '/admin/media.php') ?: '';
-if ($adminShellCss === '' || !str_contains($adminShellCss, 'Admin Shell Foundation Pass')) {
+if ($adminShellCss === ''
+    || !str_contains($adminShellCss, 'body.bonumark-admin {')
+    || !str_contains($adminShellCss, '--admin-control-outline:')
+    || !str_contains($adminShellCss, 'body.bonumark-admin.admin-appearance-light {')) {
     bm_smoke_fail($failures, 'Admin shell foundation stylesheet is missing.');
 }
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-shell.css')") || !str_contains($adminLayout, 'data-admin-nav-open') || !str_contains($adminLayout, 'admin-sidebar-backdrop')) {
@@ -1208,8 +1211,8 @@ foreach ([
         bm_smoke_fail($failures, 'Legacy Admin CSS still contains a superseded shell or editor declaration: ' . $supersededAdminCssFragment);
     }
 }
-if (!str_contains($adminShellCss, '--admin-bg: #0a0d12')
-    || !str_contains($adminShellCss, '--admin-sidebar-width: 264px')
+if (!str_contains($adminShellCss, '--admin-bg: #131719')
+    || !str_contains($adminShellCss, '--admin-sidebar-width: 224px')
     || !str_contains($adminEditorWorkflowCss, '--editor-composer-min-height: 380px')
     || !str_contains($adminEditorWorkflowCss, '--editor-composer-max-height: 1400px')
     || !str_contains($adminOperationsCss, 'body.bonumark-admin .upgrade-confirm-actions')
@@ -1464,11 +1467,19 @@ if (!str_contains($readingSettingsAdmin, 'class="settings-technical-value"')
     || !str_contains($scheduledTasksAdmin, 'class="settings-technical-value"')) {
     bm_smoke_fail($failures, 'Settings URL containers are missing the shared technical-value overflow treatment.');
 }
-if (!str_contains($generalSettingsAdmin, 'settings-summary-grid')
-    || !str_contains($writingSettingsAdmin, 'settings-option-card')
+if (!str_contains($generalSettingsAdmin, 'class="settings-general-form"')
+    || !str_contains($generalSettingsAdmin, '<details class="settings-installation-details">')
+    || !str_contains($generalSettingsAdmin, '<summary>Installation details')
+    || !str_contains($generalSettingsAdmin, "bms_admin_url('site-identity.php')")
+    || substr_count($generalSettingsAdmin, 'type="submit"') !== 1
+    || str_contains($generalSettingsAdmin, 'settings-summary-grid')
+    || str_contains($generalSettingsAdmin, 'settings-workflow-hero')) {
+    bm_smoke_fail($failures, 'General Settings must retain its flat form, single save action, installation disclosure, and Site Identity link.');
+}
+if (!str_contains($writingSettingsAdmin, 'settings-option-card')
     || !str_contains($readingSettingsAdmin, "bms_admin_header('Reading Settings'")
     || !str_contains($readingSettingsAdmin, 'settings-section-list')) {
-    bm_smoke_fail($failures, 'General, Writing, or Reading settings are missing the modern workflow structure.');
+    bm_smoke_fail($failures, 'Writing or Reading settings are missing the modern workflow structure.');
 }
 if (!str_contains($securitySettingsAdmin, 'settings-security-grid')
     || str_contains($securitySettingsAdmin, "bms_redirect(bms_admin_url('system-check.php'))")
