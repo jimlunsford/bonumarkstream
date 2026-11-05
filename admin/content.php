@@ -209,7 +209,6 @@ $title = match ($status) {
     default => 'Stream Posts',
 };
 $actions = [
-    ['label' => 'Open Stream Composer', 'href' => bms_stream_composer_url(), 'style' => 'primary'],
     ['label' => 'Revisions', 'href' => bms_admin_url('revisions.php'), 'style' => 'secondary'],
 ];
 $canEmptyTrash = true;
@@ -251,7 +250,7 @@ bms_admin_header($title, $actions);
     <div class="empty-state content-list-empty-state">
       <h2>No stream posts found.</h2>
       <p><?= $status === 'trash' ? 'Trash is empty.' : 'Create your first Stream Post from the stream composer. Save a draft there when you need the full editor.' ?></p>
-      <?php if ($status !== 'trash'): ?><a class="primary-button" href="<?= htmlspecialchars(bms_stream_composer_url(), ENT_QUOTES, 'UTF-8') ?>">Open Stream Composer</a><?php endif; ?>
+      <?php if ($status !== 'trash'): ?><a class="button-link secondary" href="<?= htmlspecialchars(bms_stream_composer_url(), ENT_QUOTES, 'UTF-8') ?>">Open Stream Composer</a><?php endif; ?>
     </div>
   <?php else: ?>
     <div class="content-list-controlbar">

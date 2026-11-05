@@ -842,6 +842,7 @@ $composerTemplate = @file_get_contents($root . '/_bonumark_stream/app/views/defa
 $quickPostSource = @file_get_contents($root . '/admin/quick-post.php') ?: '';
 $newPostRoute = @file_get_contents($root . '/admin/new.php') ?: '';
 $adminLayoutSource = @file_get_contents($root . '/admin/_layout.php') ?: '';
+$adminNavigation = @file_get_contents($root . '/admin/_navigation.php') ?: '';
 foreach (['data-stream-action="draft"', 'data-stream-action="continue"', 'data-stream-more-menu', 'data-stream-advanced-panel', 'name="stream_slug"', 'name="stream_robots"'] as $requiredComposerText) {
     if (!str_contains($composerTemplate, $requiredComposerText)) {
         bm_smoke_fail($failures, 'Unified Stream composer is missing required control: ' . $requiredComposerText);
@@ -861,7 +862,7 @@ if (!str_contains($composerTemplate, 'data-stream-advanced-panel hidden') || !st
 if (!str_contains($newPostRoute, 'bms_stream_composer_url()') || str_contains($newPostRoute, 'bms_new_content_form')) {
     bm_smoke_fail($failures, 'admin/new.php is not a clean compatibility redirect to the stream composer.');
 }
-if (str_contains($adminLayoutSource, '>New Stream Post<') || !str_contains($adminLayoutSource, "'label' => 'Stream Composer'")) {
+if (str_contains($adminLayoutSource, '>New Stream Post<') || !str_contains($adminNavigation, "'label' => 'Open Stream composer'")) {
     bm_smoke_fail($failures, 'Admin navigation does not identify the stream composer as the creation surface.');
 }
 
@@ -1181,8 +1182,15 @@ if ($adminShellCss === ''
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-shell.css')") || !str_contains($adminLayout, 'data-admin-nav-open') || !str_contains($adminLayout, 'admin-sidebar-backdrop')) {
     bm_smoke_fail($failures, 'Shared Admin layout does not load or expose the responsive shell controls.');
 }
-if (!str_contains($adminLayout, "'label' => 'Publish'") || !str_contains($adminLayout, "'label' => 'Manage'") || !str_contains($adminLayout, "'label' => 'Design'") || !str_contains($adminLayout, "'label' => 'System'")) {
-    bm_smoke_fail($failures, 'Shared Admin navigation is missing task-oriented sections.');
+foreach (['Dashboard', 'Content', 'Media', 'Comments', 'Settings', 'System'] as $destination) {
+    if (!str_contains($adminNavigation, "'label' => '" . $destination . "'")) {
+        bm_smoke_fail($failures, 'Shared Admin navigation is missing the ' . $destination . ' destination.');
+    }
+}
+if (str_contains($adminLayout, '<details class="admin-nav-section')
+    || !is_file($root . '/admin/settings-index.php')
+    || !str_contains($adminNavigation, 'settings-index.php')) {
+    bm_smoke_fail($failures, 'Admin navigation must retain its flat primary destinations and separate Settings index.');
 }
 if (!str_contains($adminJs, "classList.add('admin-js-ready')") || !str_contains($adminJs, 'function attachAdminNavigation()') || !str_contains($adminJs, "event.key === 'Escape'") || !str_contains($adminJs, "body.classList.toggle('admin-nav-open'")) {
     bm_smoke_fail($failures, 'Admin navigation script is missing drawer, Escape, or state handling.');
@@ -1349,8 +1357,8 @@ if (!str_contains($adminCommentsCss, 'v0.5.60 desktop moderation control correct
     bm_smoke_fail($failures, 'Comments desktop control bar correction is missing.');
 }
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-accounts.css')")
-    || !str_contains($adminLayout, "'label' => 'Accounts'")
-    || !str_contains($adminLayout, "'users.php', 'user-new.php', 'user-edit.php'")) {
+    || !str_contains($adminNavigation, "'label' => 'Commenter accounts'")
+    || !str_contains($adminNavigation, "'users.php', 'user-new.php', 'user-edit.php'")) {
     bm_smoke_fail($failures, 'Accounts navigation or component stylesheet integration is incomplete.');
 }
 if (!str_contains($usersAdmin, 'class="account-record-header"')
@@ -1443,8 +1451,8 @@ if (!str_contains($adminLayout, "bms_asset_url('assets/admin-settings.css')")
     || !str_contains((string)@file_get_contents($root . '/sw.js'), "'assets/admin-settings.css'")) {
     bm_smoke_fail($failures, 'Settings component stylesheet is not integrated into the Admin shell and service worker.');
 }
-if (!str_contains($adminLayout, "'label' => 'Reading'")
-    || !str_contains($adminLayout, "'label' => 'Security'")
+if (!str_contains($adminNavigation, "'label' => 'Reading'")
+    || !str_contains($adminNavigation, "'label' => 'Security'")
     || !str_contains($authApp, "'settings-reading.php', 'security.php', 'registration.php'")) {
     bm_smoke_fail($failures, 'Settings navigation or Security route capability is incomplete.');
 }
@@ -1549,9 +1557,9 @@ if (!str_contains($systemCheckAdmin, 'Read-only diagnostics')
     || !str_contains($helpAdmin, 'Operational help')) {
     bm_smoke_fail($failures, 'Diagnostics, analytics danger actions, or operational Help are incomplete.');
 }
-if (!str_contains($adminLayout, "['label' => 'Scheduled Tasks'")
-    || !str_contains($adminLayout, "['label' => 'Remote Posting'")) {
-    bm_smoke_fail($failures, 'Scheduled Tasks and Remote Posting must remain available in System navigation.');
+if (!str_contains($adminNavigation, "['label' => 'Scheduled tasks'")
+    || !str_contains($adminNavigation, "['label' => 'Remote posting'")) {
+    bm_smoke_fail($failures, 'Scheduled tasks and Remote posting must remain available in their System and Settings navigation families.');
 }
 
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-places.css')")
