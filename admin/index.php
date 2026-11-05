@@ -218,7 +218,6 @@ if ($canEditContent) {
         'style' => 'primary',
     ];
 }
-$dashboardActions[] = bms_view_site_action();
 bms_admin_header('Dashboard', $dashboardActions);
 ?>
 <section class="dashboard-hero panel">

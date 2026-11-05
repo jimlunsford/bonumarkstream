@@ -49,7 +49,6 @@ $activeHealth = is_array($activeTheme['health'] ?? null) ? $activeTheme['health'
 
 bms_admin_header('Theme Settings', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel appearance-hero-panel appearance-theme-settings-hero">

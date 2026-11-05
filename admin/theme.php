@@ -46,7 +46,6 @@ $activeThemeName = (string)($packages[$activePackage]['name'] ?? $activePackage)
 
 bms_admin_header('Themes', [
     ['label' => 'Install Theme', 'href' => bms_admin_url('theme-install.php'), 'style' => 'primary'],
-    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel appearance-hero-panel">

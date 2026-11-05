@@ -116,7 +116,6 @@ $faviconReady = (string)($currentFavicon['url'] ?? '') !== '';
 
 bms_admin_header('Site Identity', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
-    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel appearance-hero-panel">

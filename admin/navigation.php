@@ -165,7 +165,6 @@ foreach ($items as $item) {
 
 bms_admin_header('Navigation', [
     ['label' => 'Site Identity', 'href' => bms_admin_url('site-identity.php'), 'style' => 'secondary'],
-    ['label' => 'View Site', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel appearance-hero-panel">

@@ -67,7 +67,7 @@ $csrf = htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8');
 $canManageUsers = bms_current_user_can('manage_users');
 $statusLabel = bms_comment_status_label($status);
 
-bms_admin_header('Comments', [bms_view_site_action()]);
+bms_admin_header('Comments');
 ?>
 <nav class="content-filter comments-content-filter" aria-label="Comment status filters">
   <?php foreach (['approved' => 'Approved', 'pending' => 'Pending', 'trash' => 'Trash'] as $key => $label): ?>

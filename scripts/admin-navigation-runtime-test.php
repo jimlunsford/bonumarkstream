@@ -252,6 +252,30 @@ try {
         bms_navigation_test_active($response['body'], $area, $current);
         $pages[$route] = $response['body'];
     }
+    // The shell supplies responsive variants of one global View site utility.
+    // Visibility is a browser/CSS contract; these HTTP checks preserve all variants
+    // while rejecting duplicate homepage-view actions in individual page content.
+    $globalViewClasses = ['admin-topbar-site', 'admin-mobile-site', 'admin-sidebar-view-site'];
+    foreach (['index.php', 'comments.php', 'activitypub.php', 'pages.php', 'theme.php',
+        'theme-details.php?slug=default', 'theme-settings.php', 'site-identity.php',
+        'navigation.php', 'settings-reading.php'] as $route) {
+        foreach ($globalViewClasses as $class) {
+            $links = bms_navigation_test_links($pages[$route], $class);
+            bms_navigation_test_expect(count($links) === 1 && $links[0]['href'] === '/'
+                && ($links[0]['target'] ?? '') === '_blank'
+                && in_array('noopener', explode(' ', $links[0]['rel'] ?? ''), true)
+                && str_contains($links[0]['label'], 'opens in a new tab'), $route . ' preserves the ' . $class . ' global utility');
+        }
+        $duplicates = array_filter(bms_navigation_test_links($pages[$route]), static function (array $link) use ($globalViewClasses): bool {
+            return ($link['href'] ?? '') === '/'
+                && preg_match('/^View (?:site|stream)(?:$|\s)/i', $link['label']) === 1
+                && !array_intersect($globalViewClasses, explode(' ', $link['class'] ?? ''));
+        });
+        bms_navigation_test_expect($duplicates === [], $route . ' has no page-specific homepage View Site or View Stream action');
+    }
+    bms_navigation_test_expect((bool)array_filter(bms_navigation_test_links($pages['settings-writing.php']), static fn(array $link): bool => $link['label'] === 'Stream Composer' && $link['href'] === '/'), 'Writing retains its distinct Stream Composer publishing action');
+    $welcome = bms_navigation_test_request($base, '/admin/welcome.php', $sessions['owner']);
+    bms_navigation_test_expect($welcome['status'] === 200 && (bool)array_filter(bms_navigation_test_links($welcome['body']), static fn(array $link): bool => str_contains($link['label'], 'Post from the stream') && $link['href'] === '/'), 'Welcome retains its distinct Post from the stream publishing action');
     $index = $pages['settings-index.php'];
     $indexLinks = bms_navigation_test_links($index, 'settings-index-link');
     bms_navigation_test_expect(array_map(static fn(array $link): string => basename((string)parse_url($link['href'], PHP_URL_PATH)), $indexLinks) === $settings, 'Settings index exposes all twelve existing routes in approved order');
@@ -325,6 +349,26 @@ try {
     $pageEditor = bms_navigation_test_request($base, '/admin/page-edit.php?type=draft&file=navigation-fixture-page.md', $sessions['owner']);
     bms_navigation_test_expect($pageEditor['status'] === 200 && str_contains($pageEditor['body'], 'Page fixture body.'), 'Backend Page editor remains functional');
     bms_navigation_test_active($pageEditor['body'], 'Content', 'location');
+    // Contextual public-object links must survive a cleanup of generic site links.
+    $publishedPost = bms_navigation_test_request($base, '/admin/publish.php', $sessions['owner'], [
+        'csrf_token' => bms_navigation_test_token($editor['body']), 'file' => 'navigation-fixture-draft.md',
+    ]);
+    bms_navigation_test_expect($publishedPost['status'] === 302 && str_contains($publishedPost['location'], '/admin/edit.php?type=published'), 'Disposable post publishes for contextual View Post verification');
+    // Seed the existing disposable Page as published. This tests link rendering,
+    // not the separately owned Page draft-to-published transition workflow.
+    $publishedPage = $pdo->prepare("UPDATE `{$prefix}posts` SET status='published', markdown_path='content/pages/published/navigation-fixture-page.md', html_path='pages/navigation-fixture-page/index.html', published_at=UTC_TIMESTAMP() WHERE slug='navigation-fixture-page' AND post_type='page' AND status='draft'");
+    $publishedPage->execute();
+    bms_navigation_test_expect($publishedPage->rowCount() === 1, 'Published Page fixture is ready for contextual View Page verification');
+    foreach ([
+        ['/admin/quick-edit.php?type=published&file=navigation-fixture-draft.md', 'View Post', '/stream/navigation-fixture-draft/'],
+        ['/admin/content.php?status=published', 'View post', '/stream/navigation-fixture-draft/'],
+        ['/admin/page-edit.php?type=published&file=navigation-fixture-page.md', 'View Page', '/pages/navigation-fixture-page/'],
+        ['/admin/pages.php?status=published', 'View page', '/pages/navigation-fixture-page/'],
+    ] as [$route, $label, $href]) {
+        $response = bms_navigation_test_request($base, $route, $sessions['owner']);
+        $links = array_filter(bms_navigation_test_links($response['body']), static fn(array $link): bool => strcasecmp($link['label'], $label) === 0 && $link['href'] === $href && ($link['target'] ?? '') === '_blank' && in_array('noopener', explode(' ', $link['rel'] ?? ''), true));
+        bms_navigation_test_expect($response['status'] === 200 && $links !== [], $route . ' preserves its contextual ' . $label . ' link to the published object');
+    }
     bms_navigation_test_expect(str_contains($pages['user-edit.php?id=2'], 'name="confirm_username"') && str_contains($pages['user-edit.php?id=2'], 'data-confirm="Delete this account?'), 'Commenter account deletion retains its explicit confirmation controls');
     bms_navigation_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}migrations`")->fetchColumn() === $migrationCount, 'Navigation and publishing requests introduce no migrations');
 
