@@ -74,35 +74,26 @@ $users = array_values(array_filter($allUsers, static function (array $row) use (
 $currentUserId = (int)(bms_current_user()['id'] ?? 0);
 $csrf = htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8');
 
-bms_admin_header('Accounts', [
+bms_admin_header('Commenter accounts', [
     ['label' => 'Add Commenter', 'href' => bms_admin_url('user-new.php')],
     ['label' => 'Profile', 'href' => bms_admin_url('user.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel page-intro-panel accounts-intro-panel">
-  <p class="eyebrow">Accounts</p>
-  <h2>Manage the admin account and commenter accounts.</h2>
-  <p class="meta">The installer-created admin publishes the site. Commenters can manage a profile and participate through comments, but they cannot access publishing tools.</p>
-</section>
-
-<section class="panel accounts-summary-panel">
-  <div class="info-grid accounts-summary-grid">
-    <div class="info-card"><strong>Pending verification</strong><p><?= (int)($pendingCounts['pending_verification'] ?? 0) ?></p></div>
-    <div class="info-card"><strong>Pending approval</strong><p><?= (int)($pendingCounts['pending_approval'] ?? 0) ?></p></div>
-    <div class="info-card accounts-summary-total"><strong>Total accounts</strong><p><?= (int)$statusCounts['all'] ?></p></div>
-  </div>
-</section>
+<p class="accounts-pending-summary">
+  <span>Pending verification <strong><?= (int)($pendingCounts['pending_verification'] ?? 0) ?></strong></span>
+  <span>Pending approval <strong><?= (int)($pendingCounts['pending_approval'] ?? 0) ?></strong></span>
+</p>
 
 <nav class="content-filter accounts-content-filter" aria-label="Account status filters">
   <?php foreach (['all' => 'All', 'active' => 'Active', 'pending' => 'Pending', 'inactive' => 'Inactive'] as $key => $label): ?>
-    <a class="content-filter-link <?= $statusFilter === $key ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_accounts_admin_filter_url($key), ENT_QUOTES, 'UTF-8') ?>">
+    <a class="content-filter-link <?= $statusFilter === $key ? 'active' : '' ?>"<?= $statusFilter === $key ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_accounts_admin_filter_url($key), ENT_QUOTES, 'UTF-8') ?>">
       <span class="content-filter-label"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
       <span class="content-filter-count"><?= (int)($statusCounts[$key] ?? 0) ?></span>
     </a>
   <?php endforeach; ?>
 </nav>
 
-<section class="panel content-record-panel accounts-record-panel">
+<section class="accounts-record-panel" aria-label="Account records">
   <?php if (!$users): ?>
     <div class="empty-state content-list-empty-state accounts-empty-state">
       <h2>No <?= htmlspecialchars(strtolower($statusFilter), ENT_QUOTES, 'UTF-8') ?> accounts.</h2>
@@ -141,11 +132,11 @@ bms_admin_header('Accounts', [
           $avatarMarkup = bms_user_avatar_markup($row, 'account-admin-avatar-image', 96, 44, false);
           $canChangeStatus = $role !== 'admin' && $userId !== $currentUserId;
         ?>
-        <article class="account-record" role="listitem">
+        <article class="account-record" role="listitem" aria-labelledby="account_name_<?= $userId ?>">
           <div class="account-record-identity">
             <span class="account-record-avatar"><?= $avatarMarkup ?></span>
             <div class="account-record-name">
-              <a href="<?= htmlspecialchars($manageUrl, ENT_QUOTES, 'UTF-8') ?>"><strong><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></strong></a>
+              <a id="account_name_<?= $userId ?>" href="<?= htmlspecialchars($manageUrl, ENT_QUOTES, 'UTF-8') ?>"><strong><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></strong></a>
               <?php if ($username !== ''): ?><span>@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
             </div>
           </div>
@@ -153,7 +144,7 @@ bms_admin_header('Accounts', [
           <div class="account-record-email">
             <span class="account-record-mobile-label">Email</span>
             <span class="account-email-value"><?= $email !== '' ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : 'No email address' ?></span>
-            <span class="status-pill <?= $emailVerified ? 'published' : 'draft' ?> account-verification-pill"><?= $emailVerified ? 'Verified' : 'Not verified' ?></span>
+            <span class="status-pill <?= $emailVerified ? 'published' : 'draft' ?> account-verification-pill"><?= $emailVerified ? 'Email verified' : 'Email not verified' ?></span>
           </div>
 
           <div class="account-record-type">
@@ -164,15 +155,15 @@ bms_admin_header('Accounts', [
           <div class="account-record-status">
             <span class="account-record-mobile-label">Status</span>
             <span class="status-pill <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
-            <?php if ($pendingReason !== ''): ?><small><?= htmlspecialchars($pendingReason, ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?>
+            <?php if ($pendingReason !== ''): ?><small>Awaiting <?= htmlspecialchars(strtolower($pendingReason), ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?>
           </div>
 
           <div class="account-record-actions">
+            <a class="account-record-manage" href="<?= htmlspecialchars($manageUrl, ENT_QUOTES, 'UTF-8') ?>">Manage Account<span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>)</span></a>
             <details class="content-actions-menu" data-content-actions>
-              <summary>Actions</summary>
+              <summary>Actions<span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>)</span></summary>
               <div class="content-actions-menu-panel">
-                <a href="<?= htmlspecialchars($manageUrl, ENT_QUOTES, 'UTF-8') ?>">Manage Account</a>
-                <?php if ($rowStatus === 'active'): ?><a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View Profile</a><?php endif; ?>
+                <?php if ($rowStatus === 'active'): ?><a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View Profile<span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>), opens in a new tab</span></a><?php endif; ?>
                 <?php if ($canChangeStatus && $rowStatus !== 'active'): ?>
                   <form method="post" action="<?= htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
@@ -180,7 +171,8 @@ bms_admin_header('Accounts', [
                     <input type="hidden" name="user_id" value="<?= $userId ?>">
                     <input type="hidden" name="status" value="active">
                     <input type="hidden" name="return_status" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit" class="content-action-button state-link"><?= $rowStatus === 'pending' ? 'Approve Account' : 'Activate Account' ?></button>
+                    <?php if (!$emailVerified): ?><p id="account_activation_<?= $userId ?>" class="account-action-help">Approving or activating this account also marks its email verified.</p><?php endif; ?>
+                    <button type="submit" class="content-action-button state-link"<?= !$emailVerified ? ' aria-describedby="account_activation_' . $userId . '"' : '' ?>><?= $rowStatus === 'pending' ? 'Approve Account' : 'Activate Account' ?><span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>)</span></button>
                   </form>
                 <?php endif; ?>
                 <?php if ($canChangeStatus && $rowStatus !== 'pending'): ?>
@@ -190,7 +182,7 @@ bms_admin_header('Accounts', [
                     <input type="hidden" name="user_id" value="<?= $userId ?>">
                     <input type="hidden" name="status" value="pending">
                     <input type="hidden" name="return_status" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit" class="content-action-button state-link">Move to Pending</button>
+                    <button type="submit" class="content-action-button state-link">Move to Pending<span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>)</span></button>
                   </form>
                 <?php endif; ?>
                 <?php if ($canChangeStatus && $rowStatus !== 'inactive'): ?>
@@ -200,7 +192,7 @@ bms_admin_header('Accounts', [
                     <input type="hidden" name="user_id" value="<?= $userId ?>">
                     <input type="hidden" name="status" value="inactive">
                     <input type="hidden" name="return_status" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit" class="content-action-button danger-link">Deactivate Account</button>
+                    <button type="submit" class="content-action-button danger-link">Deactivate Account<span class="sr-only"> for <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?> (@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>)</span></button>
                   </form>
                 <?php endif; ?>
               </div>

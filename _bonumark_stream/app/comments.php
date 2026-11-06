@@ -224,8 +224,13 @@ function bms_list_admin_comments(string $status = 'approved', int $limit = 100, 
     $where = ['c.status = :status'];
     $params = ['status' => $status];
     if ($query !== '') {
-        $where[] = '(c.body LIKE :query OR u.display_name LIKE :query OR u.username LIKE :query OR p.title LIKE :query OR c.post_slug LIKE :query)';
-        $params['query'] = '%' . $query . '%';
+        $where[] = '(c.body LIKE :query_body OR u.display_name LIKE :query_display_name OR u.username LIKE :query_username OR p.title LIKE :query_post_title OR c.post_slug LIKE :query_post_slug)';
+        $pattern = '%' . $query . '%';
+        $params['query_body'] = $pattern;
+        $params['query_display_name'] = $pattern;
+        $params['query_username'] = $pattern;
+        $params['query_post_title'] = $pattern;
+        $params['query_post_slug'] = $pattern;
     }
     $sql = 'SELECT c.*, u.username, u.display_name, u.role, u.profile_visibility, u.avatar_path, p.title AS post_title '
         . 'FROM ' . bms_table('comments') . ' c '
