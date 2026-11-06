@@ -193,34 +193,32 @@ if ($status === 'trash') {
         }
     }
 }
-$dateSortNext = $sort === 'date_desc' ? 'date_asc' : 'date_desc';
-$dateSortSymbol = $sort === 'date_desc' ? '↓' : '↑';
-$dateSortUrl = bms_admin_url('content.php' . bms_query_string([
+// Paginate the existing filtered and ordered list without changing its counts.
+$totalItems = count($items);
+$perPage = 25;
+$totalPages = max(1, (int)ceil($totalItems / $perPage));
+$currentPage = min($totalPages, max(1, (int)(filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1)));
+$pageOffset = ($currentPage - 1) * $perPage;
+$items = array_slice($items, $pageOffset, $perPage);
+$pageUrl = static fn (int $page): string => bms_admin_url('content.php' . bms_query_string([
     'status' => $status !== 'all' ? $status : '',
     'q' => $q,
-    'sort' => $dateSortNext,
+    'sort' => $sort,
+    'page' => $page,
 ]));
-$title = match ($status) {
-    'draft' => 'Draft Stream Posts',
-    'published' => 'Published Stream Posts',
-    'pinned' => 'Pinned Stream Posts',
-    'scheduled' => 'Scheduled Stream Posts',
-    'trash' => 'Trash',
-    default => 'Stream Posts',
-};
-$actions = [
-    ['label' => 'Revisions', 'href' => bms_admin_url('revisions.php'), 'style' => 'secondary'],
-];
 $canEmptyTrash = true;
-bms_admin_header($title, $actions);
+bms_admin_header('Content');
 ?>
+<div class="content-view-context">
+  <p class="content-timezone">Dates: <?= htmlspecialchars($status === 'trash' ? 'UTC' : bms_site_timezone_name(), ENT_QUOTES, 'UTF-8') ?></p>
+</div>
 <nav class="content-filter" aria-label="Stream post status filters">
-  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($scheduled) + count($published) ?></span></a>
-  <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
-  <a class="<?= $status === 'scheduled' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=scheduled'), ENT_QUOTES, 'UTF-8') ?>">Scheduled <span><?= count($scheduled) ?></span></a>
-  <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
-  <a class="<?= $status === 'pinned' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=pinned'), ENT_QUOTES, 'UTF-8') ?>">Pinned <span><?= $pinnedCount ?></span></a>
-  <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
+  <a class="<?= $status === 'all' ? 'active' : '' ?>"<?= $status === 'all' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($scheduled) + count($published) ?></span></a>
+  <a class="<?= $status === 'draft' ? 'active' : '' ?>"<?= $status === 'draft' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
+  <a class="<?= $status === 'scheduled' ? 'active' : '' ?>"<?= $status === 'scheduled' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php?status=scheduled'), ENT_QUOTES, 'UTF-8') ?>">Scheduled <span><?= count($scheduled) ?></span></a>
+  <a class="<?= $status === 'published' ? 'active' : '' ?>"<?= $status === 'published' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
+  <a class="<?= $status === 'pinned' ? 'active' : '' ?>"<?= $status === 'pinned' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php?status=pinned'), ENT_QUOTES, 'UTF-8') ?>">Pinned <span><?= $pinnedCount ?></span></a>
+  <a class="<?= $status === 'trash' ? 'active' : '' ?>"<?= $status === 'trash' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('content.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
 </nav>
 
 
@@ -232,35 +230,52 @@ bms_admin_header($title, $actions);
   </form>
 <?php endif; ?>
 
-<section class="panel content-list-panel content-record-panel">
+<section class="content-list-panel content-record-panel" aria-label="Manage Stream posts">
   <div class="content-list-search-region">
     <form class="content-search-form" method="get">
       <input type="hidden" name="status" value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="sort" value="<?= htmlspecialchars($sort, ENT_QUOTES, 'UTF-8') ?>">
-      <label class="sr-only" for="content_q">Search stream posts</label>
-      <input id="content_q" type="search" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>" placeholder="Search titles, text, or slugs">
-      <button type="submit">Search</button>
-      <?php if ($q !== ''): ?>
-        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('content.php' . bms_query_string(['status' => $status !== 'all' ? $status : ''])), ENT_QUOTES, 'UTF-8') ?>">Clear</a>
-      <?php endif; ?>
+      <div class="content-search-field">
+        <label for="content_q">Search posts</label>
+        <input id="content_q" type="search" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>" placeholder="Title, text, or slug">
+      </div>
+      <div class="content-sort-field">
+        <label for="content_sort">Sort</label>
+        <?php if ($status === 'pinned'): ?>
+          <input type="hidden" name="sort" value="<?= htmlspecialchars($sort, ENT_QUOTES, 'UTF-8') ?>">
+          <select id="content_sort" disabled aria-describedby="content-pinned-order"><option>Newest pin first</option></select>
+        <?php else: ?>
+          <select id="content_sort" name="sort">
+            <option value="date_desc"<?= $sort === 'date_desc' ? ' selected' : '' ?>>Newest first</option>
+            <option value="date_asc"<?= $sort === 'date_asc' ? ' selected' : '' ?>>Oldest first</option>
+          </select>
+        <?php endif; ?>
+      </div>
+      <div class="content-search-actions">
+        <button type="submit" class="secondary">Search</button>
+        <?php if ($q !== ''): ?>
+          <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('content.php' . bms_query_string(['status' => $status !== 'all' ? $status : '', 'sort' => $sort])), ENT_QUOTES, 'UTF-8') ?>">Clear search</a>
+        <?php endif; ?>
+      </div>
     </form>
+    <?php if ($status === 'pinned'): ?><p id="content-pinned-order" class="content-results-summary">Pinned posts are ordered by when they were pinned, newest first.</p><?php endif; ?>
   </div>
 
   <?php if (!$items): ?>
     <div class="empty-state content-list-empty-state">
-      <h2>No stream posts found.</h2>
-      <p><?= $status === 'trash' ? 'Trash is empty.' : 'Create your first Stream Post from the stream composer. Save a draft there when you need the full editor.' ?></p>
-      <?php if ($status !== 'trash'): ?><a class="button-link secondary" href="<?= htmlspecialchars(bms_stream_composer_url(), ENT_QUOTES, 'UTF-8') ?>">Open Stream Composer</a><?php endif; ?>
+      <h2><?= $q !== '' ? 'No matching posts.' : ($status === 'trash' ? 'Trash is empty.' : 'No posts in this view.') ?></h2>
+      <p><?= $q !== '' ? 'Try different search terms or clear the search to see all posts in this view.' : ($status === 'trash' ? 'Posts moved to Trash will appear here.' : ($status === 'all' ? 'Create your first Stream post from the Stream composer. Save a draft there when you need the full editor.' : 'Choose another status to find your posts.')) ?></p>
+      <a href="<?= htmlspecialchars(bms_admin_url('revisions.php'), ENT_QUOTES, 'UTF-8') ?>">Revisions</a>
     </div>
   <?php else: ?>
     <div class="content-list-controlbar">
       <form id="bulk-content-form" method="post" class="bulk-content-form content-list-bulk-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <label class="content-list-select-all">
-          <input type="checkbox" data-select-all data-select-scope="#stream-content-list" aria-label="Select all stream posts shown">
-          <span>Select all</span>
+          <input type="checkbox" data-select-all data-select-scope="#stream-content-list">
+          <span>Select this page</span>
         </label>
-        <label class="sr-only" for="content_bulk_action">Bulk action</label>
+        <div class="content-bulk-field">
+        <label for="content_bulk_action">Bulk action</label>
         <select id="content_bulk_action" name="bulk_action">
           <option value="">Bulk actions</option>
           <?php if ($status === 'trash'): ?>
@@ -272,13 +287,14 @@ bms_admin_header($title, $actions);
             <option value="trash">Move selected to Trash</option>
           <?php endif; ?>
         </select>
-        <button type="submit">Apply</button>
+        </div>
+        <button type="submit" class="secondary">Apply</button>
       </form>
       <div class="content-list-summary">
-        <span><?= count($items) ?> post<?= count($items) === 1 ? '' : 's' ?> shown</span>
-        <a class="content-list-sort-link" href="<?= htmlspecialchars($dateSortUrl, ENT_QUOTES, 'UTF-8') ?>">Date <?= htmlspecialchars($dateSortSymbol, ENT_QUOTES, 'UTF-8') ?></a>
+        <a href="<?= htmlspecialchars(bms_admin_url('revisions.php'), ENT_QUOTES, 'UTF-8') ?>">Revisions</a>
       </div>
     </div>
+    <noscript><p class="content-results-summary">Select posts individually, then choose a bulk action and Apply.</p></noscript>
 
     <div class="content-record-header" aria-hidden="true">
       <span></span>
@@ -307,9 +323,9 @@ bms_admin_header($title, $actions);
           $editUrl = $itemStatus === 'trash' ? '' : bms_admin_url('edit.php?type=' . urlencode($itemType) . '&file=' . urlencode($file));
         ?>
         <article class="content-record content-record-<?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?>" role="listitem">
-          <div class="content-record-select">
+          <label class="content-record-select">
             <input type="checkbox" form="bulk-content-form" name="selected[]" value="<?= htmlspecialchars($itemType . '|' . ($itemType === 'trash' ? (int)$item['trash_id'] : $file), ENT_QUOTES, 'UTF-8') ?>" aria-label="Select <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?>">
-          </div>
+          </label>
 
           <div class="content-record-main">
             <div class="content-record-title-row">
@@ -318,7 +334,6 @@ bms_admin_header($title, $actions);
               <?php else: ?>
                 <h2><a href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></a></h2>
               <?php endif; ?>
-              <span class="status-pill <?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?> content-record-mobile-status"><?= htmlspecialchars(bms_content_status_label($itemStatus), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
 
             <?php if ($itemPreview !== ''): ?>
@@ -327,15 +342,15 @@ bms_admin_header($title, $actions);
               <p class="content-record-preview content-record-preview-muted">Media post</p>
             <?php endif; ?>
 
+            <?php if ($isPinned || $hasMedia || $itemStatus === 'trash'): ?>
             <div class="content-record-meta">
               <?php if ($isPinned): ?><span class="content-record-chip pinned">Pinned</span><?php endif; ?>
               <?php if ($hasMedia): ?><span class="content-record-chip media">Media</span><?php endif; ?>
               <?php if ($itemStatus === 'trash'): ?>
                 <span class="content-record-chip neutral">Originally <?= htmlspecialchars(ucfirst((string)($item['original_status'] ?? 'draft')), ENT_QUOTES, 'UTF-8') ?></span>
-              <?php else: ?>
-                <span class="content-record-chip neutral">Database</span>
               <?php endif; ?>
             </div>
+            <?php endif; ?>
           </div>
 
           <div class="content-record-status">
@@ -343,13 +358,14 @@ bms_admin_header($title, $actions);
           </div>
 
           <div class="content-record-date">
-            <span class="content-record-mobile-label"><?= $itemStatus === 'trash' ? 'Deleted' : 'Date' ?></span>
+            <span class="content-record-date-label"><?= match ($itemStatus) { 'trash' => 'Deleted', 'scheduled' => 'Scheduled for', 'published' => 'Published', default => 'Date' } ?></span>
             <time><?= htmlspecialchars($displayDate !== '' ? $displayDate : 'Unknown', ENT_QUOTES, 'UTF-8') ?></time>
           </div>
 
           <div class="content-record-actions">
+            <?php if ($itemStatus !== 'trash'): ?><a class="content-record-edit button-link secondary" href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>">Edit<span class="screen-reader-text"> <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></span></a><?php endif; ?>
             <details class="content-actions-menu" data-content-actions>
-              <summary>Actions</summary>
+              <summary>Actions<span class="screen-reader-text"> for <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8') ?></span></summary>
               <div class="content-actions-menu-panel">
                 <?php if ($itemStatus === 'trash'): ?>
                   <form method="post" action="<?= htmlspecialchars(bms_admin_url('restore.php'), ENT_QUOTES, 'UTF-8') ?>">
@@ -363,7 +379,6 @@ bms_admin_header($title, $actions);
                     <button type="submit" class="content-action-button danger-link">Delete permanently</button>
                   </form>
                 <?php else: ?>
-                  <a href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
                   <a href="<?= htmlspecialchars(bms_admin_url('quick-edit.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Quick edit</a>
                   <a href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . urlencode($itemType) . '&file=' . urlencode($file)), ENT_QUOTES, 'UTF-8') ?>">Preview</a>
                   <a href="<?= htmlspecialchars(bms_admin_url('revisions.php?slug=' . urlencode((string)$item['slug'])), ENT_QUOTES, 'UTF-8') ?>">Revisions</a>
@@ -405,6 +420,15 @@ bms_admin_header($title, $actions);
         </article>
       <?php endforeach; ?>
     </div>
+    <?php if ($totalPages > 1): ?>
+      <nav class="content-pagination" aria-label="Stream post pagination">
+        <?php if ($currentPage > 1): ?><a class="button-link secondary" rel="prev" href="<?= htmlspecialchars($pageUrl($currentPage - 1), ENT_QUOTES, 'UTF-8') ?>">Previous</a><?php endif; ?>
+        <span>Page <?= $currentPage ?> of <?= $totalPages ?></span>
+        <?php if ($currentPage < $totalPages): ?><a class="button-link secondary" rel="next" href="<?= htmlspecialchars($pageUrl($currentPage + 1), ENT_QUOTES, 'UTF-8') ?>">Next</a><?php endif; ?>
+      </nav>
+    <?php endif; ?>
+    <p class="content-results-summary">Showing <?= $pageOffset + 1 ?> to <?= $pageOffset + count($items) ?> of <?= $totalItems ?> post<?= $totalItems === 1 ? '' : 's' ?><?= $q !== '' ? ' matching your search' : '' ?>. Selection applies to this page.</p>
   <?php endif; ?>
+  <p class="content-results-summary">All excludes Trash. Pinned posts are also included in Published.</p>
 </section>
 <?php bms_admin_footer(); ?>
