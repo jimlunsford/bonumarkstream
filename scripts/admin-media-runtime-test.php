@@ -28,7 +28,6 @@ $prefix = 'bms_media_ci_' . bin2hex(random_bytes(5)) . '_';
 $process = null;
 $pdo = null;
 $checks = 0;
-$baselineDefects = 0;
 
 function bms_media_test_expect(bool $condition, string $label): void
 {
@@ -191,6 +190,7 @@ try {
     require $temporary . '/_bonumark_stream/app/database.php';
     require $temporary . '/_bonumark_stream/app/media.php';
     $pdo = bms_db();
+    bms_media_test_expect(!$pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES), 'Media search uses native PDO prepared statements');
     bms_database_require_supported($pdo);
     bms_install_schema($pdo, $prefix);
     $insertSetting = $pdo->prepare("INSERT INTO `{$prefix}settings` (setting_key, setting_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)");
@@ -301,38 +301,35 @@ try {
     $all = bms_media_test_request($base, '/admin/media.php?status=all', $owner);
     bms_media_test_expect(count(bms_media_test_ids($all['body'])) === 6, 'Existing all-status retrieval remains supported');
 
-    // The unchanged baseline reuses :search under native PDO prepares. Expose
-    // that specific known failure instead of claiming matching searches pass.
-    // This exception is pinned to bms_media_list from f0b2618, not a requirement
-    // to preserve broken search. Any altered implementation must return matches.
-    $searchFunction = new ReflectionFunction('bms_media_list');
-    $searchLines = file($searchFunction->getFileName());
-    $searchSource = implode('', array_slice($searchLines, $searchFunction->getStartLine() - 1, $searchFunction->getEndLine() - $searchFunction->getStartLine() + 1));
-    $knownSearchBaseline = hash_equals('744d766b28a0ccf44aa660427f84a05ca71ecc3c0944c7b62c717d7a3a687275', hash('sha256', $searchSource));
-    $duplicateSearchFails = false;
-    try {
-        $statement = $pdo->prepare("SELECT id FROM `{$prefix}media` WHERE original_filename LIKE :search OR filename LIKE :search OR alt_text LIKE :search OR caption LIKE :search");
-        $statement->execute(['search' => '%amber%']);
-    } catch (PDOException $exception) {
-        if ($exception->getCode() !== 'HY093') {
-            throw $exception;
-        }
-        $duplicateSearchFails = true;
-    }
+    // Positive searches must return real records. An empty result from a
+    // swallowed query error must never count as a successful matching search.
+    $beforeSearch = $pdo->query("SELECT * FROM `{$prefix}media` ORDER BY id")->fetchAll();
     foreach (['AMBER' => $ids['clean'], 'cobalt' => $ids['warning'], 'quartz' => $ids['document'], 'First caption' => $ids['clean'], 'bms-' . str_pad('3', 24, '0', STR_PAD_LEFT) . '.txt' => $ids['document']] as $query => $id) {
         $response = bms_media_test_request($base, '/admin/media.php?s=' . rawurlencode(' ' . $query . ' '), $owner);
         bms_media_test_expect($response['status'] === 200 && str_contains($response['body'], 'id="media_search"') && str_contains($response['body'], 'aria-label="Media views"') && str_contains($response['body'], 'value="' . htmlspecialchars($query, ENT_QUOTES, 'UTF-8') . '"'), 'Matching search returns a valid rendered form with trimmed query: ' . $query);
-        $found = bms_media_test_ids($response['body']);
-        if ($found === [] && $duplicateSearchFails && $knownSearchBaseline) {
-            bms_media_test_expect(str_contains($response['body'], 'No matching media'), 'Known search failure retains usable no-match presentation: ' . $query);
-            $baselineDefects++;
-            fwrite(STDOUT, 'BASELINE DEFECT matching search ' . $query . ': native PDO HY093 is swallowed by unchanged bms_media_list; expected item ' . $id . ".\n");
-        } else {
-            bms_media_test_expect($found === [$id], 'Trimmed case-insensitive search returns expected match for ' . $query);
+        bms_media_test_expect(bms_media_test_ids($response['body']) === [$id] && !str_contains($response['body'], 'No matching media'), 'Trimmed case-insensitive search returns expected match for ' . $query);
+    }
+    foreach (['original filename' => 'TRASHED-PHOTO.PNG', 'filename' => 'bms-' . str_pad('6', 24, '0', STR_PAD_LEFT) . '.png', 'alt text' => 'Trashed image', 'caption' => 'Trashed caption'] as $field => $query) {
+        $response = bms_media_test_request($base, '/admin/media.php?status=trash&s=' . rawurlencode(' ' . $query . ' '), $owner);
+        bms_media_test_expect($response['status'] === 200 && bms_media_test_ids($response['body']) === [$ids['trash']] && !str_contains($response['body'], 'No matching media'), 'Trash search matches ' . $field . ' with native prepares');
+        $response = bms_media_test_request($base, '/admin/media.php?status=active&s=' . rawurlencode($query), $owner);
+        bms_media_test_expect($response['status'] === 200 && bms_media_test_ids($response['body']) === [] && str_contains($response['body'], 'No matching media'), 'Active search excludes trashed ' . $field . ' match');
+    }
+    foreach (['AMBER', 'cobalt', 'quartz', 'First caption', 'bms-' . str_pad('3', 24, '0', STR_PAD_LEFT) . '.txt'] as $query) {
+        $response = bms_media_test_request($base, '/admin/media.php?status=trash&s=' . rawurlencode($query), $owner);
+        bms_media_test_expect($response['status'] === 200 && bms_media_test_ids($response['body']) === [] && str_contains($response['body'], 'No matching media'), 'Trash search excludes active match for ' . $query);
+    }
+    foreach (['active', 'trash'] as $status) {
+        foreach (['missing-fixture', "' OR 1=1 --"] as $query) {
+            $noMatch = bms_media_test_request($base, '/admin/media.php?status=' . $status . '&s=' . rawurlencode($query), $owner);
+            bms_media_test_expect($noMatch['status'] === 200 && bms_media_test_ids($noMatch['body']) === [] && str_contains($noMatch['body'], 'No matching media'), ucfirst($status) . ' nonmatching search returns the distinct no-match state: ' . $query);
         }
     }
-    $noMatch = bms_media_test_request($base, '/admin/media.php?status=trash&s=missing-fixture', $owner);
-    bms_media_test_expect(bms_media_test_ids($noMatch['body']) === [] && str_contains($noMatch['body'], 'No matching media'), 'No-match presentation is distinct from an empty library');
+    foreach ([['active', 'a%ber', [$ids['clean']]], ['active', 'co_alt', [$ids['warning']]], ['trash', 'trashed%caption', [$ids['trash']]], ['all', 'photo.png', [$ids['trash'], $ids['unknown'], $ids['legacy'], $ids['clean']]]] as [$status, $query, $expectedIds]) {
+        $response = bms_media_test_request($base, '/admin/media.php?status=' . $status . '&s=' . rawurlencode($query), $owner);
+        bms_media_test_expect($response['status'] === 200 && bms_media_test_ids($response['body']) === $expectedIds, 'Search preserves LIKE wildcards, status and date ordering: ' . $status . ' / ' . $query);
+    }
+    bms_media_test_expect($beforeSearch === $pdo->query("SELECT * FROM `{$prefix}media` ORDER BY id")->fetchAll(), 'Searches preserve every media record');
     $clear = array_filter(bms_media_test_links($noMatch['body']), static fn(array $link): bool => $link['label'] === 'Clear search');
     bms_media_test_expect($clear !== [] && count(array_filter($clear, static fn(array $link): bool => $link['href'] === '/admin/media.php?status=trash')) === count($clear), 'Clear search retains the current Trash view');
 
@@ -440,7 +437,7 @@ try {
         $response = bms_media_test_request($base, $path, $sessions['commenter'], ['csrf_token' => $token] + $form);
         bms_media_test_expect($response['status'] === 403, $path . ' denies commenter mutation');
     }
-    foreach (['/admin/media.php', '/admin/media-upload.php', '/admin/media-regenerate.php', '/admin/media-edit.php?id=' . $ids['warning'], '/admin/media-picker.php'] as $path) {
+    foreach (['/admin/media.php', '/admin/media.php?status=active&s=cobalt', '/admin/media.php?status=trash&s=Trashed%20caption', '/admin/media-upload.php', '/admin/media-regenerate.php', '/admin/media-edit.php?id=' . $ids['warning'], '/admin/media-picker.php'] as $path) {
         $response = bms_media_test_request($base, $path, $guest);
         bms_media_test_expect($response['status'] === 302 && str_ends_with($response['location'], '/admin/login.php'), $path . ' requires authenticated access');
         $response = bms_media_test_request($base, $path, $sessions['commenter']);
@@ -465,8 +462,15 @@ try {
     $counts = bms_media_test_links(bms_media_test_landmark($response['body'], 'status-tabs'));
     $activeTotal = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}media` WHERE trashed_at IS NULL")->fetchColumn();
     bms_media_test_expect(str_contains($counts[0]['label'], (string)$activeTotal) && $activeTotal > 200, 'Active view count reflects all matching status records beyond displayed cap');
+    foreach (['active', 'trash'] as $status) {
+        if ($status === 'trash') {
+            $pdo->exec("UPDATE `{$prefix}media` SET trashed_at='2026-03-01 12:00:00' WHERE filename LIKE 'limit-%'");
+        }
+        $response = bms_media_test_request($base, '/admin/media.php?status=' . $status . '&s=Limit%20fixture', $owner);
+        bms_media_test_expect($response['status'] === 200 && bms_media_test_ids($response['body']) === range($latestId, $latestId - 199), ucfirst($status) . ' matching search preserves the 200-item cap and newest-ID ordering for equal dates');
+    }
     bms_media_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}migrations`")->fetchColumn() === $migrationCount, 'Media workflows introduce no migrations');
-    fwrite(STDOUT, 'Admin Media runtime regression passed: ' . $checks . ' checks; ' . $baselineDefects . " matching-search checks blocked by documented baseline HY093 defect.\n");
+    fwrite(STDOUT, 'Admin Media runtime regression passed: ' . $checks . " checks.\n");
 
 } finally {
     if (is_resource($process)) {
