@@ -11,19 +11,12 @@ try {
         throw new RuntimeException('Draft page not found.');
     }
     bms_require_content_file_access('pages/drafts', $file, 'publish_content', $page);
-    $authorId = bms_content_author_id_for_file('pages/drafts', $file);
-    if ($authorId === null && (int)($page['author_id'] ?? 0) > 0) {
-        $authorId = (int)$page['author_id'];
-    }
     $published = bms_database_content_page_for_status($page, 'published', 'page');
     $publishedFile = bms_database_content_filename_for_page($published);
     if (function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status((string)$published['slug'], 'published', 'page')) {
         throw new RuntimeException('A published page already uses this slug.');
     }
-    if (function_exists('bms_delete_post_metadata_by_filename')) {
-        bms_delete_post_metadata_by_filename('pages/drafts', $file);
-    }
-    bms_sync_page_metadata($published, 'pages/published', $publishedFile, $authorId);
+    bms_update_existing_page($page, $published, 'pages/published', $publishedFile);
     bms_flash('Page published. “' . $published['title'] . '” is live through dynamic rendering.', 'success');
     bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($publishedFile)));
 } catch (Throwable $e) {
