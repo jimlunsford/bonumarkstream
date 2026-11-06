@@ -65,9 +65,6 @@ function bms_page_editor_form(array $page, string $section, string $buttonLabel)
 {
     ?>
     <section class="editor-panel editor-composer-panel">
-      <div class="composer-top-row" aria-label="Editor options">
-        <p class="editor-page-helper">Pages are stable site content. They do not appear in the stream feed.</p>
-      </div>
       <form id="stream-editor-form" method="post" class="editor-form editor-layout-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="content_kind" value="page">
@@ -80,7 +77,7 @@ function bms_page_editor_form(array $page, string $section, string $buttonLabel)
             <?php bms_publish_sidebar($section, $buttonLabel, '', ['mode' => 'new', 'content_type' => 'page']); ?>
             <?php bms_page_url_fields($page, $section); ?>
             <?php bms_page_settings_fields($page); ?>
-              </aside>
+          </aside>
         </div>
       </form>
       <?php bms_editor_mobile_action_bar($section, 'Save Draft', [
@@ -93,6 +90,7 @@ function bms_page_editor_form(array $page, string $section, string $buttonLabel)
 }
 
 bms_admin_header('New Page', [
+    ['label' => 'Back to Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
     bms_editor_screen_controls_action('page'),
 ]);
 bms_page_editor_form($page, 'pages/drafts', 'Save Draft');

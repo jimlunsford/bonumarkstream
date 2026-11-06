@@ -553,11 +553,11 @@ function bms_publish_sidebar(string $section, string $buttonLabel, string $helpe
             <a class="button-link secondary compact-button" href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . urlencode($previewType) . '&file=' . urlencode($file) . '&frame=1'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Preview</a>
           <?php endif; ?>
           <?php if ($isPublished && $page): ?>
-            <a class="button-link secondary compact-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View Live</a>
+            <a class="button-link secondary compact-button" href="<?= htmlspecialchars($isPageContent && function_exists('bms_page_url_for_page') ? bms_page_url_for_page($page) : bms_stream_url_for_post($page), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $isPageContent ? 'View Page' : 'View Live' ?></a>
           <?php endif; ?>
         </div>
 
-        <div class="publish-card-actions publish-primary-actions" aria-label="Primary post actions">
+        <div class="publish-card-actions publish-primary-actions" aria-label="<?= $isPageContent ? 'Primary page actions' : 'Primary post actions' ?>">
           <button type="submit" form="stream-editor-form" formnovalidate class="primary-button publish-main-button" data-editor-submit-button><?= htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') ?></button>
           <?php if (!$isPublished && $canPublishThis): ?>
             <button type="submit" form="stream-editor-form" formnovalidate class="secondary-button positive-action full-width-button" data-editor-submit-button name="stream_submit_action" value="publish"><?= $isPageContent ? 'Publish Page' : 'Post Now' ?></button>
@@ -784,9 +784,8 @@ function bms_page_title_fields(array $page): void
     $title = bms_page_field_value($page, 'title', '');
     ?>
     <section class="editor-title-card page-editor-title-card" aria-label="Page title">
-      <label class="sr-only" for="page_title">Page Title</label>
+      <label for="page_title">Title</label>
       <input class="editor-title-input" type="text" id="page_title" name="page_title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" placeholder="About" maxlength="180" required>
-      <p class="field-help">The title is public and should clearly identify the page.</p>
     </section>
     <?php
 }
