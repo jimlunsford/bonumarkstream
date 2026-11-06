@@ -39,54 +39,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $items = bms_media_list(200, $search, $status);
 $activeCount = bms_media_count('active');
 $trashCount = bms_media_count('trash');
-$viewTitle = $status === 'trash' ? 'Media Trash' : 'Media Library';
-
-bms_admin_header($viewTitle, [
-    ['label' => 'Add New Media', 'href' => bms_admin_url('media-upload.php'), 'style' => 'primary'],
-    ['label' => 'Optimize Images', 'href' => bms_admin_url('media-regenerate.php'), 'style' => 'secondary'],
-    ['label' => 'Library', 'href' => bms_admin_url('media.php'), 'style' => 'secondary'],
-    ['label' => 'Trash', 'href' => bms_admin_url('media.php?status=trash'), 'style' => 'secondary'],
-]);
+bms_admin_header('Media');
 ?>
-<section class="panel page-intro-panel">
-  <p class="eyebrow">Media</p>
-  <h2><?= htmlspecialchars($status === 'trash' ? 'Trash' : 'Library', ENT_QUOTES, 'UTF-8') ?></h2>
-  <p class="meta">Browse media visually, open details only when needed, and keep editing, privacy, and Markdown controls one step away.</p>
-</section>
-
-<section class="panel media-toolbar-panel">
-  <div class="status-tabs" role="navigation" aria-label="Media views">
-    <a class="status-tab<?= $status === 'active' ? ' active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8') ?>">Library <span><?= (int)$activeCount ?></span></a>
-    <a class="status-tab<?= $status === 'trash' ? ' active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('media.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= (int)$trashCount ?></span></a>
-  </div>
+<div class="media-toolbar-panel">
+  <nav class="status-tabs" aria-label="Media views">
+    <a class="status-tab<?= $status === 'active' ? ' active' : '' ?>"<?= $status === 'active' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('media.php'), ENT_QUOTES, 'UTF-8') ?>">Active <span><?= (int)$activeCount ?></span></a>
+    <a class="status-tab<?= $status === 'trash' ? ' active' : '' ?>"<?= $status === 'trash' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('media.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= (int)$trashCount ?></span></a>
+  </nav>
   <form method="get" class="filter-form media-search-form">
     <input type="hidden" name="status" value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>">
-    <label class="sr-only" for="media_search">Search media</label>
-    <input id="media_search" type="search" name="s" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" placeholder="Search filenames, alt text, or captions">
-    <button type="submit">Search</button>
-    <?php if ($search !== ''): ?>
-      <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('media.php?status=' . rawurlencode($status)), ENT_QUOTES, 'UTF-8') ?>">Clear</a>
-    <?php endif; ?>
-  </form>
-</section>
-
-<section class="panel media-library-panel">
-  <div class="section-header-row media-library-heading">
-    <div>
-      <h2><?= htmlspecialchars($status === 'trash' ? 'Trashed media' : 'Media library', ENT_QUOTES, 'UTF-8') ?></h2>
-      <p class="meta"><?= count($items) ?> item(s) shown. Select thumbnails for bulk actions or open Details for metadata and Markdown.</p>
+    <div class="media-search-field">
+      <label for="media_search">Search media</label>
+      <input id="media_search" type="search" name="s" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" placeholder="Filenames, alt text, or captions">
     </div>
-    <?php if ($status === 'active'): ?>
-      <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8') ?>">Upload Media</a>
-    <?php endif; ?>
-  </div>
+    <div class="media-search-actions">
+      <button type="submit">Search</button>
+      <?php if ($search !== ''): ?>
+        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('media.php?status=' . rawurlencode($status)), ENT_QUOTES, 'UTF-8') ?>">Clear search</a>
+      <?php endif; ?>
+    </div>
+  </form>
+</div>
 
+<section class="media-library-panel" aria-label="<?= $status === 'trash' ? 'Trashed media' : 'Media items' ?>">
   <?php if (!$items): ?>
     <div class="empty-state media-library-empty-state">
-      <h3><?= htmlspecialchars($status === 'trash' ? 'Media trash is empty.' : 'No media yet.', ENT_QUOTES, 'UTF-8') ?></h3>
-      <p class="meta"><?= htmlspecialchars($status === 'trash' ? 'Media moved to trash will appear here before it is permanently deleted.' : 'Upload your first media file, add useful metadata, then insert it into a Stream Post.', ENT_QUOTES, 'UTF-8') ?></p>
-      <?php if ($status === 'active'): ?>
-        <a class="primary-button" href="<?= htmlspecialchars(bms_admin_url('media-upload.php'), ENT_QUOTES, 'UTF-8') ?>">Add New Media</a>
+      <h2><?= htmlspecialchars($search !== '' ? 'No matching media.' : ($status === 'trash' ? 'Trash is empty.' : 'No media yet.'), ENT_QUOTES, 'UTF-8') ?></h2>
+      <?php if ($search !== ''): ?>
+        <p class="meta">No results for “<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>”. Try another search or clear it above.</p>
+      <?php elseif ($status === 'trash'): ?>
+        <p class="meta">Media moved to Trash will appear here.</p>
+      <?php else: ?>
+        <p class="meta">Use Upload to add your first file.</p>
       <?php endif; ?>
     </div>
   <?php else: ?>
@@ -96,23 +80,24 @@ bms_admin_header($viewTitle, [
       <input type="hidden" name="s" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
       <div class="bulk-actions-row media-bulk-actions media-library-bulkbar">
         <label class="select-all-label"><input type="checkbox" data-media-select-all> Select all shown</label>
-        <label class="sr-only" for="bulk_action">Bulk action</label>
-        <select id="bulk_action" name="bulk_action">
-          <option value="">Bulk actions</option>
-          <?php if ($status === 'trash'): ?>
-            <option value="restore">Restore</option>
-            <option value="delete_permanently">Delete permanently</option>
-          <?php else: ?>
-            <option value="trash">Move to trash</option>
-          <?php endif; ?>
-        </select>
+        <div class="media-bulk-field">
+          <label for="bulk_action">Bulk action</label>
+          <select id="bulk_action" name="bulk_action" aria-describedby="media_bulk_help">
+            <option value="">Choose action</option>
+            <?php if ($status === 'trash'): ?>
+              <option value="restore">Restore</option>
+              <optgroup label="Permanent action">
+                <option value="delete_permanently">Delete permanently</option>
+              </optgroup>
+            <?php else: ?>
+              <option value="trash">Move to trash</option>
+            <?php endif; ?>
+          </select>
+        </div>
         <button type="submit">Apply</button>
-        <?php if ($status === 'trash'): ?>
-          <p class="field-help media-bulk-warning">Permanent deletion removes the database record and file from disk.</p>
-        <?php else: ?>
-          <p class="field-help">Trash hides selected files from the library and composer while keeping them recoverable.</p>
-        <?php endif; ?>
+        <p class="media-results-summary"><?= count($items) ?> <?= count($items) === 1 ? 'item' : 'items' ?> shown<?= count($items) === 200 ? ' (200-item limit)' : '' ?></p>
       </div>
+      <p id="media_bulk_help" class="field-help<?= $status === 'trash' ? ' media-bulk-warning' : '' ?>"><?= $status === 'trash' ? 'Permanent deletion removes the record, original file, and generated variants. This cannot be undone.' : 'Trash hides files from the library and composer while keeping them recoverable.' ?></p>
 
       <div class="media-library-grid" id="media-library-grid">
         <?php foreach ($items as $media): ?>
@@ -134,7 +119,7 @@ bms_admin_header($viewTitle, [
             $privacy = function_exists('bms_media_privacy_status') ? bms_media_privacy_status($media) : ['label' => 'Not checked', 'class' => 'draft', 'note' => 'Privacy status unavailable.'];
             $privacyLabel = (string)($privacy['label'] ?? 'Not checked');
             $privacyClass = preg_replace('/[^a-z0-9_-]+/i', '', (string)($privacy['class'] ?? 'draft')) ?: 'draft';
-            $privacyNote = ($privacy['status'] ?? '') === 'unconfirmed' ? (string)($privacy['note'] ?? '') : '';
+            $privacyNote = (string)($privacy['note'] ?? 'Privacy status unavailable.');
             $trashedAt = $status === 'trash' ? trim((string)($media['trashed_at'] ?? '')) : '';
           ?>
           <article
@@ -166,27 +151,24 @@ bms_admin_header($viewTitle, [
               <?php endif; ?>
             </a>
             <div class="media-library-card-copy">
-              <h3 title="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></h3>
+              <h2><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></h2>
               <p class="media-library-card-meta"><?= htmlspecialchars($metaLabel, ENT_QUOTES, 'UTF-8') ?></p>
               <div class="media-library-card-status">
                 <span class="status-pill <?= htmlspecialchars($privacyClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($privacyLabel, ENT_QUOTES, 'UTF-8') ?></span>
               </div>
             </div>
-            <button type="button" class="media-library-details-button" data-media-details-open>
-              <span>View details</span><span aria-hidden="true">›</span>
-            </button>
+            <a class="media-library-details-button" href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>" data-media-details-open>
+              <span>Details<span class="sr-only"> for <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></span></span><span aria-hidden="true">›</span>
+            </a>
           </article>
         <?php endforeach; ?>
       </div>
     </form>
 
-    <dialog class="media-details-dialog" data-media-details-dialog aria-labelledby="media_details_title">
+    <dialog id="media_details_dialog" class="media-details-dialog" data-media-details-dialog aria-labelledby="media_details_title">
       <div class="media-details-shell">
         <header class="media-details-header">
-          <div>
-            <p class="eyebrow">Media details</p>
-            <h2 id="media_details_title" data-media-detail-name>Media item</h2>
-          </div>
+          <h2 id="media_details_title">Media details</h2>
           <button type="button" class="media-details-close" data-media-details-close aria-label="Close media details">×</button>
         </header>
 
@@ -199,8 +181,10 @@ bms_admin_header($viewTitle, [
 
             <div class="media-details-content">
             <dl class="media-details-list">
+              <div><dt>Original filename</dt><dd data-media-detail-name>Media item</dd></div>
               <div><dt>Type</dt><dd data-media-detail-kind>Media</dd></div>
               <div><dt>File</dt><dd data-media-detail-meta></dd></div>
+              <div><dt>Alt text</dt><dd data-media-detail-alt>Not set</dd></div>
               <div><dt>Privacy</dt><dd><span class="status-pill draft" data-media-detail-status>Not checked</span></dd></div>
               <div data-media-detail-trashed-row hidden><dt>Trashed</dt><dd data-media-detail-trashed></dd></div>
             </dl>
