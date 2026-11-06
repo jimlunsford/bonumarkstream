@@ -135,7 +135,7 @@ $owner = bms_activitypub_public_owner_user() ?? [];
 $actorUrl = bms_activitypub_actor_url();
 $profileHandle = $owner ? '@' . substr(bms_activitypub_account_subject($owner), 5) : '';
 
-bms_admin_header('ActivityPub', [bms_view_site_action()]);
+bms_admin_header('ActivityPub');
 define('BMS_ADMIN_ACTIVITYPUB_VIEW', true);
 require __DIR__ . '/_activitypub-view.php';
 bms_admin_footer();

@@ -1,5 +1,5 @@
 /* Bonumark Stream Admin visual foundation.
-   Existing navigation structure and no-JavaScript access are retained. Public themes do not
+   Six stable primary destinations retain no-JavaScript access. Public themes do not
    load this sheet. Dark remains the current runtime presentation. */
 
 body.bonumark-admin {
@@ -50,7 +50,7 @@ body.bonumark-admin {
   font-size: 1rem;
   line-height: 1.5;
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
 }
 
 /* Secondary presentation for isolated review and future appearance integration.
@@ -292,8 +292,7 @@ body.bonumark-admin .admin-sidebar-nav .admin-nav-link.is-active {
   position: relative;
 }
 
-body.bonumark-admin .admin-nav-link > span,
-body.bonumark-admin .admin-nav-heading > span {
+body.bonumark-admin .admin-nav-link > span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -313,79 +312,11 @@ body.bonumark-admin .admin-sidebar-nav .admin-nav-link.is-active::before {
 }
 
 body.bonumark-admin .admin-sidebar-nav > .nav-primary {
-  font-weight: 800;
-  margin: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  margin: 8px 0;
+  min-height: 48px;
   width: 100%;
-}
-
-body.bonumark-admin .admin-sidebar-nav > .admin-sidebar-view-site {
-  border: 1px solid var(--admin-border);
-  color: var(--admin-muted);
-  margin-bottom: 12px;
-}
-
-body.bonumark-admin .admin-sidebar-nav > .admin-sidebar-view-site::after {
-  content: "↗";
-  margin-left: auto;
-  opacity: 0.72;
-}
-
-body.bonumark-admin .admin-nav-section {
-  border: 0;
-  margin: 7px 0 0;
-  padding: 0;
-}
-
-body.bonumark-admin .admin-nav-section > summary.admin-nav-heading {
-  align-items: center;
-  background: transparent;
-  border-radius: var(--admin-radius-sm);
-  color: var(--admin-subtle);
-  cursor: pointer;
-  display: flex;
-  font-size: 0.875rem;
-  font-weight: 700;
-  justify-content: space-between;
-  letter-spacing: normal;
-  list-style: none;
-  min-height: 44px;
-  padding: 9px 11px;
-  text-transform: none;
-  user-select: none;
-}
-
-body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::-webkit-details-marker {
-  display: none;
-}
-
-body.bonumark-admin .admin-nav-section > summary.admin-nav-heading::after {
-  content: "+";
-  font-size: 0.95rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-body.bonumark-admin .admin-nav-section[open] > summary.admin-nav-heading::after {
-  content: "−";
-}
-
-body.bonumark-admin .admin-nav-section > summary.admin-nav-heading:hover,
-body.bonumark-admin .admin-nav-section.is-active > summary.admin-nav-heading {
-  background: var(--admin-sidebar-hover);
-  color: var(--admin-muted);
-}
-
-body.bonumark-admin .admin-nav-links {
-  margin: 2px 0 8px;
-  padding-left: 8px;
-}
-
-body.bonumark-admin .admin-nav-links .admin-nav-link {
-  color: var(--admin-sidebar-text);
-  font-size: 0.875rem;
-  font-weight: 550;
-  min-height: 44px;
-  padding: 8px 12px;
 }
 
 body.bonumark-admin .admin-sidebar-footer {
@@ -395,8 +326,34 @@ body.bonumark-admin .admin-sidebar-footer {
   display: grid;
   flex: 0 0 auto;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   padding: 11px 12px;
+}
+
+body.bonumark-admin .admin-sidebar-utilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+body.bonumark-admin .admin-sidebar-utilities a,
+body.bonumark-admin .admin-sidebar-view-site {
+  align-items: center;
+  color: var(--admin-muted);
+  display: inline-flex;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  padding: 8px 6px;
+  text-decoration: none;
+}
+
+html.admin-js-ready body.bonumark-admin .admin-sidebar-view-site {
+  display: none;
+}
+
+body.bonumark-admin .admin-sidebar-utilities a:hover {
+  color: var(--admin-text);
+  text-decoration: underline;
 }
 
 body.bonumark-admin .admin-sidebar-profile {
@@ -1254,4 +1211,142 @@ body.bonumark-admin .dashboard-status-item:hover {
   body.bonumark-admin .dashboard-metric-card {
     transition: none;
   }
+}
+
+/* Context stays beside the current task; the primary rail never expands. */
+body.bonumark-admin .admin-page-workspace,
+body.bonumark-admin .admin-page-body {
+  min-width: 0;
+}
+
+body.bonumark-admin .admin-context-nav {
+  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 24px;
+  padding-bottom: 12px;
+}
+
+body.bonumark-admin .admin-context-link,
+body.bonumark-admin .admin-back-link {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  padding: 8px 4px;
+  text-decoration: none;
+}
+
+body.bonumark-admin .admin-context-link.is-active {
+  box-shadow: inset 0 -3px var(--admin-accent);
+  color: var(--admin-text);
+  font-weight: 700;
+}
+
+body.bonumark-admin .admin-context-link:hover,
+body.bonumark-admin .admin-back-link:hover {
+  text-decoration: underline;
+}
+
+body.bonumark-admin .admin-back-link {
+  margin: 0 0 12px;
+}
+
+body.bonumark-admin .admin-settings-local-nav {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  body.bonumark-admin .has-settings-navigation {
+    align-items: start;
+    display: grid;
+    gap: 32px;
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  body.bonumark-admin .admin-settings-local-nav {
+    display: block;
+    min-width: 0;
+  }
+
+  body.bonumark-admin .admin-settings-local-nav h2 {
+    color: var(--admin-muted);
+    font-size: 0.875rem;
+    margin: 20px 0 4px;
+  }
+
+  body.bonumark-admin .admin-settings-local-nav h2:first-child {
+    margin-top: 0;
+  }
+
+  body.bonumark-admin .admin-settings-local-nav .admin-context-link {
+    border-left: 3px solid transparent;
+    display: flex;
+    font-size: 0.875rem;
+    min-height: 44px;
+    overflow-wrap: anywhere;
+    padding: 10px 12px;
+    text-decoration: none;
+  }
+
+  body.bonumark-admin .admin-settings-local-nav .is-active {
+    background: var(--admin-selected);
+    border-left-color: var(--admin-accent);
+    box-shadow: none;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 900px) {
+  html.admin-js-ready body.bonumark-admin .admin-mobile-bar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  body.bonumark-admin .admin-mobile-brand {
+    flex: 1 1 auto;
+    min-width: max-content;
+  }
+
+  body.bonumark-admin .admin-mobile-brand .admin-brand-mark {
+    display: none;
+  }
+
+  body.bonumark-admin .admin-mobile-menu-button {
+    border: 0;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 700;
+    min-width: 44px;
+    padding: 0 6px;
+    width: auto;
+  }
+
+  body.bonumark-admin .admin-mobile-brand > span:last-child {
+    overflow: visible;
+    overflow-wrap: normal;
+    white-space: normal;
+  }
+
+  body.bonumark-admin .admin-mobile-site {
+    align-items: center;
+    display: inline-flex;
+    font-size: 0.875rem;
+    margin-left: auto;
+    min-height: 44px;
+    text-decoration: none;
+  }
+
+  body.bonumark-admin .admin-sidebar-close {
+    display: none;
+  }
+}
+
+body.bonumark-admin .admin-sidebar-view-site { display: none; }
+body.bonumark-admin .admin-settings-nav-group + .admin-settings-nav-group { margin-top: 16px; }
+body.bonumark-admin .admin-back-link { gap: 6px; }
+@media (max-width: 900px) {
+  html:not(.admin-js-ready) body.bonumark-admin .admin-sidebar-view-site { display: inline-flex; }
+  body.bonumark-admin .admin-mobile-menu-button .admin-menu-icon { display: none; }
 }

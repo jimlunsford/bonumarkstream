@@ -68,7 +68,6 @@ $indexPolicyLabel = match ($streamIndexPolicy) {
 
 bms_admin_header('Reading Settings', [
     ['label' => 'Sitemap', 'href' => $sitemapUrl, 'style' => 'secondary', 'target' => true],
-    ['label' => 'View Stream', 'href' => bms_url_path(), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
 <section class="panel settings-workflow-hero">

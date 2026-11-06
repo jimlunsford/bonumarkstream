@@ -88,7 +88,6 @@ $title = match ($status) {
 
 bms_admin_header($title, [
     ['label' => 'New Page', 'href' => bms_admin_url('page-new.php'), 'style' => 'primary'],
-    bms_view_site_action(),
 ]);
 ?>
 <nav class="content-filter pages-content-filter" aria-label="Page status filters">

@@ -3,6 +3,7 @@ require_once __DIR__ . '/../_bonumark_stream/app/profiles.php';
 require_once __DIR__ . '/../_bonumark_stream/app/appearance.php';
 require_once __DIR__ . '/../_bonumark_stream/app/pwa.php';
 require_once __DIR__ . '/../_bonumark_stream/app/scheduler.php';
+require_once __DIR__ . '/_navigation.php';
 
 function bms_admin_action_link(array $action): string
 {
@@ -131,139 +132,8 @@ function bms_admin_header(string $title, array $actions = []): void
         $adminAvatarMarkup = '<span class="admin-user-avatar">' . bms_user_avatar_markup(bms_current_user(), 'admin-user-avatar-image', 96, 96, false) . '</span>';
     }
 
-    $routeActive = static function (array $files) use ($currentAdminFile): bool {
-        return in_array($currentAdminFile, $files, true);
-    };
-
-    $renderNavLink = static function (array $link) use ($routeActive): string {
-        $label = htmlspecialchars((string)($link['label'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $href = htmlspecialchars((string)($link['href'] ?? '#'), ENT_QUOTES, 'UTF-8');
-        $files = is_array($link['files'] ?? null) ? $link['files'] : [];
-        $active = $files && $routeActive($files);
-        $class = 'admin-nav-link' . ($active ? ' is-active' : '');
-        if (!empty($link['class'])) {
-            $class .= ' ' . preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)$link['class']);
-        }
-        $target = !empty($link['target']) ? ' target="_blank" rel="noopener"' : '';
-        $current = $active ? ' aria-current="page"' : '';
-        return '<a class="' . $class . '" href="' . $href . '"' . $target . $current . '><span>' . $label . '</span></a>';
-    };
-
-    $publishLinks = [
-        [
-            'label' => 'Stream Posts',
-            'href' => bms_admin_url('content.php'),
-            'files' => ['content.php', 'edit.php', 'preview.php', 'publish.php', 'unpublish.php', 'quick-edit.php', 'stream-quick-edit.php', 'stream-trash.php', 'revisions.php', 'compare-revision.php', 'restore-revision.php', 'restore.php', 'delete.php', 'delete-permanent.php'],
-        ],
-        [
-            'label' => 'Stream Composer',
-            'href' => bms_stream_composer_url(),
-            'files' => ['new.php'],
-        ],
-    ];
-    if ($can('manage_pages')) {
-        $publishLinks[] = [
-            'label' => 'Pages',
-            'href' => bms_admin_url('pages.php'),
-            'files' => ['pages.php', 'page-new.php', 'page-edit.php', 'page-publish.php', 'page-unpublish.php', 'page-delete.php', 'page-restore.php', 'page-delete-permanent.php'],
-        ];
-    }
-    if ($can('manage_media')) {
-        $publishLinks[] = [
-            'label' => 'Media',
-            'href' => bms_admin_url('media.php'),
-            'files' => ['media.php', 'media-upload.php', 'media-edit.php', 'media-regenerate.php', 'media-picker.php'],
-        ];
-    }
-    if ($can('edit_content')) {
-        $publishLinks[] = [
-            'label' => 'Places',
-            'href' => bms_admin_url('places.php'),
-            'files' => ['places.php', 'place-edit.php', 'place-delete.php', 'places-nearby.php', 'places-save.php'],
-        ];
-    }
-
-    $manageLinks = [];
-    if ($can('manage_comments')) {
-        $manageLinks[] = [
-            'label' => 'Comments',
-            'href' => bms_admin_url('comments.php'),
-            'files' => ['comments.php'],
-        ];
-    }
-    if ($can('manage_users')) {
-        $manageLinks[] = [
-            'label' => 'Accounts',
-            'href' => bms_admin_url('users.php'),
-            'files' => ['users.php', 'user-new.php', 'user-edit.php'],
-        ];
-    }
-
-    $designLinks = [];
-    if ($can('manage_appearance')) {
-        $designLinks = [
-            [
-                'label' => 'Themes',
-                'href' => bms_admin_url('theme.php'),
-                'files' => ['appearance.php', 'theme.php', 'theme-details.php', 'theme-install.php', 'theme-delete.php'],
-            ],
-            [
-                'label' => 'Theme Settings',
-                'href' => bms_admin_url('theme-settings.php'),
-                'files' => ['theme-settings.php'],
-            ],
-            [
-                'label' => 'Navigation',
-                'href' => bms_admin_url('navigation.php'),
-                'files' => ['navigation.php'],
-            ],
-            [
-                'label' => 'Site Identity',
-                'href' => bms_admin_url('site-identity.php'),
-                'files' => ['site-identity.php'],
-            ],
-        ];
-    }
-
-    $settingsLinks = [];
-    if ($can('manage_settings')) {
-        $settingsLinks = [
-            ['label' => 'General', 'href' => bms_admin_url('settings.php'), 'files' => ['settings.php']],
-            ['label' => 'Writing', 'href' => bms_admin_url('settings-writing.php'), 'files' => ['settings-writing.php']],
-            ['label' => 'Reading', 'href' => bms_admin_url('settings-reading.php'), 'files' => ['settings-reading.php']],
-            ['label' => 'Security', 'href' => bms_admin_url('security.php'), 'files' => ['security.php']],
-            ['label' => 'Registration', 'href' => bms_admin_url('registration.php'), 'files' => ['registration.php']],
-            ['label' => 'Mail', 'href' => bms_admin_url('mail.php'), 'files' => ['mail.php']],
-        ];
-    }
-
-    $systemLinks = [];
-    if ($can('view_system')) {
-        $systemLinks = [
-            ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'files' => ['tools.php']],
-            ['label' => 'Analytics', 'href' => bms_admin_url('analytics.php'), 'files' => ['analytics.php']],
-            ['label' => 'Scheduled Tasks', 'href' => bms_admin_url('scheduled-tasks.php'), 'files' => ['scheduled-tasks.php', 'scheduled-runner.php']],
-            ['label' => 'ActivityPub', 'href' => bms_admin_url('activitypub.php'), 'files' => ['activitypub.php']],
-            ['label' => 'Remote Posting', 'href' => bms_admin_url('remote-posting.php'), 'files' => ['remote-posting.php']],
-            ['label' => 'Export', 'href' => bms_admin_url('export.php'), 'files' => ['export.php']],
-            ['label' => 'Import', 'href' => bms_admin_url('import.php'), 'files' => ['import.php', 'import-markdown.php']],
-            ['label' => 'Upgrade', 'href' => bms_admin_url('upgrade.php'), 'files' => ['upgrade.php']],
-            ['label' => 'System Check', 'href' => bms_admin_url('system-check.php'), 'files' => ['system-check.php']],
-            ['label' => 'Help', 'href' => bms_admin_url('help.php'), 'files' => ['help.php']],
-        ];
-    } else {
-        $systemLinks = [
-            ['label' => 'Help', 'href' => bms_admin_url('help.php'), 'files' => ['help.php']],
-        ];
-    }
-
-    $navSections = [
-        ['label' => 'Publish', 'links' => $publishLinks],
-        ['label' => 'Manage', 'links' => $manageLinks],
-        ['label' => 'Design', 'links' => $designLinks],
-        ['label' => 'Settings', 'links' => $settingsLinks],
-        ['label' => 'System', 'links' => $systemLinks],
-    ];
+    $currentArea = bms_admin_current_area($currentAdminFile);
+    $hasSettingsNavigation = bms_admin_settings_has_local_navigation($currentAdminFile);
 
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $safeTitle . ' | Bonumark Stream Admin</title>' . $adminFaviconTags . $adminPwaTags;
     echo '<link rel="stylesheet" href="' . $styleUrl . '"><link rel="stylesheet" href="' . $adminStyleUrl . '"><link rel="stylesheet" href="' . $adminShellStyleUrl . '"><link rel="stylesheet" href="' . $adminContentListStyleUrl . '"><link rel="stylesheet" href="' . $adminEditorWorkflowStyleUrl . '"><link rel="stylesheet" href="' . $adminMediaLibraryStyleUrl . '"><link rel="stylesheet" href="' . $adminCommentsStyleUrl . '"><link rel="stylesheet" href="' . $adminAccountsStyleUrl . '"><link rel="stylesheet" href="' . $adminRegistrationStyleUrl . '"><link rel="stylesheet" href="' . $adminAppearanceStyleUrl . '"><link rel="stylesheet" href="' . $adminSettingsStyleUrl . '"><link rel="stylesheet" href="' . $adminPlacesStyleUrl . '"><link rel="stylesheet" href="' . $adminOperationsStyleUrl . '"><script src="' . $adminScriptUrl . '" defer></script><script src="' . $adminPlacesScriptUrl . '" defer></script></head>';
@@ -272,48 +142,29 @@ function bms_admin_header(string $title, array $actions = []): void
     echo '<div class="admin-shell">';
 
     echo '<header class="admin-mobile-bar">';
-    echo '<button class="admin-mobile-menu-button" type="button" data-admin-nav-open aria-controls="admin-sidebar" aria-expanded="false"><span class="admin-menu-icon" aria-hidden="true"><span></span><span></span><span></span></span><span class="screen-reader-text">Open admin navigation</span></button>';
-    echo '<a class="admin-mobile-brand" href="' . htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') . '"><span class="admin-brand-mark">B</span><span>' . $safeTitle . '</span></a>';
-    echo '<a class="admin-mobile-profile" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="screen-reader-text">Profile</span></a>';
+    echo '<button class="admin-mobile-menu-button" type="button" data-admin-nav-open aria-controls="admin-sidebar" aria-expanded="false"><span class="admin-menu-icon" aria-hidden="true"><span></span><span></span><span></span></span><span>Menu</span><span class="screen-reader-text">: open admin navigation</span></button>';
+    echo '<a class="admin-mobile-brand" href="' . htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') . '"><span class="admin-brand-mark">B</span><span>Bonumark</span></a>';
+    echo '<a class="admin-mobile-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site<span class="screen-reader-text"> (opens in a new tab)</span></a>';
     echo '</header>';
     echo '<div class="admin-sidebar-backdrop" data-admin-nav-close hidden></div>';
 
     echo '<aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin navigation" aria-hidden="false">';
     echo '<div class="admin-sidebar-header"><a class="admin-brand" href="' . htmlspecialchars($dashboardUrl, ENT_QUOTES, 'UTF-8') . '"><span class="admin-brand-mark">B</span><span class="admin-brand-copy"><strong>Bonumark</strong><small>Stream Admin</small></span></a><button class="admin-sidebar-close" type="button" data-admin-nav-close><span aria-hidden="true">×</span><span class="screen-reader-text">Close admin navigation</span></button></div>';
     echo '<nav class="admin-sidebar-nav" aria-label="Primary admin navigation">';
-    echo $renderNavLink(['label' => 'Dashboard', 'href' => $dashboardUrl, 'files' => ['index.php'], 'class' => 'nav-primary']);
-    echo $renderNavLink(['label' => 'View Site', 'href' => $siteUrl, 'files' => [], 'target' => true, 'class' => 'admin-sidebar-view-site']);
-
-    foreach ($navSections as $section) {
-        $links = is_array($section['links'] ?? null) ? array_values(array_filter($section['links'])) : [];
-        if (!$links) {
-            continue;
-        }
-        $sectionActive = false;
-        foreach ($links as $link) {
-            $files = is_array($link['files'] ?? null) ? $link['files'] : [];
-            if ($files && $routeActive($files)) {
-                $sectionActive = true;
-                break;
-            }
-        }
-        $open = $sectionActive ? ' open' : '';
-        $activeClass = $sectionActive ? ' is-active' : '';
-        echo '<details class="admin-nav-section' . $activeClass . '"' . $open . '><summary class="admin-nav-heading"><span>' . htmlspecialchars((string)$section['label'], ENT_QUOTES, 'UTF-8') . '</span></summary><div class="admin-nav-links">';
-        foreach ($links as $link) {
-            echo $renderNavLink($link);
-        }
-        echo '</div></details>';
+    foreach (bms_admin_navigation_visible(bms_admin_navigation_areas()) as $link) {
+        echo bms_admin_navigation_link($link, $currentAdminFile, 'admin-nav-link nav-primary');
     }
     echo '</nav>';
 
     echo '<div class="admin-sidebar-footer">';
     echo '<a class="admin-sidebar-profile" href="' . $safeAdminProfileUrl . '">' . $adminAvatarMarkup . '<span class="admin-sidebar-profile-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a>';
+    echo '<div class="admin-sidebar-utilities"><a href="' . $safeAdminProfileUrl . '">Account</a><a href="' . htmlspecialchars(bms_admin_url('help.php'), ENT_QUOTES, 'UTF-8') . '">Help</a></div>';
+    echo '<a class="admin-sidebar-view-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site<span class="screen-reader-text"> (opens in a new tab)</span></a>';
     echo '<form method="post" action="' . htmlspecialchars($logoutUrl, ENT_QUOTES, 'UTF-8') . '" class="admin-sidebar-logout"><input type="hidden" name="csrf_token" value="' . $csrf . '"><button type="submit">Sign out</button></form>';
     echo '</div></aside>';
 
     echo '<section class="admin-main">';
-    echo '<header class="admin-topbar"><div class="admin-topbar-context"><span>Bonumark Stream</span><strong>Administration</strong></div><div class="admin-topbar-actions"><a class="admin-topbar-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site <span aria-hidden="true">↗</span></a><a class="admin-user" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="admin-user-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a></div></header>';
+    echo '<header class="admin-topbar"><div class="admin-topbar-context"><span>Bonumark Stream</span><strong>Administration</strong></div><div class="admin-topbar-actions"><a class="admin-topbar-site" href="' . htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View site <span aria-hidden="true">↗</span><span class="screen-reader-text"> (opens in a new tab)</span></a><a class="admin-user" href="' . $safeAdminProfileUrl . '" aria-label="Account for ' . $safeProfileOwnerLabel . '">' . $adminAvatarMarkup . '<span class="admin-user-copy"><strong>' . $safeDisplayName . '</strong><small>' . $safeHandleLabel . '</small></span></a></div></header>';
     echo '<main class="admin-content" id="admin-main-content" tabindex="-1">';
 
     $flashes = bms_get_flash();
@@ -351,6 +202,15 @@ function bms_admin_header(string $title, array $actions = []): void
         }
     }
 
+    echo '<div class="admin-page-workspace' . ($hasSettingsNavigation ? ' has-settings-navigation' : '') . '">';
+    if ($hasSettingsNavigation) {
+        bms_admin_render_settings_navigation($currentAdminFile);
+    }
+    echo '<div class="admin-page-body">';
+    if ($currentArea === 'settings' && $currentAdminFile !== 'settings-index.php') {
+        echo '<a class="admin-back-link" href="' . htmlspecialchars(bms_admin_url('settings-index.php'), ENT_QUOTES, 'UTF-8') . '"><span aria-hidden="true">←</span> Back to Settings</a>';
+    }
+
     echo '<div class="admin-page-title"><div class="admin-page-heading-copy"><h1>' . $safeTitle . '</h1></div>';
     if ($actions) {
         echo '<div class="admin-page-actions">';
@@ -360,10 +220,23 @@ function bms_admin_header(string $title, array $actions = []): void
         echo '</div>';
     }
     echo '</div>';
+
+    $contextLinks = bms_admin_navigation_visible(bms_admin_context_links($currentArea));
+    if (in_array($currentAdminFile, ['help.php', 'welcome.php'], true) && $can('view_admin')) {
+        $contextLinks[] = ['label' => 'Welcome', 'path' => 'welcome.php', 'capability' => 'view_admin'];
+    }
+    if ($contextLinks) {
+        $areaLabel = bms_admin_navigation_areas()[$currentArea]['label'];
+        echo '<nav class="admin-context-nav" aria-label="' . htmlspecialchars($areaLabel, ENT_QUOTES, 'UTF-8') . ' navigation">';
+        foreach ($contextLinks as $link) {
+            echo bms_admin_navigation_link($link, $currentAdminFile, 'admin-context-link');
+        }
+        echo '</nav>';
+    }
 }
 
 function bms_admin_footer(): void
 {
     $version = htmlspecialchars(bms_version(), ENT_QUOTES, 'UTF-8');
-    echo '<footer class="admin-footer"><span>Bonumark Stream</span><span>v' . $version . '</span></footer></main></section></div></body></html>';
+    echo '</div></div><footer class="admin-footer"><span>Bonumark Stream</span><span>v' . $version . '</span></footer></main></section></div></body></html>';
 }
