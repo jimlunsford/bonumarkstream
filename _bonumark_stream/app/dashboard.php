@@ -8,7 +8,8 @@ function bms_dashboard_pending_review(string $source): array
         if ($source === 'comments') {
             $sql = "SELECT COUNT(*) FROM " . bms_table('comments') . " WHERE status = 'pending'";
         } elseif ($source === 'accounts') {
-            $sql = "SELECT COUNT(*) FROM " . bms_table('users') . " WHERE role = 'commenter' AND status = 'pending' AND email_verified_at IS NOT NULL AND email_verified_at <> ''";
+            // email_verified_at is a nullable DATETIME, not a text column.
+            $sql = "SELECT COUNT(*) FROM " . bms_table('users') . " WHERE role = 'commenter' AND status = 'pending' AND email_verified_at IS NOT NULL";
         } else {
             throw new InvalidArgumentException('Unknown Dashboard review source.');
         }
