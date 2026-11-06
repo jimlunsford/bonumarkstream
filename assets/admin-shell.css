@@ -1350,3 +1350,75 @@ body.bonumark-admin .admin-back-link { gap: 6px; }
   html:not(.admin-js-ready) body.bonumark-admin .admin-sidebar-view-site { display: inline-flex; }
   body.bonumark-admin .admin-mobile-menu-button .admin-menu-icon { display: none; }
 }
+
+/* Dashboard: verified review work, then the next saved schedule. The legacy
+   metric classes above remain shared with Analytics, not the Dashboard. */
+body.bonumark-admin.admin-screen-index .admin-page-title {
+  margin-bottom: 8px;
+}
+
+body.bonumark-admin .dashboard-review {
+  max-width: 860px;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin .dashboard-review p {
+  color: var(--admin-muted);
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 8px 0 16px;
+}
+
+body.bonumark-admin .dashboard-review .dashboard-context {
+  margin: 0 0 32px;
+}
+
+body.bonumark-admin .dashboard-review-section,
+body.bonumark-admin .dashboard-known-empty {
+  margin: 0 0 32px;
+}
+
+body.bonumark-admin .dashboard-review h2,
+body.bonumark-admin .dashboard-review h3 {
+  color: var(--admin-text);
+  font-size: 1.1875rem;
+  letter-spacing: normal;
+  line-height: 1.4;
+  margin: 0 0 12px;
+}
+
+body.bonumark-admin .dashboard-review-row {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0 0 16px;
+  margin: 0 0 20px;
+}
+
+body.bonumark-admin .dashboard-review-link {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 700;
+  line-height: 1.5;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  text-decoration: none;
+}
+
+body.bonumark-admin .dashboard-review-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+body.bonumark-admin .dashboard-unavailable {
+  border-bottom: 1px solid var(--admin-border);
+  padding-bottom: 16px;
+}
+
+body.bonumark-admin .dashboard-review .dashboard-unavailable-message {
+  color: var(--admin-warning);
+  font-weight: 700;
+}
+
+body.bonumark-admin .dashboard-quiet p {
+  margin: 16px 0;
+}
