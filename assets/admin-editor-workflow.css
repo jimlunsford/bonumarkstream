@@ -354,3 +354,292 @@ body.bonumark-admin .page-url-card .permalink-preview-row code {
 body.bonumark-admin .page-slug-warning {
   margin-top: 12px;
 }
+
+/* Pages extends the flat Admin surfaces without changing the shared Stream editor. */
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-workspace {
+  gap: 28px;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-primary-column, .editor-sidebar-column, .editor-command-bar, .editor-tabs, .editor-utility-actions, .toolbar-group) {
+  min-width: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .page-editor-title-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .page-editor-title-card label {
+  color: var(--admin-text);
+  display: block;
+  font-size: .9rem;
+  font-weight: 650;
+  margin: 0 0 8px;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .page-editor-title-card .editor-title-input {
+  border: 1px solid var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 650;
+  line-height: 1.4;
+  margin: 0;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-sidebar-column .side-card {
+  background: var(--admin-bg);
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 18px 0 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-sidebar-column .publish-card {
+  border-top: 0;
+  padding-top: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-sidebar-column .side-card h3 {
+  border: 0;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-sidebar-column .side-card.is-collapsed h3 {
+  margin-bottom: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .publish-card-heading-row {
+  border: 0;
+  gap: 12px;
+  margin: 0 0 14px;
+  min-height: 32px;
+  padding: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .publish-card-heading-row h3 {
+  margin: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .publish-status-badge {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-size: .8rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  padding: 4px 8px;
+  text-transform: none;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .publish-status-published {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .positive-action {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .positive-action:hover {
+  background: var(--admin-accent);
+  color: var(--admin-accent-text);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.publish-preview-actions .button-link, .side-card-toggle, .publish-more-actions summary) {
+  min-height: 44px;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .side-card-toggle {
+  background: transparent;
+  border-color: var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  font-size: .8rem;
+  letter-spacing: 0;
+  padding: 8px 12px;
+  text-transform: none;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor {
+  background: var(--admin-bg);
+  border-radius: var(--admin-radius-sm);
+  box-shadow: none;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-status-strip, .editor-chrome, .editor-preview-header) {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-save-state[data-save-state="ready"] {
+  color: var(--admin-muted);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-save-state:is([data-save-state="saved"], [data-save-state="saving"]) {
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-save-state[data-save-state="dirty"] {
+  color: var(--admin-warning);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-save-state[data-save-state="warning"] {
+  color: var(--admin-danger);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.screen-controls-panel, .editor-shortcuts-card, .media-picker-tabs, .media-upload-dropzone, .media-picker-item) {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .autosave-banner {
+  background: var(--admin-warning-surface);
+  border-color: var(--admin-warning);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-metrics span {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-command-bar, .editor-tabs) {
+  flex-wrap: wrap;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-tabs, .editor-utility-actions) {
+  justify-content: flex-start;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-tab, .visual-toolbar button) {
+  background: transparent;
+  border: 1px solid var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  min-height: 44px;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-tab.active, .editor-tab:hover, .visual-toolbar button:hover) {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-mode-panel.active, .visual-editor, .visual-preview, textarea#body_markdown) {
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.visual-editor, .visual-preview) {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.visual-editor, .visual-preview) :is(pre, code, figure) {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.permalink-preview-row, .field-help) {
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .page-slug-warning:not([hidden]) {
+  background: var(--admin-warning-surface);
+  border-left: 3px solid var(--admin-warning);
+  color: var(--admin-text);
+  padding: 12px;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(input, textarea, select, [contenteditable="true"]) {
+  scroll-margin-block: 90px;
+}
+
+/* Wrapped toolbars determine the space left for writing in focus mode. */
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor.is-focus-mode {
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor.is-focus-mode :is(.editor-status-strip, .editor-chrome) {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor.is-focus-mode .editor-mode-panel.active {
+  display: flex;
+  flex: 1 0 200px;
+  flex-direction: column;
+  height: auto;
+  min-height: 200px;
+  overflow: auto;
+  width: 100%;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor.is-focus-mode .editor-preview-header {
+  flex: 0 0 auto;
+}
+
+body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .dual-editor.is-focus-mode .editor-mode-panel.active :is(.visual-editor, textarea#body_markdown, .visual-preview) {
+  flex: 1 1 0;
+  height: auto;
+  max-height: none;
+  min-height: 120px;
+}
+
+@media (max-width: 1080px) {
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-workspace {
+    gap: 24px;
+  }
+
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-sidebar-column .publish-card {
+    border-top: 1px solid var(--admin-border);
+    padding-top: 18px;
+  }
+}
+
+@media (max-width: 900px) {
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-mobile-action-bar {
+    background: var(--admin-surface);
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 640px) {
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.editor-chrome, .editor-status-strip) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-tabs {
+    gap: 4px;
+  }
+
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) .editor-tab {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  body.bonumark-admin:is(.admin-screen-page-new, .admin-screen-page-edit) :is(.toolbar-group, .toolbar-group + .toolbar-group) {
+    border: 0;
+    padding: 0;
+  }
+}

@@ -1245,7 +1245,7 @@ if (!str_contains($contentAdmin, 'class="content-action-button state-link">Publi
 if (!str_contains($pagesAdmin, 'class="content-action-button state-link">Restore</button>')
     || !str_contains($pagesAdmin, 'class="content-action-button state-link">Publish page</button>')
     || !str_contains($pagesAdmin, 'class="content-action-button danger-link">Move to Trash</button>')
-    || !str_contains($pagesAdmin, 'class="content-action-button danger-link">Delete permanently</button>')) {
+    || !preg_match('/class="content-action-button danger-link"[^\r\n]*>Delete permanently<\/button>/', $pagesAdmin)) {
     bm_smoke_fail($failures, 'Page action menus must preserve state and destructive action classes.');
 }
 
@@ -1294,9 +1294,8 @@ if (!str_contains($pagesAdmin, 'class="content-record-header page-content-record
     bm_smoke_fail($failures, 'Pages must use the shared responsive record-list structure and page-specific desktop/mobile layout.');
 }
 if (!str_contains($pagesAdmin, 'content-filter pages-content-filter')
-    || !str_contains($adminContentListCss, '.pages-content-filter')
-    || !str_contains($adminContentListCss, 'grid-template-columns: repeat(2, minmax(0, 1fr));')) {
-    bm_smoke_fail($failures, 'Phone Page status filters must remain fully visible in a two-column grid.');
+    || !preg_match('/body\.bonumark-admin\.admin-screen-pages \.content-filter\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;/s', $adminContentListCss)) {
+    bm_smoke_fail($failures, 'Page status filters must remain fully visible and wrap within the Page screen.');
 }
 if (!str_contains($pageEditAdmin, "bms_editor_screen_controls_action('page')")
     || !str_contains($pageEditAdmin, "'content_type' => 'page'")

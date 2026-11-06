@@ -71,17 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-bms_admin_header('Edit Page: ' . $page['title'], [
+bms_admin_header('Edit Page', [
+    ['label' => 'Back to Pages', 'href' => bms_admin_url('pages.php'), 'style' => 'secondary'],
     bms_editor_screen_controls_action('page'),
 ]);
 ?>
 <section class="editor-panel editor-composer-panel">
-  <div class="composer-top-row" aria-label="Editor options">
-    <p class="editor-page-helper"><span class="editor-page-helper-pill"><?= $section === 'pages/published' ? 'Published Page' : 'Draft Page' ?></span> Editing database content record: <code><?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?></code></p>
-  </div>
   <form id="stream-editor-form" method="post" class="editor-form editor-layout-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-        <input type="hidden" name="content_kind" value="page">
+    <input type="hidden" name="content_kind" value="page">
     <input type="hidden" name="type" value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="file" value="<?= htmlspecialchars($file, ENT_QUOTES, 'UTF-8') ?>">
     <div class="editor-workspace">
@@ -90,13 +88,13 @@ bms_admin_header('Edit Page: ' . $page['title'], [
         <?php bms_dual_editor((string)($page['body'] ?? '')); ?>
       </div>
       <aside class="editor-sidebar-column">
-        <?php bms_publish_sidebar($section, $section === 'pages/published' ? 'Update Page' : 'Save Draft', '', ['mode' => 'edit', 'content_type' => 'page', 'file' => $file, 'page' => $page]); ?>
+        <?php bms_publish_sidebar($section, $section === 'pages/published' ? 'Save' : 'Save Draft', '', ['mode' => 'edit', 'content_type' => 'page', 'file' => $file, 'page' => $page]); ?>
         <?php bms_page_url_fields($page, $section); ?>
         <?php bms_page_settings_fields($page); ?>
       </aside>
     </div>
   </form>
-  <?php bms_editor_mobile_action_bar($section, $section === 'pages/published' ? 'Update' : 'Save Draft', [
+  <?php bms_editor_mobile_action_bar($section, $section === 'pages/published' ? 'Save' : 'Save Draft', [
       'mode' => 'edit',
       'content_type' => 'page',
       'file' => $file,

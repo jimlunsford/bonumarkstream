@@ -79,58 +79,64 @@ if ($status === 'trash') {
     });
 }
 
-$title = match ($status) {
-    'draft' => 'Draft Pages',
-    'published' => 'Published Pages',
-    'trash' => 'Page Trash',
-    default => 'Pages',
-};
-
-bms_admin_header($title, [
+bms_admin_header('Pages', [
     ['label' => 'New Page', 'href' => bms_admin_url('page-new.php'), 'style' => 'primary'],
 ]);
 ?>
 <nav class="content-filter pages-content-filter" aria-label="Page status filters">
-  <a class="<?= $status === 'all' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
-  <a class="<?= $status === 'draft' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
-  <a class="<?= $status === 'published' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
-  <a class="<?= $status === 'trash' ? 'active' : '' ?>" href="<?= htmlspecialchars(bms_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
+  <a class="<?= $status === 'all' ? 'active' : '' ?>"<?= $status === 'all' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('pages.php'), ENT_QUOTES, 'UTF-8') ?>">All <span><?= count($drafts) + count($published) ?></span></a>
+  <a class="<?= $status === 'draft' ? 'active' : '' ?>"<?= $status === 'draft' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('pages.php?status=draft'), ENT_QUOTES, 'UTF-8') ?>">Drafts <span><?= count($drafts) ?></span></a>
+  <a class="<?= $status === 'published' ? 'active' : '' ?>"<?= $status === 'published' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('pages.php?status=published'), ENT_QUOTES, 'UTF-8') ?>">Published <span><?= count($published) ?></span></a>
+  <a class="<?= $status === 'trash' ? 'active' : '' ?>"<?= $status === 'trash' ? ' aria-current="page"' : '' ?> href="<?= htmlspecialchars(bms_admin_url('pages.php?status=trash'), ENT_QUOTES, 'UTF-8') ?>">Trash <span><?= count($trash) ?></span></a>
 </nav>
 
-<p class="content-list-description">Manage stable public content such as About, Contact, Privacy, and service pages without adding it to the stream timeline.</p>
-
 <?php if ($status === 'trash' && $trash): ?>
-  <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="trash-empty-form">
+  <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" class="trash-empty-form" aria-describedby="pages-empty-trash-warning">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="empty_page_trash" value="1">
-    <button type="submit" class="danger">Empty Page Trash</button>
+    <p id="pages-empty-trash-warning">Permanently delete all <?= count($trash) ?> page<?= count($trash) === 1 ? '' : 's' ?> in Page Trash. This cannot be undone.</p>
+    <button type="submit" class="danger" aria-describedby="pages-empty-trash-warning">Empty Page Trash</button>
   </form>
 <?php endif; ?>
 
-<section class="panel content-list-panel content-record-panel pages-record-panel">
+<section class="content-list-panel content-record-panel pages-record-panel" aria-label="Manage Pages">
   <div class="content-list-search-region">
     <form method="get" class="content-search-form">
       <?php if ($status !== 'all'): ?><input type="hidden" name="status" value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
-      <label class="sr-only" for="pages_q">Search pages</label>
-      <input id="pages_q" type="search" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>" placeholder="Search titles, descriptions, text, or slugs">
-      <button type="submit">Search</button>
-      <?php if ($q !== ''): ?>
-        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('pages.php' . ($status !== 'all' ? '?status=' . rawurlencode($status) : '')), ENT_QUOTES, 'UTF-8') ?>">Clear</a>
-      <?php endif; ?>
+      <div class="content-search-field">
+        <label for="pages_q">Search pages</label>
+        <input id="pages_q" type="search" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>" placeholder="Title, text, or slug">
+      </div>
+      <div class="content-search-actions">
+        <button type="submit" class="secondary">Search</button>
+        <?php if ($q !== ''): ?>
+          <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('pages.php' . ($status !== 'all' ? '?status=' . rawurlencode($status) : '')), ENT_QUOTES, 'UTF-8') ?>">Clear search</a>
+        <?php endif; ?>
+      </div>
     </form>
   </div>
 
   <?php if (!$items): ?>
     <div class="empty-state content-list-empty-state">
-      <h2><?= $status === 'trash' ? 'Page Trash is empty.' : 'No pages found.' ?></h2>
-      <p><?= $status === 'trash' ? 'Deleted pages will remain recoverable here until permanently removed.' : 'Create stable site content without adding it to the stream timeline.' ?></p>
-      <?php if ($status !== 'trash'): ?><a class="primary-button" href="<?= htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a><?php endif; ?>
+      <h2><?= $q !== '' ? 'No matching pages.' : match ($status) {
+          'trash' => 'Page Trash is empty.',
+          'draft' => 'No draft pages.',
+          'published' => 'No published pages.',
+          default => 'No pages yet.',
+      } ?></h2>
+      <p><?= $q !== '' ? 'Try different search terms or clear the search to see all pages in this view.' : match ($status) {
+          'trash' => 'Pages moved to Trash remain recoverable here until permanently deleted.',
+          'draft' => 'Save a new Page as a draft, or choose another status to find your pages.',
+          'published' => 'Publish a draft to make it available at its public URL.',
+          default => 'Create an About, Contact, or other Page for your site.',
+      } ?></p>
+      <?php if ($q === '' && $status !== 'trash'): ?><a class="primary-button" href="<?= htmlspecialchars(bms_admin_url('page-new.php'), ENT_QUOTES, 'UTF-8') ?>">New Page</a><?php endif; ?>
     </div>
   <?php else: ?>
     <div class="content-list-controlbar pages-list-controlbar">
       <div class="content-list-summary">
         <span><?= count($items) ?> page<?= count($items) === 1 ? '' : 's' ?> shown</span>
-        <span>Sorted by title</span>
+        <span><?= $status === 'trash' ? 'Newest deleted first' : 'Sorted by title' ?></span>
       </div>
     </div>
 
@@ -157,7 +163,7 @@ bms_admin_header($title, [
           $displayDate = $itemStatus === 'trash'
               ? trim((string)($item['deleted_at'] ?? ''))
               : trim((string)($item['date'] ?? ''));
-          $statusLabel = bms_pages_admin_status_label($itemStatus, $item);
+          $statusLabel = $itemStatus === 'trash' ? 'Trash' : bms_pages_admin_status_label($itemStatus, $item);
         ?>
         <article class="content-record page-content-record content-record-<?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?>" role="listitem">
           <div class="content-record-main">
@@ -167,7 +173,6 @@ bms_admin_header($title, [
               <?php else: ?>
                 <h2><a href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') ?></a></h2>
               <?php endif; ?>
-              <span class="status-pill <?= htmlspecialchars($itemStatus, ENT_QUOTES, 'UTF-8') ?> content-record-mobile-status"><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
 
             <?php if ($previewText !== ''): ?>
@@ -175,18 +180,12 @@ bms_admin_header($title, [
             <?php endif; ?>
 
             <?php if ($displayUrl !== ''): ?>
-              <p class="page-content-record-path"><span>URL</span><code><?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?></code></p>
+              <p class="page-content-record-path"><span><?= $itemStatus === 'published' ? 'Public URL' : ($itemStatus === 'trash' ? 'Previous URL' : 'URL when published') ?></span><code><?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?></code></p>
             <?php endif; ?>
 
-            <div class="content-record-meta">
-              <span class="content-record-chip neutral">Page</span>
-              <?php if ($itemStatus === 'trash'): ?>
-                <span class="content-record-chip neutral">Originally <?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span>
-                <?php if (!empty($item['original_filename'])): ?><span class="content-record-chip neutral"><?= htmlspecialchars((string)$item['original_filename'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
-              <?php else: ?>
-                <span class="content-record-chip neutral">Database</span>
-              <?php endif; ?>
-            </div>
+            <?php if ($itemStatus === 'trash'): ?>
+              <p class="page-content-record-origin">Originally <?= htmlspecialchars(bms_pages_admin_status_label($itemStatus, $item), ENT_QUOTES, 'UTF-8') ?></p>
+            <?php endif; ?>
           </div>
 
           <div class="content-record-status">
@@ -199,8 +198,9 @@ bms_admin_header($title, [
           </div>
 
           <div class="content-record-actions">
+            <?php if ($editUrl !== ''): ?><a class="content-record-edit" href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>" aria-label="Edit <?= htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') ?>">Edit</a><?php endif; ?>
             <details class="content-actions-menu" data-content-actions>
-              <summary>Actions</summary>
+              <summary aria-label="Actions for <?= htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') ?>">Actions</summary>
               <div class="content-actions-menu-panel">
                 <?php if ($itemStatus === 'trash'): ?>
                   <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-restore.php'), ENT_QUOTES, 'UTF-8') ?>">
@@ -208,13 +208,13 @@ bms_admin_header($title, [
                     <input type="hidden" name="trash_id" value="<?= (int)($item['trash_id'] ?? 0) ?>">
                     <button type="submit" class="content-action-button state-link">Restore</button>
                   </form>
-                  <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>">
+                  <form method="post" action="<?= htmlspecialchars(bms_admin_url('page-delete-permanent.php'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="page-delete-warning-<?= (int)($item['trash_id'] ?? 0) ?>">
+                    <p class="page-action-warning" id="page-delete-warning-<?= (int)($item['trash_id'] ?? 0) ?>">Permanently deletes this Page. This cannot be undone.</p>
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="trash_id" value="<?= (int)($item['trash_id'] ?? 0) ?>">
-                    <button type="submit" class="content-action-button danger-link">Delete permanently</button>
+                    <button type="submit" class="content-action-button danger-link" aria-describedby="page-delete-warning-<?= (int)($item['trash_id'] ?? 0) ?>">Delete permanently</button>
                   </form>
                 <?php else: ?>
-                  <a href="<?= htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
                   <a href="<?= htmlspecialchars(bms_admin_url('preview.php?type=' . ($itemStatus === 'published' ? 'page-published' : 'page-draft') . '&file=' . rawurlencode($file)), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Preview</a>
                   <?php if ($viewUrl !== ''): ?><a href="<?= htmlspecialchars($viewUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">View page</a><?php endif; ?>
                   <?php if ($itemStatus === 'published'): ?>

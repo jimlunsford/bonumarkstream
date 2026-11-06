@@ -246,6 +246,20 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/admin-content-runtime-test.php
 
+      - name: Run Pages management and editor HTTP regression test
+        if: always()
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASS: bonumark_ci_password
+          BMS_DB_DANGER_RESET: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/admin-pages-runtime-test.php
+
       - name: Run Page lifecycle HTTP regression test
         if: always()
         env:
