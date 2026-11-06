@@ -1,153 +1,390 @@
-/*
- * Bonumark Stream Admin Accounts
- * Responsive account records and dedicated commenter creation workflow.
- */
-
+/* Commenter account records use the shared Admin palette.
+   List styling is scoped so the existing account editors stay unchanged. */
 body.bonumark-admin.admin-screen-users .admin-content,
 body.bonumark-admin.admin-screen-user-new .admin-content {
   max-width: 1500px;
 }
 
-body.bonumark-admin .accounts-summary-panel {
-  padding: 18px 20px;
+body.bonumark-admin.admin-screen-users .admin-page-actions .button-link {
+  min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
-body.bonumark-admin .accounts-summary-grid {
-  margin: 0;
+body.bonumark-admin.admin-screen-users .admin-page-heading-copy {
+  min-width: 0;
+  max-width: 100%;
 }
 
-body.bonumark-admin .accounts-content-filter {
-  max-width: 720px;
+body.bonumark-admin.admin-screen-users .admin-page-title h1 {
+  overflow-wrap: anywhere;
 }
 
-body.bonumark-admin .accounts-record-panel {
+body.bonumark-admin.admin-screen-users .accounts-pending-summary {
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .875rem;
+  gap: 8px 24px;
+  margin: 0 0 16px;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-pending-summary strong {
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-content-filter {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 16px;
+  max-width: none;
   overflow: visible;
   padding: 0;
 }
 
-body.bonumark-admin .accounts-list-summary {
+body.bonumark-admin.admin-screen-users .content-filter-link {
   align-items: center;
-  border-bottom: 1px solid var(--admin-border);
+  background: transparent;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-muted);
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-size: .875rem;
+  font-weight: 500;
+  gap: 5px;
+  min-height: 44px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 8px 12px;
+}
+
+body.bonumark-admin.admin-screen-users .content-filter-link.active {
+  background: var(--admin-selected);
+  box-shadow: inset 0 -2px var(--admin-accent);
+  color: var(--admin-accent);
+  font-weight: 700;
+}
+
+body.bonumark-admin.admin-screen-users .content-filter-link:hover {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin.admin-screen-users .content-filter-link span {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  padding: 0;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-record-panel,
+body.bonumark-admin.admin-screen-users .account-record-list {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  min-width: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-list-summary {
   color: var(--admin-muted);
   display: flex;
-  font-size: .84rem;
-  gap: 14px;
-  justify-content: flex-end;
-  min-height: 54px;
-  padding: 12px 20px;
+  flex-wrap: wrap;
+  font-size: .875rem;
+  gap: 8px 24px;
+  justify-content: space-between;
+  margin: 0 0 16px;
 }
 
-body.bonumark-admin .account-record-header,
-body.bonumark-admin .account-record {
+body.bonumark-admin.admin-screen-users .account-record-header,
+body.bonumark-admin.admin-screen-users .account-record {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(280px, 1.15fr) minmax(260px, 1fr) 120px 170px 96px;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, .65fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
-body.bonumark-admin .account-record-header {
-  align-items: center;
+body.bonumark-admin.admin-screen-users .account-record-header {
   color: var(--admin-muted);
-  font-size: .73rem;
-  font-weight: 850;
-  letter-spacing: .08em;
-  padding: 13px 20px;
-  text-transform: uppercase;
+  font-size: .8125rem;
+  font-weight: 500;
+  padding: 0 0 12px;
 }
 
-body.bonumark-admin .account-record-list {
-  background: rgba(0, 0, 0, .08);
-}
-
-body.bonumark-admin .account-record {
-  align-items: center;
-  background: var(--admin-surface);
+body.bonumark-admin.admin-screen-users .account-record {
+  align-items: start;
+  background: transparent;
   border-top: 1px solid var(--admin-border);
   min-width: 0;
-  padding: 18px 20px;
+  padding: 20px 0;
   position: relative;
-  transition: background 140ms ease, border-color 140ms ease;
 }
 
-body.bonumark-admin .account-record:hover,
-body.bonumark-admin .account-record:focus-within {
-  background: #161c25;
+body.bonumark-admin.admin-screen-users .account-record:last-child {
+  border-bottom: 1px solid var(--admin-border);
 }
 
-body.bonumark-admin .account-record:has(.content-actions-menu[open]) {
+body.bonumark-admin.admin-screen-users .account-record:has(.content-actions-menu[open]) {
   z-index: 20;
 }
 
-body.bonumark-admin .account-record-identity,
-body.bonumark-admin .account-record-email,
-body.bonumark-admin .account-record-type,
-body.bonumark-admin .account-record-status,
-body.bonumark-admin .account-record-actions {
+body.bonumark-admin.admin-screen-users .account-record > *,
+body.bonumark-admin.admin-screen-users .account-record-name {
   min-width: 0;
 }
 
-body.bonumark-admin .account-record-identity {
-  align-items: center;
+body.bonumark-admin.admin-screen-users .account-record-identity {
+  align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
-body.bonumark-admin .account-record-avatar {
+body.bonumark-admin.admin-screen-users .account-record-avatar {
   display: inline-flex;
-  flex: 0 0 44px;
-  height: 44px;
-  width: 44px;
+  flex: 0 0 36px;
+  height: 36px;
+  width: 36px;
 }
 
-body.bonumark-admin .account-record-avatar .stream-author-avatar {
+body.bonumark-admin.admin-screen-users .account-record-avatar .stream-author-avatar {
   align-items: center;
   border-radius: 50%;
   display: inline-flex;
-  height: 44px;
+  height: 36px;
   justify-content: center;
   object-fit: cover;
-  width: 44px;
+  width: 36px;
 }
 
-body.bonumark-admin .account-record-name,
-body.bonumark-admin .account-record-email,
-body.bonumark-admin .account-record-status {
+body.bonumark-admin.admin-screen-users .account-record-name,
+body.bonumark-admin.admin-screen-users .account-record-email,
+body.bonumark-admin.admin-screen-users .account-record-status {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
-body.bonumark-admin .account-record-name a {
+body.bonumark-admin.admin-screen-users .account-record-name a {
   color: var(--admin-text);
   overflow-wrap: anywhere;
   text-decoration: none;
 }
 
-body.bonumark-admin .account-record-name a:hover,
-body.bonumark-admin .account-record-name a:focus-visible {
-  color: #fff;
+body.bonumark-admin.admin-screen-users .account-record-name a:hover,
+body.bonumark-admin.admin-screen-users .account-record-name a:focus-visible {
+  color: var(--admin-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-body.bonumark-admin .account-record-name span,
-body.bonumark-admin .account-email-value,
-body.bonumark-admin .account-record-status small {
+body.bonumark-admin.admin-screen-users .account-record-name > span,
+body.bonumark-admin.admin-screen-users .account-email-value,
+body.bonumark-admin.admin-screen-users .account-record-status small {
   color: var(--admin-muted);
-  font-size: .8rem;
-  line-height: 1.4;
+  font-size: .875rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-body.bonumark-admin .account-record-type {
+body.bonumark-admin.admin-screen-users .account-record-type {
   color: var(--admin-text);
-  font-size: .84rem;
+  font-size: .875rem;
+  overflow-wrap: anywhere;
 }
 
-body.bonumark-admin .account-verification-pill {
+body.bonumark-admin.admin-screen-users .account-record .status-pill {
+  background: var(--admin-surface);
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-muted);
+  font-size: .8125rem;
+  font-weight: 650;
   justify-self: start;
+  letter-spacing: 0;
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-transform: none;
+  white-space: normal;
 }
 
-body.bonumark-admin .account-record-mobile-label {
+body.bonumark-admin.admin-screen-users .account-record .status-pill.published {
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin.admin-screen-users .account-record .status-pill.trash {
+  color: var(--admin-danger);
+}
+
+body.bonumark-admin.admin-screen-users .account-record-mobile-label {
   display: none;
+}
+
+body.bonumark-admin.admin-screen-users .account-record-actions {
+  display: grid;
+  gap: 8px;
+}
+
+body.bonumark-admin.admin-screen-users .account-record-manage,
+body.bonumark-admin.admin-screen-users .content-actions-menu > summary {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  display: inline-flex;
+  font-size: .875rem;
+  font-weight: 650;
+  justify-content: center;
+  line-height: 1.5;
+  min-height: 44px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  width: 100%;
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu > summary::after {
+  content: none;
+}
+
+body.bonumark-admin.admin-screen-users .account-record-manage:hover,
+body.bonumark-admin.admin-screen-users .content-actions-menu > summary:hover,
+body.bonumark-admin.admin-screen-users .content-actions-menu[open] > summary {
+  background: var(--admin-selected);
+  border-color: var(--admin-accent);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-control-outline);
+  border-radius: var(--admin-radius-sm);
+  box-shadow: var(--admin-shadow);
+  max-width: min(320px, calc(100vw - 48px));
+  min-width: 0;
+  padding: 6px;
+  width: 18rem;
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel a,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .content-action-button {
+  border-radius: var(--admin-radius-sm);
+  color: var(--admin-text);
+  font-size: .875rem;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel a:hover,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel a:focus-visible,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .content-action-button:hover,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .content-action-button:focus-visible {
+  background: var(--admin-selected);
+  color: var(--admin-text);
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .state-link {
+  color: var(--admin-accent);
+}
+
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .danger-link,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .danger-link:hover,
+body.bonumark-admin.admin-screen-users .content-actions-menu-panel .danger-link:focus-visible {
+  color: var(--admin-danger);
+}
+
+body.bonumark-admin.admin-screen-users .account-action-help {
+  color: var(--admin-muted);
+  font-size: .8125rem;
+  margin: 4px 10px;
+  overflow-wrap: anywhere;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-empty-state {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--admin-border);
+  border-radius: 0;
+  padding: 32px 0;
+}
+
+body.bonumark-admin.admin-screen-users .accounts-empty-state h2 {
+  font-size: 1.1875rem;
+}
+
+@media (max-width: 1100px) {
+  body.bonumark-admin.admin-screen-users .account-record-header {
+    display: none;
+  }
+
+  body.bonumark-admin.admin-screen-users .account-record {
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  body.bonumark-admin.admin-screen-users .account-record-identity,
+  body.bonumark-admin.admin-screen-users .account-record-email,
+  body.bonumark-admin.admin-screen-users .account-record-actions {
+    grid-column: 1 / -1;
+  }
+
+  body.bonumark-admin.admin-screen-users .account-record-mobile-label {
+    color: var(--admin-muted);
+    display: block;
+    font-size: .8125rem;
+    font-weight: 500;
+    margin: 0 0 4px;
+  }
+
+  body.bonumark-admin.admin-screen-users .account-record-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  body.bonumark-admin.admin-screen-users .account-record-manage,
+  body.bonumark-admin.admin-screen-users .content-actions-menu {
+    min-width: 88px;
+    width: auto;
+  }
+
+  body.bonumark-admin.admin-screen-users .content-actions-menu[open] {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  body.bonumark-admin.admin-screen-users .content-actions-menu > summary {
+    max-width: 100%;
+    width: max-content;
+  }
+
+  body.bonumark-admin.admin-screen-users .content-actions-menu-panel {
+    box-shadow: none;
+    margin-top: 8px;
+    max-width: 100%;
+    position: static;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  body.bonumark-admin.admin-screen-users .account-record {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 body.bonumark-admin .account-create-intro,
@@ -170,141 +407,7 @@ body.bonumark-admin .account-create-actions .secondary-button {
   margin: 0;
 }
 
-@media (max-width: 1180px) {
-  body.bonumark-admin .account-record-header,
-  body.bonumark-admin .account-record {
-    gap: 12px;
-    grid-template-columns: minmax(250px, 1.1fr) minmax(220px, .9fr) 100px 150px 92px;
-  }
-}
-
-@media (max-width: 980px) {
-  body.bonumark-admin .accounts-content-filter {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: none;
-    overflow: visible;
-    padding-bottom: 0;
-  }
-
-  body.bonumark-admin .accounts-content-filter a {
-    align-items: center;
-    display: inline-flex;
-    justify-content: center;
-    min-width: 0;
-    text-align: center;
-    width: 100%;
-  }
-
-  body.bonumark-admin .accounts-record-panel {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-  }
-
-  body.bonumark-admin .accounts-list-summary {
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-border);
-    border-radius: 14px;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding: 14px;
-  }
-
-  body.bonumark-admin .account-record-header {
-    display: none;
-  }
-
-  body.bonumark-admin .account-record-list {
-    background: transparent;
-    display: grid;
-    gap: 12px;
-  }
-
-  body.bonumark-admin .account-record {
-    align-items: start;
-    border: 1px solid var(--admin-border);
-    border-radius: 14px;
-    gap: 14px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    padding: 16px;
-  }
-
-  body.bonumark-admin .account-record-identity {
-    grid-column: 1 / 3;
-    grid-row: 1;
-  }
-
-  body.bonumark-admin .account-record-actions {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  body.bonumark-admin .account-record-email {
-    grid-column: 1 / 3;
-    grid-row: 2;
-  }
-
-  body.bonumark-admin .account-record-type {
-    grid-column: 1;
-    grid-row: 3;
-  }
-
-  body.bonumark-admin .account-record-status {
-    grid-column: 2 / 4;
-    grid-row: 3;
-  }
-
-  body.bonumark-admin .account-record-mobile-label {
-    color: var(--admin-muted);
-    display: block;
-    font-size: .66rem;
-    font-weight: 800;
-    letter-spacing: .06em;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-  }
-}
-
 @media (max-width: 560px) {
-  body.bonumark-admin .accounts-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  body.bonumark-admin .accounts-summary-total {
-    grid-column: 1 / -1;
-  }
-
-  body.bonumark-admin .account-record {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  body.bonumark-admin .account-record-identity {
-    grid-column: 1;
-  }
-
-  body.bonumark-admin .account-record-actions {
-    grid-column: 2;
-  }
-
-  body.bonumark-admin .account-record-email,
-  body.bonumark-admin .account-record-type,
-  body.bonumark-admin .account-record-status {
-    grid-column: 1 / 3;
-  }
-
-  body.bonumark-admin .account-record-email {
-    grid-row: 2;
-  }
-
-  body.bonumark-admin .account-record-type {
-    grid-row: 3;
-  }
-
-  body.bonumark-admin .account-record-status {
-    grid-row: 4;
-  }
-
   body.bonumark-admin .account-create-actions {
     display: grid;
     grid-template-columns: 1fr;

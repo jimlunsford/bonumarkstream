@@ -1318,17 +1318,15 @@ if (!str_contains($editorApp, "\$isPageContent ? 'page' : 'post'")
     bm_smoke_fail($failures, 'Publish preview guidance must use page-specific language in the Page editor.');
 }
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-comments.css')")
-    || !str_contains($adminCommentsCss, 'Bonumark Stream Admin Comments')
-    || !str_contains($adminCommentsCss, '.comment-record-header')
-    || !str_contains($adminCommentsCss, '.comment-record-mobile-status')
-    || !str_contains($adminCommentsCss, 'grid-template-columns: repeat(3, minmax(0, 1fr));')) {
+    || !str_contains($adminCommentsCss, 'body.bonumark-admin.admin-screen-comments .comment-record')
+    || !str_contains($adminCommentsCss, '.comments-content-filter')
+    || !str_contains($adminCommentsCss, '.comment-record-body')) {
     bm_smoke_fail($failures, 'Comments moderation stylesheet is missing desktop records, phone cards, or visible mobile status filters.');
 }
-if (!str_contains($commentsAdmin, 'class="comment-record-header"')
-    || !str_contains($commentsAdmin, 'id="comment-record-list"')
+if (!str_contains($commentsAdmin, 'id="comment-record-list"')
     || !str_contains($commentsAdmin, 'data-select-scope="#comment-record-list"')
     || !str_contains($commentsAdmin, 'class="content-actions-menu"')
-    || !str_contains($commentsAdmin, 'Search comments, authors, usernames, posts, or slugs')
+    || !str_contains($commentsAdmin, 'for="comments_q">Search comments</label>')
     || !str_contains($commentsAdmin, 'Restore as approved')
     || !str_contains($commentsAdmin, 'Delete permanently')) {
     bm_smoke_fail($failures, 'Comments must use the responsive moderation records, scoped bulk controls, search, and complete state actions.');
@@ -1352,10 +1350,13 @@ if (!str_contains($commentsAdmin, "require_once __DIR__ . '/_comments-ui.php'")
 if (!is_file($root . '/scripts/admin-comments-runtime-test.php')) {
     bm_smoke_fail($failures, 'Comments runtime warning regression test is missing.');
 }
-if (!str_contains($adminCommentsCss, 'v0.5.60 desktop moderation control correction')
-    || !str_contains($adminCommentsCss, 'flex: 0 0 220px;')
-    || !str_contains($adminCommentsCss, 'white-space: nowrap;')) {
-    bm_smoke_fail($failures, 'Comments desktop control bar correction is missing.');
+// Exact widths from the retired table toolbar are no longer contractual.
+// Real form execution and responsive layout are covered by HTTP/browser tests.
+if (!str_contains($adminCommentsCss, '.comments-bulk-form')
+    || !str_contains($adminCommentsCss, '.comments-bulk-field')
+    || !str_contains($commentsUi, 'name="confirm_delete" value="1"')
+    || !is_file($root . '/scripts/admin-comments-management-runtime-test.php')) {
+    bm_smoke_fail($failures, 'Comments controls, native deletion confirmation, or HTTP coverage are missing.');
 }
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-accounts.css')")
     || !str_contains($adminNavigation, "'label' => 'Commenter accounts'")
@@ -1376,7 +1377,7 @@ if (!str_contains($userNewAdmin, 'name="new_commenter_username"')
     || !str_contains($userNewAdmin, 'data-lpignore="true"')) {
     bm_smoke_fail($failures, 'Dedicated Add Commenter fields are missing autofill-resistant account controls.');
 }
-if (!str_contains($adminAccountsCss, 'Bonumark Stream Admin Accounts')
+if (!str_contains($adminAccountsCss, 'body.bonumark-admin.admin-screen-users')
     || !str_contains($adminAccountsCss, '.account-record-header')
     || !str_contains($adminAccountsCss, '.account-record-mobile-label')) {
     bm_smoke_fail($failures, 'Accounts component stylesheet is missing desktop records or responsive account cards.');
@@ -1401,10 +1402,11 @@ if (!str_contains($adminContentListCss, 'v0.5.61 shared filter label and count t
     || !str_contains($adminContentListCss, 'font-variant-numeric: tabular-nums;')) {
     bm_smoke_fail($failures, 'Shared filter count badge styling is missing.');
 }
-if (!str_contains($usersAdmin, 'accounts-summary-total')
-    || !str_contains($adminAccountsCss, '.accounts-summary-total')
-    || !str_contains($adminAccountsCss, 'grid-column: 1 / -1;')) {
-    bm_smoke_fail($failures, 'Total accounts must span the full second row in the phone summary grid.');
+if (!str_contains($usersAdmin, 'accounts-pending-summary')
+    || !str_contains($usersAdmin, "pending_verification")
+    || !str_contains($usersAdmin, "pending_approval")
+    || !str_contains($adminAccountsCss, '.accounts-pending-summary')) {
+    bm_smoke_fail($failures, 'Account list must retain distinct pending verification and approval summaries.');
 }
 
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-registration.css')")
