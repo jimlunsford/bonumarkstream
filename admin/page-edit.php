@@ -21,10 +21,6 @@ if ($file === '' || !$page) {
     ]);
 }
 bms_require_content_file_access($section, $file, 'edit_content', $page);
-$originalAuthorId = function_exists('bms_content_author_id_for_file') ? bms_content_author_id_for_file($section, $file) : null;
-if ($originalAuthorId === null && (int)($page['author_id'] ?? 0) > 0) {
-    $originalAuthorId = (int)$page['author_id'];
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     bms_verify_csrf();
@@ -55,13 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_flash('Confirm the live URL change before saving this published page.', 'warning');
             bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($file)));
         }
-        if (function_exists('bms_delete_post_metadata_by_filename') && ($newFilename !== $file || $targetSection !== $section)) {
-            bms_delete_post_metadata_by_filename($section, $file);
-        }
+        bms_update_existing_page($page, $updatedPage, $targetSection, $newFilename);
         if (is_file($path)) {
             @unlink($path);
         }
-        bms_sync_page_metadata($updatedPage, $targetSection, $newFilename, $originalAuthorId);
         if ($targetStatus === 'published') {
             $message = $currentStatus === 'published'
                 ? 'Updated page. “' . $updatedPage['title'] . '” is current through dynamic rendering.'

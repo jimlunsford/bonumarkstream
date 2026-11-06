@@ -2,6 +2,84 @@
 require_once __DIR__ . '/renderer.php';
 require_once __DIR__ . '/scheduler.php';
 
+/** Update one existing Page and its terms without replacing its database identity. */
+function bms_update_existing_page(array $original, array $updated, string $section, string $filename): void
+{
+    $postId = (int)($original['post_id'] ?? $original['id'] ?? 0);
+    if ($postId < 1 || (string)($original['post_type'] ?? $original['content_type'] ?? '') !== 'page'
+        || (string)($updated['content_type'] ?? $updated['post_type'] ?? '') !== 'page'
+        || !in_array($section, ['pages/drafts', 'pages/published'], true)
+        || $filename !== bms_database_content_filename_for_page($updated)
+        || !bms_database_content_columns_ready()) {
+        throw new RuntimeException('An existing database Page is required.');
+    }
+
+    $pdo = bms_db();
+    $ownsTransaction = !$pdo->inTransaction();
+    $savepoint = 'bms_page_update_' . bin2hex(random_bytes(8));
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    } else {
+        $pdo->exec('SAVEPOINT ' . $savepoint);
+    }
+    try {
+        $statement = $pdo->prepare('SELECT * FROM ' . bms_table('posts') . ' WHERE id = :id FOR UPDATE');
+        $statement->execute(['id' => $postId]);
+        $current = $statement->fetch();
+        if (!is_array($current) || (string)$current['post_type'] !== 'page') {
+            throw new RuntimeException('The existing Page could not be found.');
+        }
+        foreach (['slug', 'status', 'markdown_path', 'content_hash'] as $field) {
+            if ((string)$current[$field] !== (string)($original[$field] ?? '')) {
+                throw new RuntimeException('The Page changed before it could be saved. Reload it and try again.');
+            }
+        }
+
+        $status = $section === 'pages/published' ? 'published' : 'draft';
+        $collision = $pdo->prepare('SELECT id FROM ' . bms_table('posts') . ' WHERE post_type = :post_type AND slug = :slug AND status = :status AND id <> :id LIMIT 1');
+        $collision->execute(['post_type' => 'page', 'slug' => bms_slugify((string)$updated['slug']), 'status' => $status, 'id' => $postId]);
+        if ($collision->fetchColumn() !== false) {
+            throw new RuntimeException('Another page already uses this slug.');
+        }
+
+        // The editor owns these fields. Retain saved metadata that it does not
+        // expose, rather than replacing it with defaults from parsed Markdown.
+        $page = bms_database_row_to_content_page($current);
+        $page['tags'] = bms_normalize_terms($page['front_matter']['tags'] ?? []);
+        foreach (['title', 'slug', 'date', 'description', 'seo_title', 'robots', 'body'] as $field) {
+            $page[$field] = $updated[$field];
+            if ($field !== 'body') {
+                $page['front_matter'][$field] = $updated[$field];
+            }
+        }
+        $page['status'] = $page['content_status'] = $status;
+        $page['front_matter']['status'] = $status;
+        $page['post_id'] = $page['id'] = $postId;
+        $page['raw'] = bms_database_content_raw($page);
+        $authorId = isset($current['author_id']) ? (int)$current['author_id'] : null;
+        // The unique type/slug/status key also rejects a competing target write.
+        // Page transitions do not dispatch Stream publication integrations.
+        if (bms_upsert_database_content($page, $section, $filename, $authorId) !== $postId) {
+            throw new RuntimeException('The existing Page identity was not preserved.');
+        }
+        if ($ownsTransaction) {
+            $pdo->commit();
+        } else {
+            $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        }
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            if ($ownsTransaction) {
+                $pdo->rollBack();
+            } else {
+                $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+        }
+        throw $e;
+    }
+}
+
 
 function bms_page_meta_value(array $page, string $key, string $default = ''): string
 {
