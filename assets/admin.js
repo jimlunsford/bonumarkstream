@@ -58,6 +58,21 @@
         return;
       }
       const boxes = Array.prototype.slice.call(form.querySelectorAll('input[name="media_ids[]"]'));
+      const bulkAction = form.querySelector('[name="bulk_action"]');
+      if (bulkAction) {
+        function updateMediaConfirmation() {
+          const messages = {
+            trash: 'Move selected media to Trash? Files remain recoverable.',
+            restore: 'Restore selected media to the active library?',
+            delete_permanently: 'Permanently delete selected media, including original files and generated variants? This cannot be undone.'
+          };
+          form.setAttribute('data-confirm', messages[bulkAction.value] || 'Apply this media bulk action?');
+        }
+        bulkAction.addEventListener('change', updateMediaConfirmation);
+        // Refresh before the shared confirmation listener, including restored form state.
+        form.addEventListener('submit', updateMediaConfirmation, true);
+        updateMediaConfirmation();
+      }
       function syncCardState(box) {
         const card = box.closest('[data-media-item]');
         if (card) {
@@ -141,6 +156,7 @@
     const name = dialog.querySelector('[data-media-detail-name]');
     const kind = dialog.querySelector('[data-media-detail-kind]');
     const meta = dialog.querySelector('[data-media-detail-meta]');
+    const alt = dialog.querySelector('[data-media-detail-alt]');
     const status = dialog.querySelector('[data-media-detail-status]');
     const note = dialog.querySelector('[data-media-detail-note]');
     const captionRow = dialog.querySelector('[data-media-detail-caption-row]');
@@ -174,6 +190,7 @@
       if (name) { name.textContent = data.mediaName || 'Media item'; }
       if (kind) { kind.textContent = data.mediaKind || 'Media'; }
       if (meta) { meta.textContent = data.mediaMeta || ''; }
+      if (alt) { alt.textContent = data.mediaAlt || 'Not set'; }
       if (status) {
         const safeClass = String(data.mediaStatusClass || 'draft').replace(/[^a-z0-9_-]/gi, '') || 'draft';
         status.className = 'status-pill ' + safeClass;
@@ -209,17 +226,26 @@
     }
 
     triggers.forEach(function (trigger) {
-      trigger.addEventListener('click', function () {
+      if (typeof dialog.showModal === 'function') {
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        if (dialog.id) { trigger.setAttribute('aria-controls', dialog.id); }
+      }
+      trigger.addEventListener('click', function (event) {
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+          return;
+        }
         const card = trigger.closest('[data-media-item]');
         if (!card) {
           return;
         }
+        event.preventDefault();
         populate(card);
         returnFocus = trigger;
         if (typeof dialog.showModal === 'function') {
           lockedScrollY = window.scrollY || window.pageYOffset || 0;
           document.body.style.setProperty('--media-details-scroll-y', '-' + lockedScrollY + 'px');
           dialog.showModal();
+          dialog.scrollTop = 0;
           document.body.classList.add('media-details-open');
           if (scrollRegion) { scrollRegion.scrollTop = 0; }
           const closeButton = dialog.querySelector('[data-media-details-close]');

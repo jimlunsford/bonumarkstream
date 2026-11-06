@@ -1256,12 +1256,13 @@ if (!str_contains($adminContentListCss, 'Bonumark Stream Admin Content List') ||
 if (!str_contains($adminLayout, "bms_asset_url('assets/admin-media-library.css')")) {
     bm_smoke_fail($failures, 'Shared Admin layout does not load the Media Library component stylesheet.');
 }
-if (!str_contains($adminMediaLibraryCss, 'Bonumark Stream Admin Media Library')
-    || !str_contains($adminMediaLibraryCss, '.media-library-grid')
-    || !str_contains($adminMediaLibraryCss, 'grid-template-columns: repeat(2, minmax(0, 1fr));')
-    || !str_contains($adminMediaLibraryCss, '.media-details-dialog')
-    || !str_contains($adminMediaLibraryCss, 'inset: auto 0 0;')) {
-    bm_smoke_fail($failures, 'Media Library CSS is missing browsing-grid, phone-grid, dialog, or bottom-sheet coverage.');
+// Component coverage remains a source check; actual responsive layout is
+// browser-verified without prescribing the retired two-column bottom sheet.
+if (!str_contains($adminMediaLibraryCss, 'body.bonumark-admin.admin-screen-media .media-library-grid')
+    || !str_contains($adminMediaLibraryCss, 'body.bonumark-admin.admin-screen-media .media-details-dialog')
+    || !str_contains($adminMediaLibraryCss, '.media-library-select')
+    || !str_contains($adminMediaLibraryCss, '.media-details-actions')) {
+    bm_smoke_fail($failures, 'Media Library CSS is missing scoped browsing-grid, selection, dialog, or action coverage.');
 }
 if (!str_contains($mediaAdmin, 'class="media-library-grid"')
     || !str_contains($mediaAdmin, 'data-media-details-open')
