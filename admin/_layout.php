@@ -192,7 +192,8 @@ function bms_admin_header(string $title, array $actions = []): void
         echo '</div>';
     }
 
-    if ($can('manage_users') && function_exists('bms_user_pending_counts')) {
+    // Dashboard owns this queue through its independent, failure-aware review row.
+    if ($currentAdminFile !== 'index.php' && $can('manage_users') && function_exists('bms_user_pending_counts')) {
         $pendingCounts = bms_user_pending_counts();
         $pendingApproval = (int)($pendingCounts['pending_approval'] ?? 0);
         if ($pendingApproval > 0) {
