@@ -152,6 +152,9 @@ function bms_render_stream_pagination(int $pageNumber, int $totalPages, string $
 
 function bms_render_stream_composer_mount(): string
 {
+    if (bms_static_site_export_rendering()) {
+        return '';
+    }
     $endpoint = htmlspecialchars(bms_admin_url('stream-composer.php'), ENT_QUOTES, 'UTF-8');
     return '<section class="stream-composer-mount" data-stream-composer-mount data-stream-composer-endpoint="' . $endpoint . '" aria-live="polite"></section>';
 }
@@ -159,6 +162,9 @@ function bms_render_stream_composer_mount(): string
 
 function bms_stream_composer_view_data(?string $returnToOverride = null, array $overrides = []): ?array
 {
+    if (bms_static_site_export_rendering()) {
+        return null;
+    }
     $canEdit = function_exists('bms_current_user_can') && bms_current_user_can('edit_content');
     $canPublish = function_exists('bms_current_user_can') && bms_current_user_can('publish_content');
     if (!function_exists('bms_is_logged_in') || !bms_is_logged_in() || !$canEdit) {
@@ -255,7 +261,7 @@ function bms_render_stream_composer(?string $returnToOverride = null, array $ove
 
 function bms_render_public_flash_notices(): string
 {
-    if (!function_exists('bms_is_logged_in') || !bms_is_logged_in() || !function_exists('bms_get_flash')) {
+    if (bms_static_site_export_rendering() || !function_exists('bms_is_logged_in') || !bms_is_logged_in() || !function_exists('bms_get_flash')) {
         return '';
     }
 
@@ -696,7 +702,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $slug = (string)($page['slug'] ?? '');
     $publicCounts = $previewMode ? ['likes' => 0, 'comments' => 0] : ($page['_public_interaction_counts'] ?? bms_public_interaction_counts_for_slug($slug));
     $likeCount = $publicCounts['likes'];
-    $liked = !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
+    $liked = !bms_static_site_export_rendering() && !$previewMode && function_exists('bms_stream_visitor_liked_slug') ? bms_stream_visitor_liked_slug($slug) : false;
     $likeLabel = function_exists('bms_stream_like_label') ? bms_stream_like_label($likeCount) : ((string)$likeCount . ' likes');
     $commentCount = $publicCounts['comments'];
     $commentLabel = function_exists('bms_comment_label') ? bms_comment_label($commentCount) : ((string)$commentCount . ' Comments');
@@ -707,7 +713,7 @@ function bms_stream_card_view_data(array $page, bool $single = false, int $index
     $pinActionUrl = '';
     $pinCsrf = '';
     $pinReturnTo = '';
-    if (function_exists('bms_is_logged_in') && bms_is_logged_in()) {
+    if (!bms_static_site_export_rendering() && function_exists('bms_is_logged_in') && bms_is_logged_in()) {
         $subject = $page;
         $filename = basename((string)($page['filename'] ?? ''));
         if ($filename !== '' && function_exists('bms_content_subject_for_file')) {
