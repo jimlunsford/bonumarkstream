@@ -142,7 +142,7 @@ function bms_render_page(array $page): string
         'footer_html' => bms_render_public_footer(bms_page_relative_directory_for_page($page) . '/'),
         'page' => $page,
         'body_html' => $bodyHtml,
-        'edit_url' => function_exists('bms_current_user_can') && bms_current_user_can('manage_pages') ? bms_admin_url('page-edit.php?type=published&file=' . rawurlencode((string)($page['filename'] ?? ''))) : '',
+        'edit_url' => !bms_static_site_export_rendering() && function_exists('bms_current_user_can') && bms_current_user_can('manage_pages') ? bms_admin_url('page-edit.php?type=published&file=' . rawurlencode((string)($page['filename'] ?? ''))) : '',
     ]);
 }
 

@@ -331,7 +331,8 @@ FIXTURE;
         $set('scheduled_tasks_last_run_at',(string)time());$set('scheduled_tasks_last_source',$sourceLabel);
         bms_system_test_expect(str_contains($get('scheduled-tasks')['body'],$label),'Runner source: '.$label);
     }
-    bms_upsert_database_content(['slug'=>'system-due','title'=>'Disposable due post','body'=>'Synthetic scheduled body','date'=>'2026-01-01','scheduled_at'=>gmdate('Y-m-d H:i:s',time()-60)],'scheduled','system-due.md',1);
+    $duePost=bms_parse_markdown_string(bms_build_markdown_document(['slug'=>'system-due','title'=>'Disposable due post','seo_title'=>'Disposable due post','date'=>'2026-01-01','scheduled_at'=>gmdate('Y-m-d H:i:s',time()-60)],'Synthetic scheduled body'));
+    bms_upsert_database_content($duePost,'scheduled','system-due.md',1);
     $set('scheduled_tasks_last_run_at',(string)time());$post('scheduled-tasks',['scheduled_tasks_action'=>'run_now']);
     bms_system_test_expect($pdo->query("SELECT status FROM `{$prefix}posts` WHERE slug='system-due'")->fetchColumn()==='published','Run Tasks Now publishes disposable due record');
     bms_system_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}scheduled_task_runs` WHERE source='manual' AND scheduled_posts_published=1")->fetchColumn()>0,'Manual result and published count recorded in history');
@@ -352,14 +353,29 @@ FIXTURE;
     bms_system_test_expect($setting('scheduled_tasks_web_cron_enabled')==='0' && $setting('scheduled_tasks_web_cron_key_hash')==='','Disable removes cron key and enablement');unset($keys,$key,$html);
     $exportPath=$temporary.'/admin/export.php';$originalExportSource=(string)file_get_contents($exportPath);
     $html=$get('export')['body'];
+    bms_system_test_expect(!str_contains($html,'Static output unavailable') && preg_match_all('/<button\b[^>]*\sdisabled\b/', $html)===0,'Operational core renderer enables all five export controls');
+    // Remove actual dependencies only in this disposable installation. A partially
+    // loaded renderer must not make the screen disagree with the POST handler.
+    $rendererPath=$temporary.'/_bonumark_stream/app/renderer.php';
+    rename($rendererPath,$rendererPath.'.fixture-hidden');
+    $html=$get('export')['body'];
     bms_system_test_expect(str_contains($html,'Static output unavailable') && preg_match_all('/<button\b[^>]*\sdisabled\b/', $html)===2,'Missing renderer honestly disables Static Site and Full controls');
-    // The baseline route omits renderer.php. Exercise the existing renderer-present
-    // path only in this isolated copy; do not repair that backend dependency here.
-    $rendererExportSource=str_replace("require_once __DIR__ . '/_layout.php';", "require_once __DIR__ . '/_layout.php';\nrequire_once __DIR__ . '/../_bonumark_stream/app/renderer.php';",$originalExportSource);
-    file_put_contents($exportPath,$rendererExportSource);
-    bms_system_test_expect(!str_contains($get('export')['body'],'Static output unavailable'),'Renderer-present fixture makes all export controls available');
-    file_put_contents($exportPath,$originalExportSource);
-    fwrite(STDOUT, "KNOWN BASELINE LIMITATION: Static Site and Full exports omit rendered HTML because this route does not load renderer.php. These archive checks preserve existing contents, not static-site completeness.\n");
+    rename($rendererPath.'.fixture-hidden',$rendererPath);
+    $pagesPath=$temporary.'/_bonumark_stream/app/pages.php';
+    $pagesSource=(string)file_get_contents($pagesPath);
+    foreach (['missing','load-failure'] as $failure) {
+        if($failure==='missing'){rename($pagesPath,$pagesPath.'.fixture-hidden');}
+        else{file_put_contents($pagesPath,"<?php throw new RuntimeException('Synthetic renderer dependency failure');\n".substr($pagesSource,5));}
+        $html=$get('export')['body'];
+        bms_system_test_expect(str_contains($html,'Static output unavailable') && preg_match_all('/<button\b[^>]*\sdisabled\b/', $html)===2,'Renderer dependency '.$failure.' disables only Static Site and Full');
+        foreach(['static','full'] as $kind){
+            $response=$post('export',['export_kind'=>$kind]);
+            bms_system_test_expect($response['status']===302 && !str_contains(implode("\n",$response['headers']),'application/zip'),'Renderer dependency '.$failure.' rejects forced '.$kind.' download');
+        }
+        if($failure==='missing'){rename($pagesPath.'.fixture-hidden',$pagesPath);}
+        else{file_put_contents($pagesPath,$pagesSource);}
+    }
+    bms_system_test_expect(!str_contains($get('export')['body'],'Static output unavailable'),'Restored renderer dependencies re-enable static exports');
     // No archive bytes are printed or retained outside the private temporary directory.
     file_put_contents($temporary.'/media/synthetic.txt','Synthetic media');
     foreach (['markdown','static','media','database','full'] as $kind) {
@@ -369,6 +385,11 @@ FIXTURE;
         bms_system_test_expect(str_contains((string)$zip->getFromName('EXPORT.txt'),'Type: '.$kind),'Export '.$kind.': correct declared type');
         $entry=match($kind){'markdown'=>'markdown/manifest.json','static'=>'static/assets/style.css','media'=>'media/synthetic.txt','database'=>'database/bonumark.sql','full'=>'database/bonumark.sql'};
         bms_system_test_expect($zip->locateName($entry)!==false,'Export '.$kind.': baseline content entry');
+        if(in_array($kind,['static','full'],true)){
+            bms_system_test_expect(str_contains((string)$zip->getFromName('static/index.html'),'Synthetic scheduled body'),'Export '.$kind.': rendered homepage contains the published Stream Post');
+            $postHtml=(string)$zip->getFromName('static/stream/system-due/index.html');
+            bms_system_test_expect(str_contains($postHtml,'Disposable due post') && str_contains($postHtml,'Synthetic scheduled body'),'Export '.$kind.': published Stream Post title and body survive ZIP finalization');
+        }
         if($kind==='full'){bms_system_test_expect($zip->locateName('markdown/manifest.json')!==false && $zip->locateName('media/synthetic.txt')!==false,'Full export retains content and media');}
         if(in_array($kind,['database','full'],true)){bms_system_test_expect(str_contains((string)$zip->getFromName($entry),'password_hash'),'Private export includes synthetic account data and must remain private');}
         $zip->close();unlink($path);unset($response);
@@ -462,6 +483,21 @@ FIXTURE;
     $pdo->exec("INSERT INTO `{$prefix}upgrade_history` (from_version,to_version,status,notes,ran_at) VALUES ('0.8.2','0.8.3','completed','Synthetic history',UTC_TIMESTAMP())");
     bms_system_test_expect(str_contains($get('upgrade')['body'],'COMPLETED'),'Upgrade history shows recorded result');
     $public=bms_system_test_request($base,'/',$guest);bms_system_test_expect($public['status']===200 && !str_contains($public['body'],'admin-operations.css'),'Public frontend is unaffected by System presentation');
+    // Optional Chrome acceptance reuses only this disposable fixture and its
+    // unconditional upgrade barrier. Reports contain no sessions or ZIP bytes.
+    $browserReport=(string)getenv('BMS_SYSTEM_BROWSER_REPORT');
+    if($browserReport!==''){
+        bms_system_test_state(['checks'=>[['status'=>'pass','label'=>'Synthetic hosting','message'=>'Synthetic diagnostic result.']]]);
+        foreach ([['browser-post','Browser Published Post','published','published'],['browser-page','Browser Published Page','pages/published','published'],['browser-draft','Browser Private Draft','drafts','draft'],['browser-future','Browser Future Post','scheduled','scheduled']] as [$slug,$title,$section,$status]) {
+            $fields=['slug'=>$slug,'title'=>$title,'seo_title'=>$title,'date'=>'2026-01-02','status'=>$status,'content_type'=>str_starts_with($section,'pages/')?'page':'stream','scheduled_at'=>'2099-01-02 12:00:00'];
+            bms_upsert_database_content(bms_parse_markdown_string(bms_build_markdown_document($fields,'Synthetic browser body for '.$slug.'.')),$section,$slug.'.md',1);
+        }
+        $browser=proc_open(['node',__DIR__.'/admin-system-browser-test.cjs',$temporary,$base,$browserReport],[0=>['pipe','r'],1=>STDOUT,2=>STDERR],$browserPipes);
+        if(!is_resource($browser)){throw new RuntimeException('Cannot start Chrome acceptance.');}
+        fclose($browserPipes[0]);
+        if(proc_close($browser)!==0){throw new RuntimeException('Chrome acceptance failed.');}
+        if(hash_file('sha256',$temporary.'/VERSION')!==$baselineVersion || (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}migrations`")->fetchColumn()!==$migrationCount){throw new RuntimeException('Browser verification altered software or migrations.');}
+    }
     fwrite(STDOUT, 'System runtime regression passed: ' . $checks . " checks.\n");
 } finally {
     if (is_resource($process)) {
