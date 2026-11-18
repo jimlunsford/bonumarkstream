@@ -177,17 +177,13 @@ $maxUploadLabel = number_format(bms_import_max_upload_bytes() / 1024 / 1024, 0) 
 bms_admin_header('Import', [
     ['label' => 'Markdown Folders', 'href' => bms_admin_url('import-markdown.php'), 'style' => 'secondary'],
     ['label' => 'Export', 'href' => bms_admin_url('export.php'), 'style' => 'secondary'],
-    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel operations-hero">
-  <div class="operations-hero-copy"><p class="eyebrow">Staged import</p><h2>Inspect incoming content before it writes to Bonumark Stream.</h2><p class="meta">Upload a trusted archive, create a private preview, review warnings and sample items, choose import rules, then explicitly confirm the database write.</p></div>
-  <span class="operation-risk-label is-safe">Preview first</span>
-</section>
-<section class="panel operations-summary-panel"><div class="operations-summary-grid"><div><span>Upload limit</span><strong><?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?></strong></div><div><span>Preview storage</span><strong>Private temporary staging</strong></div><div><span>Writes begin</span><strong>Only after confirmation</strong></div><div><span>Default target</span><strong>Draft records</strong></div></div></section>
-
-<section class="panel import-panel operations-panel">
-  <div class="operations-panel-heading"><div><p class="eyebrow">Step 1</p><h2>Upload and stage a trusted import file</h2><p class="meta">Supported: Markdown, generic JSON, WordPress WXR/XML, Bonumark export ZIP, Twitter/X archive ZIP, and Bluesky CAR. Maximum file size: <?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?>.</p></div><span class="operation-risk-label is-safe">No content written</span></div>
+<div class="system-workspace">
+<p class="system-intro">Create a private preview, review incoming items, then explicitly confirm the database import.</p>
+<ol class="system-stages" aria-label="Import stages"><li>Upload</li><li>Review preview</li><li>Confirm import</li></ol>
+<section class="system-section import-panel">
+  <div class="operations-panel-heading"><div><h2>1. Upload and create preview</h2><p class="meta">Supported: Markdown, generic JSON, WordPress WXR/XML, Bonumark export ZIP, Twitter/X archive ZIP, and Bluesky CAR. Maximum file size: <?= htmlspecialchars($maxUploadLabel, ENT_QUOTES, 'UTF-8') ?>.</p></div><span class="operation-risk-label is-safe">No content written</span></div>
   <form method="post" enctype="multipart/form-data" class="settings-form import-upload-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="import_action" value="preview">
@@ -240,11 +236,10 @@ bms_admin_header('Import', [
   $displayItems = array_slice($items, 0, $previewDisplayLimit);
   $hiddenPreviewCount = max(0, count($items) - count($displayItems));
   ?>
-  <section class="panel import-preview-panel operations-review-panel">
+  <section class="system-section import-preview-panel">
     <div class="import-preview-heading">
       <div>
-        <p class="eyebrow">Step 2 · Review preview</p>
-        <h2><?= count($items) ?> item(s) prepared</h2>
+        <h2>2. Review <?= count($items) ?> prepared item(s)</h2>
         <p class="meta">Source: <?= htmlspecialchars((string)($preview['filename'] ?? 'import'), ENT_QUOTES, 'UTF-8') ?> via <?= htmlspecialchars((string)($preview['importer'] ?? 'Importer'), ENT_QUOTES, 'UTF-8') ?>.</p>
         <?php if ($processedTotal > 0): ?>
           <p class="meta">Progress: <?= (int)$processedTotal ?> of <?= count($items) ?> prepared item(s) processed. Imported so far: <?= (int)$importedTotal ?>. Skipped so far: <?= (int)$skippedTotal ?>.</p>
@@ -268,7 +263,53 @@ bms_admin_header('Import', [
       <div class="notice warning"><span class="notice-icon" aria-hidden="true">!</span><div class="notice-copy"><strong>Importer warnings</strong><p><?= htmlspecialchars(implode(' ', $warnings), ENT_QUOTES, 'UTF-8') ?></p></div></div>
     <?php endif; ?>
 
-    <div class="import-options-card"><div class="operations-panel-heading"><div><p class="eyebrow">Step 3</p><h3>Choose import rules and confirm the write</h3><p class="meta">Publishing immediately, renaming duplicates, importing remote media, or forcing a large batch changes what is written. Review each choice before continuing.</p></div><span class="operation-risk-label is-sensitive">Writes database</span></div>
+    <p class="meta">Displaying <?= count($displayItems) ?> of <?= count($items) ?> staged item(s). <a class="system-text-link" href="#import-confirm">Go to import options</a></p>
+    <div class="import-preview-list">
+      <?php foreach ($displayItems as $index => $item): ?>
+        <?php
+        $body = (string)($item['body'] ?? '');
+        $excerpt = trim(preg_replace('/\s+/', ' ', strip_tags($body)) ?? $body);
+        if (function_exists('mb_substr')) {
+            $excerpt = bms_text_substr($excerpt, 0, 220);
+        } else {
+            $excerpt = substr($excerpt, 0, 220);
+        }
+        $itemWarnings = is_array($item['warnings'] ?? null) ? $item['warnings'] : [];
+        $remoteImages = bms_import_extract_remote_image_urls($body);
+        $stagedImages = bms_import_extract_staged_media_urls($body);
+        $previewFeaturedMedia = trim((string)($item['featured_media'] ?? ''));
+        $featuredRemoteImage = $previewFeaturedMedia !== '' && bms_import_is_remote_http_url($previewFeaturedMedia);
+        $featuredStagedImage = $previewFeaturedMedia !== '' && bms_import_is_staged_media_url($previewFeaturedMedia);
+        ?>
+        <article class="import-preview-item">
+          <div class="import-preview-meta">
+            <span>#<?= (int)$index + 1 ?></span>
+            <span><?= htmlspecialchars((string)($item['date'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+            <span><?= htmlspecialchars((string)($item['source'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+            <span>Status: <?= htmlspecialchars((string)($item['status'] ?? 'draft'), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <h3><?= htmlspecialchars((string)($item['title'] ?? 'Untitled'), ENT_QUOTES, 'UTF-8') ?></h3>
+          <p class="meta">Slug: <?= htmlspecialchars((string)($item['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+          <?php if ($excerpt !== ''): ?><p><?= htmlspecialchars($excerpt, ENT_QUOTES, 'UTF-8') ?><?= strlen($excerpt) >= 220 ? '…' : '' ?></p><?php endif; ?>
+          <?php if ($remoteImages): ?><p class="meta">Inline remote images detected: <?= count($remoteImages) ?></p><?php endif; ?>
+          <?php if ($featuredRemoteImage): ?><p class="meta">Featured remote image detected</p><?php endif; ?>
+          <?php if ($stagedImages): ?><p class="meta">Archive media staged: <?= count($stagedImages) ?></p><?php endif; ?>
+          <?php if ($featuredStagedImage): ?><p class="meta">Featured archive media staged</p><?php endif; ?>
+          <?php if ($itemWarnings): ?><p class="meta warning-text"><?= htmlspecialchars(implode(' ', array_map('strval', $itemWarnings)), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+        </article>
+      <?php endforeach; ?>
+      <?php if ($hiddenPreviewCount > 0): ?>
+        <article class="import-preview-item import-preview-more">
+          <h3><?= (int)$hiddenPreviewCount ?> additional item(s) prepared</h3>
+          <?php if ($isBlueskyPreview): ?>
+            <p class="meta">They are not displayed here to keep the admin screen responsive, but Confirm Import will process the full prepared Bluesky set.</p>
+          <?php else: ?>
+            <p class="meta">They are not displayed here to keep the admin screen responsive, but the optional batch controls can continue through the full prepared set.</p>
+          <?php endif; ?>
+        </article>
+      <?php endif; ?>
+    </div>
+    <div class="import-options-card system-confirm" id="import-confirm"><div class="operations-panel-heading"><div><h2>3. Confirm the database import</h2><p class="meta">Publishing immediately, renaming duplicates, importing remote media, or forcing a large batch changes what is written. Review each choice before continuing.</p></div><span class="operation-risk-label is-sensitive">Writes database</span></div>
       <form method="post" class="settings-form import-confirm-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="import_action" value="import">
@@ -327,60 +368,16 @@ bms_admin_header('Import', [
       </form>
     </div>
 
-    <div class="import-preview-list">
-      <?php foreach ($displayItems as $index => $item): ?>
-        <?php
-        $body = (string)($item['body'] ?? '');
-        $excerpt = trim(preg_replace('/\s+/', ' ', strip_tags($body)) ?? $body);
-        if (function_exists('mb_substr')) {
-            $excerpt = bms_text_substr($excerpt, 0, 220);
-        } else {
-            $excerpt = substr($excerpt, 0, 220);
-        }
-        $itemWarnings = is_array($item['warnings'] ?? null) ? $item['warnings'] : [];
-        $remoteImages = bms_import_extract_remote_image_urls($body);
-        $stagedImages = bms_import_extract_staged_media_urls($body);
-        $previewFeaturedMedia = trim((string)($item['featured_media'] ?? ''));
-        $featuredRemoteImage = $previewFeaturedMedia !== '' && bms_import_is_remote_http_url($previewFeaturedMedia);
-        $featuredStagedImage = $previewFeaturedMedia !== '' && bms_import_is_staged_media_url($previewFeaturedMedia);
-        ?>
-        <article class="import-preview-item">
-          <div class="import-preview-meta">
-            <span>#<?= (int)$index + 1 ?></span>
-            <span><?= htmlspecialchars((string)($item['date'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-            <span><?= htmlspecialchars((string)($item['source'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
-            <span>Status: <?= htmlspecialchars((string)($item['status'] ?? 'draft'), ENT_QUOTES, 'UTF-8') ?></span>
-          </div>
-          <h3><?= htmlspecialchars((string)($item['title'] ?? 'Untitled'), ENT_QUOTES, 'UTF-8') ?></h3>
-          <p class="meta">Slug: <?= htmlspecialchars((string)($item['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
-          <?php if ($excerpt !== ''): ?><p><?= htmlspecialchars($excerpt, ENT_QUOTES, 'UTF-8') ?><?= strlen($excerpt) >= 220 ? '…' : '' ?></p><?php endif; ?>
-          <?php if ($remoteImages): ?><p class="meta">Inline remote images detected: <?= count($remoteImages) ?></p><?php endif; ?>
-          <?php if ($featuredRemoteImage): ?><p class="meta">Featured remote image detected</p><?php endif; ?>
-          <?php if ($stagedImages): ?><p class="meta">Archive media staged: <?= count($stagedImages) ?></p><?php endif; ?>
-          <?php if ($featuredStagedImage): ?><p class="meta">Featured archive media staged</p><?php endif; ?>
-          <?php if ($itemWarnings): ?><p class="meta warning-text"><?= htmlspecialchars(implode(' ', array_map('strval', $itemWarnings)), ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
-        </article>
-      <?php endforeach; ?>
-      <?php if ($hiddenPreviewCount > 0): ?>
-        <article class="import-preview-item import-preview-more">
-          <h3><?= (int)$hiddenPreviewCount ?> additional item(s) prepared</h3>
-          <?php if ($isBlueskyPreview): ?>
-            <p class="meta">They are not displayed here to keep the admin screen responsive, but Confirm Import will process the full prepared Bluesky set.</p>
-          <?php else: ?>
-            <p class="meta">They are not displayed here to keep the admin screen responsive, but the optional batch controls can continue through the full prepared set.</p>
-          <?php endif; ?>
-        </article>
-      <?php endif; ?>
-    </div>
   </section>
 <?php endif; ?>
 
-<section class="panel import-format-panel operations-panel">
-  <div class="operations-panel-heading"><div><p class="eyebrow">Accepted sources</p><h2>Import formats</h2><p class="meta">Use archives you created, exported, or trust. Unsupported executable files are not accepted.</p></div><span class="operation-risk-label">Reference</span></div>
-  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by Tools > Export. It safely restores database-first Markdown export entries from <code>markdown/posts</code> and <code>markdown/pages</code>, stages referenced files from the export's <code>media</code> folder, rewrites restored media references for the new install during confirmation, and preserves dates, slugs, descriptions, statuses, and tags. It does not execute database SQL from the export.</p>
+<details class="system-section import-format-panel"><summary>Supported formats and limitations</summary>
+  <div class="operations-panel-heading"><div><h2>Import formats</h2><p class="meta">Use archives you created, exported, or trust. Unsupported executable files are not accepted.</p></div><span class="operation-risk-label">Reference</span></div>
+  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by System > Export. It safely restores database-first Markdown export entries from <code>markdown/posts</code> and <code>markdown/pages</code>, stages referenced files from the export's <code>media</code> folder, rewrites restored media references for the new install during confirmation, and preserves dates, slugs, descriptions, statuses, and tags. It does not execute database SQL from the export.</p>
   <p class="meta">The WordPress importer accepts standard WordPress export XML files from Tools > Export in WordPress. It imports posts only, skips pages, attachments, revisions, menu items, trashed posts, and auto-drafts, converts common HTML into Markdown-style content, preserves WordPress categories and tags as Bonumark Stream tags, and can optionally import remote WordPress images into Bonumark Stream Media during confirmed import. Large exports no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Twitter/X importer accepts downloaded archive ZIP files. It looks for tweet data files such as <code>data/tweets.js</code>, imports authored posts, skips retweets and unsupported account data, preserves original dates, converts tweet text into Markdown-style content, turns hashtags into tags, and stages supported local archive images for Media import during confirmation. Large archives no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Bluesky importer treats AT Protocol repository <code>.car</code> files as the primary export format. It reads <code>app.bsky.feed.post</code> records, skips replies and repost records, preserves original dates, converts post text into Markdown-style content, turns hashtags into tags, and preserves links found in post text or external link cards. Large Bluesky archives do not need to be split manually; Bonumark stores the full prepared import privately, shows a smaller preview sample, and imports the prepared posts when confirmed. Bluesky CAR exports currently import text, timestamps, hashtags, and links only. Media import is not available from Bluesky CAR exports at this time.</p>
   <p class="meta">The JSON importer accepts an array of posts or an object containing <code>posts</code>, <code>items</code>, <code>entries</code>, <code>data</code>, or <code>records</code>. Common fields like <code>title</code>, <code>slug</code>, <code>body</code>, <code>content</code>, <code>text</code>, <code>date</code>, <code>created_at</code>, <code>status</code>, and <code>tags</code> are normalized.</p>
-</section>
+</details>
+</div>
 <?php bms_admin_footer(); ?>

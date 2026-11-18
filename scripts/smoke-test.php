@@ -1530,33 +1530,33 @@ if (!str_contains($adminOperationsCss, '.operations-check-card > *')
     || !str_contains($upgradeAdmin, 'is-version-change')) {
     bm_smoke_fail($failures, 'Tools and System acceptance polish is missing diagnostic wrapping, Upgrade flow placement, or compact history records.');
 }
-if (!str_contains($toolsAdmin, 'Move and protect data')
-    || !str_contains($toolsAdmin, 'Change system software')
-    || !str_contains($toolsAdmin, 'Monitor and automate')
-    || !str_contains($toolsAdmin, 'Access and support')) {
+if (!str_contains($toolsAdmin, 'Move data')
+    || !str_contains($toolsAdmin, 'Maintain software')
+    || !str_contains($toolsAdmin, 'Inspect and schedule')
+    || !str_contains($toolsAdmin, 'Related settings')) {
     bm_smoke_fail($failures, 'Tools must distinguish data movement, upgrades, diagnostics, and access workflows.');
 }
-if (!str_contains($importAdmin, 'Preview first')
-    || !str_contains($importAdmin, 'Step 3')
+if (!str_contains($importAdmin, '1. Upload and create preview')
+    || !str_contains($importAdmin, '3. Confirm the database import')
     || !str_contains($importAdmin, 'Writes database')
     || !str_contains($importMarkdownAdmin, 'Advanced migration')) {
     bm_smoke_fail($failures, 'Import workflows must distinguish staging, confirmation, database writes, and private-folder migration.');
 }
-if (!str_contains($exportAdmin, 'Portable outputs')
-    || !str_contains($exportAdmin, 'Private backups')
-    || !str_contains($exportAdmin, 'Sensitive data')) {
+if (!str_contains($exportAdmin, 'Portable content and public-facing outputs')
+    || !str_contains($exportAdmin, 'Private backup packages')
+    || !str_contains($exportAdmin, 'Sensitive account and security data')) {
     bm_smoke_fail($failures, 'Export must distinguish portable outputs from sensitive private backups.');
 }
-if (!str_contains($upgradeAdmin, 'High-risk operation')
-    || !str_contains($upgradeAdmin, 'Step 1')
+if (!str_contains($upgradeAdmin, 'Run Upgrade replaces package-managed software')
+    || !str_contains($upgradeAdmin, '1. Upload and check a trusted release ZIP')
     || !str_contains($upgradeAdmin, 'Final confirmation')
     || str_contains($upgradeAdmin, 'class="admin-table')) {
     bm_smoke_fail($failures, 'Upgrade must use staged package checks, explicit final confirmation, and responsive history records.');
 }
-if (!str_contains($systemCheckAdmin, 'Read-only diagnostics')
-    || !str_contains($systemCheckAdmin, 'operations-check-grid')
+if (!str_contains($systemCheckAdmin, 'do not perform repairs')
+    || !str_contains($systemCheckAdmin, 'system-check-list')
     || !str_contains($analyticsAdmin, 'operations-danger-zone')
-    || !str_contains($helpAdmin, 'Operational help')) {
+    || !str_contains($helpAdmin, 'product reference')) {
     bm_smoke_fail($failures, 'Diagnostics, analytics danger actions, or operational Help are incomplete.');
 }
 if (!str_contains($adminNavigation, "['label' => 'Scheduled tasks'")

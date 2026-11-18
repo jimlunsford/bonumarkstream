@@ -166,71 +166,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-bms_admin_header('Export', [
-    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
-]);
+bms_admin_header('Export');
 $zipReady = class_exists('ZipArchive');
+$staticReady = function_exists('bms_generate_static_site_export');
 ?>
-<section class="panel operations-hero">
-  <div class="operations-hero-copy">
-    <p class="eyebrow">Ownership and backup</p>
-    <h2>Take your content out without confusing portability with privacy.</h2>
-    <p class="meta">Markdown, static HTML, and public media are portability outputs. Database and full exports are private backups that can contain account, authentication, API, registration, and security records.</p>
-  </div>
-  <span class="operation-risk-label <?= $zipReady ? 'is-safe' : 'is-destructive' ?>"><?= $zipReady ? 'ZIP ready' : 'ZIP unavailable' ?></span>
-</section>
-
-<section class="panel operations-summary-panel">
-  <div class="operations-summary-grid">
-    <div><span>Content source</span><strong>Database records</strong></div>
-    <div><span>Portable formats</span><strong>Markdown and HTML</strong></div>
-    <div><span>Private backups</span><strong>Database and Full</strong></div>
-    <div><span>Temporary output</span><strong>Deleted after download</strong></div>
-  </div>
-</section>
-
+<div class="system-workspace">
+<p class="system-intro">Download your content and data in the format you need.</p>
 <?php if (!$zipReady): ?>
-<section class="panel operations-danger-zone">
-  <div class="operations-panel-heading"><div><p class="eyebrow">Blocked</p><h2>PHP ZipArchive is unavailable.</h2><p class="meta">Exports cannot be created until the hosting environment enables the Zip extension.</p></div><span class="operation-risk-label is-destructive">Action unavailable</span></div>
-</section>
+<div class="system-warning"><h2>Exports unavailable</h2><p>PHP ZipArchive is unavailable. Your host must enable the Zip extension before any export can be created.</p></div>
 <?php endif; ?>
-
-<section class="panel operations-panel">
-  <div class="operations-section-heading"><div><p class="eyebrow">Portable outputs</p><h2>Content you can move or publish elsewhere</h2><p class="meta">These packages contain public-facing content or media rather than the complete private application database.</p></div><span class="operation-risk-label is-safe">Lower sensitivity</span></div>
-  <div class="operations-card-grid">
-    <?php foreach ([
-      'markdown' => ['Markdown Export', 'Database-first posts and pages exported as clean Markdown files with front matter.', 'Ownership format'],
-      'static' => ['Static Site Export', 'A portable HTML copy with feeds, assets, and media. It does not replace dynamic rendering on the live site.', 'Portable site'],
-      'media' => ['Media Library', 'Uploaded public media files from the site media directory.', 'Public files'],
-    ] as $key => $copy): ?>
-      <form method="post" class="operations-action-card">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-        <input type="hidden" name="export_kind" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
-        <span class="operation-risk-label is-safe"><?= htmlspecialchars($copy[2], ENT_QUOTES, 'UTF-8') ?></span>
-        <h3><?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></h3>
-        <p><?= htmlspecialchars($copy[1], ENT_QUOTES, 'UTF-8') ?></p>
-        <div class="operations-form-actions"><button type="submit" <?= $zipReady ? '' : 'disabled' ?>>Export <?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></button></div>
-      </form>
-    <?php endforeach; ?>
-  </div>
-</section>
-
-<section class="panel operations-danger-zone">
-  <div class="operations-section-heading"><div><p class="eyebrow">Private backups</p><h2>Packages that contain sensitive system data</h2><p class="meta">Store these files securely. Do not upload them to a public repository, public media folder, shared drive, or support ticket without reviewing their contents.</p></div><span class="operation-risk-label is-destructive">Sensitive data</span></div>
-  <div class="operations-card-grid">
-    <?php foreach ([
-      'database' => ['Database Backup', 'All Bonumark Stream database tables as SQL inserts. This can contain password hashes, email addresses, account metadata, API token hashes, invites, reset records, and security logs.'],
-      'full' => ['Full Bonumark Stream Package', 'Markdown, static output, media, and the complete private database export in one ZIP. This is the most sensitive export.'],
-    ] as $key => $copy): ?>
-      <form method="post" class="operations-action-card is-destructive">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-        <input type="hidden" name="export_kind" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
-        <span class="operation-risk-label is-destructive">Private backup</span>
-        <h3><?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></h3>
-        <p><?= htmlspecialchars($copy[1], ENT_QUOTES, 'UTF-8') ?></p>
-        <div class="operations-form-actions"><button type="submit" class="danger-button" <?= $zipReady ? '' : 'disabled' ?>>Export <?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></button></div>
-      </form>
-    <?php endforeach; ?>
-  </div>
-</section>
+<?php if (!$staticReady): ?>
+<div class="system-warning"><h2>Static output unavailable</h2><p>The static renderer is unavailable in this request. Static Site and Full package downloads are disabled here because they cannot include the expected HTML output. Markdown, Media and Database remain available when ZipArchive is enabled.</p></div>
+<?php endif; ?>
+<section class="system-section"><h2>Portable content and public-facing outputs</h2><p class="meta">Review the contents before sharing. Markdown includes draft and scheduled content and stored content versions; public media can include files used by unpublished content.</p>
+<div class="system-export-list">
+<?php foreach ([
+  'markdown' => ['Markdown', 'Posts and pages generated from database records, including drafts, scheduled posts, front matter and stored content versions. Use for migration or a readable content archive.'],
+  'static' => ['Static Site', 'A portable HTML copy with feeds, assets and media, using the existing public renderer. The live site continues to render dynamically.'],
+  'media' => ['Media', 'Files from the public media directory. Use to move or keep a copy of uploaded media.'],
+] as $key => $copy): ?>
+<form method="post" class="system-export-row">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" name="export_kind" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+  <div><h3><?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($copy[1], ENT_QUOTES, 'UTF-8') ?></p></div>
+  <button type="submit" class="secondary-button" <?= $zipReady && ($key !== 'static' || $staticReady) ? '' : 'disabled' ?>>Export <?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></button>
+</form>
+<?php endforeach; ?>
+</div></section>
+<section class="system-section"><h2>Private backup packages</h2>
+<div class="system-warning"><strong>Sensitive account and security data</strong><p>Database and Full exports can contain password hashes, email addresses, private configuration-related records, API-token hashes, invites, reset records and security logs. Store them securely. Do not distribute them publicly.</p></div>
+<div class="system-export-list">
+<?php foreach ([
+  'database' => ['Database', 'Database table contents as SQL INSERT records. This export does not include CREATE TABLE schema and is not a complete disaster-recovery backup.'],
+  'full' => ['Full package', 'Markdown, content versions, static output, media and the private database export in one ZIP. This is not a server snapshot or a complete copy of application configuration.'],
+] as $key => $copy): ?>
+<form method="post" class="system-export-row">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" name="export_kind" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>">
+  <div><h3><?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?> <span class="operation-risk-label is-sensitive">Private</span></h3><p><?= htmlspecialchars($copy[1], ENT_QUOTES, 'UTF-8') ?></p></div>
+  <button type="submit" class="secondary-button" <?= $zipReady && ($key !== 'full' || $staticReady) ? '' : 'disabled' ?>>Export <?= htmlspecialchars($copy[0], ENT_QUOTES, 'UTF-8') ?></button>
+</form>
+<?php endforeach; ?>
+</div></section>
+<p class="system-note">Each export downloads as a ZIP. Bonumark removes its temporary export file after streaming the download. Import restores supported content and media; it does not execute the database SQL.</p>
+</div>
 <?php bms_admin_footer(); ?>
