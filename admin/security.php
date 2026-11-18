@@ -32,23 +32,9 @@ bms_admin_header('Security', [
     ['label' => 'Edit Account', 'href' => bms_admin_url('user-edit.php?id=' . (int)($currentUser['id'] ?? 0)), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel settings-workflow-hero">
-  <div class="settings-workflow-hero-copy">
-    <p class="eyebrow">Security operations</p>
-    <h2>Review the controls that protect access.</h2>
-    <p class="meta">Bonumark Stream keeps security decisions in the workflow where they belong. This page brings those controls together without duplicating passwords, tokens, registration rules, or hosting checks.</p>
-  </div>
-  <span class="static-pill <?= $httpsEnabled ? 'generated' : 'warning' ?>"><?= $httpsEnabled ? 'HTTPS' : 'CHECK HTTPS' ?></span>
-</section>
-
-<section class="panel settings-summary-panel">
-  <div class="settings-summary-grid">
-    <div><span>Site transport</span><strong><?= $httpsEnabled ? 'HTTPS' : 'Not confirmed' ?></strong></div>
-    <div><span>Admin account</span><strong>@<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?></strong></div>
-    <div><span>Public registration</span><strong><?= htmlspecialchars($registrationLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
-    <div><span>Remote API</span><strong><?= $remoteEnabled ? 'Enabled, ' . $activeTokens . ' active token' . ($activeTokens === 1 ? '' : 's') : 'Disabled' ?></strong></div>
-  </div>
-</section>
+<div class="settings-detail">
+<p class="meta settings-detail-intro">Review existing access controls and open the setting responsible for each one.</p>
+<p class="meta">Configured site URL: <strong><?= $httpsEnabled ? 'HTTPS' : 'HTTPS not confirmed' ?></strong>. This is configuration information, not a live transport test.</p>
 
 <?php if (!$httpsEnabled): ?>
 <section class="panel settings-attention-panel is-danger">
@@ -91,4 +77,5 @@ bms_admin_header('Security', [
     <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('upgrade.php'), ENT_QUOTES, 'UTF-8') ?>">Open Upgrade</a>
   </div>
 </section>
+</div>
 <?php bms_admin_footer(); ?>

@@ -48,27 +48,9 @@ bms_admin_header('Themes', [
     ['label' => 'Install Theme', 'href' => bms_admin_url('theme-install.php'), 'style' => 'primary'],
 ]);
 ?>
-<section class="panel appearance-hero-panel">
-  <div class="appearance-hero-copy">
-    <p class="eyebrow">Site design</p>
-    <h2>Choose the public presentation.</h2>
-    <p class="meta">Themes control the look of the public site without owning posts, pages, media, accounts, comments, routing, or publishing behavior.</p>
-  </div>
-  <div class="appearance-hero-actions">
-    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8') ?>">Active Theme Settings</a>
-    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('site-identity.php'), ENT_QUOTES, 'UTF-8') ?>">Site Identity</a>
-    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8') ?>">Navigation</a>
-  </div>
-</section>
-
-<section class="panel appearance-summary-panel" aria-label="Theme summary">
-  <div class="appearance-summary-grid">
-    <div><span>Active theme</span><strong><?= htmlspecialchars($activeThemeName, ENT_QUOTES, 'UTF-8') ?></strong></div>
-    <div><span>Installed themes</span><strong><?= $themeCount ?></strong></div>
-    <div><span>Ready to use</span><strong><?= $readyThemeCount ?></strong></div>
-    <div><span>Needs attention</span><strong><?= count($discoveryIssues) ?></strong></div>
-  </div>
-</section>
+<div class="appearance-detail">
+<p class="meta settings-detail-intro">Choose the public site presentation. Themes do not change Admin appearance.</p>
+<p class="meta">Active: <strong><?= htmlspecialchars($activeThemeName, ENT_QUOTES, 'UTF-8') ?></strong> · <?= (int)$themeCount ?> installed</p>
 
 <?php if ($discoveryIssues): ?>
   <section class="panel appearance-attention-panel">
@@ -159,4 +141,5 @@ bms_admin_header('Themes', [
   <?php endforeach; ?>
 </section>
 
+</div>
 <?php bms_admin_footer(); ?>

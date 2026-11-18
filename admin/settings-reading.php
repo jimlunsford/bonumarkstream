@@ -70,23 +70,8 @@ bms_admin_header('Reading Settings', [
     ['label' => 'Sitemap', 'href' => $sitemapUrl, 'style' => 'secondary', 'target' => true],
 ]);
 ?>
-<section class="panel settings-workflow-hero">
-  <div class="settings-workflow-hero-copy">
-    <p class="eyebrow">Settings</p>
-    <h2>Control how the stream is read and discovered.</h2>
-    <p class="meta">Reading Settings covers timeline density, public search indexing, the XML sitemap, installed-app behavior, mobile sharing, and remembered device access.</p>
-  </div>
-  <span class="static-pill generated">READING</span>
-</section>
-
-<section class="panel settings-summary-panel">
-  <div class="settings-summary-grid">
-    <div><span>Posts per page</span><strong><?= (int)$streamCount ?></strong></div>
-    <div><span>Post dates</span><strong><?= $streamDates ? 'Shown' : 'Hidden' ?></strong></div>
-    <div><span>Index policy</span><strong><?= htmlspecialchars($indexPolicyLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
-    <div><span>Installable app</span><strong><?= $pwaEnabled ? 'Enabled' : 'Disabled' ?></strong></div>
-  </div>
-</section>
+<div class="settings-detail">
+<p class="meta settings-detail-intro">Control stream display, search discovery, installed-app support and remembered devices.</p>
 
 <form method="post" class="settings-section-list">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -152,8 +137,9 @@ bms_admin_header('Reading Settings', [
   </section>
 
   <section class="panel settings-save-bar">
-    <div><strong>Save Reading Settings</strong><p class="meta">Dynamic public routes use the updated values immediately.</p></div>
-    <button type="submit">Save Reading Settings</button>
+    <div><strong>Save reading settings</strong><p class="meta">Dynamic public routes use the updated values immediately.</p></div>
+    <button type="submit">Save reading settings</button>
   </section>
 </form>
+</div>
 <?php bms_admin_footer(); ?>

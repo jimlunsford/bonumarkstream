@@ -868,8 +868,8 @@ if (str_contains($adminLayoutSource, '>New Stream Post<') || !str_contains($admi
 
 $streamSettings = @file_get_contents($root . '/admin/settings-reading.php') ?: '';
 if (!str_contains($streamSettings, "bms_admin_header('Reading Settings'")
-    || !str_contains($streamSettings, 'Control how the stream is read and discovered.')
-    || !str_contains($streamSettings, 'Save Reading Settings')) {
+    || !str_contains($streamSettings, 'class="settings-detail"')
+    || !str_contains($streamSettings, 'Save reading settings')) {
     bm_smoke_fail($failures, 'Reading settings screen is missing the current workflow title or save action.');
 }
 if (str_contains($streamSettings, "bms_admin_header('Stream Settings'") || str_contains($streamSettings, 'Save Stream Settings')) {
@@ -1413,11 +1413,11 @@ if (!str_contains($adminLayout, "bms_asset_url('assets/admin-registration.css')"
     bm_smoke_fail($failures, 'Registration component stylesheet is not integrated into the Admin shell and service worker.');
 }
 if (!str_contains($registrationAdmin, "bms_admin_header('Registration'")
-    || !str_contains($registrationAdmin, 'registration-summary-panel')
+    || !str_contains($registrationAdmin, 'class="registration-detail"')
     || !str_contains($registrationAdmin, 'class="registration-option-card"')
     || !str_contains($registrationAdmin, 'class="registration-invite-record"')
     || str_contains($registrationAdmin, 'class="admin-table')) {
-    bm_smoke_fail($failures, 'Registration must use the modern summary, option-card, and responsive invite-record workflow.');
+    bm_smoke_fail($failures, 'Registration must retain the flat settings form, option controls and responsive invite records.');
 }
 if (!str_contains($adminRegistrationCss, 'Bonumark Stream Admin Registration')
     || !str_contains($adminRegistrationCss, '.registration-workflow-grid')
@@ -1610,10 +1610,10 @@ if (!str_contains($placesApp, 'function bms_places_filter(')
 }
 
 if (!str_contains($themesAdmin, 'class="appearance-theme-grid"')
-    || !str_contains($themesAdmin, 'class="appearance-summary-grid"')
+    || !str_contains($themesAdmin, 'class="appearance-detail"')
     || !str_contains($themesAdmin, 'View Details')
-    || !str_contains($themesAdmin, 'Active Theme Settings')) {
-    bm_smoke_fail($failures, 'Themes must act as the Site Design hub with theme summaries, cards, and lifecycle actions.');
+    || !str_contains($themesAdmin, 'Edit Settings')) {
+    bm_smoke_fail($failures, 'Themes must retain the public theme list, details, settings and lifecycle actions.');
 }
 if (!str_contains($themeSettingsAdmin, 'type="hidden" name="active_public_theme"')
     || !str_contains($themeSettingsAdmin, 'class="appearance-setting-list"')

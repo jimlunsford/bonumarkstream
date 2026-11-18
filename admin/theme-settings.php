@@ -51,41 +51,16 @@ bms_admin_header('Theme Settings', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel appearance-hero-panel appearance-theme-settings-hero">
-  <div class="appearance-hero-copy">
-    <p class="eyebrow">Active theme</p>
-    <h2>Configure <?= htmlspecialchars((string)($activeTheme['name'] ?? 'the active theme'), ENT_QUOTES, 'UTF-8') ?>.</h2>
-    <p class="meta">This screen edits the settings exposed by the active theme. Activate a different design from Themes before configuring it.</p>
-  </div>
-  <span class="status-pill <?= !empty($activeHealth['valid']) ? 'published' : 'trash' ?>"><?= htmlspecialchars((string)($activeHealth['label'] ?? 'Theme health'), ENT_QUOTES, 'UTF-8') ?></span>
-</section>
+<div class="appearance-detail">
+<p class="meta settings-detail-intro">Settings for <strong><?= htmlspecialchars((string)($activeTheme['name'] ?? 'the active theme'), ENT_QUOTES, 'UTF-8') ?></strong>. These values change the public site only.</p>
+<p class="meta"><?= htmlspecialchars((string)($activeHealth['label'] ?? 'Theme health'), ENT_QUOTES, 'UTF-8') ?></p>
 
 <form method="post" class="appearance-theme-settings-form">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
   <input type="hidden" name="active_public_theme" value="<?= htmlspecialchars($activePackage, ENT_QUOTES, 'UTF-8') ?>">
 
   <div class="appearance-settings-layout">
-    <aside class="panel appearance-active-theme-panel">
-      <div class="appearance-active-theme-preview">
-        <?php if ($screenshotUrl !== ''): ?>
-          <img src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($activeTheme['name'] ?? 'Active theme'), ENT_QUOTES, 'UTF-8') ?> screenshot">
-        <?php else: ?>
-          <div class="appearance-theme-preview-empty"><span>No screenshot</span></div>
-        <?php endif; ?>
-      </div>
-      <div class="appearance-active-theme-copy">
-        <p class="eyebrow">Current design</p>
-        <h2><?= htmlspecialchars((string)($activeTheme['name'] ?? 'Midnight Ledger'), ENT_QUOTES, 'UTF-8') ?></h2>
-        <p class="meta"><?= htmlspecialchars((string)($activeTheme['description'] ?? 'A Bonumark Stream public theme.'), ENT_QUOTES, 'UTF-8') ?></p>
-      </div>
-      <dl class="appearance-theme-facts appearance-active-theme-facts">
-        <div><dt>Slug</dt><dd><code><?= htmlspecialchars((string)($activeTheme['slug'] ?? $activePackage), ENT_QUOTES, 'UTF-8') ?></code></dd></div>
-        <div><dt>Version</dt><dd><?= htmlspecialchars((string)($activeTheme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></dd></div>
-        <div><dt>Author</dt><dd><?= htmlspecialchars((string)($activeTheme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></dd></div>
-        <div><dt>Fields</dt><dd><?= count($settingsSchema) ?></dd></div>
-      </dl>
-      <a class="button-link secondary appearance-full-action" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Choose Another Theme</a>
-    </aside>
+
 
     <section class="panel appearance-theme-fields-panel">
       <div class="appearance-section-heading">
@@ -94,7 +69,7 @@ bms_admin_header('Theme Settings', [
           <h2>Presentation settings</h2>
           <p class="meta">Changes apply immediately to dynamic public routes after saving.</p>
         </div>
-        <button type="submit">Save Theme Settings</button>
+        <button type="submit">Save theme settings</button>
       </div>
 
       <?php if (!$settingsSchema): ?>
@@ -142,10 +117,32 @@ bms_admin_header('Theme Settings', [
       <?php endif; ?>
 
       <div class="appearance-form-actions">
-        <button type="submit">Save Theme Settings</button>
+        <button type="submit">Save theme settings</button>
         <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Back to Themes</a>
       </div>
     </section>
   </div>
+<details class="appearance-active-theme-panel"><summary>Active theme details</summary>
+      <div class="appearance-active-theme-preview">
+        <?php if ($screenshotUrl !== ''): ?>
+          <img src="<?= htmlspecialchars($screenshotUrl, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($activeTheme['name'] ?? 'Active theme'), ENT_QUOTES, 'UTF-8') ?> screenshot">
+        <?php else: ?>
+          <div class="appearance-theme-preview-empty"><span>No screenshot</span></div>
+        <?php endif; ?>
+      </div>
+      <div class="appearance-active-theme-copy">
+        <p class="eyebrow">Current design</p>
+        <h2><?= htmlspecialchars((string)($activeTheme['name'] ?? 'Midnight Ledger'), ENT_QUOTES, 'UTF-8') ?></h2>
+        <p class="meta"><?= htmlspecialchars((string)($activeTheme['description'] ?? 'A Bonumark Stream public theme.'), ENT_QUOTES, 'UTF-8') ?></p>
+      </div>
+      <dl class="appearance-theme-facts appearance-active-theme-facts">
+        <div><dt>Slug</dt><dd><code><?= htmlspecialchars((string)($activeTheme['slug'] ?? $activePackage), ENT_QUOTES, 'UTF-8') ?></code></dd></div>
+        <div><dt>Version</dt><dd><?= htmlspecialchars((string)($activeTheme['version'] ?? '1.0.0'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+        <div><dt>Author</dt><dd><?= htmlspecialchars((string)($activeTheme['author'] ?? 'Bonumark'), ENT_QUOTES, 'UTF-8') ?></dd></div>
+        <div><dt>Fields</dt><dd><?= count($settingsSchema) ?></dd></div>
+      </dl>
+      <a class="button-link secondary appearance-full-action" href="<?= htmlspecialchars(bms_admin_url('theme.php'), ENT_QUOTES, 'UTF-8') ?>">Choose Another Theme</a>
+    </details>
 </form>
+</div>
 <?php bms_admin_footer(); ?>
