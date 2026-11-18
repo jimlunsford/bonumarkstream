@@ -451,6 +451,7 @@ body.bonumark-admin .registration-detail .registration-invite-header { display: 
 body.bonumark-admin .registration-detail .registration-invite-record { grid-template-columns: repeat(2, minmax(0, 1fr)); background: transparent; border: 0; border-top: 1px solid var(--admin-border); border-radius: 0; padding: 20px 0; margin: 0; }
 body.bonumark-admin .registration-detail .registration-invite-record:hover { background: var(--admin-surface); }
 body.bonumark-admin .registration-detail .registration-invite-record > div { grid-column: auto; grid-row: auto; }
+body.bonumark-admin .registration-detail .registration-invite-actions button { min-height: 44px; }
 body.bonumark-admin .registration-detail .registration-mobile-label { display: block; }
 body.bonumark-admin .registration-detail .registration-invites-empty { background: transparent; border: 0; padding: 20px 0; }
 body.bonumark-admin .registration-detail :is(.field-help, small) { font-size: .875rem; line-height: 1.5; }

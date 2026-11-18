@@ -1037,6 +1037,7 @@ body.bonumark-admin .appearance-detail .appearance-navigation-option-list { grid
 body.bonumark-admin .appearance-detail .appearance-navigation-item { background: transparent; border: 0; border-top: 1px solid var(--admin-border); border-radius: 0; }
 body.bonumark-admin .appearance-detail .appearance-navigation-item-header { padding: 20px 0 12px; grid-template-columns: 36px minmax(0, 1fr); }
 body.bonumark-admin .appearance-detail .appearance-navigation-item-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; }
+body.bonumark-admin .appearance-detail .appearance-navigation-item-actions button { min-height: 44px; }
 body.bonumark-admin .appearance-detail .appearance-navigation-item-fields { padding: 0 0 20px; grid-template-columns: minmax(0, 1fr); max-width: 640px; }
 body.bonumark-admin .appearance-detail .appearance-navigation-add-grid { border-top: 1px solid var(--admin-border); padding-top: 24px; }
 body.bonumark-admin .appearance-detail .appearance-theme-card { border-radius: 4px; box-shadow: none; background: var(--admin-bg); }
