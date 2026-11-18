@@ -2,15 +2,14 @@
 if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 ?>
 <div class="activitypub-admin">
-<section class="panel settings-workflow-hero" id="ap-profile">
+<section class="ap-profile" id="ap-profile">
   <div class="settings-workflow-hero-copy">
-    <p class="eyebrow">ActivityPub status</p><h2>Federated profile</h2>
-    <p><strong><?= bms_ap_admin_h($owner['display_name'] ?? 'Site owner') ?></strong></p>
+    <h2><?= bms_ap_admin_h($owner['display_name'] ?? 'Site owner') ?></h2>
     <?php if ($profileHandle !== ''): ?><p><bdi><?= bms_ap_admin_h($profileHandle) ?></bdi></p><?php endif; ?>
     <p class="ap-identity"><a href="<?= bms_ap_admin_h($actorUrl) ?>"><?= bms_ap_admin_h($actorUrl) ?></a></p>
     <p class="meta">Share public Stream posts and join conversations across the fediverse. Your posts and media stay on Bonumark.</p>
   </div>
-  <span class="static-pill <?= $operationalState === 'active' && !$deliverySuspended ? 'generated' : 'warning' ?>"><?= bms_ap_admin_h(strtoupper($deliverySuspended && $operationalState === 'active' ? 'delivery suspended' : $operationalState)) ?></span>
+  <span class="static-pill <?= $operationalState === 'active' && !$deliverySuspended ? 'generated' : (in_array($operationalState, ['disabled', 'retired', 'deactivated'], true) ? 'draft' : 'warning') ?>"><?= bms_ap_admin_h(is_array($retirement) ? 'Retired' : ($deliverySuspended && $operationalState === 'active' ? 'Delivery suspended' : ucfirst($operationalState))) ?></span>
 </section>
 <?php if ($attention['needed']): ?>
 <section class="panel ap-attention" aria-labelledby="ap-attention-title">
@@ -23,15 +22,15 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
   <a href="#ap-following">Following</a><a href="#ap-followers">Followers</a><a href="#ap-replies">Reply moderation</a><a href="#ap-settings">Settings</a><a href="#ap-diagnostics">Diagnostics</a>
 </nav>
 <section id="ap-following" class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Relationship management</p><h2>Following</h2><a href="<?= bms_ap_admin_h(bms_site_url('following/')) ?>">Open Following feed</a><p class="meta">Follow a person by their fediverse handle or profile URL. Their posts appear in your private Following feed.</p></div><span class="static-pill draft"><?= count($following) ?> SHOWN</span></div>
-  <form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="follow_actor"><label for="actor_uri">Fediverse handle or profile URL</label><input id="actor_uri" name="actor_uri" type="text" required maxlength="2048" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@name@example.com"><button type="submit" class="button-link secondary">Follow</button></form>
+  <div class="settings-record-heading"><div><h2>Following</h2><a href="<?= bms_ap_admin_h(bms_site_url('following/')) ?>">Open Following feed</a><p class="meta">Follow a person by their fediverse handle or profile URL. Their posts appear in your private Following feed.</p></div><span class="static-pill draft"><?= count($following) ?> SHOWN</span></div>
+  <form method="post" class="ap-follow-form"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="follow_actor"><label for="actor_uri">Fediverse handle or profile URL</label><input id="actor_uri" name="actor_uri" type="text" required maxlength="2048" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@name@example.com"><button type="submit" class="button-link secondary">Follow</button></form>
   <?php if (!$following): ?><div class="settings-empty-state"><h3>You are not following anyone yet.</h3></div><?php else: ?><div class="ap-record-list"><?php foreach ($following as $relationship): ?>
     <article class="ap-record"><div class="settings-record-cell"><strong><?= htmlspecialchars(trim((string)$relationship['display_name']) ?: trim((string)$relationship['preferred_username']) ?: 'Remote profile', ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)$relationship['actor_uri'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill <?= (string)$relationship['state'] === 'accepted' ? 'generated' : ((string)$relationship['state'] === 'pending' ? 'warning' : 'draft') ?>"><?= htmlspecialchars(strtoupper((string)$relationship['state']), ENT_QUOTES, 'UTF-8') ?></span><small><?= htmlspecialchars((string)($relationship['last_error'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><?php if ((string)$relationship['state'] !== 'removed'): ?><form method="post" class="settings-inline-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="unfollow_actor"><input type="hidden" name="following_id" value="<?= (int)$relationship['id'] ?>"><button type="submit" class="button-link secondary danger">Unfollow</button></form><?php endif; ?></div></article>
   <?php endforeach; ?></div><?php endif; ?>
   <?php bms_ap_admin_pager('following', $pages); ?>
 </section>
 <section id="ap-followers" class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Moderation</p><h2>Followers</h2><p class="meta">Review follow requests and manage who follows your federated profile. Only accepted followers appear publicly.</p></div><span class="static-pill draft"><?= count($followers) ?> SHOWN</span></div>
+  <div class="settings-record-heading"><div><h2>Followers</h2><p class="meta">Review follow requests and manage who follows your federated profile. Only accepted followers appear publicly.</p></div><span class="static-pill draft"><?= count($followers) ?> SHOWN</span></div>
   <?php if (!$followers): ?><div class="settings-empty-state"><h3>No follow requests yet.</h3></div><?php else: ?>
   <div class="ap-record-list"><?php foreach ($followers as $follower): ?>
     <article class="ap-record">
@@ -43,7 +42,7 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
   <?php bms_ap_admin_pager('followers', $pages); ?>
 </section>
 <section id="ap-replies" class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Reply moderation</p><h2>Reply moderation</h2><p class="meta">Review replies from the fediverse before they appear in your public conversations.</p></div><span class="static-pill draft"><?= count($remoteReplies) ?> SHOWN</span></div>
+  <div class="settings-record-heading"><div><h2>Reply moderation</h2><p class="meta">Review replies from the fediverse before they appear in your public conversations.</p></div><span class="static-pill draft"><?= count($remoteReplies) ?> SHOWN</span></div>
   <?php if (!$remoteReplies): ?><div class="settings-empty-state"><h3>No authenticated remote reply has been received.</h3><p class="meta">New remote replies default to pending review.</p></div><?php else: ?>
   <div class="ap-record-list"><?php foreach ($remoteReplies as $reply):
     $replyState = (string)($reply['moderation_state'] ?? 'pending');
@@ -65,13 +64,13 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
   <?php bms_ap_admin_pager('replies', $pages); ?>
 </section>
 <section id="ap-settings" class="panel settings-section-panel">
-  <div class="settings-section-header"><div><p class="eyebrow">Configuration</p><h2>Federation settings</h2><p class="meta">Choose how to approve followers, pause federation, or suspend delivery.</p></div></div>
+  <div class="settings-section-header"><div><h2>Federation settings</h2><p class="meta">Choose how to approve followers, pause federation, or suspend delivery.</p></div></div>
   <form method="post">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="activitypub_action" value="save">
     <div class="settings-option-list"><label class="settings-option-card"><input type="checkbox" name="activitypub_enabled" value="1" <?= $enabled ? 'checked' : '' ?>><span class="settings-option-copy"><strong>Enable ActivityPub</strong><small>Use this for initial activation. Once federation history exists, use pause or deliberate deactivation instead of removing an established federated profile.</small></span></label><label class="settings-option-card"><input type="checkbox" name="activitypub_paused" value="1" <?= $operationalState === 'paused' ? 'checked' : '' ?> <?= !$enabled ? 'disabled' : '' ?>><span class="settings-option-copy"><strong>Pause federation</strong><small>Keep profile discovery and your existing identity available, reject new inbox work with a temporary response, stop new publication activities, and leave relationships intact.</small></span></label><label class="settings-option-card"><input type="checkbox" name="activitypub_delivery_suspended" value="1" <?= $deliverySuspended ? 'checked' : '' ?> <?= !$enabled ? 'disabled' : '' ?>><span class="settings-option-copy"><strong>Suspend outbound delivery</strong><small>Continue discovery, inbox processing, and local activity recording, but leave all queued deliveries unclaimed until resumed.</small></span></label></div>
     <div class="settings-field-grid"><div class="settings-field-card"><label for="activitypub_follow_policy">Follower approval</label><select id="activitypub_follow_policy" name="activitypub_follow_policy"><option value="manual" <?= $policy === 'manual' ? 'selected' : '' ?>>Manual approval</option><option value="automatic" <?= $policy === 'automatic' ? 'selected' : '' ?>>Automatic approval</option></select></div></div>
-    <div class="settings-save-bar"><div><strong>Save federation settings</strong><p class="meta">Changing this setting does not publish, import, export, or deliver posts.</p></div><button type="submit">Save ActivityPub Settings</button></div>
+    <div class="settings-save-bar"><div><strong>Save federation settings</strong><p class="meta">Changing this setting does not publish, import, export, or deliver posts.</p></div><button type="submit">Save ActivityPub settings</button></div>
   </form>
 </section>
 
@@ -81,7 +80,7 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 <p class="meta">Detailed checks, delivery records and recovery tools remain available below. Each list shows ten records per page.</p>
 <details class="ap-disclosure"<?= count($attention['checks']) > 0 ? ' open' : '' ?>><summary>Federation checks</summary>
 <section class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Readiness</p><h3>Federation checks</h3></div></div>
+  <div class="settings-record-heading"><div><h3>Federation checks</h3></div></div>
   <div class="ap-record-list"><?php foreach ($checks as $check): ?><article class="ap-record"><div class="settings-record-cell"><strong><?= htmlspecialchars((string)$check['label'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="settings-record-cell"><span class="static-pill <?= (string)$check['status'] === 'pass' ? 'generated' : ((string)$check['status'] === 'warn' ? 'warning' : 'draft') ?>"><?= htmlspecialchars(strtoupper((string)$check['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><?= htmlspecialchars((string)$check['message'], ENT_QUOTES, 'UTF-8') ?></div></article><?php endforeach; ?></div>
 </section>
 
@@ -89,7 +88,7 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 
 <details class="ap-disclosure"<?= $attention['failed'] > 0 || $attention['issues'] > 0 || $pages['operations']['number'] > 1 ? ' open' : '' ?>><summary>Queue health and recovery</summary>
 <section id="ap-operations" class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Operations</p><h3>Federation queue health</h3><p class="meta">Inspection and repair preserve immutable payloads and audit rows. Reconciliation recovers stale workers and cancels unsafe or orphaned work without deleting history.</p></div><span class="static-pill <?= $queueIssues ? 'warning' : 'generated' ?>"><?= count($queueIssues) ?> ISSUE<?= count($queueIssues) === 1 ? '' : 'S' ?></span></div>
+  <div class="settings-record-heading"><div><h3>Federation queue health</h3><p class="meta">Inspection and repair preserve immutable payloads and audit rows. Reconciliation recovers stale workers and cancels unsafe or orphaned work without deleting history.</p></div><span class="static-pill <?= $queueIssues ? 'warning' : 'generated' ?>"><?= count($queueIssues) ?> ISSUE<?= count($queueIssues) === 1 ? '' : 'S' ?></span></div>
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="reconcile_queue"><button type="submit" class="button-link secondary">Reconcile Queue Safely</button></form>
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="cleanup_remote_cache"><button type="submit" class="button-link secondary">Clean Remote Cache Safely</button></form>
   <?php if ($queueSummary): ?><div class="ap-record-list"><?php foreach ($queueSummary as $summary): ?><article class="ap-record<?= in_array((string)($summary['status'] ?? ''), ['retry', 'dead'], true) ? ' ap-record-failed' : '' ?>"><div class="settings-record-cell"><strong><?= htmlspecialchars((string)$summary['delivery_type'], ENT_QUOTES, 'UTF-8') ?></strong></div><div class="settings-record-cell"><span class="static-pill <?= (string)$summary['status'] === 'delivered' ? 'generated' : ((string)$summary['status'] === 'dead' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper((string)$summary['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><small><?= (int)$summary['total'] ?> row(s)</small><small>Oldest available: <?= htmlspecialchars((string)($summary['oldest_available_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></div></article><?php endforeach; ?></div><?php endif; ?>
@@ -99,9 +98,9 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 </section>
 </details>
 
-<details class="ap-disclosure"<?= $pages['deliveries']['number'] > 1 ? ' open' : '' ?>><summary>Publication delivery history</summary>
+<details class="ap-disclosure"<?= $attention['failed'] > 0 || $pages['deliveries']['number'] > 1 ? ' open' : '' ?>><summary>Publication delivery history</summary>
 <section id="ap-deliveries" class="panel settings-section-panel">
-  <div class="settings-record-heading"><div><p class="eyebrow">Publication delivery</p><h3>Outbound federation</h3><p class="meta">Each row belongs to one durable local activity. Retries reuse that activity and never recreate the post or expose signing material.</p></div><span class="static-pill draft"><?= count($publicationDeliveries) ?> SHOWN</span></div>
+  <div class="settings-record-heading"><div><h3>Outbound federation</h3><p class="meta">Each row belongs to one durable local activity. Retries reuse that activity and never recreate the post or expose signing material.</p></div><span class="static-pill draft"><?= count($publicationDeliveries) ?> SHOWN</span></div>
   <?php if (!$publicationDeliveries): ?><div class="settings-empty-state"><h3>No publication delivery has been queued.</h3><p class="meta">Existing historical posts remain discoverable through the outbox but are not backfilled to followers.</p></div><?php else: ?>
   <div class="ap-record-list"><?php foreach ($publicationDeliveries as $delivery):
     $deliveryStatus = (string)($delivery['status'] ?? 'pending');
@@ -119,7 +118,7 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 
 <details class="ap-disclosure"<?= empty($keyHealth['ok']) ? ' open' : '' ?>><summary>Signing identity and key history</summary>
 <section class="panel settings-section-panel">
-  <div class="settings-section-header"><div><p class="eyebrow">Signing identity</p><h3>HTTP signing key</h3><p class="meta">The private key stays encrypted in application storage and is never displayed. Rotation creates and verifies the replacement before atomically retiring the prior key. The stable actor key ID remains unchanged so existing relationships do not need to follow a new identity.</p></div><span class="static-pill <?= !empty($keyHealth['ok']) ? 'generated' : 'warning' ?>"><?= !empty($keyHealth['ok']) ? 'HEALTHY' : 'RECOVERY NEEDED' ?></span></div>
+  <div class="settings-section-header"><div><h3>HTTP signing key</h3><p class="meta">The private key stays encrypted in application storage and is never displayed. Rotation creates and verifies the replacement before atomically retiring the prior key. The stable actor key ID remains unchanged so existing relationships do not need to follow a new identity.</p></div><span class="static-pill <?= !empty($keyHealth['ok']) ? 'generated' : 'warning' ?>"><?= !empty($keyHealth['ok']) ? 'HEALTHY' : 'RECOVERY NEEDED' ?></span></div>
   <p class="meta"><?= htmlspecialchars((string)$keyHealth['message'], ENT_QUOTES, 'UTF-8') ?></p>
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="provision_key"><button type="submit" class="button-link secondary"><?= is_array($key) ? 'Rotate Signing Key' : 'Provision Signing Key' ?></button></form>
   <?php if ($keyHistory): ?><div class="ap-record-list"><?php foreach ($keyHistory as $historyKey): ?><article class="ap-record"><div class="settings-record-cell"><strong>Key <?= (int)$historyKey['id'] ?></strong><small><?= htmlspecialchars((string)$historyKey['algorithm'], ENT_QUOTES, 'UTF-8') ?></small></div><div class="settings-record-cell"><span class="static-pill <?= (string)$historyKey['status'] === 'active' ? 'generated' : 'draft' ?>"><?= htmlspecialchars(strtoupper((string)$historyKey['status']), ENT_QUOTES, 'UTF-8') ?></span></div><div class="settings-record-cell"><small>Created <?= htmlspecialchars((string)$historyKey['created_at'], ENT_QUOTES, 'UTF-8') ?></small><?php if (!empty($historyKey['retired_at'])): ?><small>Retired <?= htmlspecialchars((string)$historyKey['retired_at'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?></div></article><?php endforeach; ?></div><?php endif; ?>
@@ -128,9 +127,10 @@ if (!defined('BMS_ADMIN_ACTIVITYPUB_VIEW')) { http_response_code(403); exit; }
 </details>
 
 </section>
-<details class="ap-disclosure"<?= false ? ' open' : '' ?>><summary>Danger Zone: permanent federation deactivation</summary>
+<div class="ap-retirement-warning"><h2>Permanent federation deactivation</h2><p>Irreversible. Retires the federated identity permanently. Local Stream Posts, Pages, media and account data remain.</p></div>
+<details class="ap-disclosure ap-danger-disclosure"><summary>Review permanent deactivation</summary>
 <section id="ap-danger" class="panel settings-section-panel">
-  <div class="settings-section-header"><div><p class="eyebrow">Danger Zone</p><h3>Permanent federation deactivation</h3><p class="meta">This permanently retires the current federated identity, queues a signed Actor Delete for accepted followers, cancels remaining outbound federation work, and prevents this identity from ever being enabled again. It does not delete Bonumark posts, comments, local likes, media, Profile data, Pages, themes, imports, or exports.</p></div><span class="static-pill <?= is_array($retirement) ? 'draft' : 'warning' ?>"><?= is_array($retirement) ? 'IDENTITY RETIRED' : 'IRREVERSIBLE' ?></span></div>
+  <div class="settings-section-header"><div><h3>Permanent federation deactivation</h3><p class="meta">This permanently retires the current federated identity, queues a signed Actor Delete for accepted followers, cancels remaining outbound federation work, and prevents this identity from ever being enabled again. It does not delete Bonumark posts, comments, local likes, media, Profile data, Pages, themes, imports, or exports.</p></div><span class="static-pill <?= is_array($retirement) ? 'draft' : 'warning' ?>"><?= is_array($retirement) ? 'IDENTITY RETIRED' : 'IRREVERSIBLE' ?></span></div>
   <?php if (is_array($retirement)): ?><p class="meta">Retired <?= htmlspecialchars((string)$retirement['retired_at'], ENT_QUOTES, 'UTF-8') ?>. Profile URL: <?= htmlspecialchars((string)$retirement['actor_uri'], ENT_QUOTES, 'UTF-8') ?></p><?php else: ?>
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="activitypub_action" value="permanent_deactivation"><label for="permanent_deactivation_confirmation">Type <strong>PERMANENTLY DELETE FEDERATED ACTOR</strong> to confirm</label><input id="permanent_deactivation_confirmation" name="permanent_deactivation_confirmation" type="text" required autocomplete="off" spellcheck="false"><button type="submit" class="button-link secondary danger">Permanently deactivate federation</button></form>
   <?php endif; ?>

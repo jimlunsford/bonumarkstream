@@ -93,17 +93,9 @@ bms_admin_header('Remote Posting', [
     ['label' => 'API Documentation', 'href' => bms_url_path('docs/API.md'), 'style' => 'secondary', 'target' => true],
 ]);
 ?>
-<section class="panel settings-workflow-hero">
-  <div class="settings-workflow-hero-copy"><p class="eyebrow">System operations</p><h2>Control trusted remote publishing.</h2><p class="meta">The Remote API uses scoped tokens for external tools. Keep it disabled until the client, token scopes, publishing rules, and rate limit are intentional.</p></div>
-  <span class="static-pill <?= $enabled ? 'generated' : 'draft' ?>"><?= $enabled ? 'API ENABLED' : 'API DISABLED' ?></span>
-</section>
-
-<section class="panel settings-summary-panel"><div class="settings-summary-grid">
-  <div><span>API state</span><strong><?= $enabled ? 'Enabled' : 'Disabled' ?></strong></div>
-  <div><span>Active tokens</span><strong><?= $activeTokens ?></strong></div>
-  <div><span>Direct publish</span><strong><?= $directPublishEnabled ? 'Allowed' : 'Disabled' ?></strong></div>
-  <div><span>Rate limit</span><strong><?= (int)$rateLimit ?> per minute</strong></div>
-</div></section>
+<div class="settings-detail">
+<p class="meta settings-detail-intro">Control remote publishing through scoped API tokens and explicit publishing rules.</p>
+<p class="meta">API <strong><?= $enabled ? 'enabled' : 'disabled' ?></strong> · <?= (int)$activeTokens ?> active token<?= $activeTokens === 1 ? '' : 's' ?></p>
 
 <?php if ($enabled && $activeTokens === 0): ?><section class="panel settings-attention-panel"><p class="eyebrow">Needs attention</p><h2>The API is enabled without an active token.</h2><p class="meta">No client can authenticate until a scoped token is created. Disable the API if remote access is not currently needed.</p></section><?php endif; ?>
 
@@ -125,13 +117,13 @@ bms_admin_header('Remote Posting', [
         <div class="settings-field-card"><label for="remote_posting_default_status">Default remote post status</label><select id="remote_posting_default_status" name="remote_posting_default_status"><option value="draft" <?= $defaultStatus === 'draft' ? 'selected' : '' ?>>Draft</option><option value="published" <?= $defaultStatus === 'published' ? 'selected' : '' ?> <?= $directPublishEnabled ? '' : 'disabled' ?>>Published</option></select><p class="field-help">Explicit published and scheduled requests still require direct publishing and the publish scope.</p></div>
         <div class="settings-field-card"><label for="remote_posting_rate_limit_per_minute">Rate limit per token per minute</label><input type="number" id="remote_posting_rate_limit_per_minute" name="remote_posting_rate_limit_per_minute" min="5" max="600" value="<?= (int)$rateLimit ?>"><p class="field-help">Protects endpoints from loops and abuse. Allowed range is 5 to 600.</p></div>
       </div>
-      <div class="settings-save-bar"><div><strong>Save Remote Posting Settings</strong><p class="meta">The API uses the updated rules immediately.</p></div><button type="submit">Save Remote Posting Settings</button></div>
+      <div class="settings-save-bar"><div><strong>Save remote posting settings</strong><p class="meta">The API uses the updated rules immediately.</p></div><button type="submit">Save remote posting settings</button></div>
     </form>
   </section>
 
-  <aside class="settings-workflow-rail is-sticky">
+  <details class="settings-endpoint-details"><summary>API endpoints</summary>
     <section class="panel settings-section-panel"><p class="eyebrow">Endpoints</p><h2>API routes</h2><p class="meta">Clients authenticate with a Bearer token and use only the routes allowed by their scopes.</p><div class="settings-endpoint-list"><div><span>Status</span><code class="settings-technical-value"><?= htmlspecialchars($statusEndpoint, ENT_QUOTES, 'UTF-8') ?></code></div><div><span>Stream Posts</span><code class="settings-technical-value"><?= htmlspecialchars($streamPostsEndpoint, ENT_QUOTES, 'UTF-8') ?></code></div><div><span>Media upload</span><code class="settings-technical-value"><?= htmlspecialchars($mediaEndpoint, ENT_QUOTES, 'UTF-8') ?></code></div><div><span>Media import</span><code class="settings-technical-value"><?= htmlspecialchars($mediaImportEndpoint, ENT_QUOTES, 'UTF-8') ?></code></div></div></section>
-  </aside>
+  </details>
 </div>
 
 <section class="panel settings-section-panel">
@@ -139,7 +131,7 @@ bms_admin_header('Remote Posting', [
   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="create_token">
     <div class="settings-field-grid"><div class="settings-field-card"><label for="token_name">Token name</label><input type="text" id="token_name" name="token_name" maxlength="120" placeholder="Example: ChatGPT Action" required></div><div class="settings-field-card"><label for="expires_date">Expiration date, optional</label><input type="date" id="expires_date" name="expires_date"><p class="field-help">The token expires at the end of this date.</p></div></div>
     <p class="field-label"><strong>Scopes</strong></p><div class="settings-scope-grid"><?php foreach ($scopeDefinitions as $scope => $definition): ?><?php $available = !empty($definition['available']); ?><label class="settings-scope-card <?= $available ? '' : 'is-reserved' ?>"><input type="checkbox" name="scopes[]" value="<?= htmlspecialchars($scope, ENT_QUOTES, 'UTF-8') ?>" <?= $scope === 'status:read' ? 'checked' : '' ?> <?= $available ? '' : 'disabled' ?>><span><strong><?= htmlspecialchars((string)($definition['label'] ?? $scope), ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string)($definition['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></small></span></label><?php endforeach; ?></div>
-    <div class="settings-form-actions"><button type="submit">Create API Token</button></div>
+    <div class="settings-form-actions"><button type="submit">Create API token</button></div>
   </form>
 </section>
 
@@ -163,4 +155,5 @@ bms_admin_header('Remote Posting', [
     <article class="settings-audit-record"><div class="settings-record-cell"><span class="settings-mobile-label">Time</span><?= htmlspecialchars((string)($event['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div><div class="settings-record-cell"><span class="settings-mobile-label">Event</span><?= htmlspecialchars((string)($event['event'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div><div class="settings-record-cell"><span class="settings-mobile-label">Token</span><?= htmlspecialchars((string)($event['token_name'] ?? 'Unknown'), ENT_QUOTES, 'UTF-8') ?></div><div class="settings-record-cell"><span class="settings-mobile-label">Status</span><span class="static-pill <?= !empty($event['success']) ? 'generated' : 'warning' ?>"><?= !empty($event['success']) ? 'SUCCESS' : 'FAILED' ?> <?= (int)($event['status_code'] ?? 0) ?></span></div><div class="settings-record-cell"><span class="settings-mobile-label">Route</span><code class="settings-technical-value"><?= htmlspecialchars((string)($event['route'] ?? ''), ENT_QUOTES, 'UTF-8') ?></code></div><div class="settings-record-cell"><span class="settings-mobile-label">Message</span><?= htmlspecialchars((string)($event['message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div></article>
   <?php endforeach; ?></div><?php endif; ?>
 </section>
+</div>
 <?php bms_admin_footer(); ?>

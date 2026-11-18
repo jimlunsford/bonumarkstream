@@ -167,23 +167,8 @@ bms_admin_header('Navigation', [
     ['label' => 'Site Identity', 'href' => bms_admin_url('site-identity.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel appearance-hero-panel">
-  <div class="appearance-hero-copy">
-    <p class="eyebrow">Site design</p>
-    <h2>Build the public menu.</h2>
-    <p class="meta">Control whether navigation appears, let Bonumark add visitor-specific account links, and manage the pages and custom destinations visitors can reach.</p>
-  </div>
-  <span class="status-pill <?= $navigationEnabled ? 'published' : 'draft' ?>"><?= $navigationEnabled ? 'Navigation on' : 'Navigation hidden' ?></span>
-</section>
-
-<section class="panel appearance-summary-panel" aria-label="Navigation summary">
-  <div class="appearance-summary-grid">
-    <div><span>Public menu</span><strong><?= $navigationEnabled ? 'Shown' : 'Hidden' ?></strong></div>
-    <div><span>Menu items</span><strong><?= $menuItemCount ?></strong></div>
-    <div><span>Page links</span><strong><?= $pageItemCount ?></strong></div>
-    <div><span>Account links</span><strong><?= $accountLinksEnabled ? 'Automatic' : 'Manual' ?></strong></div>
-  </div>
-</section>
+<div class="appearance-detail">
+<p class="meta settings-detail-intro">Manage the public menu, visitor account links and destination order.</p>
 
 <form method="post" class="appearance-navigation-form">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -192,7 +177,7 @@ bms_admin_header('Navigation', [
   <section class="panel appearance-navigation-options-panel">
     <div class="appearance-section-heading">
       <div><p class="eyebrow">Menu behavior</p><h2>Choose what visitors see.</h2></div>
-      <button type="submit">Save Navigation</button>
+      <button type="submit">Save navigation</button>
     </div>
     <div class="appearance-option-list appearance-navigation-option-list">
       <label class="appearance-toggle-card">
@@ -211,7 +196,7 @@ bms_admin_header('Navigation', [
       <div>
         <p class="eyebrow">Current menu</p>
         <h2>Order and edit menu items.</h2>
-        <p class="meta">Move controls save the new order immediately. Edit labels and URLs, then use Save Navigation.</p>
+        <p class="meta">Move controls save the new order immediately. Edit labels and URLs, then use Save navigation.</p>
       </div>
       <span class="appearance-record-count"><?= $menuItemCount ?></span>
     </div>
@@ -257,7 +242,7 @@ bms_admin_header('Navigation', [
       <?php endforeach; ?>
     </div>
 
-    <?php if ($items): ?><div class="appearance-form-actions"><button type="submit">Save Navigation</button></div><?php endif; ?>
+    <?php if ($items): ?><div class="appearance-form-actions"><button type="submit">Save navigation</button></div><?php endif; ?>
   </section>
 </form>
 
@@ -300,4 +285,5 @@ bms_admin_header('Navigation', [
     </form>
   </div>
 </section>
+</div>
 <?php bms_admin_footer(); ?>

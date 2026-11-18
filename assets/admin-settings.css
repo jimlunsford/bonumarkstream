@@ -847,3 +847,138 @@ body.bonumark-admin.admin-screen-settings .settings-general-identity a {
     width: 100%;
   }
 }
+
+/* Work 33: scoped flat settings and native ActivityPub sections. General and
+   Scheduled Tasks retain their separately accepted presentation. */
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) {
+  max-width: 1040px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+body.bonumark-admin .settings-detail-intro { margin: 0 0 24px; max-width: 70ch; }
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-section-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0 0 32px;
+  padding: 0;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-section-header {
+  border: 0;
+  margin: 0 0 20px;
+  padding: 0;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-section-header:not(:first-child) { margin-top: 32px; }
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) :is(.settings-field-grid, .settings-option-list, .settings-scope-grid) {
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 640px;
+  margin-block: 20px;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) :is(.settings-field-card, .settings-option-card, .settings-scope-card) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) :is(.settings-option-card, .settings-scope-card) {
+  min-height: 44px;
+  padding-block: 4px;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) :is(.field-help, .settings-option-card small, .settings-scope-card small, .settings-security-card p) {
+  font-size: .875rem;
+  line-height: 1.5;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-save-bar {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  max-width: 640px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 0 0;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-save-bar strong { display: none; }
+body.bonumark-admin .settings-detail .settings-workflow-grid { display: block; }
+body.bonumark-admin .settings-detail .settings-workflow-rail { position: static; max-width: 640px; }
+body.bonumark-admin .settings-detail .settings-security-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+body.bonumark-admin .settings-detail .settings-security-card {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  padding: 24px 0;
+  max-width: 760px;
+}
+body.bonumark-admin .settings-detail .settings-security-card .eyebrow { display: none; }
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-empty-state {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 16px 0;
+}
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-empty-state h3 { font-size: 1rem; font-weight: 500; }
+body.bonumark-admin .settings-detail .settings-record-list { background: transparent; margin: 0; gap: 0; }
+body.bonumark-admin .settings-detail :is(.settings-token-record, .settings-audit-record, .settings-mail-record) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  margin: 0;
+  padding: 20px 0;
+}
+body.bonumark-admin .settings-detail .settings-record-header { display: none; }
+body.bonumark-admin .settings-detail .settings-mobile-label { display: block; }
+body.bonumark-admin .settings-detail :is(.settings-token-record, .settings-audit-record, .settings-mail-record):hover,
+body.bonumark-admin .settings-detail :is(.settings-token-record, .settings-audit-record, .settings-mail-record):focus-within { background: var(--admin-surface); }
+body.bonumark-admin .settings-detail .settings-endpoint-details { border-block: 1px solid var(--admin-border); margin-block: 24px; }
+body.bonumark-admin .settings-detail .settings-endpoint-details summary { cursor: pointer; font-weight: 650; padding: 16px 0; min-height: 44px; }
+body.bonumark-admin .settings-detail .settings-endpoint-list > div { background: transparent; border: 0; padding: 8px 0; }
+body.bonumark-admin .activitypub-admin .ap-profile { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+body.bonumark-admin .activitypub-admin .ap-profile > div { flex: 1 1 280px; min-width: 0; }
+body.bonumark-admin .activitypub-admin .ap-profile p { margin: 8px 0; }
+body.bonumark-admin .activitypub-admin .ap-section-nav { gap: 4px 12px; border-block: 1px solid var(--admin-border); padding: 8px 0; margin-block: 24px; }
+body.bonumark-admin .activitypub-admin .ap-section-nav a { align-items: center; display: inline-flex; min-height: 44px; padding: 8px; text-decoration: none; border-radius: 4px; }
+body.bonumark-admin .activitypub-admin .ap-section-nav a:hover { background: var(--admin-selected); }
+body.bonumark-admin .activitypub-admin section[id] { scroll-margin-top: 24px; }
+body.bonumark-admin .activitypub-admin section[id]:target { outline: 2px solid var(--admin-accent); outline-offset: 6px; }
+body.bonumark-admin .activitypub-admin > .settings-section-panel { padding-block: 8px 24px; border-bottom: 1px solid var(--admin-border); }
+body.bonumark-admin .activitypub-admin .ap-follow-form { display: grid; gap: 8px; max-width: 640px; margin-block: 24px; }
+body.bonumark-admin .activitypub-admin .ap-follow-form button { justify-self: start; }
+body.bonumark-admin .activitypub-admin .ap-record-list { gap: 0; }
+body.bonumark-admin .activitypub-admin .ap-record {
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  padding: 20px 0;
+  gap: 12px 24px;
+}
+body.bonumark-admin .activitypub-admin .ap-record-failed { border-left: 3px solid var(--admin-danger); padding-left: 12px; }
+body.bonumark-admin .activitypub-admin .ap-disclosure {
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  border-radius: 0;
+  padding: 0;
+  margin-block: 16px;
+}
+body.bonumark-admin .activitypub-admin .ap-disclosure > summary { min-height: 44px; padding: 16px 0; }
+body.bonumark-admin .activitypub-admin .ap-disclosure > .panel { padding: 0 0 16px; }
+body.bonumark-admin .activitypub-admin .ap-attention { border: 1px solid var(--admin-warning); background: var(--admin-warning-surface); border-radius: 4px; padding: 16px; }
+body.bonumark-admin .activitypub-admin .ap-retirement-warning { margin-top: 32px; border-top: 1px solid var(--admin-danger); padding-top: 24px; }
+body.bonumark-admin .activitypub-admin :is(.ap-retirement-warning h2, .ap-danger-disclosure > summary) { color: var(--admin-danger); }
+body.bonumark-admin .activitypub-admin #ap-danger form { max-width: 640px; }
+body.bonumark-admin .activitypub-admin #ap-danger input { margin-block: 12px 20px; }
+body.bonumark-admin .activitypub-admin .settings-inline-actions { display: flex; gap: 8px; width: auto; margin-block: 8px; }
+body.bonumark-admin .activitypub-admin .settings-inline-actions button { width: auto; }
+@media (max-width: 620px) {
+  body.bonumark-admin .settings-detail :is(.settings-token-record, .settings-audit-record, .settings-mail-record) { grid-template-columns: minmax(0, 1fr); }
+  body.bonumark-admin .activitypub-admin .ap-record { grid-template-columns: minmax(0, 1fr); }
+  body.bonumark-admin :is(.settings-detail, .activitypub-admin) .settings-save-bar button { width: 100%; }
+}
+
+body.bonumark-admin :is(.settings-detail, .activitypub-admin) :is(.settings-option-card small, .settings-scope-card small) { font-weight: 400; }
+body.bonumark-admin .activitypub-admin :is(.settings-record-heading, .settings-section-header) > .static-pill { align-self: flex-start; }
+body.bonumark-admin .settings-detail .settings-section-header .eyebrow { display: none; }

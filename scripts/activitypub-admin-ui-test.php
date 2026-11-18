@@ -9,7 +9,8 @@ function ap_check(bool $ok,string $message): void { if (!$ok) { throw new Runtim
 define('BMS_ADMIN_ACTIVITYPUB_VIEW',true);
 set_error_handler(static function(int $severity,string $message): bool { if (error_reporting() & $severity) { throw new RuntimeException($message); } return false; });
 function ap_render(bool $failed=false,bool $retired=false,array $fixture=[]): string {
-    $enabled=!$retired; $operationalState=$retired?'deactivated':'active'; $deliverySuspended=false;
+    $enabled=!$retired; $operationalState=$retired?'deactivated':'active'; $deliverySuspended=(bool)($fixture['suspended']??false);
+    $operationalState=(string)($fixture['state']??$operationalState);
     $retirement=$retired?['retired_at'=>'2026-09-01 00:00:00','actor_uri'=>'https://local.test/activitypub/actor']:null;
     $owner=['display_name'=>'Owner'];$profileHandle='@owner@local.test';$actorUrl='https://local.test/activitypub/actor';$policy='manual';
     $key=['id'=>1];$keyHealth=['ok'=>true,'message'=>'Signing key is healthy.'];$keyHistory=[['id'=>1,'algorithm'=>'rsa-sha256','status'=>'active','created_at'=>'2026-01-01 00:00:00']];
@@ -26,6 +27,7 @@ function ap_render(bool $failed=false,bool $retired=false,array $fixture=[]): st
     $publicationDeliveries=array_fill(0,10,$delivery);$operationalDeliveries=$failed?[$delivery]:[];
     $pages=[];
     foreach (['following'=>$following,'followers'=>$followers,'replies'=>$remoteReplies,'deliveries'=>array_fill(0,11,$delivery),'operations'=>$operationalDeliveries] as $k=>$rows) { $pages[$k]=bms_ap_admin_page($rows,1); }
+    foreach (['following','followers','remoteReplies','publicationDeliveries','operationalDeliveries','pages'] as $name) { if (array_key_exists($name,$fixture)) { $$name=$fixture[$name]; } }
     ob_start();include dirname(__DIR__).'/admin/_activitypub-view.php';return ob_get_clean();
 }
 foreach ([false,true] as $failed) {
@@ -76,3 +78,34 @@ $pages=['deliveries'=>bms_ap_admin_page(range(1,11),2),'following'=>bms_ap_admin
 ob_start();bms_ap_admin_pager('deliveries',$pages);$pager=ob_get_clean();
 ap_check(str_contains($pager,'deliveries_page=1') && str_contains($pager,'deliveries_page=3') && str_contains($pager,'following_page=3'),'Pagination preserves other list positions');
 echo "PASS ActivityPub Admin: healthy/failure/retired views, workflow order, escaping, CSRF, disclosures, pagers, timestamps\n";
+
+// Work 33: every operational label is distinct and independent pagers retain
+// all other list positions. The controller and federation functions are unchanged.
+foreach ([['active',false,'Active'],['paused',false,'Paused'],['active',true,'Delivery suspended'],['disabled',false,'Disabled']] as [$state,$suspended,$label]) {
+    $html=ap_render(false,false,['state'=>$state,'suspended'=>$suspended]);
+    ap_check(str_contains($html,'>'.$label.'</span>'),'Operational state: '.$label);
+}
+ap_check(str_contains(ap_render(false,true),'>Retired</span>'),'Retired identity has an explicit label');
+$keys=['following','followers','replies','deliveries','operations'];$pages=[];
+foreach($keys as $i=>$key){$pages[$key]=bms_ap_admin_page(range(1,11),$i+2);}
+foreach($keys as $key){
+    ob_start();bms_ap_admin_pager($key,$pages);$html=ob_get_clean();
+    $doc=new DOMDocument();@$doc->loadHTML($html);$x=new DOMXPath($doc);
+    foreach($x->query('//a') as $link){
+        $url=parse_url($link->getAttribute('href'));parse_str($url['query']??'', $query);
+        foreach($keys as $other){ap_check((int)($query[$other.'_page']??1)===($pages[$other]['number']+($other===$key?($link->textContent==='Next'?1:-1):0)),'Independent pager '.$key.' preserves '.$other);}
+        ap_check(($url['fragment']??'')==='ap-'.$key,'Pager keeps section destination '.$key);
+    }
+}
+$html=ap_render(true);$doc=new DOMDocument();@$doc->loadHTML($html);$x=new DOMXPath($doc);
+ap_check($x->query('//section[@id="ap-deliveries"]/parent::details[@open]')->length===1,'Active publication failures are not hidden in a closed disclosure');
+ap_check(strpos($html,'Irreversible. Retires the federated identity permanently.')<strpos($html,'<details class="ap-disclosure ap-danger-disclosure">'),'Retirement consequence is visible before its disclosure');
+foreach(['ap-following','ap-followers','ap-replies','ap-settings','ap-diagnostics'] as $id){ap_check($x->query('//nav[@aria-label="ActivityPub sections"]/a[@href="#'.$id.'"]')->length===1,'Ordinary section anchor '.$id);}
+foreach(['pending','approved','rejected','hidden','target_retired'] as $state){
+    $reply=['id'=>9,'moderation_state'=>$state,'lifecycle_state'=>'active','display_name'=>'Synthetic profile','actor_uri'=>'https://remote.test/actor','post_title'=>'Synthetic Stream Post','target_post_id'=>2,'target_publication_generation'=>1,'target_object_uri'=>'https://local.test/object/2','content_text'=>'Synthetic reply','remote_object_uri'=>'https://remote.test/reply/9','last_activity_uri'=>'https://remote.test/activity/9'];
+    $html=ap_render(false,false,['remoteReplies'=>[$reply]]);
+    ap_check(str_contains($html,'>'.strtoupper($state).'</span>'),'Reply state remains explicit: '.$state);
+    ap_check(str_contains($html,'value="moderate_reply"')===($state!=='target_retired'),'Reply moderation eligibility: '.$state);
+    foreach(['block_reply_actor','block_reply_domain'] as $action){ap_check(str_contains($html,'value="'.$action.'"'),'Block action remains available: '.$action);}
+}
+echo "PASS Work 33 ActivityPub: five states, all five independent pagers, native anchors, visible warnings and reply moderation states\n";

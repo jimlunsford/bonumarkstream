@@ -1009,3 +1009,44 @@ body.bonumark-admin .appearance-navigation-add-card button {
     grid-column: auto;
   }
 }
+
+/* Flat Settings detail forms. These wrappers are emitted only by Work 33
+   routes; theme installation, deletion and public rendering remain unchanged. */
+body.bonumark-admin .appearance-detail { min-width: 0; max-width: 1040px; overflow-wrap: anywhere; }
+body.bonumark-admin .appearance-detail :is(.appearance-identity-layout, .appearance-settings-layout, .appearance-navigation-add-grid) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+body.bonumark-admin .appearance-detail :is(.appearance-identity-copy-panel, .appearance-favicon-panel, .appearance-theme-fields-panel, .appearance-navigation-options-panel, .appearance-navigation-items-panel, .appearance-navigation-add-panel) {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; margin: 0 0 32px; min-width: 0;
+}
+body.bonumark-admin .appearance-detail :is(.appearance-field-list, .appearance-setting-list) { gap: 24px; max-width: 640px; }
+body.bonumark-admin .appearance-detail :is(.appearance-field-card, .appearance-setting-card, .appearance-toggle-card, .appearance-navigation-add-card) { background: transparent; border: 0; border-radius: 0; padding: 0; }
+body.bonumark-admin .appearance-detail .appearance-setting-card { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+body.bonumark-admin .appearance-detail :is(.appearance-toggle-card, .appearance-navigation-add-card) { max-width: 640px; }
+body.bonumark-admin .appearance-detail .appearance-toggle-card { min-height: 44px; padding-block: 8px; }
+body.bonumark-admin .appearance-detail .appearance-toggle-card:hover { background: var(--admin-surface); }
+body.bonumark-admin .appearance-detail .appearance-favicon-panel { position: static; max-width: 640px; border-top: 1px solid var(--admin-border); padding-top: 24px; }
+body.bonumark-admin .appearance-detail .appearance-save-bar { position: static; background: transparent; border: 0; border-top: 1px solid var(--admin-border); border-radius: 0; padding: 20px 0; margin: 0; flex-direction: column; max-width: 640px; }
+body.bonumark-admin .appearance-detail .appearance-save-bar strong { display: none; }
+body.bonumark-admin .appearance-detail .appearance-active-theme-panel { position: static; max-width: 640px; border-block: 1px solid var(--admin-border); margin-top: 24px; padding: 0; background: transparent; }
+body.bonumark-admin .appearance-detail .appearance-active-theme-panel summary { cursor: pointer; min-height: 44px; padding: 16px 0; font-weight: 650; }
+body.bonumark-admin .appearance-detail .appearance-active-theme-preview { max-width: 360px; }
+body.bonumark-admin .appearance-detail :is(.appearance-active-theme-copy, .appearance-active-theme-facts) { padding-inline: 0; margin-inline: 0; }
+body.bonumark-admin .appearance-detail .appearance-full-action { margin-inline: 0; width: auto; }
+body.bonumark-admin .appearance-detail .appearance-section-heading { flex-wrap: wrap; gap: 16px; }
+body.bonumark-admin .appearance-detail .appearance-section-heading .eyebrow { display: none; }
+body.bonumark-admin .appearance-detail .appearance-navigation-option-list { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+body.bonumark-admin .appearance-detail .appearance-navigation-item { background: transparent; border: 0; border-top: 1px solid var(--admin-border); border-radius: 0; }
+body.bonumark-admin .appearance-detail .appearance-navigation-item-header { padding: 20px 0 12px; grid-template-columns: 36px minmax(0, 1fr); }
+body.bonumark-admin .appearance-detail .appearance-navigation-item-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; }
+body.bonumark-admin .appearance-detail .appearance-navigation-item-fields { padding: 0 0 20px; grid-template-columns: minmax(0, 1fr); max-width: 640px; }
+body.bonumark-admin .appearance-detail .appearance-navigation-add-grid { border-top: 1px solid var(--admin-border); padding-top: 24px; }
+body.bonumark-admin .appearance-detail .appearance-theme-card { border-radius: 4px; box-shadow: none; background: var(--admin-bg); }
+body.bonumark-admin .appearance-detail .appearance-theme-card.is-active { border-color: var(--admin-accent); box-shadow: none; }
+body.bonumark-admin .appearance-detail .appearance-theme-card.has-errors { border-color: var(--admin-danger); }
+body.bonumark-admin .appearance-detail .appearance-theme-actions { background: transparent; }
+body.bonumark-admin .appearance-detail .appearance-theme-preview-empty { background: var(--admin-surface); }
+body.bonumark-admin .appearance-detail .appearance-empty-state { background: transparent; border: 0; border-radius: 0; padding: 16px 0; }
+body.bonumark-admin .appearance-detail :is(.field-help, small) { font-size: .875rem; line-height: 1.5; }
+@media (max-width: 620px) {
+  body.bonumark-admin .appearance-detail .appearance-save-bar button { width: 100%; }
+  body.bonumark-admin .appearance-detail .appearance-theme-grid { grid-template-columns: minmax(0, 1fr); }
+}

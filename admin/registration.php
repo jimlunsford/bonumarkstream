@@ -86,14 +86,8 @@ bms_admin_header('Registration', [
     ['label' => 'Open Account Page', 'href' => $accountUrl, 'style' => 'secondary', 'target' => true],
 ]);
 ?>
-<section class="panel page-intro-panel registration-intro-panel">
-  <div class="registration-intro-copy">
-    <p class="eyebrow">Account access</p>
-    <h2>Control how commenter accounts are created.</h2>
-    <p class="meta">Commenters can sign in, manage a profile, and participate through comments. Public registration never creates another publisher or grants access to the admin publishing tools.</p>
-  </div>
-  <span class="status-pill <?= $mode === 'disabled' ? 'draft' : 'published' ?> registration-mode-pill"><?= htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') ?></span>
-</section>
+<div class="registration-detail">
+<p class="meta settings-detail-intro">Public registration creates Commenter accounts only. Commenters cannot publish or manage the site.</p>
 
 <?php if ($registrationEnabled && $verify && !$mailReady): ?>
 <section class="panel admin-warning-panel registration-attention-panel">
@@ -116,15 +110,6 @@ bms_admin_header('Registration', [
   <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('users.php?status=pending'), ENT_QUOTES, 'UTF-8') ?>">Review Pending Accounts</a>
 </section>
 <?php endif; ?>
-
-<section class="panel registration-summary-panel" aria-label="Current registration configuration">
-  <div class="info-grid registration-summary-grid">
-    <div class="info-card"><strong>Registration mode</strong><p><?= htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
-    <div class="info-card"><strong>Email verification</strong><p><?= htmlspecialchars($verificationSummaryLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
-    <div class="info-card"><strong>Admin approval</strong><p><?= htmlspecialchars($approvalSummaryLabel, ENT_QUOTES, 'UTF-8') ?></p></div>
-    <div class="info-card"><strong>Active invite codes</strong><p><?= (int)$activeInviteCount ?></p></div>
-  </div>
-</section>
 
 <div class="registration-workflow-grid">
   <section class="panel registration-settings-panel">
@@ -176,12 +161,12 @@ bms_admin_header('Registration', [
       </div>
 
       <div class="registration-form-actions">
-        <button type="submit">Save Registration Settings</button>
+        <button type="submit">Save registration settings</button>
       </div>
     </form>
   </section>
 
-  <section class="panel registration-public-panel">
+  <details class="registration-public-panel"><summary>Current public account access</summary>
     <p class="eyebrow">Public account page</p>
     <h2>What visitors can do now</h2>
     <dl class="registration-public-summary">
@@ -191,7 +176,7 @@ bms_admin_header('Registration', [
       <div><dt>Approval</dt><dd><?= htmlspecialchars($publicApprovalLabel, ENT_QUOTES, 'UTF-8') ?></dd></div>
     </dl>
     <a class="button-link secondary registration-public-action" href="<?= htmlspecialchars($accountUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open Account Page</a>
-  </section>
+  </details>
 </div>
 
 <section class="panel registration-invites-panel">
@@ -221,7 +206,7 @@ bms_admin_header('Registration', [
       <input name="expires_at" type="datetime-local">
       <small>Site timezone: <?= htmlspecialchars(bms_site_timezone_name(), ENT_QUOTES, 'UTF-8') ?>.</small>
     </label>
-    <button type="submit">Create Invite Code</button>
+    <button type="submit">Create invite code</button>
   </form>
 
   <?php if (!$invites): ?>
@@ -287,4 +272,5 @@ bms_admin_header('Registration', [
     </div>
   <?php endif; ?>
 </section>
+</div>
 <?php bms_admin_footer(); ?>

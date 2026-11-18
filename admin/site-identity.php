@@ -118,26 +118,8 @@ bms_admin_header('Site Identity', [
     ['label' => 'Themes', 'href' => bms_admin_url('theme.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel appearance-hero-panel">
-  <div class="appearance-hero-copy">
-    <p class="eyebrow">Site design</p>
-    <h2>Set the public identity.</h2>
-    <p class="meta">These values frame the public site across the homepage, browser title, header, footer, bookmarks, and installed app experience.</p>
-  </div>
-  <div class="appearance-hero-actions">
-    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('theme-settings.php'), ENT_QUOTES, 'UTF-8') ?>">Theme Settings</a>
-    <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('navigation.php'), ENT_QUOTES, 'UTF-8') ?>">Navigation</a>
-  </div>
-</section>
-
-<section class="panel appearance-summary-panel" aria-label="Site identity summary">
-  <div class="appearance-summary-grid">
-    <div><span>Site name</span><strong><?= htmlspecialchars($siteNameValue, ENT_QUOTES, 'UTF-8') ?></strong></div>
-    <div><span>Tagline</span><strong><?= trim(strip_tags($siteTaglineValue)) !== '' ? 'Set' : 'Not set' ?></strong></div>
-    <div><span>Favicon</span><strong><?= $faviconReady ? 'Selected' : 'Default mark' ?></strong></div>
-    <div><span>Bonumark credit</span><strong><?= $poweredByEnabled ? 'Shown' : 'Hidden' ?></strong></div>
-  </div>
-</section>
+<div class="appearance-detail">
+<p class="meta settings-detail-intro">Set the public site name, homepage label, footer and favicon.</p>
 
 <form method="post" enctype="multipart/form-data" class="appearance-identity-form">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -241,7 +223,8 @@ bms_admin_header('Site Identity', [
 
   <div class="panel appearance-save-bar">
     <div><strong>Save public identity</strong><span>Dynamic routes and admin chrome update immediately.</span></div>
-    <button type="submit">Save Site Identity</button>
+    <button type="submit">Save site identity</button>
   </div>
 </form>
+</div>
 <?php bms_admin_footer(); ?>

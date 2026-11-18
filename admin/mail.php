@@ -119,17 +119,9 @@ bms_admin_header('Mail Settings', [
     ['label' => 'Registration', 'href' => bms_admin_url('registration.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel settings-workflow-hero">
-  <div class="settings-workflow-hero-copy"><p class="eyebrow">Settings</p><h2>Configure outbound email.</h2><p class="meta">Mail supports verification, password recovery, tests, and future notifications. Save the transport first, then prove it with a test message.</p></div>
-  <span class="static-pill <?= $mailReady ? 'generated' : ($transport === 'disabled' ? 'draft' : 'warning') ?>"><?= htmlspecialchars(strtoupper($mailStateLabel), ENT_QUOTES, 'UTF-8') ?></span>
-</section>
-
-<section class="panel settings-summary-panel"><div class="settings-summary-grid">
-  <div><span>Transport</span><strong><?= htmlspecialchars(bms_mail_transport_label($transport), ENT_QUOTES, 'UTF-8') ?></strong></div>
-  <div><span>Delivery state</span><strong><?= htmlspecialchars($mailStateLabel, ENT_QUOTES, 'UTF-8') ?></strong></div>
-  <div><span>From identity</span><strong><?= htmlspecialchars($fromEmail !== '' ? $fromEmail : 'Not set', ENT_QUOTES, 'UTF-8') ?></strong></div>
-  <div><span>Recent tests</span><strong><?= count($recentTests) ?></strong></div>
-</div></section>
+<div class="settings-detail">
+<p class="meta settings-detail-intro">Save the delivery configuration, then use a test message to verify it.</p>
+<p class="meta">Transport: <strong><?= htmlspecialchars(bms_mail_transport_label($transport), ENT_QUOTES, 'UTF-8') ?></strong>. <?= $mailReady ? 'Sender configured; confirm delivery with a test.' : htmlspecialchars($mailStateLabel, ENT_QUOTES, 'UTF-8') ?></p>
 
 <?php if ($transport !== 'disabled' && !$mailReady): ?>
 <section class="panel settings-attention-panel"><p class="eyebrow">Needs attention</p><h2>Add a valid From email before relying on Mail.</h2><p class="meta">The selected transport cannot support registration verification or password recovery until a sender address is configured.</p></section>
@@ -178,7 +170,7 @@ bms_admin_header('Mail Settings', [
         <div class="settings-field-card"><label for="mail_sendmail_path">Sendmail path</label><input type="text" id="mail_sendmail_path" name="mail_sendmail_path" value="<?= htmlspecialchars((string)$settings['mail_sendmail_path'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255"><p class="field-help">Used only when Sendmail is selected.</p></div>
       </div>
       <?php if ($hasPassword): ?><label class="settings-option-card"><input type="checkbox" name="clear_smtp_password" value="1"><span class="settings-option-copy"><strong>Clear the saved SMTP password</strong><small>The password is removed when these settings are saved.</small></span></label><?php endif; ?>
-      <div class="settings-save-bar"><div><strong>Save Mail Settings</strong><p class="meta">Test delivery always uses the saved configuration.</p></div><button type="submit">Save Mail Settings</button></div>
+      <div class="settings-save-bar"><div><strong>Save mail settings</strong><p class="meta">Test delivery always uses the saved configuration.</p></div><button type="submit">Save mail settings</button></div>
     </form>
   </section>
 
@@ -188,7 +180,7 @@ bms_admin_header('Mail Settings', [
       <form method="post" class="settings-section-list">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="mail_action" value="test">
         <div class="settings-field-card"><label for="test_recipient">Recipient</label><input type="email" id="test_recipient" name="test_recipient" value="<?= htmlspecialchars($defaultTestRecipient, ENT_QUOTES, 'UTF-8') ?>" maxlength="190" required></div>
-        <button type="submit">Send Test Email</button>
+        <button type="submit">Send test email</button>
       </form>
     </section>
   </aside>
@@ -208,4 +200,5 @@ bms_admin_header('Mail Settings', [
     </article>
   <?php endforeach; ?></div><?php endif; ?>
 </section>
+</div>
 <?php bms_admin_footer(); ?>

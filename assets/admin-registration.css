@@ -428,3 +428,34 @@ body.bonumark-admin .registration-mobile-label {
     grid-row: auto;
   }
 }
+
+/* Registration is a Settings detail workflow, with the existing commenter-only
+   controls, invite actions and warnings kept in their native forms. */
+body.bonumark-admin.admin-screen-registration .admin-page-title :is(h1, .button-link) { max-width: 100%; min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+body.bonumark-admin .registration-detail { max-width: 1040px; min-width: 0; overflow-wrap: anywhere; }
+body.bonumark-admin .registration-detail .registration-workflow-grid { display: block; }
+body.bonumark-admin .registration-detail :is(.registration-settings-panel, .registration-invites-panel) { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; margin-bottom: 32px; }
+body.bonumark-admin .registration-detail .registration-section-heading .eyebrow { display: none; }
+body.bonumark-admin .registration-detail .registration-settings-form { max-width: 640px; }
+body.bonumark-admin .registration-detail .registration-option-list { gap: 24px; }
+body.bonumark-admin .registration-detail .registration-option-card { background: transparent; border: 0; border-radius: 0; padding: 4px 0; min-height: 44px; }
+body.bonumark-admin .registration-detail .registration-option-card:hover { background: var(--admin-surface); }
+body.bonumark-admin .registration-detail .registration-public-panel { position: static; max-width: 640px; background: transparent; border-block: 1px solid var(--admin-border); padding: 0; margin-bottom: 32px; }
+body.bonumark-admin .registration-detail .registration-public-panel summary { cursor: pointer; padding: 16px 0; min-height: 44px; font-weight: 650; }
+body.bonumark-admin .registration-detail .registration-public-action { margin-bottom: 20px; }
+body.bonumark-admin .registration-detail .registration-invite-form { grid-template-columns: minmax(0, 1fr); max-width: 640px; background: transparent; border: 0; padding: 0; gap: 20px; }
+body.bonumark-admin .registration-detail .registration-invite-form button { justify-self: start; white-space: normal; }
+body.bonumark-admin .registration-detail .registration-invite-form :is(label, input) { min-width: 0; max-width: 100%; }
+body.bonumark-admin .registration-detail input[type="datetime-local"] { overflow: hidden; }
+body.bonumark-admin .registration-detail .registration-invite-header { display: none; }
+body.bonumark-admin .registration-detail .registration-invite-record { grid-template-columns: repeat(2, minmax(0, 1fr)); background: transparent; border: 0; border-top: 1px solid var(--admin-border); border-radius: 0; padding: 20px 0; margin: 0; }
+body.bonumark-admin .registration-detail .registration-invite-record:hover { background: var(--admin-surface); }
+body.bonumark-admin .registration-detail .registration-invite-record > div { grid-column: auto; grid-row: auto; }
+body.bonumark-admin .registration-detail .registration-mobile-label { display: block; }
+body.bonumark-admin .registration-detail .registration-invites-empty { background: transparent; border: 0; padding: 20px 0; }
+body.bonumark-admin .registration-detail :is(.field-help, small) { font-size: .875rem; line-height: 1.5; }
+@media (max-width: 620px) {
+  body.bonumark-admin .registration-detail .registration-invite-record { grid-template-columns: minmax(0, 1fr); }
+}
+
+body.bonumark-admin .registration-detail small { font-weight: 400; }
