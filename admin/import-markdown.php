@@ -24,53 +24,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 bms_admin_header('Import Markdown', [
-    ['label' => 'Import', 'href' => bms_admin_url('import.php'), 'style' => 'secondary'],
-    ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
+    ['label' => 'Upload Import', 'href' => bms_admin_url('import.php'), 'style' => 'secondary'],
 ]);
 ?>
-<section class="panel operations-hero">
-  <div class="operations-hero-copy">
-    <p class="eyebrow">Advanced migration</p>
-    <h2>Read private Markdown folders into authoritative database records.</h2>
-    <p class="meta">This is not the normal file-upload importer. Use it only after manually placing trusted Markdown files in the private content import folders.</p>
-  </div>
-  <span class="operation-risk-label is-warning">Advanced tool</span>
-</section>
-
-<section class="panel operations-summary-panel">
-  <div class="operations-summary-grid">
-    <div><span>Source</span><strong>Private Markdown folders</strong></div>
-    <div><span>Destination</span><strong>Database content records</strong></div>
-    <div><span>Default behavior</span><strong>Previously imported files skipped</strong></div>
-    <div><span>Force option</span><strong>Re-read and refresh records</strong></div>
-  </div>
-</section>
-
-<div class="operations-workflow-grid">
-  <div class="operations-workflow-main">
-    <section class="panel operations-review-panel">
-      <div class="operations-panel-heading"><div><p class="eyebrow">Run import</p><h2>Import private Markdown folders</h2><p class="meta">The database becomes authoritative after import. Keep a backup before forcing a refresh over existing records.</p></div><span class="operation-risk-label is-sensitive">Writes database</span></div>
-      <form method="post" class="operations-workflow-main">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-        <label class="operations-choice-card">
-          <span><strong>Force re-import</strong></span>
-          <span class="meta">Re-read Markdown files even when an earlier import was marked complete. This can refresh existing database records from the private files.</span>
-          <span><input type="checkbox" name="force_import" value="1"> Re-read previously imported files</span>
-        </label>
-        <div class="operations-form-actions"><button type="submit">Import Markdown Folders</button><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a></div>
-      </form>
-    </section>
-  </div>
-  <aside class="operations-workflow-rail is-sticky">
-    <section class="panel operations-panel">
-      <div class="operations-panel-heading"><div><p class="eyebrow">Before running</p><h2>Use the upload importer for ordinary files.</h2></div></div>
-      <div class="operations-step-list">
-        <div class="operations-step"><div><strong>Upload imports</strong><p>Use Import for a Markdown file, archive, XML export, JSON, or Bluesky data. It creates a reviewable preview first.</p></div></div>
-        <div class="operations-step"><div><strong>Folder migration</strong><p>Use this page only when files already exist inside the private Bonumark Stream content folders.</p></div></div>
-        <div class="operations-step"><div><strong>Database authority</strong><p>After import, edit and publish through Bonumark Stream. Markdown remains an ownership and migration format.</p></div></div>
-      </div>
-      <div class="operations-inline-actions"><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('import.php'), ENT_QUOTES, 'UTF-8') ?>">Open Normal Import</a><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8') ?>">Create Backup</a></div>
-    </section>
-  </aside>
+<div class="system-workspace">
+  <p class="system-intro">Advanced migration from private Markdown folders directly into database records.</p>
+  <div class="system-warning"><strong>This operation writes immediately.</strong><p>There is no preview or dry run here. For an ordinary uploaded file, use <a href="<?= htmlspecialchars(bms_admin_url('import.php'), ENT_QUOTES, 'UTF-8') ?>">Import</a> to stage and review content first.</p></div>
+  <dl class="system-facts"><div><dt>Source</dt><dd>Trusted files manually placed in the private content import folders.</dd></div><div><dt>Destination</dt><dd>Database content records. The database remains the runtime source of truth.</dd></div><div><dt>Normal import</dt><dd>Skips the folder import after an earlier import was marked complete.</dd></div></dl>
+  <section class="system-section"><h2>Import private folders</h2>
+    <form method="post" class="system-form">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <label class="system-checkbox"><input type="checkbox" name="force_import" value="1" aria-describedby="force-import-help"><span>Force re-import</span></label>
+      <p class="field-help" id="force-import-help">Re-read previously imported files. This may refresh existing database records from private files. Keep a backup before forcing a refresh.</p>
+      <div class="operations-form-actions"><button type="submit">Import Markdown Folders</button><a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('tools.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a></div>
+    </form>
+  </section>
+  <p class="system-note">After import, edit and publish through Bonumark Stream. Markdown remains a portability and migration format. <a href="<?= htmlspecialchars(bms_admin_url('export.php'), ENT_QUOTES, 'UTF-8') ?>">Review export options</a>.</p>
 </div>
 <?php bms_admin_footer(); ?>
