@@ -2,6 +2,8 @@
 
 ## Remote cache cleanup fails on the starting source
 
+Historical Work 33 finding. Work 35 corrects the column reference, failure atomicity, clearing starvation and blocked-identity retention. See [the Work 35 contract and regression controls](WORK-35-CACHE-CLEANUP-CONTRACT.md). The original evidence below is retained.
+
 Reproduced against untouched commit `3d950a10e0231649de25e7d97a92c1feede9409f` in a disposable installation, with MariaDB 11.8.6 and PHP 8.5.4. No production or development installation was accessed.
 
 `bms_activitypub_cleanup_remote_cache()` in `_bonumark_stream/app/activitypub-operations.php` joins `activitypub_reply_targets` as `r`, then tests `r.id IS NULL`. Migration `0026_activitypub_owner_participation.php` creates that table with `post_id` as its primary key and no `id` column. The candidate selection throws:
