@@ -290,11 +290,8 @@ try {
     bms_settings_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}activitypub_local_actor_lifecycle`")->fetchColumn()===0,'Wrong permanent confirmation cannot retire actor');
     $get('activitypub');
     foreach(['provision_key','reconcile_queue'] as $action){$post('activitypub',['activitypub_action'=>$action]);$html=$get('activitypub')['body'];bms_settings_test_expect(!str_contains($html,'could not be completed'),'Disposable federation action succeeds: '.$action);}
-    // Baseline defect, separately documented in docs/WORK-33-KNOWN-ISSUES.md:
-    // cleanup_remote_cache references r.id, but reply_targets has no id column.
-    // Preserve its error presentation; this interface assignment does not repair SQL.
     $post('activitypub',['activitypub_action'=>'cleanup_remote_cache']);$html=$get('activitypub')['body'];
-    bms_settings_test_expect(str_contains($html,'could not be completed')&&!str_contains($html,'Remote cache cleanup cleared'),'Known baseline cache cleanup SQL failure remains visible without false success');
+    bms_settings_test_expect(!str_contains($html,'could not be completed')&&str_contains($html,'Remote cache cleanup cleared 0 blocked object(s) and removed 0 expired, unreferenced object(s).'),'Empty remote cache cleanup reports actual zero counts');
     bms_settings_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}activitypub_keys` WHERE status='active'")->fetchColumn()===1,'Key provisioning creates one active key');
     $html=$get('activitypub')['body'];bms_settings_test_expect(!str_contains($html,'PRIVATE KEY')&&!str_contains($html,'private_key_encrypted'),'Signing material is never rendered');
     bms_settings_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}activitypub_deliveries`")->fetchColumn()===0,'Local configuration tests create no federation delivery');

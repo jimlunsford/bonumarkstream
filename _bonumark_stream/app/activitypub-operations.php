@@ -209,15 +209,68 @@ function bms_activitypub_cleanup_remote_cache(int $limit = 200): array
 {
     $limit = max(1, min(1000, $limit));
     $pdo = bms_db();
-    $blocked = $pdo->prepare("UPDATE " . bms_table('activitypub_remote_objects') . " SET lifecycle_state = 'blocked', content_html = '', content_text = '', metadata_json = '{}', updated_at = UTC_TIMESTAMP() WHERE lifecycle_state = 'blocked' OR (lifecycle_state = 'active' AND actor_uri IN (SELECT block_value FROM " . bms_table('activitypub_blocks') . " WHERE block_type = 'actor')) LIMIT " . $limit);
-    $blocked->execute();
-    $candidates = $pdo->query("SELECT o.id FROM " . bms_table('activitypub_remote_objects') . " o LEFT JOIN " . bms_table('activitypub_following') . " f ON f.remote_actor_id = o.remote_actor_id AND f.state = 'accepted' LEFT JOIN " . bms_table('activitypub_owner_interactions') . " i ON i.target_object_uri = o.object_uri LEFT JOIN " . bms_table('activitypub_reply_targets') . " r ON r.remote_object_id = o.id WHERE o.lifecycle_state = 'active' AND o.expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND f.id IS NULL AND i.id IS NULL AND r.id IS NULL ORDER BY o.id ASC LIMIT " . $limit);
-    $ids = array_values(array_unique(array_filter(array_map('intval', $candidates ? ($candidates->fetchAll(PDO::FETCH_COLUMN) ?: []) : []))));
-    $removed = 0;
-    if ($ids !== []) {
-        $purge = $pdo->prepare('DELETE FROM ' . bms_table('activitypub_remote_objects') . ' WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ") AND lifecycle_state = 'active'");
-        $purge->execute($ids);
-        $removed = $purge->rowCount();
+    $ownsTransaction = !$pdo->inTransaction();
+    $savepoint = 'bms_remote_cache_' . bin2hex(random_bytes(8));
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
+    } else {
+        $pdo->exec('SAVEPOINT ' . $savepoint);
     }
-    return ['blocked_content_cleared' => $blocked->rowCount(), 'unreferenced_objects_removed' => $removed];
+    try {
+        // Cleared rows are no longer work: do not refresh their timestamps or
+        // let them consume the bounded clearing allowance on every call.
+        $blockedFrom = bms_table('activitypub_remote_objects') . " o
+            LEFT JOIN " . bms_table('activitypub_blocks') . " b ON b.block_type = 'actor' AND b.block_value = o.actor_uri";
+        $needsClearing = "(o.lifecycle_state = 'blocked' AND (OCTET_LENGTH(o.content_html) > 0 OR OCTET_LENGTH(o.content_text) > 0 OR CAST(o.metadata_json AS BINARY) <> CAST('{}' AS BINARY)))
+            OR (o.lifecycle_state = 'active' AND b.id IS NOT NULL)";
+        $clearCandidates = $pdo->query('SELECT o.id FROM ' . $blockedFrom . ' WHERE ' . $needsClearing . ' ORDER BY o.id ASC LIMIT ' . $limit);
+        $clearIds = array_map('intval', $clearCandidates->fetchAll(PDO::FETCH_COLUMN));
+        $cleared = 0;
+        if ($clearIds !== []) {
+            // Limit locking writes to selected IDs and recheck current block state.
+            $blocked = $pdo->prepare('UPDATE ' . $blockedFrom . "
+                SET o.lifecycle_state = 'blocked', o.content_html = '', o.content_text = '', o.metadata_json = '{}', o.updated_at = UTC_TIMESTAMP()
+                WHERE o.id IN (" . implode(',', array_fill(0, count($clearIds), '?')) . ') AND (' . $needsClearing . ')');
+            $blocked->execute($clearIds);
+            $cleared = $blocked->rowCount();
+        }
+
+        // Use the same exclusions for candidate selection and the final DELETE.
+        // A clearing limit must never make a blocked actor's active object disposable.
+        $from = bms_table('activitypub_remote_objects') . " o
+            LEFT JOIN " . bms_table('activitypub_following') . " f ON f.remote_actor_id = o.remote_actor_id AND f.state = 'accepted'
+            LEFT JOIN " . bms_table('activitypub_owner_interactions') . " i ON i.target_object_uri = o.object_uri
+            LEFT JOIN " . bms_table('activitypub_reply_targets') . " r ON r.remote_object_id = o.id
+            LEFT JOIN " . bms_table('activitypub_blocks') . " b ON b.block_type = 'actor' AND b.block_value = o.actor_uri";
+        $eligible = "o.lifecycle_state = 'active' AND o.expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)
+            AND f.id IS NULL AND i.id IS NULL AND r.post_id IS NULL AND b.id IS NULL";
+        $candidates = $pdo->query('SELECT o.id FROM ' . $from . ' WHERE ' . $eligible . ' ORDER BY o.id ASC LIMIT ' . $limit);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $candidates ? ($candidates->fetchAll(PDO::FETCH_COLUMN) ?: []) : []))));
+        $removed = 0;
+        if ($ids !== []) {
+            // InnoDB's DELETE reads current state, not the earlier SELECT's
+            // repeatable-read snapshot. Recheck blocks, references and expiry
+            // here so a protection committed between the two statements wins.
+            $purge = $pdo->prepare('DELETE o FROM ' . $from . ' WHERE o.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') AND ' . $eligible);
+            $purge->execute($ids);
+            $removed = $purge->rowCount();
+        }
+        $result = ['blocked_content_cleared' => $cleared, 'unreferenced_objects_removed' => $removed];
+        if ($ownsTransaction) {
+            $pdo->commit();
+        } else {
+            $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+        }
+        return $result;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            if ($ownsTransaction) {
+                $pdo->rollBack();
+            } else {
+                $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+        }
+        throw $e;
+    }
 }

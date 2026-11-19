@@ -169,7 +169,7 @@ bms_ap_stage6_assert(
 );
 bms_ap_stage6_assert(
     str_contains($operationsSource, "o.lifecycle_state = 'active'")
-        && str_contains($operationsSource, 'f.id IS NULL AND i.id IS NULL AND r.id IS NULL')
+        && str_contains($operationsSource, 'f.id IS NULL AND i.id IS NULL AND r.post_id IS NULL')
         && !str_contains($operationsSource, "DELETE FROM ' . bms_table('activitypub_remote_actors')"),
     'Remote cache cleanup must remove only expired unreferenced active objects and retain remote actor audit identity.'
 );
