@@ -613,6 +613,7 @@ try {
 
     // Return to wall time for the independent HTTP connection.
     $pdo->exec('SET timestamp = 0');
+    $pdo->prepare("UPDATE `{$prefix}activitypub_remote_objects` SET expires_at=DATE_SUB(UTC_TIMESTAMP(), INTERVAL 29 DAY) WHERE id=?")->execute([$protected['within retention grace']]);
     $pdo->prepare("UPDATE `{$prefix}activitypub_remote_objects` SET expires_at=DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY) WHERE id=?")->execute([$protected['exact 30-day boundary']]);
     $migrationCount = (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}migrations`")->fetchColumn();
     $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $temporary . '/sessions', '-S', $address, '-t', $temporary], [0 => ['pipe', 'r'], 1 => ['file', $temporary . '/http.log', 'a'], 2 => ['file', $temporary . '/http.log', 'a']], $pipes, $temporary);

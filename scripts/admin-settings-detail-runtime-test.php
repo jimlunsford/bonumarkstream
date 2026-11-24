@@ -235,7 +235,7 @@ try {
     $post('registration',['action'=>'create_invite','label'=>'Synthetic invite','max_uses'=>2,'expires_at'=>'2099-01-01T12:00']);
     $invite=$pdo->query("SELECT * FROM `{$prefix}registration_invites` ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     bms_settings_test_expect(is_array($invite)&&$invite['label']==='Synthetic invite'&&(int)$invite['max_uses']===2,'Invite creation preserves limit and label');
-    $html=$get('registration')['body'];bms_settings_test_expect(str_contains($html,"confirm('Revoke this invite code?')"),'Invite revoke confirmation remains');
+    $html=$get('registration')['body'];bms_settings_test_expect(str_contains($html,'registration.php?revoke_invite='.(int)$invite['id'])&&!str_contains($html,'onsubmit='),'Invite revoke opens server-rendered confirmation');
     $post('registration',['action'=>'revoke_invite','invite_id'=>$invite['id']]);
     bms_settings_test_expect($pdo->query("SELECT status FROM `{$prefix}registration_invites` WHERE id=".(int)$invite['id'])->fetchColumn()==='revoked','Invite revocation works');
 
@@ -262,7 +262,7 @@ try {
     $row=$pdo->query("SELECT * FROM `{$prefix}api_tokens` ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
     bms_settings_test_expect($r['status']===200&&strlen($plain)>30&&is_array($row)&&$row['token_hash']!==$plain&&!str_contains(json_encode($row),$plain),'Token is visible once and stored only as a hash');
     bms_settings_test_expect(count(json_decode($row['scopes_json'],true))===5&&str_starts_with($row['expires_at'],'2099-01-01'),'All five scopes and expiry are preserved');
-    $html=$get('remote-posting')['body'];bms_settings_test_expect(!str_contains($html,$plain)&&str_contains($html,'Connected clients using it will stop working.'),'Reload hides full token and keeps revoke consequence');
+    $html=$get('remote-posting')['body'];bms_settings_test_expect(!str_contains($html,$plain)&&str_contains($html,'remote-posting.php?revoke_token='.(int)$row['id']),'Reload hides full token and links to revoke review');
     $post('remote-posting',['action'=>'revoke_token','token_id'=>$row['id']]);bms_settings_test_expect($pdo->query("SELECT status FROM `{$prefix}api_tokens` WHERE id=".(int)$row['id'])->fetchColumn()==='revoked','API token revoke persists');
     $count=(int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}api_tokens`")->fetchColumn();
     $r=$post('remote-posting',['action'=>'create_token','token_name'=>'','scopes'=>[]]);bms_settings_test_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}api_tokens`")->fetchColumn()===$count&&str_contains($r['body'],'Remote posting action failed.'),'Invalid token creation cannot report success or add a token');

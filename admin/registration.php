@@ -81,6 +81,45 @@ foreach ($invites as $inviteRow) {
     }
 }
 
+// Review is a non-destructive navigation; confirmation uses the existing POST.
+// Keep invite eligibility identical to the list, including expired/used codes
+// whose stored status is still active.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['revoke_invite'])) {
+    $selectedInvite = null;
+    foreach ($invites as $candidate) {
+        if ((int)$candidate['id'] === (int)$_GET['revoke_invite'] && (string)$candidate['status'] === 'active') {
+            $selectedInvite = $candidate;
+            break;
+        }
+    }
+    bms_admin_header('Revoke invite code');
+    ?>
+    <section class="panel registration-settings-panel">
+      <?php if ($selectedInvite !== null): ?>
+        <h2>Confirm revocation</h2>
+        <p>Revoke this invite code? It will no longer allow new registrations.</p>
+        <p><strong><?= htmlspecialchars(trim((string)$selectedInvite['label']) ?: 'Unlabeled invite', ENT_QUOTES, 'UTF-8') ?></strong><br>
+        <code><?= htmlspecialchars((string)$selectedInvite['code_hint'], ENT_QUOTES, 'UTF-8') ?></code></p>
+        <form method="post" action="<?= htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8') ?>" class="revocation-confirm-form">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="action" value="revoke_invite">
+          <input type="hidden" name="invite_id" value="<?= (int)$selectedInvite['id'] ?>">
+          <div class="registration-form-actions">
+            <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
+            <button type="submit" class="danger">Revoke invite code</button>
+          </div>
+        </form>
+      <?php else: ?>
+        <h2>Invite code unavailable</h2>
+        <p>This invite is no longer available for revocation. Return to the invite list to check its current status.</p>
+        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8') ?>">Back to invite codes</a>
+      <?php endif; ?>
+    </section>
+    <?php
+    bms_admin_footer();
+    return;
+}
+
 bms_admin_header('Registration', [
     ['label' => 'Accounts', 'href' => bms_admin_url('users.php'), 'style' => 'secondary'],
     ['label' => 'Open Account Page', 'href' => $accountUrl, 'style' => 'secondary', 'target' => true],
@@ -257,12 +296,7 @@ bms_admin_header('Registration', [
           </div>
           <div class="registration-invite-actions">
             <?php if ($status === 'active'): ?>
-              <form method="post" onsubmit="return confirm('Revoke this invite code?');">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="action" value="revoke_invite">
-                <input type="hidden" name="invite_id" value="<?= (int)($invite['id'] ?? 0) ?>">
-                <button type="submit" class="secondary-button danger-button">Revoke</button>
-              </form>
+              <a class="button-link secondary danger" href="<?= htmlspecialchars(bms_admin_url('registration.php?revoke_invite=' . (int)($invite['id'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>">Revoke</a>
             <?php else: ?>
               <span class="meta">Closed</span>
             <?php endif; ?>
