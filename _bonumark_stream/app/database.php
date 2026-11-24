@@ -1561,12 +1561,17 @@ function bms_sync_page_metadata(array $page, string $section, string $filename, 
 function bms_sync_post_terms(int $postId, array $page): void
 {
     $pdo = bms_db();
-    $pdo->prepare('DELETE FROM ' . bms_table('post_terms') . ' WHERE post_id = :post_id')->execute(['post_id' => $postId]);
+    $delete = $pdo->prepare('DELETE FROM ' . bms_table('post_terms') . ' WHERE post_id = :post_id');
+    if ($delete === false || !$delete->execute(['post_id' => $postId])) {
+        throw new RuntimeException('Post term associations could not be cleared.');
+    }
 
     $category = trim((string)($page['category'] ?? 'Uncategorized')) ?: 'Uncategorized';
     $categoryId = bms_get_or_create_term('category', $category);
     $stmt = $pdo->prepare('INSERT IGNORE INTO ' . bms_table('post_terms') . ' (post_id, term_id, is_primary) VALUES (:post_id, :term_id, 1)');
-    $stmt->execute(['post_id' => $postId, 'term_id' => $categoryId]);
+    if ($stmt === false || !$stmt->execute(['post_id' => $postId, 'term_id' => $categoryId])) {
+        throw new RuntimeException('The category association could not be saved.');
+    }
 
     foreach (($page['tags'] ?? []) as $tag) {
         $tag = trim((string)$tag);
@@ -1575,7 +1580,9 @@ function bms_sync_post_terms(int $postId, array $page): void
         }
         $tagId = bms_get_or_create_term('tag', $tag);
         $stmt = $pdo->prepare('INSERT IGNORE INTO ' . bms_table('post_terms') . ' (post_id, term_id, is_primary) VALUES (:post_id, :term_id, 0)');
-        $stmt->execute(['post_id' => $postId, 'term_id' => $tagId]);
+        if ($stmt === false || !$stmt->execute(['post_id' => $postId, 'term_id' => $tagId])) {
+            throw new RuntimeException('A tag association could not be saved.');
+        }
     }
 }
 
@@ -1584,15 +1591,22 @@ function bms_get_or_create_term(string $type, string $name): int
     $pdo = bms_db();
     $slug = bms_term_slug($name);
     $stmt = $pdo->prepare('SELECT id FROM ' . bms_table('terms') . ' WHERE term_type = :term_type AND slug = :slug LIMIT 1');
-    $stmt->execute(['term_type' => $type, 'slug' => $slug]);
+    if ($stmt === false || !$stmt->execute(['term_type' => $type, 'slug' => $slug])) {
+        throw new RuntimeException('The term could not be looked up.');
+    }
     $id = $stmt->fetchColumn();
-    if ($id !== false) {
+    if ($id !== false && (int)$id > 0) {
         return (int)$id;
+    }
+    if ($id !== false || $stmt->errorCode() !== '00000') {
+        throw new RuntimeException('The term lookup did not complete.');
     }
 
     $stmt = $pdo->prepare('INSERT INTO ' . bms_table('terms') . ' (term_type, name, slug, created_at, updated_at) VALUES (:term_type, :name, :slug, NOW(), NOW())');
-    $stmt->execute(['term_type' => $type, 'name' => $name, 'slug' => $slug]);
-    return (int)$pdo->lastInsertId();
+    if ($stmt === false || !$stmt->execute(['term_type' => $type, 'name' => $name, 'slug' => $slug]) || ($id = (int)$pdo->lastInsertId()) < 1) {
+        throw new RuntimeException('The term could not be created.');
+    }
+    return $id;
 }
 
 function bms_delete_post_metadata(string $slug, string $status): void

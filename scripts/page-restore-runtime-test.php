@@ -239,7 +239,7 @@ try {
     }
 
     foreach ([false, true] as $nested) {
-        $faults = ['lock-before', 'insert-before', 'insert-after', 'insert-false', 'insert-noop', 'terms-after', 'delete-before', 'delete-after', 'delete-false', 'delete-noop'];
+        $faults = ['lock-before', 'insert-before', 'insert-after', 'insert-false', 'insert-noop', 'terms-after', 'creation-savepoint-false', 'creation-release-false', 'delete-before', 'delete-after', 'delete-false', 'delete-noop'];
         $faults = array_merge($faults, $nested ? ['savepoint-false', 'release-false'] : ['begin-false', 'commit-throw', 'commit-false']);
         foreach ($faults as $fault) {
             $f = $seed(($nested ? 'nested-' : 'owned-') . $fault);
