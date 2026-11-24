@@ -323,24 +323,92 @@ function bms_require_page_trash_item_access(int $id): array
     return $item;
 }
 
+/** Insert a new Page without adopting another record's identity.
+ * Callers needing a multi-write atomic operation must own a transaction.
+ */
+function bms_insert_new_page(array $page, string $section, string $filename, ?int $authorId = null): int
+{
+    if (!bms_is_installed() || !bms_database_content_columns_ready() || !in_array($section, ['pages/drafts', 'pages/published'], true)) {
+        throw new RuntimeException('Database Page storage is required for creation.');
+    }
+    $pdo = bms_db();
+    $record = bms_database_content_record_from_page($page, $section, $filename, $authorId ?? bms_current_user_id());
+    $record['slug'] = bms_slugify((string)$record['slug']);
+    unset($record['raw']);
+    $record['scheduled_at'] = null;
+    $record['published_at'] = $record['status'] === 'published' ? gmdate('Y-m-d H:i:s') : null;
+    // New Pages must INSERT, never upsert a competing Page. The existing
+    // unique type/slug/status key arbitrates concurrent creation on both
+    // supported engines, including READ COMMITTED without gap locks.
+    $insert = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
+    if (!$insert->execute($record) || $insert->rowCount() !== 1 || ($postId = (int)$pdo->lastInsertId()) < 1) {
+        throw new RuntimeException('The new Page could not be created.');
+    }
+    bms_sync_post_terms($postId, $page);
+    return $postId;
+}
+
 function bms_restore_page_trash_item(int $id): array
 {
-    $item = bms_require_page_trash_item_access($id);
-    $page = function_exists('bms_trash_row_to_content_page') ? bms_trash_row_to_content_page($item, 'page') : [];
-    $status = bms_page_status_from_trash_status((string)($item['original_status'] ?? 'page_draft'));
-    $section = $status === 'published' ? 'pages/published' : 'pages/drafts';
-    $restored = function_exists('bms_database_content_page_for_status') ? bms_database_content_page_for_status($page, $status, 'page') : $page;
-    $filename = basename((string)($item['original_filename'] ?: bms_database_content_filename_for_page($restored)));
-    $slug = bms_slugify((string)($restored['slug'] ?? pathinfo($filename, PATHINFO_FILENAME)));
-    if (function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status($slug, $status, 'page')) {
-        throw new RuntimeException('A ' . ($status === 'published' ? 'published page' : 'draft page') . ' already uses this slug. Rename or remove it first.');
+    // Preserve the existing access/not-found contract before acquiring locks.
+    bms_require_page_trash_item_access($id);
+    if (!bms_database_content_columns_ready()) {
+        throw new RuntimeException('Database Page storage is required for restoration.');
     }
-    bms_db()->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id')->execute(['id' => $id]);
-    $originalAuthorId = (int)($item['original_author_id'] ?? 0);
-    bms_sync_page_metadata($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : null);
-    if ($status === 'published') {
+    $pdo = bms_db();
+    $ownsTransaction = !$pdo->inTransaction();
+    $savepoint = 'bms_page_restore_' . bin2hex(random_bytes(8));
+    $started = false;
+    try {
+        if ($ownsTransaction ? !$pdo->beginTransaction() : $pdo->exec('SAVEPOINT ' . $savepoint) === false) {
+            throw new RuntimeException('Page restoration transaction could not be started.');
+        }
+        $started = true;
+        // A locking read sees current state even in a caller's older snapshot.
+        // Two restorers cannot consume the same recovery record.
+        $select = $pdo->prepare("SELECT * FROM " . bms_table('trash') . " WHERE id = :id AND original_status IN ('page_draft', 'page_published') FOR UPDATE");
+        $select->execute(['id' => $id]);
+        $item = $select->fetch();
+        if (!is_array($item)) {
+            throw new RuntimeException('The Page Trash item is no longer available.');
+        }
+        $restored = bms_trash_row_to_content_page($item, 'page');
+        $status = bms_page_status_from_trash_status((string)$item['original_status']);
+        $section = $status === 'published' ? 'pages/published' : 'pages/drafts';
+        // Keep the stored body and all front matter, including keys not exposed
+        // by the Page editor, instead of rebuilding a lossy Markdown document.
+        $restored['status'] = $restored['content_status'] = $status;
+        $restored['front_matter']['status'] = $status;
+        $restored['date'] = (string)($restored['front_matter']['date'] ?? $restored['date']);
+        $restored['tags'] = bms_normalize_terms($restored['front_matter']['tags'] ?? []);
+        $filename = basename((string)($item['original_filename'] ?: bms_database_content_filename_for_page($restored)));
+        $slug = bms_slugify((string)($restored['slug'] ?? pathinfo($filename, PATHINFO_FILENAME)));
+        $restored['slug'] = $slug;
+        $restored['raw'] = bms_database_content_raw($restored);
+        if (bms_find_database_content_by_slug_status($slug, $status, 'page')) {
+            throw new RuntimeException('A ' . ($status === 'published' ? 'published page' : 'draft page') . ' already uses this slug. Rename or remove it first.');
+        }
+        $originalAuthorId = (int)($item['original_author_id'] ?? 0);
+        bms_insert_new_page($restored, $section, $filename, $originalAuthorId > 0 ? $originalAuthorId : bms_current_user_id());
+        $delete = $pdo->prepare('DELETE FROM ' . bms_table('trash') . ' WHERE id = :id');
+        if (!$delete->execute(['id' => $id]) || $delete->rowCount() !== 1) {
+            throw new RuntimeException('The restored Page Trash record could not be removed.');
+        }
+        if ($ownsTransaction ? !$pdo->commit() : $pdo->exec('RELEASE SAVEPOINT ' . $savepoint) === false) {
+            throw new RuntimeException('Page restoration transaction could not be completed.');
+        }
+        return $restored + ['filename' => $filename, 'restored_status' => $status];
+    } catch (Throwable $e) {
+        if ($started && $pdo->inTransaction()) {
+            if ($ownsTransaction) {
+                $pdo->rollBack();
+            } else {
+                $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+        }
+        throw $e;
     }
-    return $restored + ['filename' => $filename, 'restored_status' => $status];
 }
 
 function bms_delete_page_trash_item_permanently(int $id): ?array
