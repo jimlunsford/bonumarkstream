@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (function_exists('bms_find_database_content_by_slug_status') && (bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'draft', 'page') || bms_find_database_content_by_slug_status((string)$createdPage['slug'], 'published', 'page'))) {
             throw new RuntimeException('A page with this slug already exists. Change the slug or edit the existing page.');
         }
-        bms_sync_page_metadata($createdPage, $section, $filename, bms_current_user_id());
+        bms_insert_new_page($createdPage, $section, $filename, bms_current_user_id());
         if ($requestedStatus === 'published') {
             bms_flash('Page published. “' . $createdPage['title'] . '” is live through dynamic rendering.', 'success');
             bms_redirect(bms_admin_url('page-edit.php?type=published&file=' . urlencode($filename)));

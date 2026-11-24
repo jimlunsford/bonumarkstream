@@ -8,6 +8,7 @@ on:
       # Verify this safety candidate before opening its draft PR.
       - work/35-activitypub-cache-cleanup-correction
       - work/36-revocation-confirmation-safety
+      - work/37-page-restoration-safety
       - 'release/**'
   pull_request:
   workflow_dispatch:
@@ -366,6 +367,7 @@ jobs:
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/page-lifecycle-runtime-test.php
+          php scripts/page-restore-runtime-test.php
 
       - name: Run Media library HTTP regression test
         if: always()
