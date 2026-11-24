@@ -87,6 +87,44 @@ $streamPostsEndpoint = bms_site_url('api/v1/stream/posts');
 $mediaEndpoint = bms_site_url('api/v1/media');
 $mediaImportEndpoint = bms_site_url('api/v1/media/import');
 
+// A separate GET review keeps confirmation usable without JavaScript. The final
+// form retains the existing authorized, CSRF-protected POST contract.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['revoke_token'])) {
+    $selectedToken = null;
+    foreach ($tokens as $candidate) {
+        if ((int)$candidate['id'] === (int)$_GET['revoke_token'] && bms_admin_api_token_state($candidate) === 'active') {
+            $selectedToken = $candidate;
+            break;
+        }
+    }
+    bms_admin_header('Revoke API token');
+    ?>
+    <section class="panel settings-section-panel">
+      <?php if ($selectedToken !== null): ?>
+        <h2>Confirm revocation</h2>
+        <p>Revoke this API token? Connected clients using it will stop working.</p>
+        <p><strong><?= htmlspecialchars((string)$selectedToken['token_name'], ENT_QUOTES, 'UTF-8') ?></strong><br>
+        <code><?= htmlspecialchars((string)$selectedToken['token_prefix'] . '…' . (string)$selectedToken['token_hint'], ENT_QUOTES, 'UTF-8') ?></code></p>
+        <form method="post" action="<?= htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8') ?>" class="revocation-confirm-form">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="action" value="revoke_token">
+          <input type="hidden" name="token_id" value="<?= (int)$selectedToken['id'] ?>">
+          <div class="settings-form-actions">
+            <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
+            <button type="submit" class="danger">Revoke API token</button>
+          </div>
+        </form>
+      <?php else: ?>
+        <h2>API token unavailable</h2>
+        <p>This token is no longer available for revocation. Return to the token list to check its current status.</p>
+        <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('remote-posting.php'), ENT_QUOTES, 'UTF-8') ?>">Back to API tokens</a>
+      <?php endif; ?>
+    </section>
+    <?php
+    bms_admin_footer();
+    return;
+}
+
 bms_admin_header('Remote Posting', [
     ['label' => 'Tools', 'href' => bms_admin_url('tools.php'), 'style' => 'secondary'],
     ['label' => 'API Status', 'href' => bms_url_path('api/v1/status'), 'style' => 'secondary', 'target' => true],
@@ -144,7 +182,7 @@ bms_admin_header('Remote Posting', [
       <div class="settings-record-cell"><span class="settings-mobile-label">Scopes</span><?= htmlspecialchars(bms_api_scope_labels($token['scopes'] ?? []), ENT_QUOTES, 'UTF-8') ?></div>
       <div class="settings-record-cell"><span class="settings-mobile-label">Status</span><span class="static-pill <?= $status === 'active' ? 'generated' : 'draft' ?>"><?= htmlspecialchars(strtoupper($status), ENT_QUOTES, 'UTF-8') ?></span></div>
       <div class="settings-record-cell"><span class="settings-mobile-label">Use and expiration</span><small>Last used: <?= htmlspecialchars((string)($token['last_used_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8') ?></small><br><small>Expires: <?= htmlspecialchars((string)($token['expires_at'] ?? 'Never'), ENT_QUOTES, 'UTF-8') ?></small></div>
-      <div class="settings-record-actions"><span class="settings-mobile-label">Action</span><?php if ($status === 'active'): ?><form method="post" data-confirm="Revoke this API token? Connected clients using it will stop working."><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="revoke_token"><input type="hidden" name="token_id" value="<?= (int)($token['id'] ?? 0) ?>"><button type="submit" class="button-link secondary danger">Revoke</button></form><?php else: ?><span class="meta">No action</span><?php endif; ?></div>
+      <div class="settings-record-actions"><span class="settings-mobile-label">Action</span><?php if ($status === 'active'): ?><a class="button-link secondary danger" href="<?= htmlspecialchars(bms_admin_url('remote-posting.php?revoke_token=' . (int)($token['id'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>">Revoke</a><?php else: ?><span class="meta">No action</span><?php endif; ?></div>
     </article><?php endforeach; ?></div><?php endif; ?>
 </section>
 
