@@ -106,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['revoke_invite'])) {
           <input type="hidden" name="invite_id" value="<?= (int)$selectedInvite['id'] ?>">
           <div class="registration-form-actions">
             <a class="button-link secondary" href="<?= htmlspecialchars(bms_admin_url('registration.php'), ENT_QUOTES, 'UTF-8') ?>">Cancel</a>
-            <button type="submit" class="danger-button">Revoke invite code</button>
+            <button type="submit" class="danger">Revoke invite code</button>
           </div>
         </form>
       <?php else: ?>
