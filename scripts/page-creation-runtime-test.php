@@ -312,12 +312,13 @@ try {
             bms_creation_test_expect($response['status'] === ($actor === 'guest' ? 302 : 403) && $snapshot() === $before, "$actor: rejected without writes");
         }
         $before = $snapshot();
-        $trigger = $prefix . 'creation_failure';
-        $pdo->exec("CREATE TRIGGER `$trigger` BEFORE INSERT ON `{$prefix}post_terms` FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Work38 controlled association failure'");
+        // Use a disposable column rename, not a trigger that needs SUPER
+        // on binary-logged MySQL. This still fails the real association SQL.
+        $pdo->exec("ALTER TABLE `{$prefix}post_terms` RENAME COLUMN is_primary TO creation_test_unavailable_column");
         try {
             $response = bms_creation_test_request($base, '/admin/page-new.php', $owner, $fields('native-association-failure','published'));
         } finally {
-            $pdo->exec("DROP TRIGGER `$trigger`");
+            $pdo->exec("ALTER TABLE `{$prefix}post_terms` RENAME COLUMN creation_test_unavailable_column TO is_primary");
         }
         bms_creation_test_expect($response['status'] === 200 && str_contains($response['body'], 'Page creation failed.') && $snapshot() === $before, 'Native database association failure reaches HTTP error feedback and rolls back all writes');
         $retry = bms_creation_test_request($base, '/admin/page-new.php', $owner, $fields('native-association-failure','published'));
