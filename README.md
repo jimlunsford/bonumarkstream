@@ -7,7 +7,7 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.3**
+- Current version: **0.8.4** (development build, not a public release)
 - Current public GitHub release: **v0.8.3**, published November 4, 2026
 - [Download the official v0.8.3 release](https://github.com/jimlunsford/bonumarkstream/releases/tag/v0.8.3).
 
@@ -36,11 +36,9 @@ That means the project favors:
 - Code-free themes with a strict application boundary
 - Upgrade paths that preserve owner data
 
-## What's new in v0.8.3
+## Current development build
 
-v0.8.3, **Timestamp Correction Hotfix**, corrects RSS publication times and sitemap modification dates by interpreting each stored field in its intended timezone. It preserves historical local timestamps, EST/EDT transitions, scheduled-post timing, and existing publishing behavior. It adds no database migration and supports upgrading from public v0.8.2 through the existing upgrade workflow.
-
-v0.8.3 was publicly released on November 4, 2026. See the [v0.8.3 release notes](docs/releases/v0.8.3.md) for the correction and verification details, or the [v0.8.2 release notes](docs/releases/v0.8.2.md) for the previous public release.
+v0.8.4, **Admin Redesign Development Staging Pass**, packages the accepted Admin redesign and subsequent reliability fixes. It adds no database migration. See the [development build notes](docs/releases/v0.8.4.md) for scope and upgrade requirements. Public v0.8.3 remains the official download until a separate release decision.
 
 ### ActivityPub foundation
 

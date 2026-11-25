@@ -1,3 +1,12 @@
+## 0.8.4 - Admin Redesign Development Staging Pass
+
+**Development build only. Not deployed or publicly released.** Public v0.8.3 remains unchanged.
+
+- Packages the accepted dark-first Admin foundation and Dashboard, Content, Media, Comments, Settings, Pages, and System interfaces from Works 26 through 34.
+- Includes the accepted timestamp and export corrections, blocked-actor cache protection (Work 35), revocation confirmation safety (Work 36), Page restoration and creation safety (Works 37 and 38), and collision-safe Remote API test startup with negative controls (Work 39).
+- Preserves the supported Admin ZIP and owner-run upgrade engines and owner/runtime data boundaries. Adds no database migration; the migration set still ends at 0028.
+- Preparation changes version identity, metadata, documentation, and the release manifest only. Deployment readiness additionally requires an isolated rehearsal from the actual target installation and verified recovery material.
+
 ## 0.8.3 - Timestamp Correction Hotfix
 
 **Publicly released November 4, 2026.** The approved v0.8.3 tag and ZIP are preserved; any later repository documentation maintenance does not modify that published artifact.
