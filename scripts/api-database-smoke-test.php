@@ -26,6 +26,8 @@ if (PHP_SAPI !== 'cli') {
     exit('CLI only.');
 }
 
+require_once __DIR__ . '/api-test-server.php';
+
 $scenario = (string)(getenv('BMS_API_SMOKE_SCENARIO') ?: '');
 if ($scenario !== '') {
     bms_api_smoke_run_child($scenario);
@@ -2202,34 +2204,9 @@ function bms_api_smoke_activitypub_route_responses(string $root): void
     $activeGenerationObject = json_encode(['id' => $activeGenerationUri, 'type' => 'Note', 'content' => '<p>Active generation fixture.</p>'], JSON_UNESCAPED_SLASHES);
     $activeInsert = bms_db()->prepare('INSERT INTO ' . bms_table('activitypub_local_objects') . ' (post_id, object_uri, object_type, content_hash, last_object_json, last_human_url, publication_generation, transition_sequence, published_at, updated_at, deleted_at, created_at) VALUES (997, :object_uri, \'Note\', :content_hash, :object_json, NULL, 2, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, UTC_TIMESTAMP())');
     $activeInsert->execute(['object_uri' => $activeGenerationUri, 'content_hash' => hash('sha256', 'active-generation-fixture'), 'object_json' => $activeGenerationObject]);
-    $port = random_int(43100, 43999);
-    $log = $root . '/activitypub-route-server.log';
-    $command = [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $root, $root . '/index.php'];
-    $descriptors = [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']];
-    $process = proc_open($command, $descriptors, $pipes, $root, array_merge($_ENV, getenv()));
-    if (!is_resource($process)) {
-        throw new RuntimeException('The ActivityPub route test server could not be started.');
-    }
-    fclose($pipes[0]);
-    $base = 'http://127.0.0.1:' . $port . '/index.php?__bonumark_route=';
+    $server = BmsApiTestServer::start($root, $root . '/index.php');
+    $base = $server->base . '/index.php?__bonumark_route=';
     try {
-        $ready = false;
-        for ($attempt = 0; $attempt < 50; $attempt++) {
-            try {
-                $probe = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/activity+json']);
-                if ((int)$probe['status'] > 0) {
-                    $ready = true;
-                    break;
-                }
-            } catch (Throwable $e) {
-            }
-            usleep(100000);
-        }
-        if (!$ready) {
-            $serverLog = is_file($log) ? trim((string)file_get_contents($log)) : '';
-            throw new RuntimeException('The ActivityPub route test server did not become ready.' . ($serverLog !== '' ? ' ' . $serverLog : ''));
-        }
-
         $actor = bms_api_smoke_http_request($base . 'activitypub_actor', 'GET', ['Accept: application/activity+json']);
         if ((int)$actor['status'] !== 200 || !str_starts_with(strtolower((string)($actor['headers']['content-type'] ?? '')), 'application/activity+json')
             || !str_contains((string)$actor['body'], '"inbox":"https://example.test/activitypub/inbox"')
@@ -2297,10 +2274,11 @@ function bms_api_smoke_activitypub_route_responses(string $root): void
         if ((int)$disabledActor['status'] !== 404 || (int)$profile['status'] !== 200 || (int)$apiStatus['status'] !== 200) {
             throw new RuntimeException('Disabling ActivityPub changed an existing Profile or Remote API route.');
         }
+    } catch (Throwable $e) {
+        fwrite(STDERR, $server->stop());
+        throw $e;
     } finally {
-        proc_terminate($process);
-        proc_close($process);
-        @unlink($log);
+        $server->stop();
     }
 }
 

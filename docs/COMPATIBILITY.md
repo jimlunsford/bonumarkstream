@@ -64,3 +64,50 @@ php scripts/deploy-update.php /path/to/bonumark-stream-vX.Y.Z.zip
 The helper uses the same core upgrade engine as Admin → Upgrade, does not elevate privileges, and automatically runs the installed-site deployment check after success. The lower-level `scripts/run-migrations.php` and `scripts/deployment-check.php` helpers remain available for manual/hosting-layer deployments and recovery work.
 
 When a manual deployment introduces database migrations, back up the database and use the explicit owner-run migration command documented in `docs/server/MANUAL-DEPLOYMENT.md` before considering the deployment complete.
+
+### Remote API HTTP fixture startup
+
+The two Remote API HTTP launchers use `scripts/api-test-server.php`. Readiness
+requires HTTP 200 with the exact per-launch random nonce and child PID, plus a
+live child before and after the probe. A temporary router handles only the
+random readiness path; existing application requests and assertions are unchanged.
+The publishing fixture still serves ordinary PHP files, and the ActivityPub
+fixture still routes application requests through its original index.php.
+
+There are at most four launch attempts, a two-second readiness deadline per
+attempt, and a twelve-second overall startup deadline. Reads have absolute
+150 ms deadlines. Only an exited child whose own log confirms an address-in-use
+bind failure permits another launch. Incorrect identities, other child exits,
+configuration errors, router errors and timeouts fail. Application assertions
+are outside the startup loop and are never retried. The helper disables inherited
+PHP CLI workers, closes stdin, terminates and reaps only its direct child, and
+removes its private router/log directory. Failed startup logs and application
+failure logs are emitted before removal. Error reporting and the private log
+destination are explicit so inherited PHP logging settings cannot conceal router
+errors. For a non-collision identity mismatch, a bounded one-second
+`php -n -l` diagnostic captures syntax errors in the owned wrapper because older
+PHP CLI servers can omit them from the HTTP server log. That diagnostic never
+executes application code and its child is reaped. It does not terminate port owners.
+
+Every compatibility job runs:
+
+- `php scripts/api-test-server-test.php`, deterministic collision, ownership,
+  exhaustion, invalid launch, router failure, silent responder, assertion-failure
+  and repeated cleanup coverage.
+- `php scripts/api-test-server-negative-test.php`, an instrumented baseline
+  launcher reproduction and an HTTP-only-readiness mutation rejected by the same
+  regression suite.
+- `php scripts/api-database-smoke-test.php`, the unchanged application scenarios.
+- `php scripts/api-test-server-integration-test.php`, the complete suite in a
+  disposable source copy with the first port forced to a controlled HTTP listener
+  for both launchers. It requires exactly two confirmed collisions and verifies
+  that no application requests reached the foreign listener.
+
+The baseline fixture is extracted from commit
+`358871f48a5940cf804f6039e900716482607599`. Its disclosed instrumentation replaces
+the random port with a supplied port, replaces application assertions with a
+callback, and captures the log before deletion. It preserves the old readiness
+loop and process handling. The integration test edits only port selection and
+diagnostic capture in its temporary copy. Neither test adds a production endpoint,
+application fault switch or database bypass. The earlier connection-refused
+reports are not assigned this cause without separate evidence.
