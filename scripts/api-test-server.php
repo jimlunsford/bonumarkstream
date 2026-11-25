@@ -49,7 +49,7 @@ final class BmsApiTestServer
                 $env = array_merge($_ENV, getenv());
                 // One directly owned process, even when a developer's shell enables PHP workers.
                 unset($env['PHP_CLI_SERVER_WORKERS']);
-                $server->process = proc_open(array_merge([PHP_BINARY], $phpOptions, ['-d', 'log_errors=1', '-d', 'display_errors=0', '-d', 'error_log=', '-S', '127.0.0.1:' . $port, '-t', $root, $wrapper]),
+                $server->process = proc_open(array_merge([PHP_BINARY], $phpOptions, ['-d', 'log_errors=1', '-d', 'display_errors=0', '-d', 'error_reporting=-1', '-d', 'error_log=' . $log, '-S', '127.0.0.1:' . $port, '-t', $root, $wrapper]),
                     [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $root, $env);
                 if (!is_resource($server->process)) {
                     throw new RuntimeException('Could not launch API test-server child.');

@@ -82,7 +82,7 @@ try {
     foreach (['exit', 'router', 'silent'] as $failure) {
         $start = microtime(true);
         try {
-            $server = BmsApiTestServer::start($root, null, $failure === 'exit' ? ['--invalid-bms-option'] : [], null,
+            $server = BmsApiTestServer::start($root, null, $failure === 'exit' ? ['--invalid-bms-option'] : ['-d', 'error_reporting=0', '-d', 'log_errors=0'], null,
                 static function ($event, $data) use ($observe, $failure): void {
                     $observe($event, $data);
                     if ($event === 'spawn' && $failure !== 'exit') {

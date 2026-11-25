@@ -82,7 +82,9 @@ configuration errors, router errors and timeouts fail. Application assertions
 are outside the startup loop and are never retried. The helper disables inherited
 PHP CLI workers, closes stdin, terminates and reaps only its direct child, and
 removes its private router/log directory. Failed startup logs and application
-failure logs are emitted before removal. It does not terminate port owners.
+failure logs are emitted before removal. Error reporting and the private log
+destination are explicit so inherited PHP logging settings cannot conceal router
+errors. It does not terminate port owners.
 
 Every compatibility job runs:
 
