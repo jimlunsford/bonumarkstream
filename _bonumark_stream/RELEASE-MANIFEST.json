@@ -1,7 +1,7 @@
 {
   "name": "bonumark-stream",
   "version": "0.8.4",
-  "generated_at": "2026-11-25T10:53:33.489360+00:00",
+  "generated_at": "2026-11-25T10:57:00.807094+00:00",
   "files": [
     {
       "path": ".github/workflows/compatibility.yml",
@@ -1125,7 +1125,7 @@
     },
     {
       "path": "docs/API.md",
-      "sha256": "39a59da159d4b7b478d892eee4ea7fa0c7e12e9858c714a3fa0db6e35e7da1b6"
+      "sha256": "b7b8006561d1444b815a4e996dfbeb819b493d594ba09b221df5c2d0b98f6bf7"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -1153,7 +1153,7 @@
     },
     {
       "path": "docs/INSTALL.md",
-      "sha256": "2c6a655667ab3a56ab0de3541ad6fc5e7d2a1e8d6b7aa0b775cc145d58626b4d"
+      "sha256": "b1ec292cb9bcc23c81a240c64b6bee548d1fdd63f9e4b442777b2e9d05cf0a5b"
     },
     {
       "path": "docs/MEDIA-PRIVACY.md",
@@ -1169,7 +1169,7 @@
     },
     {
       "path": "docs/REMOTE-POSTING.md",
-      "sha256": "ff4d1c2b035e834850593069ea7c9ad0fe3889a8db4ede49d8fbdbb440c126fb"
+      "sha256": "b67574bc87eaf0e821a321279ad4b36ae29fb5d9d393f38ed16138d4edfb157e"
     },
     {
       "path": "docs/SCHEDULED-TASKS.md",
@@ -1181,7 +1181,7 @@
     },
     {
       "path": "docs/UPGRADING.md",
-      "sha256": "17b49fc6f296816d8e7036d179b8c62c73006eff1601f4e80d218ae651a03297"
+      "sha256": "30d544d1c1eb117a29ce1dcaaa06d5569c8c9df095686a580a1aab4609e79a95"
     },
     {
       "path": "docs/WORK-33-KNOWN-ISSUES.md",
