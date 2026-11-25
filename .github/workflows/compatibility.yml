@@ -10,6 +10,7 @@ on:
       - work/36-revocation-confirmation-safety
       - work/37-page-restoration-safety
       - work/38-page-creation-safety
+      - work/39-api-test-server-startup
       - 'release/**'
   pull_request:
   workflow_dispatch:
@@ -452,6 +453,15 @@ jobs:
           cd "$BMS_CLEAN_ROOT"
           php scripts/export-archive-runtime-test.php
 
+      - name: Run deterministic Remote API server startup regression
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/api-test-server-test.php
+          php scripts/api-test-server-negative-test.php
+
       - name: Run Remote API database smoke test
         if: always()
         env:
@@ -465,6 +475,7 @@ jobs:
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/api-database-smoke-test.php
+          php scripts/api-test-server-integration-test.php
 
       - name: Build and extract canonical release package
         if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}

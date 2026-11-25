@@ -100,18 +100,10 @@ function bms_api_smoke_publishing_safety(): void
     $key = bms_composer_request_key();
     $cookie = session_name() . '=' . session_id();
     session_write_close();
-    $port = random_int(44100, 44999);
-    $log = $root . '/publishing-safety-server.log';
-    $process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $sessionPath, '-S', '127.0.0.1:' . $port, '-t', $root],
-        [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $root, array_merge($_ENV, getenv()));
-    if (!is_resource($process)) { throw new RuntimeException('Could not start publishing safety HTTP fixture.'); }
-    fclose($pipes[0]);
-    $base = 'http://127.0.0.1:' . $port;
+    require_once __DIR__ . '/api-test-server.php';
+    $server = BmsApiTestServer::start($root, null, ['-d', 'session.save_path=' . $sessionPath]);
+    $base = $server->base;
     try {
-        for ($attempt = 0; $attempt < 50; $attempt++) {
-            try { bms_api_smoke_http_request($base . '/admin/stream-composer.php', 'GET', ['Cookie: ' . $cookie]); break; }
-            catch (Throwable $e) { if ($attempt === 49) { throw $e; } usleep(100000); }
-        }
         $payload = ['csrf_token' => $csrf, 'composer_request_key' => $key, 'return_to' => '/',
             'stream_body' => 'Recover this 🌅 composer body.', 'stream_slug' => 'recovered-composer',
             'stream_submit_action' => 'schedule', 'stream_scheduled_at' => 'not-a-date',
@@ -160,8 +152,10 @@ function bms_api_smoke_publishing_safety(): void
             || !str_contains($edit['body'], 'Keep this attempted caption') || !str_contains($edit['body'], '255 characters')) {
             throw new RuntimeException('Media Edit did not retain rejected input with an actionable error.');
         }
+    } catch (Throwable $e) {
+        fwrite(STDERR, $server->stop());
+        throw $e;
     } finally {
-        proc_terminate($process);
-        proc_close($process);
+        $server->stop();
     }
 }
