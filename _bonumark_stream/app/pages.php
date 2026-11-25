@@ -324,7 +324,7 @@ function bms_require_page_trash_item_access(int $id): array
 }
 
 /** Insert a new Page without adopting another record's identity.
- * Callers needing a multi-write atomic operation must own a transaction.
+ * The Page and its terms commit together, or remain inside the caller transaction.
  */
 function bms_insert_new_page(array $page, string $section, string $filename, ?int $authorId = null): int
 {
@@ -337,15 +337,54 @@ function bms_insert_new_page(array $page, string $section, string $filename, ?in
     unset($record['raw']);
     $record['scheduled_at'] = null;
     $record['published_at'] = $record['status'] === 'published' ? gmdate('Y-m-d H:i:s') : null;
-    // New Pages must INSERT, never upsert a competing Page. The existing
-    // unique type/slug/status key arbitrates concurrent creation on both
-    // supported engines, including READ COMMITTED without gap locks.
-    $insert = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
-    if (!$insert->execute($record) || $insert->rowCount() !== 1 || ($postId = (int)$pdo->lastInsertId()) < 1) {
-        throw new RuntimeException('The new Page could not be created.');
+    $ownsTransaction = !$pdo->inTransaction();
+    $savepoint = 'bms_page_create_' . bin2hex(random_bytes(8));
+    $started = false;
+    try {
+        if ($ownsTransaction ? !$pdo->beginTransaction() : $pdo->exec('SAVEPOINT ' . $savepoint) === false) {
+            throw new RuntimeException('Page creation transaction could not be started.');
+        }
+        $started = true;
+        // New Pages must INSERT, never upsert a competing Page. The existing
+        // unique type/slug/status key arbitrates concurrent creation on both
+        // supported engines, including READ COMMITTED without gap locks.
+        $insert = $pdo->prepare('INSERT INTO ' . bms_table('posts') . ' (author_id, title, slug, status, post_type, description, content_body, content_front_matter, content_source, storage_mode, category, category_slug, markdown_path, html_path, date_published, scheduled_at, is_pinned, pinned_at, content_hash, created_at, updated_at, published_at) VALUES (:author_id, :title, :slug, :status, :post_type, :description, :content_body, :content_front_matter, :content_source, :storage_mode, :category, :category_slug, :markdown_path, :html_path, :date_published, :scheduled_at, 0, NULL, :content_hash, NOW(), NOW(), :published_at)');
+        if ($insert === false || !$insert->execute($record) || $insert->rowCount() !== 1 || ($postId = (int)$pdo->lastInsertId()) < 1) {
+            throw new RuntimeException('The new Page could not be created.');
+        }
+        bms_sync_post_terms($postId, $page);
+        if ($ownsTransaction ? !$pdo->commit() : $pdo->exec('RELEASE SAVEPOINT ' . $savepoint) === false) {
+            throw new RuntimeException('Page creation transaction could not be completed.');
+        }
+        return $postId;
+    } catch (Throwable $e) {
+        if ($started) {
+            try {
+                // Deadlocks may invalidate the whole transaction. A lost COMMIT
+                // response may leave its outcome unknown. Neither permits a
+                // promise that caller work survived or that retry is safe.
+                if (!$pdo->inTransaction()) {
+                    throw new RuntimeException('The transaction ended unexpectedly; verify its outcome before retrying.');
+                }
+                if ($ownsTransaction) {
+                    if (!$pdo->rollBack()) {
+                        throw new RuntimeException('Page creation rollback failed.');
+                    }
+                } else {
+                    if ($pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint) === false) {
+                        throw new RuntimeException('Page creation savepoint rollback failed.');
+                    }
+                    if ($pdo->exec('RELEASE SAVEPOINT ' . $savepoint) === false) {
+                        throw new RuntimeException('Page creation savepoint cleanup failed.');
+                    }
+                }
+            } catch (Throwable $cleanup) {
+                // Keep both failures observable, with the original as the cause.
+                throw new RuntimeException('Page creation failed: ' . $e->getMessage() . ' Cleanup: ' . $cleanup->getMessage(), 0, $e);
+            }
+        }
+        throw $e;
     }
-    bms_sync_post_terms($postId, $page);
-    return $postId;
 }
 
 function bms_restore_page_trash_item(int $id): array

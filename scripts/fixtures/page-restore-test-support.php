@@ -28,7 +28,7 @@ class BmsPageRestoreTestPDO extends PDO
 
     public function exec(string $statement): int|false
     {
-        foreach (['savepoint-false' => 'SAVEPOINT ', 'release-false' => 'RELEASE SAVEPOINT '] as $fault => $prefix) {
+        foreach (['savepoint-false' => 'SAVEPOINT bms_page_restore_', 'release-false' => 'RELEASE SAVEPOINT bms_page_restore_', 'creation-savepoint-false' => 'SAVEPOINT bms_page_create_', 'creation-release-false' => 'RELEASE SAVEPOINT bms_page_create_'] as $fault => $prefix) {
             if (self::$fault === $fault && str_starts_with($statement, $prefix)) { self::$fault = ''; return false; }
         }
         return parent::exec($statement);
