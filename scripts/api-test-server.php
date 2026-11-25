@@ -86,6 +86,11 @@ final class BmsApiTestServer
                     }
                     usleep(10000);
                 } while (hrtime(true) < $deadline);
+                if ($mismatch && !$retry && !$ready) {
+                    // Older PHP may omit router compile errors from the server log.
+                    // Lint only this owned wrapper, without executing application code.
+                    self::diagnoseRouter($wrapper, $log);
+                }
                 if ($mismatch) {
                     $reason .= '; readiness identity mismatch';
                 }
@@ -111,6 +116,29 @@ final class BmsApiTestServer
             }
         }
         throw new RuntimeException("API test-server startup attempts exhausted.\n" . implode("\n", $server->diagnostics));
+    }
+
+    private static function diagnoseRouter(string $wrapper, string $log): void
+    {
+        $process = proc_open([PHP_BINARY, '-n', '-l', $wrapper],
+            [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes);
+        if (!is_resource($process)) {
+            file_put_contents($log, "Could not start owned-router syntax diagnostic.\n", FILE_APPEND);
+            return;
+        }
+        fclose($pipes[0]);
+        try {
+            $deadline = hrtime(true) + 1_000_000_000;
+            while (proc_get_status($process)['running'] && hrtime(true) < $deadline) {
+                usleep(10000);
+            }
+            if (proc_get_status($process)['running']) {
+                file_put_contents($log, "Owned-router syntax diagnostic deadline exceeded.\n", FILE_APPEND);
+            }
+        } finally {
+            if (proc_get_status($process)['running']) { proc_terminate($process, 9); }
+            proc_close($process);
+        }
     }
 
     public static function availablePort(): int

@@ -84,7 +84,10 @@ PHP CLI workers, closes stdin, terminates and reaps only its direct child, and
 removes its private router/log directory. Failed startup logs and application
 failure logs are emitted before removal. Error reporting and the private log
 destination are explicit so inherited PHP logging settings cannot conceal router
-errors. It does not terminate port owners.
+errors. For a non-collision identity mismatch, a bounded one-second
+`php -n -l` diagnostic captures syntax errors in the owned wrapper because older
+PHP CLI servers can omit them from the HTTP server log. That diagnostic never
+executes application code and its child is reaped. It does not terminate port owners.
 
 Every compatibility job runs:
 
