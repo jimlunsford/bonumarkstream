@@ -91,7 +91,7 @@ body.bonumark-admin .editor-sidebar-column .publish-card h3::after {
 }
 
 body.bonumark-admin .publish-status-badge {
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid var(--admin-border);
   border-radius: 999px;
   color: var(--admin-muted);
   font-size: .68rem;
@@ -103,9 +103,9 @@ body.bonumark-admin .publish-status-badge {
 
 body.bonumark-admin .publish-status-published,
 body.bonumark-admin .publish-status-scheduled {
-  background: rgba(74, 222, 128, .1);
-  border-color: rgba(74, 222, 128, .24);
-  color: #86efac;
+  background: var(--admin-surface-2);
+  border-color: var(--admin-success);
+  color: var(--admin-success);
 }
 
 body.bonumark-admin .publish-preview-actions {
@@ -131,16 +131,16 @@ body.bonumark-admin .publish-card-actions.publish-primary-actions {
 }
 
 body.bonumark-admin .positive-action {
-  background: rgba(74, 222, 128, .1);
-  border-color: rgba(74, 222, 128, .32);
-  color: #a7f3d0;
+  background: var(--admin-surface-2);
+  border-color: var(--admin-success);
+  color: var(--admin-success);
 }
 
 body.bonumark-admin .positive-action:hover,
 body.bonumark-admin .positive-action:focus-visible {
-  background: rgba(74, 222, 128, .16);
-  border-color: rgba(74, 222, 128, .48);
-  color: #dcfce7;
+  background: var(--admin-surface-raised);
+  border-color: var(--admin-success);
+  color: var(--admin-success);
 }
 
 body.bonumark-admin .publish-more-actions,
@@ -206,7 +206,7 @@ body.bonumark-admin .editor-native-disclosure .editor-card-heading {
 }
 
 body.bonumark-admin .editor-secondary-card.is-collapsed {
-  background: rgba(18, 23, 32, .76);
+  background: var(--admin-surface);
 }
 
 body.bonumark-admin .editor-secondary-card.is-collapsed h3 {
@@ -252,12 +252,12 @@ body.bonumark-admin .editor-mobile-action-bar {
 
   body.bonumark-admin .editor-mobile-action-bar {
     align-items: center;
-    background: rgba(9, 12, 17, .98);
+    background: var(--admin-bg);
     border: 1px solid var(--admin-border);
     border-bottom: 0;
     border-radius: 14px 14px 0 0;
     bottom: 0 !important;
-    box-shadow: 0 -12px 32px rgba(0, 0, 0, .36);
+    box-shadow: 0 -12px 32px var(--admin-shadow-color);
     display: grid;
     gap: 8px;
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;

@@ -280,8 +280,11 @@ A new stylesheet is not a substitute for reusing existing classes.
 
 Use the Admin tokens defined in `admin-shell.css` for colors, surfaces, borders, radius, shadows, and status meaning.
 
-The foundation uses charcoal surfaces, restrained teal actions, a distinct
-essential-control outline, and visible keyboard focus. Keep decorative separators
+The foundation uses a pure black background, white text, neutral gray surfaces,
+white primary actions with black text, underlined in-content text links, a distinct
+essential-control outline, and visible keyboard focus. Hue is reserved for success,
+danger, and warning status; never use green, teal, or blue-gray tints for surfaces,
+borders, or emphasis. Keep decorative separators
 separate from essential control boundaries. General Settings uses 16px mobile
 margins and 44px controls. Admin remains fixed dark at runtime. The dormant
 `admin-appearance-light` body class supplies a secondary palette for isolated

@@ -1219,7 +1219,7 @@ foreach ([
         bm_smoke_fail($failures, 'Legacy Admin CSS still contains a superseded shell or editor declaration: ' . $supersededAdminCssFragment);
     }
 }
-if (!str_contains($adminShellCss, '--admin-bg: #131719')
+if (!str_contains($adminShellCss, '--admin-bg: #000000')
     || !str_contains($adminShellCss, '--admin-sidebar-width: 224px')
     || !str_contains($adminEditorWorkflowCss, '--editor-composer-min-height: 380px')
     || !str_contains($adminEditorWorkflowCss, '--editor-composer-max-height: 1400px')

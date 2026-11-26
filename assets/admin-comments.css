@@ -327,7 +327,7 @@ body.bonumark-admin.admin-screen-comments .comment-record-post {
 
 body.bonumark-admin.admin-screen-comments .comment-record-post a {
   color: var(--admin-muted);
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 body.bonumark-admin.admin-screen-comments .comment-record-actions {

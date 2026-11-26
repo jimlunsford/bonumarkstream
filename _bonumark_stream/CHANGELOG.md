@@ -1,3 +1,22 @@
+## 0.8.5 - Admin Black-and-White Palette Development Build
+
+**Unreleased development build. Not deployed or publicly released.** Public v0.8.3 remains unchanged. Supersedes the unaccepted v0.8.4 development build.
+
+- Replaces the dark Admin palette tokens with a pure black background, white text, neutral gray surfaces and borders, and white primary buttons with black text. Success, danger, and warning are the only hues.
+- Routes every hardcoded color observed rendering on an Admin screen (including hover, focus, empty, warning, error, and destructive states) through the `--admin-*` tokens, removing green, teal, blue-gray, cream, and amber tints. Adds neutral `--admin-overlay` and `--admin-shadow-color` tokens.
+- Extends the tokens to the sign-in screen and the Admin preview bar (color only).
+- Underlines in-content text links and link-style buttons so they stay distinguishable from white body text. Focus rings are white on black.
+- Changes no layout, spacing, typography, or behavior. Adds no database migration; the migration set still ends at 0028. The dormant `admin-appearance-light` palette, public themes, and public-site CSS are unchanged.
+
+## 0.8.4 - Admin Redesign Development Staging Pass
+
+**Development build only. Not deployed or publicly released.** Public v0.8.3 remains unchanged.
+
+- Packages the accepted dark-first Admin foundation and Dashboard, Content, Media, Comments, Settings, Pages, and System interfaces from Works 26 through 34.
+- Includes the accepted timestamp and export corrections, blocked-actor cache protection (Work 35), revocation confirmation safety (Work 36), Page restoration and creation safety (Works 37 and 38), and collision-safe Remote API test startup with negative controls (Work 39).
+- Preserves the supported Admin ZIP and owner-run upgrade engines and owner/runtime data boundaries. Adds no database migration; the migration set still ends at 0028.
+- Preparation changes version identity, metadata, documentation, and the release manifest only. Deployment readiness additionally requires an isolated rehearsal from the actual target installation and verified recovery material.
+
 ## 0.8.3 - Timestamp Correction Hotfix
 
 **Publicly released November 4, 2026.** The approved v0.8.3 tag and ZIP are preserved; any later repository documentation maintenance does not modify that published artifact.

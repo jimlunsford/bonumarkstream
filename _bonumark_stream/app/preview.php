@@ -12,7 +12,8 @@ function bms_admin_preview_document(array $page, string $label = 'Preview', stri
         : ($contentType === 'page' && function_exists('bms_render_page') ? bms_render_page($page) : bms_render_public_content_page($page));
     $labelSafe = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
     $editSafe = $editUrl !== '' ? htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8') : '';
-    $stylesheet = '<link rel="stylesheet" href="' . htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8') . '">';
+    $stylesheet = '<link rel="stylesheet" href="' . htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8') . '">'
+        . '<link rel="stylesheet" href="' . htmlspecialchars(bms_asset_url('assets/admin-shell.css'), ENT_QUOTES, 'UTF-8') . '">';
     $bar = '<div class="bonumark-preview-bar"><div><strong>Bonumark Preview</strong> <span>' . $labelSafe . '</span></div>' . ($editSafe !== '' ? '<a href="' . $editSafe . '" target="_top">Back to Editor</a>' : '') . '</div>';
 
     if (stripos($html, '</head>') !== false) {

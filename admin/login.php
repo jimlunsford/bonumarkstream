@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $styleUrl = htmlspecialchars(bms_asset_url('assets/style.css'), ENT_QUOTES, 'UTF-8');
 $adminStyleUrl = htmlspecialchars(bms_asset_url('assets/admin.css'), ENT_QUOTES, 'UTF-8');
+$adminShellStyleUrl = htmlspecialchars(bms_asset_url('assets/admin-shell.css'), ENT_QUOTES, 'UTF-8');
 $pwaTags = function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '';
 ?>
 <!doctype html>
@@ -34,8 +35,9 @@ $pwaTags = function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '';
   <title>Bonumark Stream Login</title>
 <?= $pwaTags ?>  <link rel="stylesheet" href="<?= $styleUrl ?>">
   <link rel="stylesheet" href="<?= $adminStyleUrl ?>">
+  <link rel="stylesheet" href="<?= $adminShellStyleUrl ?>">
 </head>
-<body>
+<body class="bonumark-admin-login">
   <main class="admin-wrap narrow">
     <h1>Bonumark Stream Login</h1>
     <?php if ($error): ?><div class="flash error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>

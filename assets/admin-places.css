@@ -109,8 +109,8 @@ body.bonumark-admin .places-nearby-feedback p {
 }
 
 body.bonumark-admin .places-nearby-feedback.is-error {
-  border-color: rgba(239, 68, 68, .42);
-  color: #ffaaaa;
+  border-color: var(--admin-danger);
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-nearby-results,
@@ -207,7 +207,7 @@ body.bonumark-admin .places-record-header {
 }
 
 body.bonumark-admin .places-record-list {
-  background: rgba(0, 0, 0, .08);
+  background: var(--admin-surface-3);
 }
 
 body.bonumark-admin .places-record {
@@ -222,7 +222,7 @@ body.bonumark-admin .places-record {
 
 body.bonumark-admin .places-record:hover,
 body.bonumark-admin .places-record:focus-within {
-  background: #161c25;
+  background: var(--admin-surface);
 }
 
 body.bonumark-admin .places-record:has(.content-actions-menu[open]) {
@@ -250,7 +250,7 @@ body.bonumark-admin .places-record-main h2 a {
 
 body.bonumark-admin .places-record-main h2 a:hover,
 body.bonumark-admin .places-record-main h2 a:focus-visible {
-  color: #fff;
+  color: var(--admin-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -355,7 +355,7 @@ body.bonumark-admin .places-field-card {
 }
 
 body.bonumark-admin .places-field-card:focus-within {
-  border-color: rgba(229, 193, 129, .42);
+  border-color: var(--admin-border-strong);
 }
 
 body.bonumark-admin .places-field-card label {
@@ -395,13 +395,13 @@ body.bonumark-admin .places-coordinate-feedback {
 }
 
 body.bonumark-admin .places-coordinate-feedback.is-error {
-  color: #ff9d9d;
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-public-preview {
   align-items: center;
-  background: linear-gradient(135deg, rgba(229, 193, 129, .09), rgba(255, 255, 255, .02));
-  border: 1px solid rgba(229, 193, 129, .3);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border-strong);
   border-radius: 13px;
   display: flex;
   gap: 12px;
@@ -433,7 +433,7 @@ body.bonumark-admin .places-preview-marker svg {
 }
 
 body.bonumark-admin .places-public-preview.is-empty {
-  background: rgba(255, 255, 255, .025);
+  background: var(--admin-surface);
   border-color: var(--admin-border);
 }
 
@@ -503,11 +503,11 @@ body.bonumark-admin .places-danger-panel .button-link.secondary {
 }
 
 body.bonumark-admin .places-danger-panel {
-  border-color: rgba(239, 68, 68, .3);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-danger-panel .danger-link {
-  color: #ffaaaa;
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-delete-layout {
@@ -523,7 +523,7 @@ body.bonumark-admin .places-delete-confirmation {
 }
 
 body.bonumark-admin .places-delete-confirmation {
-  border-color: rgba(239, 68, 68, .32);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-delete-form {
@@ -553,15 +553,15 @@ body.bonumark-admin .places-delete-actions button {
 }
 
 body.bonumark-admin .places-delete-actions .danger-button {
-  background: #a72b2b;
-  border-color: #a72b2b;
-  color: #fff;
+  background: transparent;
+  border-color: var(--admin-danger);
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .places-delete-actions .danger-button:hover,
 body.bonumark-admin .places-delete-actions .danger-button:focus-visible {
-  background: #872222;
-  border-color: #872222;
+  background: var(--admin-surface-raised);
+  border-color: var(--admin-danger);
 }
 
 /* Bring the existing Local Places picker into the same component language. */

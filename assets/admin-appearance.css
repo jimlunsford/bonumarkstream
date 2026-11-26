@@ -139,7 +139,7 @@ body.bonumark-admin .appearance-issue-list.compact {
 }
 
 body.bonumark-admin .appearance-issue-list.warnings li {
-  border-color: rgba(229, 193, 129, .35);
+  border-color: var(--admin-warning);
 }
 
 body.bonumark-admin .appearance-theme-grid {
@@ -157,18 +157,18 @@ body.bonumark-admin .appearance-theme-card {
 }
 
 body.bonumark-admin .appearance-theme-card.is-active {
-  border-color: rgba(111, 216, 159, .58);
-  box-shadow: inset 0 3px 0 rgba(111, 216, 159, .65);
+  border-color: var(--admin-accent);
+  box-shadow: inset 0 3px 0 var(--admin-accent);
 }
 
 body.bonumark-admin .appearance-theme-card.has-errors {
-  border-color: rgba(229, 115, 115, .55);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .appearance-theme-preview,
 body.bonumark-admin .appearance-active-theme-preview,
 body.bonumark-admin .appearance-detail-preview {
-  background: #090d12;
+  background: var(--admin-surface-3);
   min-width: 0;
   overflow: hidden;
   position: relative;
@@ -191,7 +191,7 @@ body.bonumark-admin .appearance-delete-summary > img {
 
 body.bonumark-admin .appearance-theme-preview-empty {
   align-items: center;
-  background: linear-gradient(145deg, #0f151d, #171e28);
+  background: var(--admin-surface);
   color: var(--admin-muted);
   display: flex;
   height: 100%;
@@ -416,7 +416,7 @@ body.bonumark-admin .appearance-toggle-card {
 
 body.bonumark-admin .appearance-toggle-card:hover,
 body.bonumark-admin .appearance-toggle-card:focus-within {
-  background: #171d26;
+  background: var(--admin-surface-raised);
   border-color: var(--admin-accent-dark);
 }
 
@@ -533,11 +533,11 @@ body.bonumark-admin .appearance-record span {
 }
 
 body.bonumark-admin .appearance-record.is-good strong {
-  color: #8ee9b4;
+  color: var(--admin-success);
 }
 
 body.bonumark-admin .appearance-record.is-bad strong {
-  color: #ff9d9d;
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .appearance-install-layout {
@@ -582,7 +582,7 @@ body.bonumark-admin .appearance-package-tree {
 }
 
 body.bonumark-admin .appearance-danger-hero {
-  border-left: 3px solid #df7777;
+  border-left: 3px solid var(--admin-danger);
 }
 
 body.bonumark-admin .appearance-delete-panel {
@@ -614,8 +614,8 @@ body.bonumark-admin .appearance-delete-form {
 }
 
 body.bonumark-admin .appearance-delete-warning {
-  background: rgba(223, 119, 119, .08);
-  border: 1px solid rgba(223, 119, 119, .4);
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-danger);
   border-radius: 12px;
   display: grid;
   gap: 5px;
@@ -624,7 +624,7 @@ body.bonumark-admin .appearance-delete-warning {
 }
 
 body.bonumark-admin .appearance-delete-warning strong {
-  color: #ffb1b1;
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .appearance-delete-warning span {
@@ -678,11 +678,16 @@ body.bonumark-admin .appearance-favicon-current img {
 body.bonumark-admin .appearance-favicon-fallback {
   align-items: center;
   background: var(--admin-accent);
-  color: #111;
+  color: var(--admin-accent-text);
   display: flex;
   font-size: 2rem;
   font-weight: 900;
   justify-content: center;
+}
+
+/* Color only: keep the fallback letter readable on its accent tile. */
+body.bonumark-admin .appearance-favicon-current .appearance-favicon-fallback {
+  color: var(--admin-accent-text);
 }
 
 body.bonumark-admin .appearance-favicon-current > div {

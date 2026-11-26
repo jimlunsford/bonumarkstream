@@ -312,7 +312,7 @@ body.bonumark-admin .settings-option-card:focus-within,
 body.bonumark-admin .settings-field-card:focus-within,
 body.bonumark-admin .settings-security-card:hover,
 body.bonumark-admin .settings-security-card:focus-within {
-  border-color: rgba(229, 193, 129, .42);
+  border-color: var(--admin-border-strong);
 }
 
 body.bonumark-admin .settings-option-card input[type="checkbox"] {
@@ -393,7 +393,7 @@ body.bonumark-admin .settings-attention-panel {
 }
 
 body.bonumark-admin .settings-attention-panel.is-danger {
-  border-left-color: #e57373;
+  border-left-color: var(--admin-danger);
 }
 
 body.bonumark-admin .settings-endpoint-list {
@@ -499,7 +499,7 @@ body.bonumark-admin .settings-mail-record {
 }
 
 body.bonumark-admin .settings-record-list {
-  background: rgba(0, 0, 0, .08);
+  background: var(--admin-surface-2);
   margin: 0 -20px -20px;
 }
 
@@ -520,7 +520,7 @@ body.bonumark-admin .settings-audit-record:not(.settings-record-header):hover,
 body.bonumark-admin .settings-audit-record:not(.settings-record-header):focus-within,
 body.bonumark-admin .settings-history-record:not(.settings-record-header):hover,
 body.bonumark-admin .settings-mail-record:not(.settings-record-header):hover {
-  background: #161c25;
+  background: var(--admin-surface-raised);
 }
 
 body.bonumark-admin .settings-record-cell {
@@ -547,7 +547,7 @@ body.bonumark-admin .settings-mobile-label {
 }
 
 body.bonumark-admin .settings-empty-state {
-  border: 1px dashed rgba(229, 193, 129, .28);
+  border: 1px dashed var(--admin-border-strong);
   border-radius: 12px;
   display: grid;
   gap: 8px;
@@ -571,7 +571,7 @@ body.bonumark-admin .settings-command-card input {
 }
 
 body.bonumark-admin .settings-danger-zone {
-  border-color: rgba(229, 115, 115, .34);
+  border-color: var(--admin-danger);
 }
 
 @media (max-width: 1180px) {

@@ -143,7 +143,7 @@ body.bonumark-admin .operations-action-card:hover,
 body.bonumark-admin .operations-action-card:focus-within,
 body.bonumark-admin .operations-help-card:hover,
 body.bonumark-admin .operations-help-card:focus-within {
-  border-color: rgba(229, 193, 129, .42);
+  border-color: var(--admin-border-strong);
 }
 
 body.bonumark-admin .operations-action-card h3,
@@ -188,19 +188,19 @@ body.bonumark-admin .operation-risk-label {
 }
 
 body.bonumark-admin .operation-risk-label.is-safe {
-  border-color: rgba(91, 201, 137, .42);
-  color: #91e8b6;
+  border-color: var(--admin-success);
+  color: var(--admin-success);
 }
 
 body.bonumark-admin .operation-risk-label.is-sensitive,
 body.bonumark-admin .operation-risk-label.is-warning {
-  border-color: rgba(229, 193, 129, .45);
+  border-color: var(--admin-warning);
   color: var(--admin-accent);
 }
 
 body.bonumark-admin .operation-risk-label.is-destructive {
-  border-color: rgba(229, 115, 115, .46);
-  color: #f0a0a0;
+  border-color: var(--admin-danger);
+  color: var(--admin-danger);
 }
 
 @media (max-width: 640px) {
@@ -214,20 +214,20 @@ body.bonumark-admin .operation-risk-label.is-destructive {
 body.bonumark-admin .operations-action-card.is-sensitive,
 body.bonumark-admin .operations-review-panel,
 body.bonumark-admin .operations-attention-panel {
-  border-color: rgba(229, 193, 129, .34);
+  border-color: var(--admin-warning);
 }
 
 body.bonumark-admin .operations-action-card.is-destructive,
 body.bonumark-admin .operations-danger-zone {
-  border-color: rgba(229, 115, 115, .38);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .operations-danger-zone {
-  background: rgba(98, 34, 34, .12);
+  background: var(--admin-surface-2);
 }
 
 body.bonumark-admin .operations-diagnostic-panel {
-  border-color: rgba(121, 155, 204, .34);
+  border-color: var(--admin-border-strong);
 }
 
 body.bonumark-admin .operations-workflow-grid {
@@ -391,7 +391,7 @@ body.bonumark-admin .operations-record {
 
 body.bonumark-admin .operations-record:hover,
 body.bonumark-admin .operations-record:focus-within {
-  background: #161c25;
+  background: var(--admin-surface);
 }
 
 body.bonumark-admin .operations-record-cell {
@@ -411,7 +411,7 @@ body.bonumark-admin .operations-mobile-label {
 
 body.bonumark-admin .operations-empty-state,
 body.bonumark-admin .operations-result-panel {
-  border: 1px dashed rgba(229, 193, 129, .3);
+  border: 1px dashed var(--admin-border-strong);
   border-radius: 12px;
   display: grid;
   gap: 8px;
@@ -424,11 +424,11 @@ body.bonumark-admin .operations-result-panel > * {
 }
 
 body.bonumark-admin .operations-result-panel.is-success {
-  border-color: rgba(91, 201, 137, .4);
+  border-color: var(--admin-success);
 }
 
 body.bonumark-admin .operations-result-panel.is-error {
-  border-color: rgba(229, 115, 115, .42);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .operations-check-grid {
@@ -448,17 +448,17 @@ body.bonumark-admin .operations-check-card {
 }
 
 body.bonumark-admin .operations-check-card.is-pass {
-  border-color: rgba(91, 201, 137, .34);
+  border-color: var(--admin-success);
 }
 
 body.bonumark-admin .operations-check-card.is-warning,
 body.bonumark-admin .operations-check-card.is-warn {
-  border-color: rgba(229, 193, 129, .38);
+  border-color: var(--admin-warning);
 }
 
 body.bonumark-admin .operations-check-card.is-fail,
 body.bonumark-admin .operations-check-card.is-error {
-  border-color: rgba(229, 115, 115, .42);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .operations-check-card > * {
@@ -509,7 +509,7 @@ body.bonumark-admin .upgrade-confirm-actions {
 
 body.bonumark-admin .import-options-card {
   background: var(--admin-surface-2);
-  border: 1px solid rgba(229, 193, 129, .32);
+  border: 1px solid var(--admin-border-strong);
   border-radius: 14px;
   margin: 18px 0;
   padding: 18px;
@@ -532,11 +532,11 @@ body.bonumark-admin .upgrade-status-card {
 }
 
 body.bonumark-admin .upgrade-status-card.pass {
-  border-color: rgba(91, 201, 137, .34);
+  border-color: var(--admin-success);
 }
 
 body.bonumark-admin .upgrade-status-card.fail {
-  border-color: rgba(229, 115, 115, .42);
+  border-color: var(--admin-danger);
 }
 
 body.bonumark-admin .operations-upgrade-record {
@@ -634,17 +634,17 @@ body.admin-screen-import .operations-hero,
 body.admin-screen-import-markdown .operations-hero,
 body.admin-screen-export .operations-hero,
 body.admin-screen-system-check .operations-hero {
-  border-top: 3px solid rgba(229, 193, 129, .72);
+  border-top: 3px solid var(--admin-border-strong);
 }
 
 body.admin-screen-upgrade .operations-hero {
-  border-top-color: rgba(229, 115, 115, .78);
+  border-top-color: var(--admin-danger);
 }
 
 body.admin-screen-scheduled-tasks .settings-workflow-hero,
 body.admin-screen-remote-posting .settings-workflow-hero,
 body.admin-screen-security .settings-workflow-hero {
-  border-top: 3px solid rgba(121, 155, 204, .56);
+  border-top: 3px solid var(--admin-border-strong);
 }
 
 body.admin-screen-analytics .analytics-settings-card,
@@ -655,7 +655,7 @@ body.admin-screen-analytics .analytics-report-card {
 }
 
 body.admin-screen-analytics .analytics-danger-zone {
-  border-color: rgba(229, 115, 115, .4);
+  border-color: var(--admin-danger);
 }
 
 @media (max-width: 1240px) {
