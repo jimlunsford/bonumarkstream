@@ -24,7 +24,7 @@ The repository workflow under `.github/workflows/compatibility.yml` exercises th
 | 8.3 | MySQL 8.4 | Newer MySQL LTS reference |
 | 8.3 | MariaDB 11.4 | Newer MariaDB LTS reference |
 
-Each matrix job first creates a clean tracked source snapshot with `git archive HEAD`. The test tree therefore contains repository-managed package files but not `.git/` checkout metadata, matching the release-manifest package boundary.
+Each matrix job first creates a clean snapshot of every tracked file (`git ls-files`) without `.git/` checkout metadata. The snapshot includes the repository-only paths that `.gitattributes` marks `export-ignore` (`.github/`, `CLAUDE.md`, `docs/development/`, and `.gitattributes` itself), so source checks can read them. Release ZIPs are built with `git archive`, which leaves those paths out. The release manifest never lists them, and the strict package smoke test fails if a release package contains one.
 
 Each matrix job then runs:
 
@@ -32,13 +32,15 @@ Each matrix job then runs:
 - JavaScript syntax checks
 - JSON validation
 - Markdown relative-link validation
-- public interaction, Admin UI, public semantics, timestamp (RSS/sitemap), and Unicode metadata regression tests, including the no-mbstring fallback
+- public interaction, composer mount, Admin UI, public semantics, timestamp (RSS/sitemap), and Unicode metadata regression tests, including the no-mbstring fallback
+- the security hardening regression test, including the table-driven outbound address guard test, on both PHP versions
 - the clean-package smoke test
 - all ActivityPub Stages 1 through 7 and Stage 6.5 regression suites
 - the Admin comments runtime regression test
 - the disposable database smoke test covering both current fresh-install schema creation and historical supported-upgrade migration replay
 - the migration-recovery smoke test
 - the disposable Remote Posting API database smoke test
+- the security hardening HTTP regression test
 
 Release-branch pushes are held to the strict package boundary. The workflow does not allow the source-branch manifest exemption on `release/**`. It verifies the final release manifest, builds the canonical versioned ZIP from the commit, extracts it into a clean directory, and repeats PHP, JavaScript, JSON, package, ActivityPub, migration, and Remote API validation against the extracted archive on all four matrix combinations. The PHP 8.3/MySQL 8.4 job also retains the validated ZIP as a short-lived workflow artifact for release-candidate inspection.
 

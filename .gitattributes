@@ -1,0 +1,7 @@
+# Repository-only paths. They stay in the repository and are left out of
+# release ZIPs built with git archive. scripts/smoke-test.php checks that this
+# list, the release manifest, and the strict package checks agree.
+/.gitattributes export-ignore
+/.github/ export-ignore
+/CLAUDE.md export-ignore
+/docs/development/ export-ignore

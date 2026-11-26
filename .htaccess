@@ -38,7 +38,7 @@ DirectoryIndex index.php index.html
 </IfModule>
 
 
-<FilesMatch "^\.">
+<FilesMatch "^\.(?!well-known$)">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
@@ -51,6 +51,8 @@ DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # Deny dot-directories and dotfiles at any depth, except /.well-known/.
+  RewriteRule (^|/)\.(?!well-known(/|$)) - [F]
   RewriteRule ^\.well-known/webfinger/?$ index.php?__bonumark_route=activitypub_webfinger [L,QSA]
   RewriteRule ^activitypub/actor/?$ index.php?__bonumark_route=activitypub_actor [L,QSA]
   RewriteRule ^activitypub/inbox/?$ index.php?__bonumark_route=activitypub_inbox [L,QSA]

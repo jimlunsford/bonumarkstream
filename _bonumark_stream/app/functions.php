@@ -579,6 +579,8 @@ function bms_package_managed_software_path(string $relative): bool
         'index.php' => true,
         'install.php' => true,
         'manifest.php' => true,
+        // The media folder is owner data. Only its server rules file is package-managed.
+        'media/.htaccess' => true,
         'page.php' => true,
         'pwa-icon.php' => true,
         'profile.php' => true,

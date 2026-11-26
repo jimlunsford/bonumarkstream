@@ -75,6 +75,18 @@ Bonumark Stream randomizes public filenames for newly uploaded media. Supported 
 
 The `_bonumark_stream/` directory and `scripts/` directory are protected by `.htaccess` on Apache and LiteSpeed. Nginx deployments should use the maintained example under `docs/server/`; other non-Apache servers must add equivalent deny rules. Do not expose shipped CLI test scripts through the web server. After installation, **Admin → System Check** should report both **Private folder exposure** and **Public URL mode** as passing.
 
+The package also ships `media/.htaccess` and `assets/themes/.htaccess`. On Apache and LiteSpeed they stop PHP from running in `media/` and serve uploaded media and theme assets with a restrictive Content-Security-Policy and `X-Content-Type-Options: nosniff`. The Nginx example applies the same rules in its `/media/` and `/assets/themes/` locations.
+
+## Mail and Sendmail
+
+Mail delivery is configured in **Admin → Settings → Mail**. When the Sendmail transport is selected, Bonumark runs the program named by `mail_sendmail_path` in `_bonumark_stream/config.php`. The installer writes the default:
+
+```php
+'mail_sendmail_path' => '/usr/sbin/sendmail',
+```
+
+Change it in `config.php` if the host's Sendmail-compatible program lives elsewhere. Use an absolute path. Admin shows this path but cannot change it, so only someone with file access to the installation can choose which program runs.
+
 
 ## Install as app after setup
 

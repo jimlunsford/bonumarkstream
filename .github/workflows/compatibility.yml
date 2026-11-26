@@ -79,7 +79,10 @@ jobs:
           clean_root="$RUNNER_TEMP/bonumark-stream-clean"
           rm -rf "$clean_root"
           mkdir -p "$clean_root"
-          git archive --format=tar HEAD | tar -xf - -C "$clean_root"
+          # Every tracked file, including the repository-only paths that
+          # .gitattributes export-ignores. The release ZIP below is built with
+          # git archive, which leaves those paths out.
+          git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$clean_root"
           echo "BMS_CLEAN_ROOT=$clean_root" >> "$GITHUB_ENV"
 
       - name: Lint PHP
@@ -104,11 +107,13 @@ jobs:
           done < <(find . -type f -name '*.json' -print0)
           node scripts/markdown-link-test.js
           node scripts/public-interactions-test.js
+          node scripts/composer-mount-test.js
           php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
           php scripts/timestamp-regression-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php
+          php scripts/security-hardening-test.php
 
       - name: Run development source-tree smoke test
         if: ${{ !startsWith(github.ref, 'refs/heads/release/') && !startsWith(github.head_ref, 'release/') }}
@@ -197,6 +202,20 @@ jobs:
           set -euo pipefail
           cd "$BMS_CLEAN_ROOT"
           php scripts/admin-comments-runtime-test.php
+
+      - name: Run security hardening HTTP regression test
+        if: always()
+        env:
+          BMS_DB_HOST: 127.0.0.1
+          BMS_DB_NAME: bonumark_ci
+          BMS_DB_USER: bonumark
+          BMS_DB_PASS: bonumark_ci_password
+          BMS_DB_DANGER_RESET: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$BMS_CLEAN_ROOT"
+          php scripts/security-hardening-runtime-test.php
 
       - name: Run migration/schema smoke test
         if: always()
@@ -512,11 +531,13 @@ jobs:
           done < <(find . -type f -name '*.json' -print0)
           node scripts/markdown-link-test.js
           node scripts/public-interactions-test.js
+          node scripts/composer-mount-test.js
           php scripts/activitypub-admin-ui-test.php
           php scripts/public-semantics-test.php
           php scripts/timestamp-regression-test.php
           php scripts/unicode-metadata-test.php
           php -n scripts/unicode-metadata-test.php
+          php scripts/security-hardening-test.php
           php scripts/smoke-test.php
           php scripts/activitypub-foundation-test.php
           php scripts/activitypub-read-only-test.php
@@ -543,6 +564,7 @@ jobs:
           php scripts/database-smoke-test.php
           php scripts/migration-recovery-smoke-test.php
           php scripts/api-database-smoke-test.php
+          php scripts/security-hardening-runtime-test.php
 
       - name: Record release package checksum
         if: ${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}

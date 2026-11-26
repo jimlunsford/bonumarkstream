@@ -162,7 +162,8 @@ function bms_registration_token_hash(string $token): string
 
 function bms_registration_verification_url(string $token): string
 {
-    return bms_url_path('account.php?action=verify&token=' . rawurlencode($token));
+    // Emailed links must be absolute, like password reset links.
+    return bms_site_url('account.php?action=verify&token=' . rawurlencode($token));
 }
 
 function bms_registration_resend_url(): string

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/media.php';
+require_once __DIR__ . '/network-guard.php';
 
 function bms_import_remote_image_max_bytes(): int
 {
@@ -40,50 +41,13 @@ function bms_import_is_remote_http_url(string $url): bool
 
 function bms_import_remote_image_ip_is_public(string $ip): bool
 {
-    $ip = trim($ip, " \t\n\r\0\x0B[]");
-    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+    return bms_network_ip_is_public($ip);
 }
 
 /** @return list<string> */
 function bms_import_remote_image_public_host_ips(string $host): array
 {
-    $host = strtolower(trim($host, " \t\n\r\0\x0B.[]"));
-    if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')) {
-        return [];
-    }
-
-    $ips = [];
-    if (filter_var($host, FILTER_VALIDATE_IP)) {
-        $ips[] = $host;
-    } else {
-        if (function_exists('dns_get_record')) {
-            $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-            if (is_array($records)) {
-                foreach ($records as $record) {
-                    foreach (['ip', 'ipv6'] as $key) {
-                        if (!empty($record[$key])) {
-                            $ips[] = (string)$record[$key];
-                        }
-                    }
-                }
-            }
-        }
-        if (!$ips && function_exists('gethostbynamel')) {
-            $aRecords = @gethostbynamel($host);
-            if (is_array($aRecords)) {
-                $ips = array_merge($ips, $aRecords);
-            }
-        }
-    }
-
-    $public = [];
-    foreach (array_unique($ips) as $ip) {
-        if (!bms_import_remote_image_ip_is_public((string)$ip)) {
-            return [];
-        }
-        $public[] = (string)$ip;
-    }
-    return array_values(array_unique($public));
+    return bms_network_public_host_ips($host);
 }
 
 function bms_import_remote_image_host_is_public(string $host): bool

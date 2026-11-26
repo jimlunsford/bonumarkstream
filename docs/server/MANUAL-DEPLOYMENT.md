@@ -72,7 +72,15 @@ rsync -avc \
 
 Do **not** add `--delete` at the site root. A blind delete can remove custom themes or other owner data. After the overlay, `scripts/deployment-check.php` detects obsolete package-managed files that remain from older releases while preserving runtime data and custom themes. Remove only the exact obsolete paths it reports, after confirming your backup.
 
-The repository-only `.github/` directory is not required on a deployed web root and is excluded in the shell examples above.
+The repository-only `.github/` directory is not required on a deployed web root and is excluded in the shell examples above. Release packages already leave out the repository-only `.github/`, `CLAUDE.md`, `docs/development/`, and `.gitattributes` paths; the `.github/` exclusion remains for older packages.
+
+The examples exclude `media/` so the overlay never changes uploads or the media folder's own ownership and permissions. The one package-managed file in that folder is `media/.htaccess`, which stops Apache and LiteSpeed from running PHP there and adds the passive-file security headers. Copy it on its own after the overlay:
+
+```sh
+cp /path/to/extracted/bonumark-stream-vX.Y.Z/media/.htaccess /path/to/live/site/media/.htaccess
+```
+
+Nginx does not read `.htaccess`. Nginx sites apply the same protection through the `/media/` locations in `docs/server/bonumark-stream-nginx.conf`.
 
 When the host uses a deliberate owner/group model, preserve that model with the host's normal ownership tools or an appropriate `rsync --chown` option. Bonumark does not require a specific Unix username or group.
 

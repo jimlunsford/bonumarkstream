@@ -21,7 +21,7 @@
       "get": {
         "operationId": "getApiStatus",
         "summary": "Get Remote Posting API status",
-        "description": "Returns API status, endpoint URLs, and token metadata when a bearer token is supplied.",
+        "description": "Without a token, confirms only that the site runs the Bonumark Stream API. With a valid bearer token while the API is enabled, also returns the version, API settings, endpoint URLs, and token metadata.",
         "security": [],
         "responses": {
           "200": {
@@ -435,13 +435,11 @@
     "schemas": {
       "StatusResponse": {
         "type": "object",
+        "description": "Without a valid bearer token, only ok, api, and authenticated are returned. The version, API settings, endpoints, and token metadata are returned only to an authenticated request while the API is enabled.",
         "required": [
           "ok",
           "api",
-          "version",
-          "remote_posting_enabled",
-          "authenticated",
-          "endpoints"
+          "authenticated"
         ],
         "properties": {
           "ok": {

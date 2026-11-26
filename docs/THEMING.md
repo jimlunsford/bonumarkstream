@@ -14,10 +14,10 @@ A theme package may include:
 - Metadata
 - Supports declarations
 - Editable settings schema
-- Screenshot
+- Screenshot (PNG, JPEG, GIF, or WebP)
 - CSS assets
-- Image assets
-- Font assets
+- Image assets (PNG, JPEG, GIF, WebP, or ICO)
+- Font assets (WOFF or WOFF2)
 - Documentation
 - Private declarative Layout Schema JSON for supported surfaces
 
@@ -26,6 +26,7 @@ A theme package may not include:
 - PHP
 - JavaScript
 - HTML templates
+- SVG images
 - SQL
 - Route handlers
 - Database writes
@@ -36,6 +37,8 @@ A theme package may not include:
 - Symlinks
 - Arbitrary executable code
 
+Theme packages cannot include SVG files. The theme installer refuses any package that contains or declares one. A theme that was installed with an SVG image or screenshot before this rule keeps working. Theme Health lists each SVG file as a warning, and an update of that theme must replace them with PNG, JPEG, GIF, or WebP files. The shipped Apache rules and Nginx example also serve `assets/themes/` and `media/` with a restrictive Content-Security-Policy and `X-Content-Type-Options: nosniff`.
+
 ## Copying Midnight Ledger
 
 To create a theme:
@@ -43,7 +46,7 @@ To create a theme:
 1. Copy `_bonumark_stream/themes/default/`.
 2. Rename the folder and theme slug.
 3. Update `theme.json` metadata and version.
-4. Replace `assets/images/screenshot.svg`.
+4. Replace `assets/images/screenshot.png` with a PNG, JPEG, GIF, or WebP screenshot.
 5. Edit the design tokens and presentation rules in `assets/css/theme.css`.
 6. Adjust or remove declarative layouts as needed.
 7. Zip the theme folder.
