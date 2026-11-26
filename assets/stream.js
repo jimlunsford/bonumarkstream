@@ -1136,8 +1136,40 @@
     });
   }
 
+  // Rendered post, Page, Profile, comment, and Following content. Markup
+  // inside these containers is never treated as a core composer mount.
+  var userContentSelector = '.stream-card-content, [data-stream-quick-edit-content], .site-page-content, .profile-about-content, .comment-federated-content, .following-content, .comment-body';
+
+  // Return the core composer endpoint for a core-rendered mount, or '' when
+  // the mount or its endpoint is not the one core renders.
+  function composerMountEndpoint(mount) {
+    if (!mount || mount.tagName !== 'SECTION' || !mount.classList.contains('stream-composer-mount')) {
+      return '';
+    }
+    if (mount.parentElement && mount.parentElement.closest(userContentSelector)) {
+      return '';
+    }
+
+    var declared = mount.getAttribute('data-stream-composer-endpoint') || '';
+    var base = streamAssetBase();
+    if (!declared || !base) {
+      return '';
+    }
+
+    try {
+      var url = new URL(declared, window.location.href);
+      var expected = new URL('admin/stream-composer.php', base);
+      if (url.origin !== window.location.origin || expected.origin !== window.location.origin || url.pathname !== expected.pathname) {
+        return '';
+      }
+      return expected.origin + expected.pathname;
+    } catch (error) {
+      return '';
+    }
+  }
+
   function loadComposerMounts() {
-    var mounts = document.querySelectorAll('[data-stream-composer-mount]');
+    var mounts = document.querySelectorAll('section.stream-composer-mount[data-stream-composer-mount]');
     if (!mounts.length || typeof fetch !== 'function') {
       return;
     }
@@ -1147,7 +1179,7 @@
         return;
       }
 
-      var endpoint = mount.getAttribute('data-stream-composer-endpoint') || '';
+      var endpoint = composerMountEndpoint(mount);
       if (!endpoint) {
         return;
       }

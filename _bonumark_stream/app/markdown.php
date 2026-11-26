@@ -159,7 +159,10 @@ function bms_autolink_plain_urls(string $html): string
             continue;
         }
 
-        $parts[$index] = preg_replace_callback('~\bhttps?://[^\s<]+~iu', static function (array $m): string {
+        // An autolink never extends into an inline Markdown placeholder. The
+        // placeholder marker is excluded from the URL so a placeholder key can
+        // never become part of an href.
+        $parts[$index] = preg_replace_callback('~\bhttps?://[^\s<\x{1A}]+~iu', static function (array $m): string {
             $urlText = (string)$m[0];
             $trailing = '';
 
@@ -312,17 +315,51 @@ function bms_markdown_attribute_value(string $attributes, string $name): string
     return html_entity_decode((string)($match[2] ?? $match[3] ?? $match[4] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-function bms_markdown_normalize_raw_images(string $text, array &$placeholders): string
+/**
+ * Inline Markdown placeholders are bracketed by this control character. It is
+ * removed from authored text before rendering, so only core can produce it.
+ */
+function bms_markdown_placeholder_marker(): string
 {
-    return preg_replace_callback('#<img\b([^>]*)>#i', static function (array $matches) use (&$placeholders): string {
+    return "\x1A";
+}
+
+/** Return a random per-render namespace for inline placeholder keys. */
+function bms_markdown_placeholder_nonce(): string
+{
+    return bin2hex(random_bytes(12));
+}
+
+function bms_markdown_placeholder_key(string $nonce, int $index): string
+{
+    $marker = bms_markdown_placeholder_marker();
+    return $marker . 'bmsph' . $nonce . 'n' . $index . $marker;
+}
+
+/** True when a value that will become a URL or attribute holds a placeholder. */
+function bms_markdown_contains_placeholder(string $value): bool
+{
+    return str_contains($value, bms_markdown_placeholder_marker());
+}
+
+function bms_markdown_normalize_raw_images(string $text, array &$placeholders, string $nonce = ''): string
+{
+    if ($nonce === '') {
+        $nonce = bms_markdown_placeholder_nonce();
+    }
+    return preg_replace_callback('#<img\b([^>]*)>#i', static function (array $matches) use (&$placeholders, $nonce): string {
         $attributes = (string)($matches[1] ?? '');
+        if (bms_markdown_contains_placeholder($attributes)) {
+            // A placeholder inside raw image attributes is left as text.
+            return (string)$matches[0];
+        }
         $src = bms_markdown_image_source_from_attributes($attributes);
         if ($src === '') {
             return '';
         }
         $alt = bms_markdown_attribute_value($attributes, 'alt');
         $title = bms_markdown_attribute_value($attributes, 'title');
-        $key = '%%RAWIMAGE' . count($placeholders) . '%%';
+        $key = bms_markdown_placeholder_key($nonce, count($placeholders));
         $placeholders[$key] = bms_markdown_image_html($src, $alt !== '' ? $alt : 'Imported image', $title);
         return $key;
     }, $text) ?? $text;
@@ -330,28 +367,42 @@ function bms_markdown_normalize_raw_images(string $text, array &$placeholders): 
 
 function bms_inline_markdown(string $text): string
 {
+    // Placeholder keys use a random per-call namespace and a marker character
+    // that authored text cannot contain, so text can never spell a key.
+    $marker = bms_markdown_placeholder_marker();
+    $text = str_replace($marker, '', $text);
+    $nonce = bms_markdown_placeholder_nonce();
     $placeholders = [];
-    $text = preg_replace_callback('/`([^`]+)`/', function ($m) use (&$placeholders) {
-        $key = '%%CODE' . count($placeholders) . '%%';
-        $placeholders[$key] = '<code>' . htmlspecialchars($m[1], ENT_NOQUOTES, 'UTF-8') . '</code>';
+    $text = preg_replace_callback('/`([^`]+)`/', function ($m) use (&$placeholders, $nonce) {
+        $key = bms_markdown_placeholder_key($nonce, count($placeholders));
+        $placeholders[$key] = '<code>' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . '</code>';
         return $key;
     }, $text) ?? $text;
 
-    $text = bms_markdown_normalize_raw_images($text, $placeholders);
+    $text = bms_markdown_normalize_raw_images($text, $placeholders, $nonce);
 
     $text = htmlspecialchars($text, ENT_NOQUOTES, 'UTF-8');
 
-    $text = preg_replace_callback('/!\[([^\]]*)\]\((<[^>]+>|[^\r\n)]+?)(?:\s+"([^"]*)")?\)/', function ($m) use (&$placeholders) {
+    $text = preg_replace_callback('/!\[([^\]]*)\]\((<[^>]+>|[^\r\n)]+?)(?:\s+"([^"]*)")?\)/', function ($m) use (&$placeholders, $nonce) {
+        // Placeholders are never accepted inside an image URL, alt, or title.
+        if (bms_markdown_contains_placeholder((string)$m[0])) {
+            return (string)$m[0];
+        }
         $src = trim((string)$m[2]);
         if (str_starts_with($src, '<') && str_ends_with($src, '>')) {
             $src = substr($src, 1, -1);
         }
-        $key = '%%IMAGE' . count($placeholders) . '%%';
+        $key = bms_markdown_placeholder_key($nonce, count($placeholders));
         $placeholders[$key] = bms_markdown_image_html($src, (string)$m[1], isset($m[3]) ? (string)$m[3] : '');
         return $key;
     }, $text) ?? $text;
 
     $text = preg_replace_callback('/\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)/', function ($m) {
+        // Placeholders are never accepted inside a link URL or title. The
+        // label may hold one, because it is element content, not an attribute.
+        if (bms_markdown_contains_placeholder((string)$m[2]) || bms_markdown_contains_placeholder((string)($m[3] ?? ''))) {
+            return (string)$m[0];
+        }
         $label = bms_media_label_text((string)$m[1]);
         $href = bms_clean_url(htmlspecialchars_decode($m[2], ENT_QUOTES));
         $type = bms_media_type_from_url($href);
@@ -372,11 +423,10 @@ function bms_inline_markdown(string $text): string
     $text = preg_replace('/(?<!\*)\*([^*]+)\*(?!\*)/', '<em>$1</em>', $text) ?? $text;
     $text = preg_replace('/(?<!_)_([^_]+)_(?!_)/', '<em>$1</em>', $text) ?? $text;
 
-    foreach ($placeholders as $key => $value) {
-        $text = str_replace($key, $value, $text);
-    }
+    // One pass: a substituted value is never searched for further keys.
+    $text = strtr($text, $placeholders);
 
-    return $text;
+    return str_replace($marker, '', $text);
 }
 
 function bms_clean_url(string $url): string
