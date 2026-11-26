@@ -7,6 +7,8 @@
  * validation and pinned-address transport in this file.
  */
 
+require_once __DIR__ . '/network-guard.php';
+
 final class BmsActivityPubSecurityException extends RuntimeException
 {
     private string $securityReason;
@@ -51,50 +53,13 @@ function bms_activitypub_signature_window_seconds(): int
 
 function bms_activitypub_ip_is_public(string $ip): bool
 {
-    $ip = trim($ip, "[] \t\n\r\0\x0B");
-    if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-        return false;
-    }
-    $flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
-    if (defined('FILTER_FLAG_GLOBAL_RANGE')) {
-        $flags |= FILTER_FLAG_GLOBAL_RANGE;
-    }
-    if (filter_var($ip, FILTER_VALIDATE_IP, $flags) === false) {
-        return false;
-    }
-
-    // Explicitly cover ranges whose treatment has differed between PHP builds.
-    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-        $number = ip2long($ip);
-        if ($number === false) {
-            return false;
-        }
-        $number = (int)sprintf('%u', $number);
-        foreach ([
-            ['100.64.0.0', 10],
-            ['169.254.0.0', 16],
-            ['192.0.0.0', 24],
-            ['192.0.2.0', 24],
-            ['198.18.0.0', 15],
-            ['198.51.100.0', 24],
-            ['203.0.113.0', 24],
-            ['224.0.0.0', 4],
-        ] as [$network, $bits]) {
-            $networkNumber = (int)sprintf('%u', ip2long($network));
-            $mask = $bits === 0 ? 0 : ((0xFFFFFFFF << (32 - $bits)) & 0xFFFFFFFF);
-            if (($number & $mask) === ($networkNumber & $mask)) {
-                return false;
-            }
-        }
-    }
-    return true;
+    return bms_network_ip_is_public($ip);
 }
 
 function bms_activitypub_resolve_public_host(string $host, ?callable $resolver = null): array
 {
     $host = strtolower(rtrim(trim($host), '.'));
-    if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost')
-        || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
+    if (bms_network_host_is_local_name($host)) {
         throw new BmsActivityPubSecurityException('The remote host is not public.', 400);
     }
 
