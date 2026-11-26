@@ -100,7 +100,7 @@ Image/file sharing through Web Share Target is not enabled in this release. Once
 
 ## Remember this device
 
-Bonumark Stream supports app-friendly login persistence through a Remember this device checkbox on login forms. The feature stores a rotating device token in the database, keeps the cookie HttpOnly, uses SameSite=Lax, uses Secure on HTTPS, and revokes remembered devices on logout or password changes. The default remembered-device window is 30 days and can be adjusted in Settings > Stream.
+Bonumark Stream supports app-friendly login persistence through a Remember this device checkbox on login forms. The feature stores a rotating device token in the database, keeps the cookie HttpOnly, uses SameSite=Lax, uses Secure on HTTPS, and revokes remembered devices on logout, password changes and resets, and Sign out all other devices. The default remembered-device window is 30 days and can be adjusted in Settings > Stream.
 
 ## Pinned posts
 

@@ -20,8 +20,12 @@ Do not open a public issue for a suspected security vulnerability. Use GitHub pr
 
 - Admin routes require login and capability checks.
 - Mutating admin actions use CSRF protection.
-- Public comments use CSRF protection.
+- Public comments use CSRF protection and are rate limited per account and per network. The owner can hold a new commenter's first comment for review.
 - Public likes are unauthenticated but rate-limited.
+- Sign-in attempts are throttled per username and network, and per network across usernames, with a delay that doubles after each further failure. A username is never locked by itself, so failures from one network do not block the account elsewhere. Remembered devices are not throttled.
+- Each signed-in session is bound to the account's credentials. Changing or resetting a password signs out every other session of that account, and Account offers Sign out all other devices. The session that makes the change stays signed in.
+- Each email address belongs to one account. Changing your own address needs your current password, and a new address takes effect only after its confirmation link is opened.
+- Verification links work only for accounts that are still waiting for email verification.
 - Registration is disabled by default unless enabled in settings.
 - SVG uploads are blocked.
 - Theme packages are code-free. PHP, JavaScript, HTML files, server configuration files, symlinks, and executable code are rejected during theme ZIP installation.
@@ -36,7 +40,7 @@ Bonumark Stream uses two account types: Admin, the sole publisher and site manag
 
 ## Remembered devices
 
-The Remember this device option uses persistent device tokens instead of extending the normal PHP session. Token validators are stored hashed in the database, cookies are HttpOnly and SameSite=Lax, Secure is used on HTTPS, tokens rotate when reused, and remembered devices are revoked on logout and password changes.
+The Remember this device option uses persistent device tokens instead of extending the normal PHP session. Token validators are stored hashed in the database, cookies are HttpOnly and SameSite=Lax, Secure is used on HTTPS, tokens rotate when reused, and remembered devices are revoked on logout, password changes and resets, and Sign out all other devices.
 
 ## Locked-down deployment boundary
 
