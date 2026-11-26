@@ -18,8 +18,73 @@ function bms_comment_registration_enabled(): bool
 
 function bms_comment_ip_hash(): string
 {
-    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    // The same network key as sign-in throttling: an IPv4 address, or the
+    // /64 network of an IPv6 address.
+    $ip = function_exists('bms_login_network_address') ? bms_login_network_address() : (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
     return hash('sha256', $ip . '|' . (string)(bms_config()['security_salt'] ?? 'bonumark'));
+}
+
+/** Thrown when a commenter or network has posted too many recent comments. */
+final class BmsCommentRateLimitException extends RuntimeException
+{
+    public function __construct(string $message, private int $retryAfterSeconds)
+    {
+        parent::__construct($message);
+    }
+
+    public function retryAfterSeconds(): int
+    {
+        return $this->retryAfterSeconds;
+    }
+}
+
+/**
+ * Comment rate limits. Each rule allows at most `max` comments in the last
+ * `window` seconds, per account or per network. Comments in every status
+ * count, so spam moved to Trash still counts. The site owner is not limited.
+ *
+ * @return list<array{scope:string,window:int,max:int}>
+ */
+function bms_comment_rate_limits(): array
+{
+    return [
+        ['scope' => 'account', 'window' => 600, 'max' => 5],
+        ['scope' => 'account', 'window' => 86400, 'max' => 50],
+        ['scope' => 'network', 'window' => 600, 'max' => 10],
+        ['scope' => 'network', 'window' => 86400, 'max' => 100],
+    ];
+}
+
+function bms_comment_enforce_rate_limits(int $userId, string $ipHash): void
+{
+    foreach (bms_comment_rate_limits() as $rule) {
+        $window = (int)$rule['window'];
+        $column = $rule['scope'] === 'account' ? 'user_id' : 'ip_hash';
+        $stmt = bms_db()->prepare('SELECT COUNT(*) AS recent, TIMESTAMPDIFF(SECOND, MIN(created_at), NOW()) AS oldest_age FROM ' . bms_table('comments') . ' WHERE ' . $column . ' = :value AND created_at > (NOW() - INTERVAL ' . $window . ' SECOND)');
+        $stmt->execute(['value' => $rule['scope'] === 'account' ? $userId : $ipHash]);
+        $row = $stmt->fetch() ?: [];
+        if ((int)($row['recent'] ?? 0) < (int)$rule['max']) {
+            continue;
+        }
+        $retryAfter = max(60, $window - (int)($row['oldest_age'] ?? 0));
+        $wait = $retryAfter < 3600
+            ? (int)ceil($retryAfter / 60) . ' minute' . ((int)ceil($retryAfter / 60) === 1 ? '' : 's')
+            : (int)ceil($retryAfter / 3600) . ' hour' . ((int)ceil($retryAfter / 3600) === 1 ? '' : 's');
+        throw new BmsCommentRateLimitException('You have posted several comments in a short time. Try again in about ' . $wait . '.', $retryAfter);
+    }
+}
+
+/** Optional: hold a commenter's comments for review until one is approved. */
+function bms_comment_hold_first_comment_enabled(): bool
+{
+    return (string)bms_setting_or_config('comments_hold_first_comment', '0') === '1';
+}
+
+function bms_comment_author_has_approved_comment(int $userId): bool
+{
+    $stmt = bms_db()->prepare('SELECT 1 FROM ' . bms_table('comments') . " WHERE user_id = :user_id AND status = 'approved' LIMIT 1");
+    $stmt->execute(['user_id' => $userId]);
+    return $stmt->fetchColumn() !== false;
 }
 
 function bms_comment_user_agent_hash(): string
@@ -105,7 +170,14 @@ function bms_create_comment(string $slug, string $body): array
     if (strlen($body) > 5000) {
         throw new RuntimeException('Comment is too long. Keep it under 5000 characters.');
     }
+    $isModerator = bms_current_user_can('manage_comments');
+    if (!$isModerator) {
+        bms_comment_enforce_rate_limits((int)$user['id'], bms_comment_ip_hash());
+    }
     $status = bms_comment_normalize_status((string)bms_setting_or_config('comments_default_status', 'approved'));
+    if ($status === 'approved' && !$isModerator && bms_comment_hold_first_comment_enabled() && !bms_comment_author_has_approved_comment((int)$user['id'])) {
+        $status = 'pending';
+    }
     $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('comments') . ' (post_slug, post_id, user_id, parent_id, body, status, ip_hash, user_agent_hash, created_at, updated_at, approved_at) VALUES (:post_slug, :post_id, :user_id, NULL, :body, :status, :ip_hash, :user_agent_hash, NOW(), NOW(), :approved_at)');
     $stmt->execute([
         'post_slug' => bms_slugify($slug),

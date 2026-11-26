@@ -430,6 +430,10 @@ function bms_handle_comments_route(): void
             bms_verify_csrf();
             $comment = bms_create_comment($slug, (string)($_POST['body'] ?? ''));
             $notice = ((string)($comment['status'] ?? 'approved') === 'approved') ? 'Comment posted.' : 'Comment saved for review.';
+        } catch (BmsCommentRateLimitException $e) {
+            http_response_code(429);
+            header('Retry-After: ' . $e->retryAfterSeconds());
+            $notice = $e->getMessage();
         } catch (Throwable $e) {
             http_response_code(400);
             $notice = bms_public_safe_exception_notice($e, 'Comment could not be saved. Check the form and try again.');
