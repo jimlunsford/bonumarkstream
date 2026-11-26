@@ -96,7 +96,7 @@ body.bonumark-admin .registration-option-card {
 
 body.bonumark-admin .registration-option-card:hover,
 body.bonumark-admin .registration-option-card:focus-within {
-  background: #171d26;
+  background: var(--admin-surface-raised);
   border-color: var(--admin-accent-dark);
 }
 
@@ -227,7 +227,7 @@ body.bonumark-admin .registration-invite-header {
 }
 
 body.bonumark-admin .registration-invite-list {
-  background: rgba(0, 0, 0, .08);
+  background: var(--admin-surface-2);
   margin: 0 -20px -20px;
 }
 
@@ -241,7 +241,7 @@ body.bonumark-admin .registration-invite-record {
 
 body.bonumark-admin .registration-invite-record:hover,
 body.bonumark-admin .registration-invite-record:focus-within {
-  background: #161c25;
+  background: var(--admin-surface-raised);
 }
 
 body.bonumark-admin .registration-invite-identity,

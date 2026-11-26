@@ -2,35 +2,42 @@
    Six stable primary destinations retain no-JavaScript access. Public themes do not
    load this sheet. Dark remains the current runtime presentation. */
 
-body.bonumark-admin {
-  --admin-bg: #131719;
-  --admin-surface: #181e21;
-  --admin-surface-2: #181e21;
-  --admin-surface-3: #131719;
-  --admin-surface-raised: #253b35;
-  --admin-text: #f2f4f3;
-  --admin-muted: #abb5bc;
-  --admin-subtle: #abb5bc;
-  --admin-border: #384248;
-  --admin-border-strong: #73818b;
-  --admin-control-outline: #73818b;
-  --admin-sidebar: #181e21;
-  --admin-sidebar-hover: #253b35;
-  --admin-sidebar-text: #f2f4f3;
-  --admin-accent: #9dd8ca;
-  --admin-accent-dark: #b7e5d9;
-  --admin-accent-text: #131719;
+/* Color tokens. The sign-in screen and the Admin preview bar share the tokens
+   only (no shell layout or typography). The preview bar sits on a public theme
+   page, so its tokens are scoped to the bar element itself. */
+body.bonumark-admin,
+body.bonumark-admin-login,
+.bonumark-preview-bar {
+  --admin-bg: #000000;
+  --admin-surface: #0d0d0d;
+  --admin-surface-2: #0d0d0d;
+  --admin-surface-3: #000000;
+  --admin-surface-raised: #1f1f1f;
+  --admin-text: #ffffff;
+  --admin-muted: #a3a3a3;
+  --admin-subtle: #a3a3a3;
+  --admin-border: #262626;
+  --admin-border-strong: #737373;
+  --admin-control-outline: #737373;
+  --admin-sidebar: #0d0d0d;
+  --admin-sidebar-hover: #1f1f1f;
+  --admin-sidebar-text: #ffffff;
+  --admin-accent: #ffffff;
+  --admin-accent-dark: #d4d4d4;
+  --admin-accent-text: #000000;
   --admin-blue: var(--admin-accent);
   --admin-blue-dark: var(--admin-accent-dark);
-  --admin-selected: #253b35;
-  --admin-danger: #f4a4a7;
-  --admin-success: #9dd8ca;
-  --admin-warning: #e9cc7b;
-  --admin-warning-surface: #30291c;
+  --admin-selected: #1f1f1f;
+  --admin-danger: #f87171;
+  --admin-success: #4ade80;
+  --admin-warning: #facc15;
+  --admin-warning-surface: #171717;
   --admin-radius-sm: 6px;
   --admin-radius: 14px;
   --admin-radius-lg: 18px;
   --admin-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
+  --admin-shadow-color: rgba(0, 0, 0, 0.4);
+  --admin-overlay: rgba(0, 0, 0, 0.7);
   --admin-sidebar-width: 224px;
   --admin-color-scheme: dark;
   /* Keep legacy shared components on the Admin palette without changing :root. */
@@ -43,6 +50,9 @@ body.bonumark-admin {
   --accent: var(--admin-accent);
   --danger: var(--admin-danger);
   --success: var(--admin-success);
+}
+
+body.bonumark-admin {
   background: var(--admin-bg);
   color: var(--admin-text);
   color-scheme: var(--admin-color-scheme);
@@ -51,6 +61,15 @@ body.bonumark-admin {
   line-height: 1.5;
   margin: 0;
   min-width: 0;
+}
+
+/* Sign-in screen: native controls follow the Admin palette. Color only. */
+body.bonumark-admin-login {
+  color-scheme: var(--admin-color-scheme);
+}
+
+body.bonumark-admin-login input[type="checkbox"] {
+  accent-color: var(--admin-accent);
 }
 
 /* Secondary presentation for isolated review and future appearance integration.
@@ -191,9 +210,9 @@ body.bonumark-admin .admin-brand:hover {
 
 body.bonumark-admin .admin-brand-mark {
   align-items: center;
-  background: #e8e0cf;
+  background: var(--admin-accent);
   border-radius: var(--admin-radius-sm);
-  color: #192126;
+  color: var(--admin-accent-text);
   display: inline-flex;
   flex: 0 0 34px;
   font-size: 0.95rem;
@@ -685,6 +704,7 @@ body.bonumark-admin .link-button:hover {
   background: transparent;
   border: 0;
   color: var(--admin-accent);
+  text-decoration: underline;
 }
 
 body.bonumark-admin .danger-link,
@@ -1049,7 +1069,7 @@ body.bonumark-admin .dashboard-status-item:hover {
   }
 
   html.admin-js-ready body.bonumark-admin .admin-sidebar-backdrop {
-    background: rgba(0, 0, 0, 0.62);
+    background: var(--admin-overlay);
     display: block;
     inset: 0;
     position: fixed;
@@ -1251,6 +1271,7 @@ body.bonumark-admin .admin-back-link:hover {
 
 body.bonumark-admin .admin-back-link {
   margin: 0 0 12px;
+  text-decoration: underline;
 }
 
 body.bonumark-admin .admin-settings-local-nav {
@@ -1401,7 +1422,7 @@ body.bonumark-admin .dashboard-review-link {
   max-width: 100%;
   min-height: 44px;
   padding: 8px 0;
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 body.bonumark-admin .dashboard-review-link:hover {

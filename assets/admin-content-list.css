@@ -92,11 +92,11 @@ body.bonumark-admin .content-list-sort-link:hover,
 body.bonumark-admin .content-list-sort-link:focus-visible {
   background: var(--admin-surface-2);
   border-color: var(--admin-accent-dark);
-  color: #fff;
+  color: var(--admin-text);
 }
 
 body.bonumark-admin .content-record-list {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--admin-surface-3);
 }
 
 body.bonumark-admin .content-record-header,
@@ -128,7 +128,7 @@ body.bonumark-admin .content-record {
 
 body.bonumark-admin .content-record:hover,
 body.bonumark-admin .content-record:focus-within {
-  background: #161c25;
+  background: var(--admin-surface);
 }
 
 body.bonumark-admin .content-record:has(.content-actions-menu[open]) {
@@ -165,7 +165,7 @@ body.bonumark-admin .content-record h2 a {
 
 body.bonumark-admin .content-record h2 a:hover,
 body.bonumark-admin .content-record h2 a:focus-visible {
-  color: #fff;
+  color: var(--admin-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -196,7 +196,7 @@ body.bonumark-admin .content-record-meta {
 
 body.bonumark-admin .content-record-chip {
   align-items: center;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--admin-surface);
   border: 1px solid var(--admin-border);
   border-radius: 999px;
   color: var(--admin-muted);
@@ -211,13 +211,13 @@ body.bonumark-admin .content-record-chip {
 }
 
 body.bonumark-admin .content-record-chip.pinned {
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #f7c56d;
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text);
 }
 
 body.bonumark-admin .content-record-chip.media {
-  border-color: rgba(96, 165, 250, 0.34);
-  color: #9bc7ff;
+  border-color: var(--admin-border-strong);
+  color: var(--admin-muted);
 }
 
 body.bonumark-admin .content-record-status,
@@ -280,14 +280,14 @@ body.bonumark-admin .content-actions-menu > summary:hover,
 body.bonumark-admin .content-actions-menu > summary:focus-visible {
   background: var(--admin-surface-2);
   border-color: var(--admin-accent-dark);
-  color: #fff;
+  color: var(--admin-text);
 }
 
 body.bonumark-admin .content-actions-menu-panel {
-  background: #10151d;
+  background: var(--admin-surface);
   border: 1px solid var(--admin-border);
   border-radius: 12px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 18px 45px var(--admin-shadow-color);
   display: grid;
   gap: 3px;
   min-width: 220px;
@@ -330,16 +330,16 @@ body.bonumark-admin .content-actions-menu-panel a:focus-visible,
 body.bonumark-admin .content-actions-menu-panel .content-action-button:hover,
 body.bonumark-admin .content-actions-menu-panel .content-action-button:focus-visible {
   background: var(--admin-surface-2);
-  color: #fff;
+  color: var(--admin-text);
   text-decoration: none;
 }
 
 body.bonumark-admin .content-actions-menu-panel .state-link {
-  color: #f0c98f;
+  color: var(--admin-accent);
 }
 
 body.bonumark-admin .content-actions-menu-panel .danger-link {
-  color: #ff9292;
+  color: var(--admin-danger);
 }
 
 body.bonumark-admin .content-list-empty-state {
