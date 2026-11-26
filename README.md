@@ -7,7 +7,7 @@ It is built for people who want the speed of a personal stream without handing t
 - Homepage: https://bonumark.org
 - Demo: https://demo.bonumark.org
 - Repository: https://github.com/jimlunsford/bonumarkstream
-- Current version: **0.8.4** (development build, not a public release)
+- Current version: **0.8.5** (development build, not a public release)
 - Current public GitHub release: **v0.8.3**, published November 4, 2026
 - [Download the official v0.8.3 release](https://github.com/jimlunsford/bonumarkstream/releases/tag/v0.8.3).
 
@@ -38,7 +38,7 @@ That means the project favors:
 
 ## Current development build
 
-v0.8.4, **Admin Redesign Development Staging Pass**, packages the accepted Admin redesign and subsequent reliability fixes. It adds no database migration. See the [development build notes](docs/releases/v0.8.4.md) for scope and upgrade requirements. Public v0.8.3 remains the official download until a separate release decision.
+v0.8.5, **Admin Black-and-White Palette Development Build**, replaces the v0.8.4 Admin color palette with a pure black background, white text, neutral grays, and white primary buttons; hue remains only for success, danger, and warning status. It is otherwise identical to v0.8.4, which was not accepted and is superseded, and it adds no database migration. See the [development build notes](docs/releases/v0.8.5.md) for scope and upgrade requirements. Public v0.8.3 remains the official download until a separate release decision.
 
 ### ActivityPub foundation
 

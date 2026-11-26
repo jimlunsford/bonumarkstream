@@ -2,9 +2,9 @@
 
 The current public release is v0.8.3, published November 4, 2026, superseding v0.8.2. Bonumark Stream v0.8.3 continues the maintained v0.4.0+ upgrade line and supports both managed application trees and intentionally locked-down deployments.
 
-## v0.8.4 development staging build
+## v0.8.5 development build
 
-Bonumark Stream v0.8.4 is a development build only. It uses the existing upgrade methods below with `bonumark-stream-v0.8.4.zip`. It adds no migration compared with v0.8.2 or v0.8.3; an installation whose ledger is complete through 0028 has no pending migration. Compare the actual target ledger and package integrity before proceeding. See [development build notes](releases/v0.8.4.md).
+Bonumark Stream v0.8.5 is an unreleased development build only. It supersedes the unaccepted v0.8.4 development build and changes only the Admin color palette. It uses the existing upgrade methods below with `bonumark-stream-v0.8.5.zip`, including from an installed v0.8.4 development build. It adds no migration compared with v0.8.2, v0.8.3, or v0.8.4; an installation whose ledger is complete through 0028 has no pending migration. Compare the actual target ledger and package integrity before proceeding. See [development build notes](releases/v0.8.5.md).
 
 Retain Admin ZIP upgrades where currently supported. Before deployment, verify a full files-and-database recovery point, reconcile local application differences, and rehearse the exact ZIP against an isolated copy of the current installation. An installed version label alone does not identify locally modified software.
 

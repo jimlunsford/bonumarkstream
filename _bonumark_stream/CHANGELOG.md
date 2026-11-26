@@ -1,3 +1,13 @@
+## 0.8.5 - Admin Black-and-White Palette Development Build
+
+**Unreleased development build. Not deployed or publicly released.** Public v0.8.3 remains unchanged. Supersedes the unaccepted v0.8.4 development build.
+
+- Replaces the dark Admin palette tokens with a pure black background, white text, neutral gray surfaces and borders, and white primary buttons with black text. Success, danger, and warning are the only hues.
+- Routes every hardcoded color observed rendering on an Admin screen (including hover, focus, empty, warning, error, and destructive states) through the `--admin-*` tokens, removing green, teal, blue-gray, cream, and amber tints. Adds neutral `--admin-overlay` and `--admin-shadow-color` tokens.
+- Extends the tokens to the sign-in screen and the Admin preview bar (color only).
+- Underlines in-content text links and link-style buttons so they stay distinguishable from white body text. Focus rings are white on black.
+- Changes no layout, spacing, typography, or behavior. Adds no database migration; the migration set still ends at 0028. The dormant `admin-appearance-light` palette, public themes, and public-site CSS are unchanged.
+
 ## 0.8.4 - Admin Redesign Development Staging Pass
 
 **Development build only. Not deployed or publicly released.** Public v0.8.3 remains unchanged.
