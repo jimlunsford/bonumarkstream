@@ -62,8 +62,14 @@ function bms_theme_installer_is_allowed_file(string $relative): bool
     }
 
     $extension = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
-    $allowed = ['json', 'md', 'txt', 'css', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'woff', 'woff2', 'ico'];
+    $allowed = ['json', 'md', 'txt', 'css', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'woff', 'woff2', 'ico'];
     return in_array($extension, $allowed, true);
+}
+
+function bms_theme_installer_is_svg_file(string $relative): bool
+{
+    $relative = str_replace('\\', '/', trim($relative));
+    return in_array(strtolower(pathinfo($relative, PATHINFO_EXTENSION)), ['svg', 'svgz'], true);
 }
 
 function bms_theme_installer_safe_extract(ZipArchive $zip, string $destination): void
@@ -102,6 +108,9 @@ function bms_theme_installer_safe_extract(ZipArchive $zip, string $destination):
             throw new RuntimeException('Theme package expands beyond the allowed size limit.');
         }
 
+        if (!str_ends_with($normalized, '/') && bms_theme_installer_is_svg_file($normalized)) {
+            throw new RuntimeException(bms_theme_svg_not_allowed_message($trimmed));
+        }
         if (!str_ends_with($normalized, '/') && !bms_theme_installer_is_allowed_file($normalized)) {
             throw new RuntimeException('Theme package contains a file type or path that is not allowed: ' . basename($normalized));
         }
@@ -189,7 +198,7 @@ function bms_theme_installer_copy_file(string $source, string $destination): voi
     }
     $dir = dirname($destination);
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
-        throw new RuntimeException('Could not create theme install directory: ' . $dir);
+        throw new RuntimeException('Could not create a theme install directory for ' . basename($destination) . '.');
     }
     if (!copy($source, $destination)) {
         throw new RuntimeException('Could not copy theme file: ' . basename($source));
@@ -272,6 +281,10 @@ function bms_theme_installer_install_candidate(array $candidate, bool $replaceEx
     $installedAssets = false;
 
     try {
+        $svgAssets = bms_theme_manifest_svg_assets($manifest);
+        if ($svgAssets) {
+            throw new RuntimeException(bms_theme_svg_not_allowed_message($svgAssets[0]));
+        }
         $manifestErrors = is_array($manifest['manifest_errors'] ?? null) ? $manifest['manifest_errors'] : [];
         if ($manifestErrors) {
             throw new RuntimeException('Theme manifest did not pass validation: ' . implode(' ', $manifestErrors));
@@ -419,11 +432,16 @@ function bms_install_public_theme_zip(array $file, bool $replaceExisting = false
     }
 
     $zip = new ZipArchive();
+    $zipOpen = false;
     try {
         if ($zip->open($tmp) !== true) {
             throw new RuntimeException('Could not open the uploaded theme ZIP.');
         }
+        $zipOpen = true;
         bms_theme_installer_safe_extract($zip, $extractRoot);
+        // Close exactly once. A second close throws and would replace the
+        // validation error the owner needs to see.
+        $zipOpen = false;
         $zip->close();
 
         $candidates = bms_theme_installer_find_manifest_candidates($extractRoot);
@@ -435,12 +453,10 @@ function bms_install_public_theme_zip(array $file, bool $replaceExisting = false
         }
 
         return bms_theme_installer_install_candidate($candidates[0], $replaceExisting, $activate);
-    } catch (Throwable $e) {
-        if ($zip instanceof ZipArchive) {
-            @$zip->close();
-        }
-        throw $e;
     } finally {
+        if ($zipOpen) {
+            $zip->close();
+        }
         bms_theme_installer_remove_directory($extractRoot);
     }
 }

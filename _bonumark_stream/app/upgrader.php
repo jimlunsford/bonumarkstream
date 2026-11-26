@@ -543,6 +543,9 @@ function bms_upgrade_software_items(string $packageRoot): array
             $topLevel = explode('/', $relative, 2)[0];
             if ($topLevel !== '' && !isset($skipPublic[$topLevel])) {
                 $items[] = $topLevel;
+            } elseif ($relative === 'media/.htaccess') {
+                // Install only the media server rules; never touch uploads.
+                $items[] = $relative;
             }
         }
     }

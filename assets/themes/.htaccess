@@ -1,0 +1,6 @@
+# Theme assets are passive files: restrictive policy and no MIME sniffing.
+# Pages that load theme CSS, fonts, and images are not affected by this policy.
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox"
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>

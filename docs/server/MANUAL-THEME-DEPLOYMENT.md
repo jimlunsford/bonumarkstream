@@ -37,7 +37,7 @@ assets/
         css/
           theme.css
         images/
-          screenshot.svg
+          screenshot.png
 ```
 
 Only files actually declared by `theme.json` should be copied to the public asset directory. Private layout JSON should remain private.
@@ -54,6 +54,8 @@ Only files actually declared by `theme.json` should be copied to the public asse
 8. Activate the theme only after Theme Health passes.
 
 When updating a theme, replace that theme's two directories deliberately. Do not delete unrelated themes.
+
+A manual deployment bypasses the Admin installer's file checks, so apply the same rules yourself. Do not deploy SVG, PHP, JavaScript, HTML, or server configuration files into either theme directory. Theme Health warns about any SVG image or screenshot it finds in an installed theme.
 
 ## Simple single-folder theme ZIPs
 

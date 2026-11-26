@@ -21,6 +21,7 @@ sitemap.xsl
 robots.txt
 media/*
 !media/.gitkeep
+!media/.htaccess
 
 # Local exports, logs, and archives
 *.log

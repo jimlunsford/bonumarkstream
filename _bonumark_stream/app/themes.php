@@ -70,11 +70,50 @@ function bms_theme_asset_allowed_extension(string $asset, string $type): bool
     $extension = strtolower(pathinfo($asset, PATHINFO_EXTENSION));
     return match ($type) {
         'css' => $extension === 'css',
-        'images' => in_array($extension, ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico'], true),
+        'images' => in_array($extension, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico'], true),
         'fonts' => in_array($extension, ['woff', 'woff2'], true),
-        'screenshot' => in_array($extension, ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp'], true),
+        'screenshot' => in_array($extension, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true),
         default => false,
     };
+}
+
+/**
+ * SVG images and screenshots are refused in theme packages. A theme installed
+ * before that rule keeps working, and Theme Health reports the SVG files.
+ */
+function bms_theme_asset_is_legacy_svg(string $asset, string $type): bool
+{
+    return in_array($type, ['images', 'screenshot'], true)
+        && strtolower(pathinfo($asset, PATHINFO_EXTENSION)) === 'svg';
+}
+
+/** True for an allowed asset type, or an SVG kept by an already-installed theme. */
+function bms_theme_asset_allowed_installed_extension(string $asset, string $type): bool
+{
+    return bms_theme_asset_allowed_extension($asset, $type) || bms_theme_asset_is_legacy_svg($asset, $type);
+}
+
+/** Return the SVG images and screenshot a theme manifest declares. */
+function bms_theme_manifest_svg_assets(array $manifest): array
+{
+    $svg = [];
+    $assets = is_array($manifest['assets'] ?? null) ? $manifest['assets'] : [];
+    foreach ((array)($assets['images'] ?? []) as $asset) {
+        $asset = bms_theme_asset_reference((string)$asset);
+        if ($asset !== '' && bms_theme_asset_is_legacy_svg($asset, 'images')) {
+            $svg[] = $asset;
+        }
+    }
+    $screenshot = bms_theme_asset_reference((string)($manifest['screenshot'] ?? ''));
+    if ($screenshot !== '' && bms_theme_asset_is_legacy_svg($screenshot, 'screenshot')) {
+        $svg[] = $screenshot;
+    }
+    return array_values(array_unique($svg));
+}
+
+function bms_theme_svg_not_allowed_message(string $asset): string
+{
+    return 'SVG images are not allowed in themes. Replace ' . $asset . ' with a PNG, JPEG, GIF, or WebP image.';
 }
 
 function bms_theme_asset_group_label(string $type): string
@@ -97,7 +136,7 @@ function bms_normalize_theme_assets(array $rawAssets): array
         }
         foreach ($rawList as $asset) {
             $reference = bms_theme_asset_reference((string)$asset);
-            if ($reference !== '' && bms_theme_asset_allowed_extension($reference, $type) && !in_array($reference, $assets[$type], true)) {
+            if ($reference !== '' && bms_theme_asset_allowed_installed_extension($reference, $type) && !in_array($reference, $assets[$type], true)) {
                 $assets[$type][] = $reference;
             }
         }
@@ -132,7 +171,7 @@ function bms_theme_manifest_asset_errors(array $decoded): array
             }
             foreach ($assets[$type] as $asset) {
                 $raw = trim((string)$asset);
-                if ($raw === '' || bms_theme_asset_reference($raw) === '' || !bms_theme_asset_allowed_extension($raw, $type)) {
+                if ($raw === '' || bms_theme_asset_reference($raw) === '' || !bms_theme_asset_allowed_installed_extension($raw, $type)) {
                     $errors[] = 'Invalid ' . bms_theme_asset_group_label($type) . ' asset path in theme.json.';
                 }
             }
@@ -140,7 +179,7 @@ function bms_theme_manifest_asset_errors(array $decoded): array
     }
 
     $rawScreenshot = trim((string)($decoded['screenshot'] ?? ''));
-    if ($rawScreenshot !== '' && (bms_theme_asset_reference($rawScreenshot) === '' || !bms_theme_asset_allowed_extension($rawScreenshot, 'screenshot'))) {
+    if ($rawScreenshot !== '' && (bms_theme_asset_reference($rawScreenshot) === '' || !bms_theme_asset_allowed_installed_extension($rawScreenshot, 'screenshot'))) {
         $errors[] = 'Invalid screenshot path in theme.json.';
     }
 
@@ -259,7 +298,7 @@ function bms_public_theme_package_health_at_paths(array $theme, string $privateT
     foreach (['css', 'images', 'fonts'] as $type) {
         foreach ((array)($assets[$type] ?? []) as $asset) {
             $asset = bms_theme_asset_reference((string)$asset);
-            if ($asset === '' || !bms_theme_asset_allowed_extension($asset, $type)) {
+            if ($asset === '' || !bms_theme_asset_allowed_installed_extension($asset, $type)) {
                 $errors[] = 'Invalid ' . bms_theme_asset_group_label($type) . ' asset path in theme.json.';
                 continue;
             }
@@ -278,6 +317,10 @@ function bms_public_theme_package_health_at_paths(array $theme, string $privateT
         }
     } else {
         $warnings[] = 'No screenshot is declared in theme.json.';
+    }
+
+    foreach (bms_theme_manifest_svg_assets($theme) as $svgAsset) {
+        $warnings[] = 'This installed theme uses an SVG image: ' . $svgAsset . '. It keeps working, but theme packages can no longer include SVG files. Replace it with a PNG, JPEG, GIF, or WebP image before installing an update of this theme.';
     }
 
     $status = empty($errors) ? 'valid' : 'invalid';

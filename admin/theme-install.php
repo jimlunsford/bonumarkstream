@@ -28,7 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
         bms_log_admin_exception('theme-install', $e);
 
-        bms_flash('Theme install failed. Please try again.', 'error');
+        // Package validation messages tell the owner what to fix. Database
+        // and internal errors stay generic.
+        $reason = ($e instanceof RuntimeException && !$e instanceof PDOException) ? trim($e->getMessage()) : '';
+        bms_flash($reason !== '' ? 'Theme install failed. ' . $reason : 'Theme install failed. Please try again.', 'error');
         bms_redirect(bms_admin_url('theme-install.php'));
     }
 }
@@ -78,8 +81,8 @@ bms_admin_header('Install Theme', [
     <h2>Presentation, not application code.</h2>
     <ul class="appearance-rule-list">
       <li><strong>Required</strong><span><code>theme.json</code> with valid theme metadata.</span></li>
-      <li><strong>Allowed</strong><span>CSS, images, fonts, screenshots, Markdown, text documentation, and declared private <code>layouts/*.json</code> files.</span></li>
-      <li><strong>Rejected</strong><span>PHP, JavaScript, HTML, server configuration, symlinks, and executable files.</span></li>
+      <li><strong>Allowed</strong><span>CSS, PNG, JPEG, GIF, WebP, and ICO images, WOFF and WOFF2 fonts, screenshots, Markdown, text documentation, and declared private <code>layouts/*.json</code> files.</span></li>
+      <li><strong>Rejected</strong><span>PHP, JavaScript, HTML, SVG, server configuration, symlinks, and executable files.</span></li>
       <li><strong>Protected</strong><span>Bundled core themes cannot be replaced through the uploader.</span></li>
     </ul>
     <pre class="appearance-package-tree"><code>theme-name/
@@ -87,7 +90,7 @@ bms_admin_header('Install Theme', [
   README.md
   assets/
     css/theme.css
-    images/screenshot.svg
+    images/screenshot.png
   layouts/
     profile.json</code></pre>
   </aside>

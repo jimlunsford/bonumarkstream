@@ -1,0 +1,23 @@
+# Public media holds uploaded files. Never run server-side code here.
+<FilesMatch "(?i)\.(php\d?|phtml|phar)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order Allow,Deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+
+# Passive files: restrictive policy and no MIME sniffing.
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox"
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>
