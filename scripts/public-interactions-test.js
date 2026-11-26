@@ -40,7 +40,7 @@ class CommentMount extends Element {
     this.panel = new Element({'data-public-comment-count': match[1]});
     this.heading = new Element(); this.heading.textContent = match[1] + ' Comments';
     this.list = new Element(); this.list.innerHTML = 'comments:' + match[1];
-    this.form = new Element({action: '/stream-comments.php'});
+    this.form = new Element({action: '/comments.php'});
     this.textarea = new Element(); this.textarea.value = '';
     this.submit = new Element(); this.submit.textContent = 'Post Comment';
     this.form.children = {'textarea': this.textarea, 'button[type="submit"]': this.submit};
@@ -51,7 +51,9 @@ class CommentMount extends Element {
 }
 const buttons = [button('post'), button('post'), button('other')];
 const links = [commentLink('post'), commentLink('post'), commentLink('other')];
-const mount = new CommentMount({'data-comments-endpoint': '/stream-comments.php', 'data-comments-slug': 'post'});
+const mount = new CommentMount({'data-comments-endpoint': '/comments.php', 'data-comments-slug': 'post'});
+// The page loads stream.js from the site root, as core renders it.
+const streamScript = new Element({src: '/assets/stream.js?v=0.8.5'});
 const events = {}; const windowEvents = {}; const requests = []; let interval;
 const document = {
   readyState: 'loading', hidden: false, activeElement: null,
@@ -59,7 +61,7 @@ const document = {
   dispatchEvent(e) { (events[e.type] || []).forEach(f => f(e)); },
   querySelector() { return null; },
   querySelectorAll(k) { return ({'[data-stream-like]': buttons, '[data-public-comments]': links,
-    '[data-comments-mount]': [mount], 'script[src]': []})[k] || []; },
+    '[data-comments-mount]': [mount], 'script[src]': [streamScript]})[k] || []; },
   createElement() { return new CommentMount(); }
 };
 const window = {location: {href: 'https://example.test/'},
@@ -164,6 +166,8 @@ function counts(likes, comments) {
   const corrected = api.submitComposer(composer, publishButton, 'Post');
   respond(requests.shift(), {ok: true, redirect: '/?saved=1'}); await corrected;
   assert.equal(window.location.href, '/?saved=1');
+  // A browser resolves that redirect to an absolute page URL.
+  window.location.href = 'https://example.test/?saved=1';
   const failedMount = new CommentMount({'data-comments-endpoint':'/comments.php','data-comments-slug':'failed'});
   api.setupComments({querySelectorAll:()=>[failedMount]});
   respond(requests.shift(), '', false); await tick();
