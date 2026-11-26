@@ -10,7 +10,7 @@
 
 ## 0.8.4 - Admin Redesign Development Staging Pass
 
-**Development build only. Not deployed or publicly released.** Public v0.8.3 remains unchanged.
+**Development build only. Installed only on the development install, on November 25, 2026. Never publicly released.** Public v0.8.3 remains unchanged.
 
 - Packages the accepted dark-first Admin foundation and Dashboard, Content, Media, Comments, Settings, Pages, and System interfaces from Works 26 through 34.
 - Includes the accepted timestamp and export corrections, blocked-actor cache protection (Work 35), revocation confirmation safety (Work 36), Page restoration and creation safety (Works 37 and 38), and collision-safe Remote API test startup with negative controls (Work 39).

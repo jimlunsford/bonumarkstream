@@ -8,6 +8,16 @@ Bonumark Stream v0.8.5 is an unreleased development build only. It supersedes th
 
 Retain Admin ZIP upgrades where currently supported. Before deployment, verify a full files-and-database recovery point, reconcile local application differences, and rehearse the exact ZIP against an isolated copy of the current installation. An installed version label alone does not identify locally modified software.
 
+## Security hardening after v0.8.5 (not yet in a build)
+
+These changes are in the source after v0.8.5 and will ship in the next development build. They add no database migration.
+
+- **Sendmail path moves to `config.php`.** The Sendmail transport now runs only the program named by `mail_sendmail_path` in `_bonumark_stream/config.php`, defaulting to `/usr/sbin/sendmail`. Admin → Settings → Mail shows the path but can no longer change it. If this site uses Sendmail at another path, add `'mail_sendmail_path' => '/absolute/path/to/sendmail',` to `config.php` before upgrading. A path saved in Admin by an earlier version stays in the database but is not used; the Mail page names it so you can copy it into `config.php`. Recipient addresses that cannot be passed to Sendmail safely are refused.
+- **Themes can no longer include SVG files.** The theme installer refuses packages that contain or declare an SVG image or screenshot. An installed theme that already uses SVG keeps working and stays active; Theme Health lists each SVG file as a warning. Replace them with PNG, JPEG, GIF, or WebP files before installing an update of that theme. The bundled Midnight Ledger screenshot is now a PNG.
+- **New server rules.** The package adds `media/.htaccess` and `assets/themes/.htaccess`, and the root `.htaccess` now allows `/.well-known/` routes such as WebFinger while denying other dot-directories. Admin and owner-run upgrades install all three. A manual deployment must copy `media/.htaccess` separately, as described in [manual deployment](server/MANUAL-DEPLOYMENT.md). Nginx sites must update their server block from the shipped example, which adds the `/media/` and `/assets/themes/` locations.
+- **API status.** `/api/v1/status` without a token returns only `ok`, `api`, and `authenticated`. The version and API settings are returned only to a valid token while the API is enabled.
+- **Release package contents.** Release ZIPs no longer include the repository-only `.github/`, `CLAUDE.md`, `docs/development/`, and `.gitattributes` paths. An upgrade removes the obsolete `docs/development/` file. A site installed fresh from the v0.8.4 or v0.8.5 ZIP also has a root `CLAUDE.md`, which upgrades do not manage; delete it by hand.
+
 ## Upgrade paths
 
 Bonumark has two first-class ZIP upgrade paths when the environment supports them.
