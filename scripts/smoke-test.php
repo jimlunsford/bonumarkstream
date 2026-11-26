@@ -42,6 +42,27 @@ function bm_smoke_relative(string $root, string $path): string
     return str_replace('\\', '/', substr($path, strlen($root) + 1));
 }
 
+/**
+ * Repository-only paths. They stay in the repository, are export-ignored by
+ * .gitattributes, and are never part of a release ZIP or its manifest.
+ * A trailing slash marks a directory.
+ */
+function bm_smoke_repository_only_paths(): array
+{
+    return ['.gitattributes', '.github/', 'CLAUDE.md', 'docs/development/'];
+}
+
+function bm_smoke_is_repository_only(string $relative): bool
+{
+    $relative = ltrim(str_replace('\\', '/', $relative), '/');
+    foreach (bm_smoke_repository_only_paths() as $path) {
+        if (str_ends_with($path, '/') ? str_starts_with($relative, $path) : $relative === $path) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function bm_smoke_files(string $root): array
 {
     $files = [];
@@ -403,17 +424,54 @@ foreach ([$privateHtaccess, $scriptsHtaccess] as $denyHtaccess) {
     }
 }
 
+// A repository tree carries .gitattributes. A release package built with git
+// archive leaves out every repository-only path, .gitattributes included.
+$isRepositoryTree = is_file($root . '/.gitattributes');
+if ($isRepositoryTree) {
+    $exportIgnored = [];
+    foreach (preg_split('/\R/', (string)file_get_contents($root . '/.gitattributes')) ?: [] as $attributeLine) {
+        $attributeLine = trim($attributeLine);
+        if ($attributeLine === '' || str_starts_with($attributeLine, '#')) {
+            continue;
+        }
+        $attributeParts = preg_split('/\s+/', $attributeLine) ?: [];
+        if (in_array('export-ignore', array_slice($attributeParts, 1), true)) {
+            $exportIgnored[] = ltrim((string)$attributeParts[0], '/');
+        }
+    }
+    sort($exportIgnored);
+    $expectedExportIgnored = bm_smoke_repository_only_paths();
+    sort($expectedExportIgnored);
+    if ($exportIgnored !== $expectedExportIgnored) {
+        bm_smoke_fail($failures, '.gitattributes export-ignore entries must match the repository-only paths: ' . implode(', ', $expectedExportIgnored) . '.');
+    }
+} else {
+    foreach (bm_smoke_repository_only_paths() as $repositoryOnlyPath) {
+        if (file_exists($root . '/' . rtrim($repositoryOnlyPath, '/'))) {
+            bm_smoke_fail($failures, 'Release package contains a repository-only path: ' . $repositoryOnlyPath);
+        }
+    }
+}
+
 $compatibilityDocs = @file_get_contents($root . '/docs/COMPATIBILITY.md') ?: '';
-$compatibilityWorkflow = @file_get_contents($root . '/.github/workflows/compatibility.yml') ?: '';
 if (!str_contains($compatibilityDocs, 'PHP 8.1')
     || !str_contains($compatibilityDocs, 'MySQL 8.0')
-    || !str_contains($compatibilityDocs, 'MariaDB 10.6')
-    || !str_contains($compatibilityWorkflow, "mysql:8.0")
-    || !str_contains($compatibilityWorkflow, "mariadb:10.6")
-    || !str_contains($compatibilityWorkflow, 'php scripts/database-smoke-test.php')
-    || !str_contains($compatibilityWorkflow, 'php scripts/migration-recovery-smoke-test.php')
-    || !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')) {
-    bm_smoke_fail($failures, 'Compatibility documentation/CI matrix is missing the documented floor targets or database smoke and recovery tests.');
+    || !str_contains($compatibilityDocs, 'MariaDB 10.6')) {
+    bm_smoke_fail($failures, 'Compatibility documentation is missing the documented floor targets.');
+}
+// The CI workflow is repository-only, so it is checked only in a repository tree.
+if ($isRepositoryTree) {
+    $compatibilityWorkflow = @file_get_contents($root . '/.github/workflows/compatibility.yml') ?: '';
+    if (!str_contains($compatibilityWorkflow, "mysql:8.0")
+        || !str_contains($compatibilityWorkflow, "mariadb:10.6")
+        || !str_contains($compatibilityWorkflow, 'php scripts/database-smoke-test.php')
+        || !str_contains($compatibilityWorkflow, 'php scripts/migration-recovery-smoke-test.php')
+        || !str_contains($compatibilityWorkflow, 'php scripts/api-database-smoke-test.php')
+        || !str_contains($compatibilityWorkflow, 'php scripts/security-hardening-test.php')
+        || !str_contains($compatibilityWorkflow, 'php scripts/security-hardening-runtime-test.php')
+        || !str_contains($compatibilityWorkflow, 'git archive --format=zip')) {
+        bm_smoke_fail($failures, 'Compatibility CI matrix is missing the documented floor targets, database smoke, recovery, or security regression tests, or the git archive release build.');
+    }
 }
 if (!str_contains($installDocsEarly, 'Fresh install on a locked-down application tree')
     || !str_contains($manualDeployDocs, 'php scripts/run-migrations.php --check')
@@ -2214,6 +2272,12 @@ if ($checkReleaseManifest && (!is_array($manifest) || !isset($manifest['files'])
             bm_smoke_fail($failures, 'Release manifest contains a duplicate path: ' . $relative);
             continue;
         }
+        if (bm_smoke_is_repository_only($relative)) {
+            // Release ZIPs leave these out, so listing one would make every
+            // upgrade refuse the package for a missing file.
+            bm_smoke_fail($failures, 'Release manifest lists a repository-only path that release packages exclude: ' . $relative);
+            continue;
+        }
         $path = $root . '/' . $relative;
         if (!is_file($path)) {
             bm_smoke_fail($failures, 'Release manifest references a missing file: ' . $relative);
@@ -2227,7 +2291,7 @@ if ($checkReleaseManifest && (!is_array($manifest) || !isset($manifest['files'])
 
     foreach (bm_smoke_files($root) as $path) {
         $relative = bm_smoke_relative($root, $path);
-        if ($relative === '_bonumark_stream/RELEASE-MANIFEST.json') {
+        if ($relative === '_bonumark_stream/RELEASE-MANIFEST.json' || bm_smoke_is_repository_only($relative)) {
             continue;
         }
         if (!isset($manifestFiles[$relative])) {
@@ -2996,7 +3060,7 @@ if (!is_file($themeLayoutsPath)) {
         }
 
         $cssSource = (string)@file_get_contents($fixtureRoot . '/assets/css/theme.css');
-        $fixtureScreenshot = $fixtureRoot . '/assets/images/screenshot.svg';
+        $fixtureScreenshot = $fixtureRoot . '/assets/images/screenshot.png';
         if ($cssSource === '' || !is_file($fixtureScreenshot)
             || !str_contains($cssSource, '.bms-layout-profile')
             || !str_contains($cssSource, 'min-width: 0;')
@@ -3418,7 +3482,7 @@ foreach ($forbiddenPaths as $relative) {
     }
 }
 
-$runtimeDataPattern = '#^(?:media/(?!\.gitkeep$)|uploads/|exports/|_bonumark_stream/(?:tmp|import-staging|content)/|_bonumark_stream/data/(?!\.gitkeep$)|_bonumark_stream/backups/(?!\.gitkeep$|upgrades/\.gitkeep$))#i';
+$runtimeDataPattern = '#^(?:media/(?!\.gitkeep$|\.htaccess$)|uploads/|exports/|_bonumark_stream/(?:tmp|import-staging|content)/|_bonumark_stream/data/(?!\.gitkeep$)|_bonumark_stream/backups/(?!\.gitkeep$|upgrades/\.gitkeep$))#i';
 $sensitiveNamePattern = '#(^|/)(?:\.env(?:\..*)?|id_(?:rsa|ed25519)|[^/]+\.(?:sql|sqlite|sqlite3|db|log|pem|key))$#i';
 $privateKeyPattern = '/-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----\s+[A-Za-z0-9+\/=\r\n]{80,}-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/';
 foreach (bm_smoke_files($root) as $path) {

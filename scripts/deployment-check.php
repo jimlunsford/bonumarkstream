@@ -60,9 +60,9 @@ if (!is_array($manifest) || !is_array($manifest['files'] ?? null)) {
         }
         $manifestFileSet[$relative] = true;
 
-        // The release manifest also covers repository-only source metadata such
-        // as .github/. Installed-site integrity intentionally checks only the
-        // paths Bonumark deploys and manages as application software.
+        // Older release manifests also covered repository-only source metadata
+        // such as .github/. Installed-site integrity intentionally checks only
+        // the paths Bonumark deploys and manages as application software.
         if (!bms_package_managed_software_path($relative)) {
             continue;
         }

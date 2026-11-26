@@ -77,7 +77,7 @@ If the same token repeats the same request with the same key, Bonumark Stream re
 GET /api/v1/status
 ```
 
-This endpoint can be requested without a token. If a bearer token is included and the API is enabled, the response includes token metadata.
+This endpoint can be requested without a token. Without a token it confirms only that the site runs the Bonumark Stream API. It does not report the version or any API setting. When the API is enabled and the request includes a valid bearer token with the `status:read` scope, the response adds the version, API settings, endpoints, and token metadata. A request with a token while the API is disabled returns the `remote_posting_disabled` error.
 
 ### Unauthenticated response
 
@@ -85,24 +85,7 @@ This endpoint can be requested without a token. If a bearer token is included an
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.8.5",
-  "remote_posting_enabled": false,
-  "authenticated": false,
-  "direct_publish_enabled": false,
-  "default_status": "draft",
-  "publish_confirmation_required": true,
-  "remote_media_upload_enabled": false,
-  "idempotency": {
-    "supported": true,
-    "header": "Idempotency-Key",
-    "payload_fields": ["idempotency_key", "client_request_id"]
-  },
-  "endpoints": {
-    "status": "https://example.com/api/v1/status",
-    "stream_posts": "https://example.com/api/v1/stream/posts",
-    "media": "https://example.com/api/v1/media",
-    "media_import": "https://example.com/api/v1/media/import"
-  }
+  "authenticated": false
 }
 ```
 

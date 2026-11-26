@@ -1780,6 +1780,16 @@ function bms_api_handle_stream_posts_endpoint(): never
 
 function bms_api_status_payload(?array $token = null): array
 {
+    // Without a valid token, report only that this is a Bonumark API. The
+    // version and API configuration are for authenticated clients.
+    if (!$token) {
+        return [
+            'ok' => true,
+            'api' => 'bonumark-stream',
+            'authenticated' => false,
+        ];
+    }
+
     $payload = [
         'ok' => true,
         'api' => 'bonumark-stream',

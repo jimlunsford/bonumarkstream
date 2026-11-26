@@ -138,18 +138,13 @@ or:
 GET /api/v1/status
 ```
 
-Public request without a token:
+Public request without a token. It does not report the version or any API setting:
 
 ```json
 {
   "ok": true,
   "api": "bonumark-stream",
-  "version": "0.8.5",
-  "remote_posting_enabled": false,
-  "authenticated": false,
-  "direct_publish_enabled": false,
-  "default_status": "draft",
-  "publish_confirmation_required": true
+  "authenticated": false
 }
 ```
 
