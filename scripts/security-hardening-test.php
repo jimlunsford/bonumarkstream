@@ -377,16 +377,18 @@ bms_sec_section('H1', static function () use ($root): void {
     bms_sec_check('H1', 'Both Midnight Ledger copies ship no SVG files', $svgFiles === []);
     bms_sec_check('H1', 'Both Midnight Ledger copies ship the PNG screenshot', is_file($root . '/_bonumark_stream/themes/default/assets/images/screenshot.png') && is_file($root . '/assets/themes/default/assets/images/screenshot.png'));
 
-    $policy = "Header always set Content-Security-Policy \"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox\"";
+    $themePolicy = "Header always set Content-Security-Policy \"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox\"";
+    $mediaPolicy = "Header always set Content-Security-Policy \"default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox\"";
     $nosniff = 'Header always set X-Content-Type-Options "nosniff"';
-    foreach (['assets/themes/.htaccess', 'media/.htaccess'] as $rules) {
+    foreach (['assets/themes/.htaccess' => $themePolicy, 'media/.htaccess' => $mediaPolicy] as $rules => $policy) {
         $source = bms_sec_file($rules);
         bms_sec_check('H1', $rules . ' sets the passive-file Content-Security-Policy', str_contains($source, $policy));
         bms_sec_check('H1', $rules . ' sets X-Content-Type-Options nosniff', str_contains($source, $nosniff));
     }
 
     $nginx = bms_sec_file('docs/server/bonumark-stream-nginx.conf');
-    $nginxPolicy = "add_header Content-Security-Policy \"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox\" always;";
+    $nginxThemePolicy = "add_header Content-Security-Policy \"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox\" always;";
+    $nginxMediaPolicy = "add_header Content-Security-Policy \"default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox\" always;";
     $themes = strpos($nginx, 'location ~ ^/assets/themes/ {');
     $media = strpos($nginx, 'location ~ ^/media/ {');
     $dotfiles = strpos($nginx, 'location ~ /\.(?!well-known(?:/|$)) {');
@@ -394,7 +396,7 @@ bms_sec_section('H1', static function () use ($root): void {
     $php = strpos($nginx, 'location ~ \.php$ {');
     $cache = strpos($nginx, 'location ~* \.(?:css|js|mjs|jpg|jpeg|png|gif|webp|svg|ico|avif|woff|woff2)$ {');
     bms_sec_check('H1', 'Nginx example has passive-file locations for /assets/themes/ and /media/', $themes !== false && $media !== false);
-    bms_sec_check('H1', 'Nginx passive-file locations send the policy and nosniff', substr_count($nginx, $nginxPolicy) >= 3 && substr_count($nginx, 'add_header X-Content-Type-Options "nosniff" always;') >= 3);
+    bms_sec_check('H1', 'Nginx passive-file locations send the policy and nosniff', substr_count($nginx, $nginxThemePolicy) >= 1 && substr_count($nginx, $nginxMediaPolicy) >= 2 && substr_count($nginx, 'add_header X-Content-Type-Options "nosniff" always;') >= 3);
     bms_sec_check('H1', 'Nginx passive-file locations follow the dotfile and media PHP denials', $themes !== false && $media !== false && $dotfiles !== false && $mediaPhp !== false && $dotfiles < $themes && $mediaPhp < $themes && $mediaPhp < $media);
     bms_sec_check('H1', 'Nginx passive-file locations precede the PHP and cache locations', $themes !== false && $media !== false && $php !== false && $cache !== false && $themes < $php && $media < $php && $themes < $cache && $media < $cache);
 });

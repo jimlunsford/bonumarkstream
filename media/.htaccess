@@ -18,6 +18,6 @@
 
 # Passive files: restrictive policy and no MIME sniffing.
 <IfModule mod_headers.c>
-  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox"
+  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox"
   Header always set X-Content-Type-Options "nosniff"
 </IfModule>

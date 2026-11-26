@@ -24,7 +24,7 @@ Bonumark Stream is a self-hosted, single-owner PHP/MySQL microblog CMS. Owner: J
 - A built ZIP is not a public release. Tags, GitHub releases, and the "Latest" marker require Jim's explicit go.
 - Development builds are marked unreleased in `_bonumark_stream/CHANGELOG.md` and `docs/releases/vX.Y.Z.md`. Every build also gets an entry in the root `CHANGELOG.md`, marked as an unreleased development build until Jim approves public release.
 - A version bump updates every marker together: `VERSION`, `_bonumark_stream/VERSION`, `_bonumark_stream/PACKAGE.json`, `_bonumark_stream/RELEASE-MANIFEST.json`, cache/asset version metadata, and the docs that state the current version.
-- `RELEASE-MANIFEST.json` lists every tracked file with its SHA-256. Any added, removed, or changed file needs the manifest regenerated, or the strict package checks fail.
+- `RELEASE-MANIFEST.json` lists every file in the release package with its SHA-256. Repository-only paths (`CLAUDE.md`, `.github/`, `docs/development/`, `.gitattributes`) are export-ignored and not listed. Any added, removed, or changed packaged file needs the manifest regenerated, or the strict package checks fail.
 - A ZIP must be built from an exact commit. Record that commit and the ZIP's SHA-256.
 
 ## Work cycle

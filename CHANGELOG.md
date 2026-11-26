@@ -4,7 +4,7 @@ This file tracks public GitHub release milestones. Detailed package-by-package d
 
 ## 0.8.5 - Admin Black-and-White Palette Development Build
 
-**Unreleased development build. Not deployed or publicly released.** Public v0.8.3 remains unchanged. Supersedes the unaccepted v0.8.4 development build.
+**Unreleased development build. Installed only on the owner's development install; never publicly released.** Public v0.8.3 remains unchanged. Supersedes the unaccepted v0.8.4 development build.
 
 - Replaces the dark Admin palette tokens with a pure black background, white text, neutral gray surfaces and borders, and white primary buttons with black text. Success, danger, and warning are the only hues.
 - Routes every hardcoded color observed rendering on an Admin screen (including hover, focus, empty, warning, error, and destructive states) through the `--admin-*` tokens, removing green, teal, blue-gray, cream, and amber tints. Adds neutral `--admin-overlay` and `--admin-shadow-color` tokens.
