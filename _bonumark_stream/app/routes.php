@@ -56,6 +56,23 @@ function bms_handle_account_route(): void
     $returnTo = bms_stream_safe_return_url((string)($_GET['return_to'] ?? $_POST['return_to'] ?? bms_url_path()));
     $notice = '';
     $noticeType = 'info';
+    $carried = $_SESSION['bms_account_notice'] ?? null;
+    unset($_SESSION['bms_account_notice']);
+    if (is_array($carried) && (string)($carried['message'] ?? '') !== '') {
+        $notice = (string)$carried['message'];
+        $noticeType = (string)($carried['type'] ?? 'info');
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && (string)($_GET['action'] ?? '') === 'confirm_email') {
+        try {
+            bms_account_confirm_email_change((string)($_GET['token'] ?? ''));
+            $notice = 'Email address confirmed. Your account now uses the new address.';
+            $noticeType = 'success';
+        } catch (Throwable $e) {
+            $notice = bms_public_safe_exception_notice($e);
+            $noticeType = 'error';
+        }
+    }
 
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && (string)($_GET['action'] ?? '') === 'verify') {
         try {
@@ -161,8 +178,19 @@ function bms_handle_account_route(): void
                 $resetTokenValid = false;
             }
             if ($action === 'account_details' && bms_is_logged_in()) {
-                bms_update_current_user_account((string)($_POST['username'] ?? ''), (string)($_POST['email'] ?? ''));
+                $result = bms_update_current_user_account((string)($_POST['username'] ?? ''), (string)($_POST['email'] ?? ''), (string)($_POST['current_password'] ?? ''));
+                $saved = match ((string)($result['email_change'] ?? 'none')) {
+                    'pending' => 'Account details saved. Open the link sent to ' . (string)$result['pending_email'] . ' to confirm your new email address. Until then your account keeps its current address.',
+                    'removed' => 'Account details saved. Your account no longer has an email address, so password recovery by email is unavailable.',
+                    default => 'Account details saved.',
+                };
+                $_SESSION['bms_account_notice'] = ['message' => $saved, 'type' => 'success'];
                 bms_redirect(bms_url_path('account.php'));
+            }
+            if ($action === 'sign_out_other_devices' && bms_is_logged_in()) {
+                bms_sign_out_other_devices();
+                $notice = 'Every other device is signed out, including remembered devices. This browser stays signed in.';
+                $noticeType = 'success';
             }
             if ($action === 'profile' && bms_is_logged_in()) {
                 bms_update_current_user_identity(
@@ -212,6 +240,7 @@ function bms_handle_account_route(): void
 
     $user = bms_is_logged_in() ? bms_current_user() : null;
     $canViewAdmin = $user && bms_current_user_can('view_admin');
+    $pendingEmail = $user ? bms_account_pending_email($user) : '';
     $accountDashboard = $user ? bms_account_dashboard_data($user) : [];
     $profileIdentity = $user ? bms_profile_identity_for_user((int)$user['id'], $user) : bms_profile_identity_defaults();
     $profileFeaturedOptions = $user ? bms_profile_featured_content_options() : ['stream' => [], 'page' => []];
@@ -253,6 +282,7 @@ function bms_handle_account_route(): void
         'profile_export_url' => $user ? bms_url_path('profile-export.php') : '',
         'profile_export_available' => $user ? class_exists('ZipArchive') : false,
         'account_url' => bms_url_path('account.php'),
+        'account_pending_email' => $pendingEmail,
         'account_dashboard' => $accountDashboard,
         'account_post_counts' => $accountDashboard['post_counts'] ?? ['published' => 0, 'draft' => 0, 'total' => 0],
         'account_comment_counts' => $accountDashboard['comment_counts'] ?? ['approved' => 0, 'pending' => 0, 'trash' => 0, 'total' => 0],

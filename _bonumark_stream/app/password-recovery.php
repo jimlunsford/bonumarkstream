@@ -73,11 +73,16 @@ function bms_password_recovery_find_user(string $identifier): ?array
         return null;
     }
 
-    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . ' WHERE status = :status AND (username = :username OR email = :email) LIMIT 1');
+    // An exact username wins. Otherwise the address is matched; when earlier
+    // versions let several accounts share it, the oldest account is chosen,
+    // so the same request always reaches the same account.
+    $username = bms_normalize_username($identifier);
+    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . ' WHERE status = :status AND (username = :username OR email = :email) ORDER BY CASE WHEN username = :username_rank THEN 0 ELSE 1 END ASC, id ASC LIMIT 1');
     $stmt->execute([
         'status' => 'active',
-        'username' => bms_normalize_username($identifier),
+        'username' => $username,
         'email' => strtolower($identifier),
+        'username_rank' => $username,
     ]);
     $user = $stmt->fetch();
     return is_array($user) ? $user : null;
@@ -226,6 +231,8 @@ function bms_password_recovery_reset_password(string $token, string $newPassword
 
         $stmt = $pdo->prepare('UPDATE ' . bms_table('password_reset_tokens') . ' SET used_at = NOW() WHERE user_id = :user_id AND used_at IS NULL');
         $stmt->execute(['user_id' => (int)$row['user_id']]);
+        // Every session signed in with the old password is signed out.
+        $version = bms_bump_user_session_version((int)$row['user_id']);
         if (function_exists('bms_revoke_user_remember_tokens')) {
             bms_revoke_user_remember_tokens((int)$row['user_id']);
         }
@@ -239,4 +246,7 @@ function bms_password_recovery_reset_password(string $token, string $newPassword
         }
         throw $e;
     }
+
+    // If this browser is signed in to the same account, it stays signed in.
+    bms_rebind_current_session((int)$row['user_id'], $version);
 }

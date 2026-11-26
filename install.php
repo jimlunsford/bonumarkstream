@@ -219,11 +219,12 @@ function bm_seed_database(PDO $pdo, string $prefix, array $site, array $admin): 
 
     $username = bms_normalize_username((string)$admin['username']);
     $email = trim((string)$admin['email']);
-    $stmt = $pdo->prepare('INSERT INTO `' . $prefix . 'users` (username, display_name, email, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
+    $stmt = $pdo->prepare('INSERT INTO `' . $prefix . 'users` (username, display_name, email, email_normalized, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_normalized, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
     $stmt->execute([
         'username' => $username,
         'display_name' => trim((string)$admin['display_name']),
         'email' => $email,
+        'email_normalized' => $email !== '' ? strtolower($email) : null,
         'email_verified_at' => gmdate('Y-m-d H:i:s'),
         'password_hash' => password_hash((string)$admin['password'], PASSWORD_DEFAULT),
         'role' => 'admin',
@@ -372,6 +373,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             bms_write_file(bms_installed_lock_path(), "Installed: " . date('c') . "\nVersion: " . bms_version() . "\n");
             $_SESSION['bms_logged_in'] = true;
             $_SESSION['bms_user_id'] = $userId;
+            $_SESSION['bms_session_version'] = 1;
             unset($_SESSION['bm_install_db'], $_SESSION['bm_install_db_info']);
             bms_redirect(bms_admin_url());
         } catch (Throwable $e) {

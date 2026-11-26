@@ -2836,6 +2836,27 @@ function bms_security_status(): array
         'message' => $migrationMessage,
     ];
 
+    // Earlier versions let several accounts share one email address. Those
+    // addresses were left unchanged and unclaimed by the upgrade; the owner
+    // decides which account keeps each one.
+    if ($dbStatus === 'pass' && function_exists('bms_users_shared_email_groups')) {
+        try {
+            $sharedGroups = bms_users_shared_email_groups();
+            if ($sharedGroups === []) {
+                $items[] = ['label' => 'Account email addresses', 'status' => 'pass', 'message' => 'Each account email address belongs to one account.'];
+            } else {
+                $names = array_map(static fn(array $group): string => implode(', ', $group), $sharedGroups);
+                $items[] = [
+                    'label' => 'Account email addresses',
+                    'status' => 'warn',
+                    'message' => 'These accounts share an email address: ' . implode('; ', $names) . '. In each group, open the accounts in Accounts and change the address on all but one. Until then, password recovery by that address reaches only the oldest active account, and the address cannot be used by any new account.',
+                ];
+            }
+        } catch (Throwable $e) {
+            $items[] = ['label' => 'Account email addresses', 'status' => 'warn', 'message' => 'Account email addresses could not be checked: ' . $e->getMessage()];
+        }
+    }
+
     $items[] = [
         'label' => 'Config file',
         'status' => is_file(bms_config_path()) ? 'pass' : 'warn',
