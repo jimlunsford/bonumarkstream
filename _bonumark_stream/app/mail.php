@@ -13,8 +13,39 @@ function bms_mail_defaults(): array
         'mail_smtp_encryption' => 'tls',
         'mail_smtp_username' => '',
         'mail_smtp_password' => '',
-        'mail_sendmail_path' => '/usr/sbin/sendmail',
     ];
+}
+
+function bms_mail_sendmail_default_path(): string
+{
+    return '/usr/sbin/sendmail';
+}
+
+/**
+ * The Sendmail program is read only from config.php (mail_sendmail_path).
+ * It is never taken from database settings or from Admin input.
+ */
+function bms_mail_sendmail_path(): string
+{
+    $configured = trim((string)(bms_config()['mail_sendmail_path'] ?? ''));
+    return $configured !== '' ? $configured : bms_mail_sendmail_default_path();
+}
+
+/**
+ * Return a Sendmail path stored in settings by an earlier version, when it
+ * differs from the config.php path. It is reported in Admin and never used.
+ */
+function bms_mail_legacy_sendmail_setting(): string
+{
+    if (!function_exists('bms_setting') || !bms_is_installed() || !bms_has_database_config()) {
+        return '';
+    }
+    try {
+        $stored = trim((string)bms_setting('mail_sendmail_path', ''));
+    } catch (Throwable $e) {
+        return '';
+    }
+    return $stored !== '' && $stored !== bms_mail_sendmail_path() ? $stored : '';
 }
 
 function bms_mail_settings(): array
@@ -24,6 +55,7 @@ function bms_mail_settings(): array
     foreach (bms_mail_defaults() as $key => $default) {
         $settings[$key] = (string)bms_setting_or_config($key, $default);
     }
+    $settings['mail_sendmail_path'] = bms_mail_sendmail_path();
 
     if ($settings['mail_from_name'] === '') {
         $settings['mail_from_name'] = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
@@ -296,15 +328,32 @@ function bms_mail_send_php_mail(array $message): array
     ];
 }
 
+/**
+ * Recipients are passed to Sendmail as arguments. A recipient must not be
+ * readable as an option or as a file or program delivery.
+ */
+function bms_mail_sendmail_recipient_is_safe(string $recipient): bool
+{
+    return $recipient !== ''
+        && !str_contains($recipient, '/')
+        && !str_starts_with($recipient, '-')
+        && preg_match('/[\x00-\x20\x7F|]/', $recipient) !== 1
+        && filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false;
+}
+
 function bms_mail_send_sendmail(array $settings, array $message): array
 {
-    $path = trim((string)($settings['mail_sendmail_path'] ?? '/usr/sbin/sendmail'));
+    $path = trim((string)($settings['mail_sendmail_path'] ?? bms_mail_sendmail_path()));
 
     if ($path === '') {
         throw new RuntimeException('Sendmail path is required.');
     }
 
-    if (!is_executable($path)) {
+    if (!str_starts_with($path, '/')) {
+        throw new RuntimeException('Sendmail path must be an absolute path set as mail_sendmail_path in config.php.');
+    }
+
+    if (!is_file($path) || !is_executable($path)) {
         throw new RuntimeException('Sendmail path is not executable: ' . $path);
     }
 
@@ -314,16 +363,19 @@ function bms_mail_send_sendmail(array $settings, array $message): array
         throw new RuntimeException('At least one recipient is required.');
     }
 
-    $command = escapeshellcmd($path) . ' -i';
-
     foreach ($recipients as $recipient) {
-        $command .= ' ' . escapeshellarg($recipient);
+        if (!bms_mail_sendmail_recipient_is_safe((string)$recipient)) {
+            throw new RuntimeException('A recipient address cannot be passed to Sendmail safely.');
+        }
     }
 
+    // An argument list runs the program directly, with no shell.
+    $command = array_merge([$path, '-i'], array_map('strval', array_values($recipients)));
+
     $process = proc_open($command, [
-        0 => ['pipe', 'w'],
-        1 => ['pipe', 'r'],
-        2 => ['pipe', 'r'],
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
     ], $pipes);
 
     if (!is_resource($process)) {

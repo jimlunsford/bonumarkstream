@@ -664,7 +664,6 @@ function bms_db_insert_initial_data(array $site, array $admin): void
         'mail_smtp_encryption' => 'tls',
         'mail_smtp_username' => '',
         'mail_smtp_password' => '',
-        'mail_sendmail_path' => '/usr/sbin/sendmail',
         'content_storage_mode' => 'database',
         'fresh_install_baseline' => bms_version(),
         'version' => bms_version(),

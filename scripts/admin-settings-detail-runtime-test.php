@@ -192,7 +192,7 @@ try {
         'theme'=>[], 'theme-settings'=>['active_public_theme','theme_settings[accent]','theme_settings[density]','theme_settings[content_width]','theme_settings[show_page_updated_date]','theme_settings[menu_label]'],
         'navigation'=>['nav_action','primary_navigation_enabled','public_navigation_account_links_enabled','custom_label','custom_url','custom_target'],
         'security'=>[], 'registration'=>['action','registration_mode','registration_require_email_verification','registration_require_admin_approval','registration_honeypot_enabled','label','max_uses','expires_at'],
-        'mail'=>['mail_action','mail_transport','mail_from_name','mail_from_email','mail_reply_to','mail_smtp_host','mail_smtp_port','mail_smtp_encryption','mail_smtp_username','mail_smtp_password','mail_sendmail_path','test_recipient'],
+        'mail'=>['mail_action','mail_transport','mail_from_name','mail_from_email','mail_reply_to','mail_smtp_host','mail_smtp_port','mail_smtp_encryption','mail_smtp_username','mail_smtp_password','test_recipient'],
         'remote-posting'=>['action','remote_posting_enabled','remote_posting_direct_publish_enabled','remote_posting_publish_confirmation_required','remote_media_upload_enabled','remote_posting_default_status','remote_posting_rate_limit_per_minute','token_name','expires_date','scopes[]'],
         'activitypub'=>['activitypub_action','actor_uri','activitypub_enabled','activitypub_paused','activitypub_delivery_suspended','activitypub_follow_policy','permanent_deactivation_confirmation'],
     ];
@@ -244,6 +244,7 @@ try {
     $post('mail',$mail);$html=$get('mail')['body'];
     bms_settings_test_expect($setting('mail_smtp_password')===$secret&&!str_contains($html,$secret)&&str_contains($html,'name="mail_smtp_password" value=""'),'Saved SMTP password never appears in markup');
     bms_settings_test_expect(str_contains($html,'name="clear_smtp_password"'),'Saved password clearing remains available');
+    bms_settings_test_expect(!str_contains($html,'name="mail_sendmail_path"')&&str_contains($html,'/usr/sbin/sendmail')&&$setting('mail_sendmail_path')!=='/nonexistent/disposable-sendmail','Sendmail path is read-only from config.php and a posted path is not stored');
     $post('mail',array_replace($mail,['mail_smtp_password'=>'']));bms_settings_test_expect($setting('mail_smtp_password')===$secret,'Blank SMTP password keeps saved value');
     $get('mail');$before=$snapshot();$post('mail',array_replace($mail,['mail_from_email'=>'invalid','mail_from_name'=>'must-not-save']));$html=$get('mail')['body'];
     bms_settings_test_expect($snapshot()===$before&&str_contains($html,'Enter a valid From Email')&&!str_contains($html,'Mail settings saved.'),'Invalid mail address changes nothing and has no false success');

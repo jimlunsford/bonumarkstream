@@ -30,7 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $smtpEncryption = bms_admin_mail_clean_encryption((string)($_POST['mail_smtp_encryption'] ?? 'tls'));
         $smtpUsername = trim((string)($_POST['mail_smtp_username'] ?? ''));
         $smtpPassword = (string)($_POST['mail_smtp_password'] ?? '');
-        $sendmailPath = trim((string)($_POST['mail_sendmail_path'] ?? '/usr/sbin/sendmail'));
         $clearPassword = !empty($_POST['clear_smtp_password']);
         if ($fromName === '') {
             $fromName = 'Bonumark Stream';
@@ -61,7 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($smtpPassword !== '') {
                 bms_set_setting('mail_smtp_password', $smtpPassword);
             }
-            bms_set_setting('mail_sendmail_path', $sendmailPath !== '' ? $sendmailPath : '/usr/sbin/sendmail');
             bms_flash('Mail settings saved.', 'success');
             bms_redirect(bms_admin_url('mail.php'));
         } catch (Throwable $e) {
@@ -108,6 +106,8 @@ $settings = bms_mail_settings();
 $transport = (string)($settings['mail_transport'] ?? 'disabled');
 $encryption = (string)($settings['mail_smtp_encryption'] ?? 'tls');
 $hasPassword = trim((string)($settings['mail_smtp_password'] ?? '')) !== '';
+$sendmailPath = bms_mail_sendmail_path();
+$legacySendmailPath = bms_mail_legacy_sendmail_setting();
 $recentTests = bms_mail_recent_test_deliveries(8);
 $defaultTestRecipient = (string)(bms_current_user()['email'] ?? '');
 $fromEmail = trim((string)($settings['mail_from_email'] ?? ''));
@@ -167,7 +167,12 @@ bms_admin_header('Mail Settings', [
           <input type="password" id="mail_smtp_password" name="mail_smtp_password" value="" autocomplete="new-password" placeholder="<?= $hasPassword ? 'Password is saved, enter a new value to replace it' : 'No password saved' ?>">
           <p class="field-help"><?= $hasPassword ? 'A password is stored. Leave this blank to keep it.' : 'No SMTP password is stored.' ?></p>
         </div>
-        <div class="settings-field-card"><label for="mail_sendmail_path">Sendmail path</label><input type="text" id="mail_sendmail_path" name="mail_sendmail_path" value="<?= htmlspecialchars((string)$settings['mail_sendmail_path'], ENT_QUOTES, 'UTF-8') ?>" maxlength="255"><p class="field-help">Used only when Sendmail is selected.</p></div>
+        <div class="settings-field-card">
+          <span class="field-label">Sendmail path</span>
+          <code class="settings-technical-value"><?= htmlspecialchars($sendmailPath, ENT_QUOTES, 'UTF-8') ?></code>
+          <p class="field-help">Used only when Sendmail is selected. Set <code>mail_sendmail_path</code> in <code>_bonumark_stream/config.php</code> to change it.</p>
+          <?php if ($legacySendmailPath !== ''): ?><p class="field-help">An earlier version saved <code><?= htmlspecialchars($legacySendmailPath, ENT_QUOTES, 'UTF-8') ?></code> here. Admin no longer sets this path, so that value is not used. Add it to config.php if this site needs it.</p><?php endif; ?>
+        </div>
       </div>
       <?php if ($hasPassword): ?><label class="settings-option-card"><input type="checkbox" name="clear_smtp_password" value="1"><span class="settings-option-copy"><strong>Clear the saved SMTP password</strong><small>The password is removed when these settings are saved.</small></span></label><?php endif; ?>
       <div class="settings-save-bar"><div><strong>Save mail settings</strong><p class="meta">Test delivery always uses the saved configuration.</p></div><button type="submit">Save mail settings</button></div>
