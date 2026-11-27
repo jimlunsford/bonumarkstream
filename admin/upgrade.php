@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/renderer.php';
 require_once __DIR__ . '/../_bonumark_stream/app/upgrader.php';
+require_once __DIR__ . '/../_bonumark_stream/app/mail.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 
@@ -14,6 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !empty($_GET['post_upgrade']) && !e
 
     $migrationCount = count($completedUpgrade['migrations'] ?? []);
     bms_flash('Upgrade complete. Bonumark Stream moved from v' . (string)($completedUpgrade['from'] ?? 'unknown') . ' to v' . (string)($completedUpgrade['to'] ?? bms_version()) . '. Software backup created and ' . $migrationCount . ' migration(s) ran. The upgrader does not back up the database. Dynamic public routes now use the upgraded code.', 'success');
+
+    // An SMTP password saved by an earlier version without encryption is
+    // encrypted now, by the upgraded code.
+    bms_mail_protect_stored_smtp_password();
 
     $runtimeDirectories = bms_ensure_runtime_directories();
     $runtimeFailures = array_values(array_filter(

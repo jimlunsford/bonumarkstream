@@ -179,6 +179,15 @@ echo 'Version: v' . (string)($result['from'] ?? 'unknown') . ' -> v' . (string)(
 echo 'Software backup: ' . (string)($result['backup'] ?? 'unknown') . "\n";
 echo 'Database migrations: ' . count($migrations) . "\n";
 echo 'Obsolete package files removed: ' . count($removed) . "\n";
+
+// The upgraded release encrypts an SMTP password an earlier version saved
+// without encryption.
+if (is_file($root . '/_bonumark_stream/app/mail.php')) {
+    require_once $root . '/_bonumark_stream/app/mail.php';
+}
+if (function_exists('bms_mail_protect_stored_smtp_password') && bms_mail_protect_stored_smtp_password() === 'plaintext') {
+    echo "WARNING: The saved SMTP password is not encrypted. Add a security_salt of at least 32 characters to config.php.\n";
+}
 echo "\nRunning installed-site deployment verification...\n\n";
 
 // Load the just-deployed verification helper in this same owner-run process.

@@ -129,6 +129,7 @@ try {
     $ran = bms_run_migrations($fromVersion);
     bms_record_manual_upgrade_history($fromVersion, $targetVersion, $ran);
     bms_clear_upgrade_recovery_state();
+    bms_manual_migration_protect_secrets($root);
     echo 'Migrations completed: ' . count($ran) . "\n";
     foreach ($ran as $migration) {
         echo '  - ' . $migration . "\n";
@@ -151,6 +152,18 @@ try {
     fwrite(STDERR, 'Migration run stopped: ' . $e->getMessage() . "\n");
     fwrite(STDERR, "Do not deploy older application files over a database that may contain committed DDL. Fix the cause and rerun this same target release.\n");
     exit(1);
+}
+
+/** Encrypt an SMTP password an earlier version saved without encryption. */
+function bms_manual_migration_protect_secrets(string $root): void
+{
+    $mail = $root . '/_bonumark_stream/app/mail.php';
+    if (is_file($mail)) {
+        require_once $mail;
+    }
+    if (function_exists('bms_mail_protect_stored_smtp_password') && bms_mail_protect_stored_smtp_password() === 'plaintext') {
+        echo "WARNING: The saved SMTP password is not encrypted. Add a security_salt of at least 32 characters to config.php.\n";
+    }
 }
 
 function bms_manual_migration_usage(): void

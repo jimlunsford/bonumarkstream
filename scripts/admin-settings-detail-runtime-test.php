@@ -241,11 +241,11 @@ try {
 
     $secret=bin2hex(random_bytes(24));
     $mail=['mail_action'=>'save','mail_transport'=>'disabled','mail_from_name'=>'Fixture sender','mail_from_email'=>'sender@example.test','mail_reply_to'=>'reply@example.test','mail_smtp_host'=>'smtp.example.test','mail_smtp_port'=>2525,'mail_smtp_encryption'=>'tls','mail_smtp_username'=>'fixture-user','mail_smtp_password'=>$secret,'mail_sendmail_path'=>'/nonexistent/disposable-sendmail'];
-    $post('mail',$mail);$html=$get('mail')['body'];
-    bms_settings_test_expect($setting('mail_smtp_password')===$secret&&!str_contains($html,$secret)&&str_contains($html,'name="mail_smtp_password" value=""'),'Saved SMTP password never appears in markup');
+    $post('mail',$mail);$html=$get('mail')['body'];$storedSecret=(string)$setting('mail_smtp_password');
+    bms_settings_test_expect(str_starts_with($storedSecret,'bms-enc:v1:')&&!str_contains($storedSecret,$secret)&&!str_contains($html,$secret)&&str_contains($html,'name="mail_smtp_password" value=""'),'Saved SMTP password is stored encrypted and never appears in markup');
     bms_settings_test_expect(str_contains($html,'name="clear_smtp_password"'),'Saved password clearing remains available');
     bms_settings_test_expect(!str_contains($html,'name="mail_sendmail_path"')&&str_contains($html,'/usr/sbin/sendmail')&&$setting('mail_sendmail_path')!=='/nonexistent/disposable-sendmail','Sendmail path is read-only from config.php and a posted path is not stored');
-    $post('mail',array_replace($mail,['mail_smtp_password'=>'']));bms_settings_test_expect($setting('mail_smtp_password')===$secret,'Blank SMTP password keeps saved value');
+    $post('mail',array_replace($mail,['mail_smtp_password'=>'']));bms_settings_test_expect($setting('mail_smtp_password')===$storedSecret,'Blank SMTP password keeps saved value');
     $get('mail');$before=$snapshot();$post('mail',array_replace($mail,['mail_from_email'=>'invalid','mail_from_name'=>'must-not-save']));$html=$get('mail')['body'];
     bms_settings_test_expect($snapshot()===$before&&str_contains($html,'Enter a valid From Email')&&!str_contains($html,'Mail settings saved.'),'Invalid mail address changes nothing and has no false success');
     $post('mail',array_replace($mail,['mail_smtp_port'=>65536]));bms_settings_test_expect($snapshot()===$before,'Invalid SMTP port is rejected');

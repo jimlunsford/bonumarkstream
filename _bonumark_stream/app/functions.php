@@ -2879,6 +2879,19 @@ function bms_security_status(): array
         }
     }
 
+    // The SMTP password is stored encrypted. A value an earlier version saved
+    // without encryption is encrypted the next time Mail reads it. This check
+    // only reports; it changes nothing.
+    if ($dbStatus === 'pass' && function_exists('bms_mail_smtp_password_state')) {
+        $smtpPasswordState = bms_mail_smtp_password_state();
+        $items[] = match ($smtpPasswordState) {
+            'unreadable' => ['label' => 'SMTP password storage', 'status' => 'warn', 'message' => 'The saved SMTP password cannot be decrypted with the security salt in config.php. Enter it again in Settings → Mail.'],
+            'plaintext' => ['label' => 'SMTP password storage', 'status' => 'warn', 'message' => 'The saved SMTP password is not encrypted yet. It is encrypted when Mail next reads it, which needs PHP OpenSSL and a security_salt of at least 32 characters in config.php.'],
+            'encrypted' => ['label' => 'SMTP password storage', 'status' => 'pass', 'message' => 'The saved SMTP password is stored encrypted. Exports never include it.'],
+            default => ['label' => 'SMTP password storage', 'status' => 'pass', 'message' => 'No SMTP password is saved.'],
+        };
+    }
+
     $items[] = [
         'label' => 'Config file',
         'status' => is_file(bms_config_path()) ? 'pass' : 'warn',
