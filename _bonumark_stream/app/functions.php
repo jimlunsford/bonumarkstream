@@ -1883,6 +1883,30 @@ function bms_parse_markdown_string(string $raw): array
     ];
 }
 
+/**
+ * Read one front matter value. A value written by bms_front_matter_quote()
+ * is a double-quoted string with backslash and quote escaped; it is decoded
+ * exactly, so build and parse round-trip without changing the text. Any
+ * other value keeps the earlier lenient handling of surrounding quotes.
+ */
+function bms_parse_front_matter_value(string $value): string
+{
+    $value = trim($value);
+    $length = strlen($value);
+    if ($length >= 2 && $value[0] === '"' && $value[$length - 1] === '"') {
+        $escapes = 0;
+        for ($index = $length - 2; $index >= 1 && $value[$index] === '\\'; $index--) {
+            $escapes++;
+        }
+        if ($escapes % 2 === 0) {
+            $inner = substr($value, 1, -1);
+            $decoded = preg_replace_callback('/\\\\(["\\\\])/', static fn(array $match): string => $match[1], $inner);
+            return is_string($decoded) ? $decoded : $inner;
+        }
+    }
+    return trim($value, '"\'');
+}
+
 function bms_parse_front_matter(string $raw): array
 {
     $data = [];
@@ -1892,9 +1916,7 @@ function bms_parse_front_matter(string $raw): array
     foreach ($lines as $line) {
         if (preg_match('/^([A-Za-z0-9_-]+):\s*(.*)$/', $line, $m)) {
             $currentKey = $m[1];
-            $value = trim($m[2]);
-            $value = trim($value, '"\'');
-            $data[$currentKey] = $value;
+            $data[$currentKey] = bms_parse_front_matter_value($m[2]);
             continue;
         }
 
@@ -1902,7 +1924,7 @@ function bms_parse_front_matter(string $raw): array
             if (!is_array($data[$currentKey])) {
                 $data[$currentKey] = $data[$currentKey] === '' ? [] : [$data[$currentKey]];
             }
-            $data[$currentKey][] = trim($m[1], '"\'');
+            $data[$currentKey][] = bms_parse_front_matter_value($m[1]);
         }
     }
 
