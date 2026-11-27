@@ -98,7 +98,12 @@ function bms_activitypub_resolve_public_host(string $host, ?callable $resolver =
     return $addresses;
 }
 
-function bms_activitypub_validate_remote_url(string $url, ?callable $resolver = null, bool $allowFragment = false): array
+/**
+ * The checks of bms_activitypub_validate_remote_url() that need no DNS.
+ *
+ * @return array{url:string,host:string,port:int,path:string}
+ */
+function bms_activitypub_validate_remote_url_syntax(string $url, bool $allowFragment = false): array
 {
     $url = trim($url);
     if ($url === '' || strlen($url) > 2048 || preg_match('/[\x00-\x20\x7f]/', $url) === 1) {
@@ -115,13 +120,24 @@ function bms_activitypub_validate_remote_url(string $url, ?callable $resolver = 
     if ($port < 1 || $port > 65535) {
         throw new BmsActivityPubSecurityException('The remote URL port is invalid.', 400);
     }
-    $addresses = bms_activitypub_resolve_public_host($host, $resolver);
     return [
         'url' => $url,
         'host' => $host,
         'port' => $port,
-        'addresses' => $addresses,
         'path' => (string)($parts['path'] ?? '/'),
+    ];
+}
+
+function bms_activitypub_validate_remote_url(string $url, ?callable $resolver = null, bool $allowFragment = false): array
+{
+    $target = bms_activitypub_validate_remote_url_syntax($url, $allowFragment);
+    $addresses = bms_activitypub_resolve_public_host($target['host'], $resolver);
+    return [
+        'url' => $target['url'],
+        'host' => $target['host'],
+        'port' => $target['port'],
+        'addresses' => $addresses,
+        'path' => $target['path'],
     ];
 }
 
@@ -591,7 +607,12 @@ function bms_activitypub_signature_signing_string(array $params, array $headers,
     return ['string' => implode("\n", $lines), 'headers' => $names];
 }
 
-function bms_activitypub_verify_legacy_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+/**
+ * Every legacy signature check that needs neither the network nor the
+ * signer's key: the signature fields, the body digest, the signed headers,
+ * and the signature time. Returns what the key check needs.
+ */
+function bms_activitypub_prepare_legacy_http_signature(array $request, int $now = 0): array
 {
     $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
     $signatureHeader = (string)($headers['signature'] ?? '');
@@ -603,7 +624,7 @@ function bms_activitypub_verify_legacy_http_signature(array $request, string $pu
     }
     $params = bms_activitypub_parse_signature_header($signatureHeader);
     $keyId = trim((string)$params['keyid']);
-    bms_activitypub_validate_remote_url($keyId, $request['resolver'] ?? null, true);
+    bms_activitypub_validate_remote_url_syntax($keyId, true);
     $body = (string)($request['body'] ?? '');
     $digestHeader = bms_activitypub_verify_body_digest($body, $headers);
     $built = bms_activitypub_signature_signing_string(
@@ -633,22 +654,20 @@ function bms_activitypub_verify_legacy_http_signature(array $request, string $pu
     if (!is_string($signature) || $signature === '') {
         throw new BmsActivityPubSecurityException('The HTTP signature value is invalid.', 401);
     }
-    $publicKey = openssl_pkey_get_public($publicKeyPem);
-    $details = $publicKey !== false ? openssl_pkey_get_details($publicKey) : false;
-    if ($publicKey === false || !is_array($details) || (int)($details['type'] ?? -1) !== OPENSSL_KEYTYPE_RSA || (int)($details['bits'] ?? 0) < 2048) {
-        throw new BmsActivityPubSecurityException('The remote signing key is not an acceptable RSA key.', 401);
-    }
-    $verified = openssl_verify((string)$built['string'], $signature, $publicKey, OPENSSL_ALGO_SHA256);
-    if ($verified !== 1) {
-        throw new BmsActivityPubSecurityException('The HTTP signature could not be verified.', 401, 'signature_mismatch');
-    }
     return [
         'format' => 'legacy',
         'key_id' => $keyId,
+        'signing_string' => (string)$built['string'],
+        'signature' => $signature,
         'signature_date' => gmdate('Y-m-d H:i:s', $signedTimestamp),
         'fingerprint' => hash('sha256', $keyId . "\n" . (string)$params['signature'] . "\n" . $signedTimestamp . "\n" . hash('sha256', $body)),
         'signed_headers' => $built['headers'],
     ];
+}
+
+function bms_activitypub_verify_legacy_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+{
+    return bms_activitypub_verify_prepared_http_signature(bms_activitypub_prepare_legacy_http_signature($request, $now), $publicKeyPem, $request['resolver'] ?? null);
 }
 
 function bms_activitypub_rfc9421_target_context(array $request, array $headers): array
@@ -744,12 +763,17 @@ function bms_activitypub_rfc9421_signature_base(array $metadata, array $request,
     return ['string' => implode("\n", $lines), 'components' => $components];
 }
 
-function bms_activitypub_verify_rfc9421_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+/**
+ * Every RFC 9421 check that needs neither the network nor the signer's key:
+ * the signature fields, the Content-Digest, the covered components, and the
+ * creation and expiry times. Returns what the key check needs.
+ */
+function bms_activitypub_prepare_rfc9421_http_signature(array $request, int $now = 0): array
 {
     $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
     $metadata = bms_activitypub_parse_rfc9421_signature_input((string)($headers['signature-input'] ?? ''));
     $keyId = trim((string)$metadata['key_id']);
-    bms_activitypub_validate_remote_url($keyId, $request['resolver'] ?? null, true);
+    bms_activitypub_validate_remote_url_syntax($keyId, true);
     $body = (string)($request['body'] ?? '');
     bms_activitypub_verify_rfc9421_content_digest($body, $headers);
     $built = bms_activitypub_rfc9421_signature_base($metadata, $request, $headers);
@@ -763,30 +787,61 @@ function bms_activitypub_verify_rfc9421_http_signature(array $request, string $p
         throw new BmsActivityPubSecurityException('The HTTP message signature is outside the accepted replay window.', 401);
     }
     $signature = bms_activitypub_parse_rfc9421_signature((string)($headers['signature'] ?? ''), (string)$metadata['label']);
-    $publicKey = openssl_pkey_get_public($publicKeyPem);
-    $details = $publicKey !== false ? openssl_pkey_get_details($publicKey) : false;
-    if ($publicKey === false || !is_array($details) || (int)($details['type'] ?? -1) !== OPENSSL_KEYTYPE_RSA || (int)($details['bits'] ?? 0) < 2048) {
-        throw new BmsActivityPubSecurityException('The remote signing key is not an acceptable RSA key.', 401);
-    }
-    if (openssl_verify((string)$built['string'], $signature, $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
-        throw new BmsActivityPubSecurityException('The HTTP message signature could not be verified.', 401, 'signature_mismatch');
-    }
     return [
         'format' => 'rfc9421',
         'key_id' => $keyId,
+        'signing_string' => (string)$built['string'],
+        'signature' => $signature,
         'signature_date' => gmdate('Y-m-d H:i:s', $created),
         'fingerprint' => hash('sha256', "rfc9421\n" . $keyId . "\n" . base64_encode($signature) . "\n" . $created . "\n" . hash('sha256', $body)),
         'signed_headers' => $built['components'],
     ];
 }
 
-function bms_activitypub_verify_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+function bms_activitypub_verify_rfc9421_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+{
+    return bms_activitypub_verify_prepared_http_signature(bms_activitypub_prepare_rfc9421_http_signature($request, $now), $publicKeyPem, $request['resolver'] ?? null);
+}
+
+/**
+ * Run the checks that need neither the network nor a key, in either
+ * signature format. The inbox runs this before it fetches any remote actor.
+ */
+function bms_activitypub_prepare_http_signature(array $request, int $now = 0): array
 {
     $headers = bms_activitypub_normalize_request_headers(is_array($request['headers'] ?? null) ? $request['headers'] : []);
     if (trim((string)($headers['signature-input'] ?? '')) !== '') {
-        return bms_activitypub_verify_rfc9421_http_signature($request, $publicKeyPem, $now);
+        return bms_activitypub_prepare_rfc9421_http_signature($request, $now);
     }
-    return bms_activitypub_verify_legacy_http_signature($request, $publicKeyPem, $now);
+    return bms_activitypub_prepare_legacy_http_signature($request, $now);
+}
+
+/** Check a prepared signature against the signer's public key. */
+function bms_activitypub_verify_prepared_http_signature(array $prepared, string $publicKeyPem, ?callable $resolver = null): array
+{
+    $keyId = (string)($prepared['key_id'] ?? '');
+    bms_activitypub_validate_remote_url($keyId, $resolver, true);
+    $publicKey = openssl_pkey_get_public($publicKeyPem);
+    $details = $publicKey !== false ? openssl_pkey_get_details($publicKey) : false;
+    if ($publicKey === false || !is_array($details) || (int)($details['type'] ?? -1) !== OPENSSL_KEYTYPE_RSA || (int)($details['bits'] ?? 0) < 2048) {
+        throw new BmsActivityPubSecurityException('The remote signing key is not an acceptable RSA key.', 401);
+    }
+    $isRfc9421 = (string)($prepared['format'] ?? '') === 'rfc9421';
+    if (openssl_verify((string)($prepared['signing_string'] ?? ''), (string)($prepared['signature'] ?? ''), $publicKey, OPENSSL_ALGO_SHA256) !== 1) {
+        throw new BmsActivityPubSecurityException($isRfc9421 ? 'The HTTP message signature could not be verified.' : 'The HTTP signature could not be verified.', 401, 'signature_mismatch');
+    }
+    return [
+        'format' => $isRfc9421 ? 'rfc9421' : 'legacy',
+        'key_id' => $keyId,
+        'signature_date' => (string)$prepared['signature_date'],
+        'fingerprint' => (string)$prepared['fingerprint'],
+        'signed_headers' => $prepared['signed_headers'],
+    ];
+}
+
+function bms_activitypub_verify_http_signature(array $request, string $publicKeyPem, int $now = 0): array
+{
+    return bms_activitypub_verify_prepared_http_signature(bms_activitypub_prepare_http_signature($request, $now), $publicKeyPem, $request['resolver'] ?? null);
 }
 
 function bms_activitypub_sign_outbound_request(string $method, string $url, string $body, array $key, string $format = 'legacy'): array

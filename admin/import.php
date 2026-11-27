@@ -275,10 +275,12 @@ bms_admin_header('Import', [
   $processedTotal = max(0, min(count($items), (int)($progress['processed_total'] ?? 0)));
   $importedTotal = max(0, (int)($progress['imported_total'] ?? 0));
   $skippedTotal = max(0, (int)($progress['skipped_total'] ?? 0));
-  $selectedTargetStatus = in_array((string)($progress['last_target_status'] ?? 'draft'), ['draft', 'published', 'original'], true) ? (string)($progress['last_target_status'] ?? 'draft') : 'draft';
+  $defaultOptions = bms_import_default_options($preview);
+  $isBonumarkPreview = bms_import_preview_is_bonumark_export($preview);
+  $selectedTargetStatus = $defaultOptions['target_status'];
   $selectedDuplicatePolicy = in_array((string)($progress['last_duplicate_policy'] ?? 'skip'), ['skip', 'rename'], true) ? (string)($progress['last_duplicate_policy'] ?? 'skip') : 'skip';
   $selectedMediaPolicy = in_array((string)($progress['last_media_policy'] ?? $defaultMediaPolicy), ['remote', 'import', 'skip'], true) ? (string)($progress['last_media_policy'] ?? $defaultMediaPolicy) : $defaultMediaPolicy;
-  $preserveDatesChecked = !isset($progress['last_preserve_dates']) || (int)$progress['last_preserve_dates'] === 1;
+  $preserveDatesChecked = $defaultOptions['preserve_dates'];
   $defaultBatchSize = (int)($progress['last_batch_size'] ?? 0);
   $buttonLabel = $nextStart > 1 && !$isBlueskyPreview ? 'Import Next Batch' : 'Confirm Import';
   $previewDisplayLimit = 50;
@@ -371,6 +373,7 @@ bms_admin_header('Import', [
               <option value="published"<?= $selectedTargetStatus === 'published' ? ' selected' : '' ?>>Publish immediately</option>
               <option value="original"<?= $selectedTargetStatus === 'original' ? ' selected' : '' ?>>Use detected status</option>
             </select>
+            <?php if ($isBonumarkPreview): ?><small>Preselected for a Bonumark export, so published, draft, and scheduled items keep their status.</small><?php endif; ?>
           </label>
           <label class="settings-field">
             <span>Duplicate policy</span>
@@ -422,7 +425,7 @@ bms_admin_header('Import', [
 
 <details class="system-section import-format-panel"><summary>Supported formats and limitations</summary>
   <div class="operations-panel-heading"><div><h2>Import formats</h2><p class="meta">Use archives you created, exported, or trust. Unsupported executable files are not accepted.</p></div><span class="operation-risk-label">Reference</span></div>
-  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by System > Export. It restores Stream Posts and Pages from <code>markdown/posts</code> and <code>markdown/pages</code> with their slugs, statuses, dates and publication times, descriptions, tags, SEO title and robots setting, link previews, locations, galleries, and pin state. From a Full export it restores every media library file, including files no post uses, at its original path with its original file name, description, and caption. Choose Use detected status to keep published, draft, and scheduled states; a scheduled post whose time is missing or has passed imports as a draft.</p>
+  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by System > Export. It restores Stream Posts and Pages from <code>markdown/posts</code> and <code>markdown/pages</code> with their slugs, statuses, dates and publication times, descriptions, tags, SEO title and robots setting, link previews, locations, galleries, and pin state. From a Full export it restores every media library file, including files no post uses, at its original path with its original file name, description, and caption. Use detected status and Preserve imported dates are preselected for a Bonumark export, so published, draft, and scheduled states and their dates are kept; a scheduled post whose time is missing or has passed imports as a draft. Other formats import as drafts unless you choose otherwise.</p>
   <p class="meta">Import is content-only, not a restore from backup. Comments, commenter accounts, settings, analytics, Profiles, and the Local Places directory are not restored, and the database SQL in an export is never executed. Use server backups of the database and site files for full recovery.</p>
   <p class="meta">The WordPress importer accepts standard WordPress export XML files from Tools > Export in WordPress. It imports posts only, skips pages, attachments, revisions, menu items, trashed posts, and auto-drafts, converts common HTML into Markdown-style content, preserves WordPress categories and tags as Bonumark Stream tags, and can optionally import remote WordPress images into Bonumark Stream Media during confirmed import. Large exports no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Twitter/X importer accepts downloaded archive ZIP files. It looks for tweet data files such as <code>data/tweets.js</code>, imports authored posts, skips retweets and unsupported account data, preserves original dates, converts tweet text into Markdown-style content, turns hashtags into tags, and stages supported local archive images for Media import during confirmation. Large archives no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>

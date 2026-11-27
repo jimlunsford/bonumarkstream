@@ -3480,6 +3480,7 @@ foreach (bm_smoke_files($root) as $path) {
 $forbiddenPaths = [
     '_bonumark_stream/config.php',
     '_bonumark_stream/installed.lock',
+    '_bonumark_stream/setup-key.php',
     'index.html',
     'feed.xml',
 ];

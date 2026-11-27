@@ -2619,6 +2619,27 @@ function bms_validate_password_policy(string $password, string $username = '', s
     }
 }
 
+/**
+ * The network a request comes from, for rate limits. An IPv4 address is used
+ * as it is. An IPv6 address counts as its /64 network, because one subscriber
+ * usually controls a whole /64. This is the same rule sign-in throttling uses.
+ */
+function bms_client_network_key(string $ip): string
+{
+    $ip = trim($ip);
+    $packed = $ip !== '' ? @inet_pton($ip) : false;
+    if (!is_string($packed)) {
+        return $ip !== '' ? $ip : 'unknown';
+    }
+    if (strlen($packed) === 16) {
+        if (str_starts_with($packed, str_repeat("\0", 10) . "\xff\xff")) {
+            return (string)inet_ntop(substr($packed, 12));
+        }
+        return (string)inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+    return (string)inet_ntop($packed);
+}
+
 function bms_request_origin(): string
 {
     $scheme = bms_is_https() ? 'https' : 'http';

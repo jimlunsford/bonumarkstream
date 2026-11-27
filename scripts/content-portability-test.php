@@ -29,6 +29,7 @@ if (is_file($root . '/_bonumark_stream/app/portability.php')) {
     require_once $root . '/_bonumark_stream/app/portability.php';
 }
 require_once $root . '/_bonumark_stream/app/importers/ImportItem.php';
+require_once $root . '/_bonumark_stream/app/importers.php';
 
 $results = ['pass' => 0, 'fail' => 0, 'failed' => []];
 
@@ -156,6 +157,25 @@ bms_port_section('Import item', static function (): void {
     $copy = BMS_ImportItem::fromArray(json_decode((string)json_encode($item->toArray()), true));
     bms_port_check('Carried fields survive the stored preview', $copy->meta === ['seo_title' => 'SEO', 'is_pinned' => '1']);
     bms_port_check('Only known carried fields are kept', !isset($copy->meta['unknown_key']) && !isset($copy->meta['robots']));
+});
+
+bms_port_section('Import defaults', static function (): void {
+    $defaults = static fn(array $preview): array => function_exists('bms_import_default_options')
+        ? bms_import_default_options($preview)
+        : ['target_status' => 'draft', 'preserve_dates' => !isset($preview['progress']['last_preserve_dates']) || (int)$preview['progress']['last_preserve_dates'] === 1];
+    $bonumark = $defaults(['importer' => (new BMS_BonumarkExportImporter())->label()]);
+    bms_port_check('A Bonumark export preselects Use detected status', $bonumark['target_status'] === 'original');
+    bms_port_check('A Bonumark export preselects Preserve dates', $bonumark['preserve_dates'] === true);
+    $others = [];
+    foreach ([new BMS_MarkdownImporter(), new BMS_JsonImporter(), new BMS_WordPressWxrImporter(), new BMS_TwitterArchiveImporter(), new BMS_BlueskyArchiveImporter()] as $importer) {
+        $others[$importer->label()] = $defaults(['importer' => $importer->label()]);
+    }
+    bms_port_check('Other formats keep the Draft default', array_unique(array_column($others, 'target_status')) === ['draft']);
+    bms_port_check('Other formats keep Preserve dates as before', array_unique(array_column($others, 'preserve_dates')) === [true]);
+    $later = $defaults(['importer' => (new BMS_BonumarkExportImporter())->label(), 'progress' => ['last_target_status' => 'draft', 'last_preserve_dates' => 0]]);
+    bms_port_check('A later batch keeps the options the owner chose', $later['target_status'] === 'draft' && $later['preserve_dates'] === false);
+    $invalid = $defaults(['importer' => (new BMS_BonumarkExportImporter())->label(), 'progress' => ['last_target_status' => 'unknown']]);
+    bms_port_check('An unknown stored status falls back to the format default', $invalid['target_status'] === 'original');
 });
 
 fwrite(STDOUT, sprintf("\nContent portability test: %d passed, %d failed.\n", $results['pass'], $results['fail']));

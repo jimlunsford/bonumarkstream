@@ -170,6 +170,23 @@ $badDate = $request;
 $badDate['headers']['date'] = 'tomorrow';
 bms_ap_security_throws(static fn() => bms_activitypub_verify_http_signature($badDate, $publicKey, $now), 401, 'A malformed HTTP Date must be rejected.');
 
+// The inbox runs every check that needs neither the network nor a key
+// before it fetches any actor. That stage never resolves a host.
+$noNetworkResolver = static function (string $host): array {
+    throw new RuntimeException('The signature prepare stage must not resolve hosts.');
+};
+foreach (['legacy' => $request, 'RFC 9421' => $rfcRequest] as $format => $formatRequest) {
+    $formatRequest['resolver'] = $noNetworkResolver;
+    $prepared = bms_activitypub_prepare_http_signature($formatRequest, $now);
+    $checked = bms_activitypub_verify_prepared_http_signature($prepared, $publicKey, $publicResolver);
+    $direct = bms_activitypub_verify_http_signature(['resolver' => $publicResolver] + $formatRequest, $publicKey, $now);
+    bms_ap_security_assert($checked === $direct, 'A prepared ' . $format . ' signature must verify exactly as a direct verification.');
+}
+bms_ap_security_throws(static fn() => bms_activitypub_prepare_http_signature(['resolver' => $noNetworkResolver] + $badDigest, $now), 400, 'A digest mismatch must fail the prepare stage without a key or the network.');
+bms_ap_security_throws(static fn() => bms_activitypub_prepare_http_signature(['resolver' => $noNetworkResolver] + $request, $now + bms_activitypub_signature_window_seconds() + 1), 401, 'An expired signature must fail the prepare stage.');
+bms_ap_security_throws(static fn() => bms_activitypub_prepare_http_signature(['resolver' => $noNetworkResolver] + $rfcBadDigest, $now), 400, 'An RFC 9421 digest mismatch must fail the prepare stage.');
+bms_ap_security_throws(static fn() => bms_activitypub_verify_prepared_http_signature(bms_activitypub_prepare_http_signature($request, $now), $publicKey, $privateResolver), 400, 'The key check must still refuse a key ID on a non-public host.');
+
 $otherKey = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 2048]);
 $otherDetails = $otherKey !== false ? openssl_pkey_get_details($otherKey) : false;
 $otherPublic = is_array($otherDetails) ? (string)$otherDetails['key'] : '';

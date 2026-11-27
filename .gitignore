@@ -1,6 +1,8 @@
 # Local install state
 _bonumark_stream/config.php
 _bonumark_stream/installed.lock
+_bonumark_stream/setup-key.php
+_bonumark_stream/setup-key.php.*.tmp
 
 # Runtime generated data
 _bonumark_stream/tmp/
