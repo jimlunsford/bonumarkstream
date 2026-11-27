@@ -26,6 +26,7 @@ $options = [
     'confirm_db_backup' => false,
     'allow_root' => false,
     'site_root' => '',
+    'accept_different_recovery_package' => false,
 ];
 $zipArgument = '';
 
@@ -44,6 +45,10 @@ foreach ($args as $arg) {
     }
     if ($arg === '--allow-root') {
         $options['allow_root'] = true;
+        continue;
+    }
+    if ($arg === '--accept-different-recovery-package') {
+        $options['accept_different_recovery_package'] = true;
         continue;
     }
     if (str_starts_with($arg, '--site-root=')) {
@@ -143,6 +148,30 @@ if (!$options['yes']) {
     }
 }
 
+// An interrupted upgrade resumes with the exact package that started it.
+// Another package with the same version needs explicit acknowledgement.
+$acceptDifferentPackage = false;
+if ((string)($plan['recovery_package'] ?? '') === 'different') {
+    $recorded = trim((string)($plan['recovery_package_sha256'] ?? ''));
+    echo "\nThis package has the recovery target version, but it is not the package that started the interrupted upgrade.\n";
+    echo 'Recorded package SHA-256: ' . ($recorded !== '' ? $recorded : 'not recorded (written by an earlier version or the manual migration workflow)') . "\n";
+    echo 'This package SHA-256:     ' . (string)($plan['zip_sha256'] ?? '') . "\n";
+    if ($options['accept_different_recovery_package']) {
+        $acceptDifferentPackage = true;
+    } elseif ($interactive) {
+        echo "Type DIFFERENT PACKAGE to resume recovery with this package: ";
+        $answer = trim((string)fgets(STDIN));
+        if (!hash_equals('DIFFERENT PACKAGE', $answer)) {
+            fwrite(STDERR, "Upgrade cancelled. Retry with the package that started the interrupted upgrade.\n");
+            exit(1);
+        }
+        $acceptDifferentPackage = true;
+    } else {
+        fwrite(STDERR, "Retry with the package that started the interrupted upgrade, or rerun with --accept-different-recovery-package to resume with this one.\n");
+        exit(1);
+    }
+}
+
 $expectedZipHash = trim((string)($plan['zip_sha256'] ?? ''));
 $actualZipHash = hash_file('sha256', $zipPath) ?: '';
 if ($expectedZipHash === '' || $actualZipHash === '' || !hash_equals($expectedZipHash, $actualZipHash)) {
@@ -165,7 +194,7 @@ if ($pendingMigrations !== [] && !$options['confirm_db_backup']) {
 }
 
 try {
-    $result = bms_upgrade_install($zipPath);
+    $result = bms_upgrade_install($zipPath, ['acknowledge_different_recovery_package' => $acceptDifferentPackage]);
 } catch (Throwable $e) {
     fwrite(STDERR, "\nUpgrade failed: " . $e->getMessage() . "\n");
     exit(1);
@@ -209,6 +238,8 @@ Options:
   --confirm-db-backup    Confirm an external database backup exists when migrations are pending.
   --allow-root           Allow an intentionally root-run deployment. Application-owner execution is preferred.
   --site-root=PATH       Upgrade a different installed Bonumark root. Useful to bootstrap this workflow from an extracted newer release.
+  --accept-different-recovery-package
+                         Resume an interrupted upgrade with a package other than the one that started it.
   --help, -h             Show this help.
 
 The helper never invokes sudo or elevates privileges. Run it as the operating-system account that owns/deploys the Bonumark application tree.

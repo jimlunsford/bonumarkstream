@@ -246,7 +246,8 @@ if (!str_contains($upgradeSourceEarly, "require_once __DIR__ . '/../_bonumark_st
 }
 if (!str_contains($ownerUpgradeSource, "PHP_SAPI !== 'cli'")
     || !str_contains($ownerUpgradeSource, 'bms_upgrade_inspect_package($zipPath)')
-    || !str_contains($ownerUpgradeSource, 'bms_upgrade_install($zipPath)')
+    || !str_contains($ownerUpgradeSource, 'bms_upgrade_install($zipPath')
+    || !str_contains($ownerUpgradeSource, '--accept-different-recovery-package')
     || !str_contains($ownerUpgradeSource, '--confirm-db-backup')
     || !str_contains($ownerUpgradeSource, '--site-root=')
     || !str_contains($ownerUpgradeSource, 'Refusing to run as root by default')
