@@ -62,6 +62,8 @@ class BMS_MarkdownImporter implements BMS_ImporterInterface
             'featured_media' => $featuredMedia,
             'media_gallery' => $mediaGallery,
             'tags' => $tags,
+            // A scheduled file keeps its time; without one it imports as a draft.
+            'meta' => ['scheduled_at' => bms_portability_utc_from_value((string)($parsed['front_matter']['scheduled_at'] ?? ''))],
         ]));
 
         return $result;

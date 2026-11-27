@@ -2,6 +2,7 @@
 require_once __DIR__ . '/renderer.php';
 require_once __DIR__ . '/pages.php';
 require_once __DIR__ . '/import-media.php';
+require_once __DIR__ . '/portability.php';
 require_once __DIR__ . '/importers/ImportItem.php';
 require_once __DIR__ . '/importers/ImportResult.php';
 require_once __DIR__ . '/importers/ImporterInterface.php';
@@ -92,7 +93,14 @@ function bms_import_make_item(array $data): BMS_ImportItem
 {
     $body = str_replace(["\r\n", "\r"], "\n", (string)($data['body'] ?? ''));
     $date = bms_import_normalize_date((string)($data['date'] ?? ''));
-    $createdAt = bms_import_normalize_datetime((string)($data['created_at'] ?? $date));
+    $meta = BMS_ImportItem::cleanMeta($data['meta'] ?? []);
+    // A Bonumark export carries finished metadata. Keep it exactly instead of
+    // generating titles, slugs, or SEO titles again.
+    $exact = ($meta['exact'] ?? '') === '1';
+    $rawCreatedAt = trim((string)($data['created_at'] ?? ''));
+    $createdAt = $exact && (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $rawCreatedAt) === 1 || $rawCreatedAt === '')
+        ? $rawCreatedAt
+        : bms_import_normalize_datetime((string)($data['created_at'] ?? $date));
     $title = trim((string)($data['title'] ?? ''));
     $slug = trim((string)($data['slug'] ?? ''));
     $description = trim((string)($data['description'] ?? ''));
@@ -119,8 +127,8 @@ function bms_import_make_item(array $data): BMS_ImportItem
             'featured_media' => $featuredMedia,
             'media_gallery' => $mediaGallery,
             'stream_created_at' => $createdAt,
-            'seo_title' => '',
-            'robots' => '',
+            'seo_title' => $exact ? (string)($meta['seo_title'] ?? '') : '',
+            'robots' => $exact ? (string)($meta['robots'] ?? '') : '',
             'show_in_menu' => (string)($data['show_in_menu'] ?? '0'),
             'menu_label' => (string)($data['menu_label'] ?? ''),
             'menu_order' => (string)($data['menu_order'] ?? '100'),
@@ -139,15 +147,17 @@ function bms_import_make_item(array $data): BMS_ImportItem
             'featured_media' => $featuredMedia,
             'media_gallery' => $mediaGallery,
             'stream_created_at' => $createdAt,
-            'seo_title' => '',
-            'robots' => '',
+            'seo_title' => $exact ? (string)($meta['seo_title'] ?? '') : '',
+            'robots' => $exact ? (string)($meta['robots'] ?? '') : '',
         ];
         $prepared = bms_stream_prepare_metadata_fields($fields, $body, '');
     }
+    $itemTitle = $exact && $title !== '' ? $title : (string)$prepared['title'];
+    $itemSlug = $exact && bms_slugify($slug) !== '' ? $slug : (string)$prepared['slug'];
 
     return new BMS_ImportItem(
-        (string)$prepared['title'],
-        (string)$prepared['slug'],
+        $itemTitle,
+        $itemSlug,
         $body,
         $date,
         $createdAt,
@@ -158,7 +168,8 @@ function bms_import_make_item(array $data): BMS_ImportItem
         $contentType === 'page' ? [] : $tags,
         $warnings,
         $contentType,
-        $mediaGallery
+        $mediaGallery,
+        $meta
     );
 }
 
@@ -211,6 +222,7 @@ function bms_import_store_preview(BMS_ImportResult $result, string $filename): s
         'items' => $items,
         'warnings' => $result->warnings,
         'errors' => $result->errors,
+        'media_library' => $result->mediaLibrary,
     ];
 
     $storageRoot = bms_import_preview_storage_root();
@@ -338,22 +350,137 @@ function bms_import_select_items(array $items, int $start, int $limit): array
 }
 
 /**
- * @param list<array<string,mixed>> $items
- * @return array{imported:int,skipped:int,published:int,drafted:int,media_imported:int,media_removed:int,media_failed:int,details:list<string>}
+ * Work that runs once for an import preview before its first batch: restore
+ * the media library a Bonumark export carries and keep Local Places
+ * references safe. The result is stored with the preview, so later batches
+ * reuse it instead of repeating the work.
+ *
+ * @return array<string,mixed>
  */
-function bms_import_commit_items(array $items, string $targetStatus, bool $preserveDates, string $duplicatePolicy, string $mediaPolicy = 'remote'): array
+function bms_import_prepare_restore(array $preview, string $mediaPolicy): array
+{
+    $restore = is_array($preview['restore'] ?? null) ? $preview['restore'] : [];
+    if (!empty($restore['prepared'])) {
+        return $restore;
+    }
+
+    $restore = [
+        'prepared' => true,
+        'media_map' => [],
+        'media_removed' => [],
+        'place_map' => [],
+        'media_restored' => 0,
+        'media_reused' => 0,
+        'media_missing' => 0,
+        'media_failed' => 0,
+        'media_warnings' => [],
+    ];
+
+    $library = is_array($preview['media_library'] ?? null) ? $preview['media_library'] : [];
+    $libraryItems = is_array($library['items'] ?? null) ? $library['items'] : [];
+    if ($libraryItems !== []) {
+        if ($mediaPolicy === 'skip') {
+            foreach ($libraryItems as $libraryItem) {
+                $path = is_array($libraryItem) ? bms_portability_clean_media_path((string)($libraryItem['public_path'] ?? '')) : '';
+                if ($path !== '') {
+                    $restore['media_removed'][] = $path;
+                }
+            }
+        } else {
+            $result = bms_portability_restore_media_library($library);
+            $restore['media_map'] = $result['map'];
+            $restore['media_restored'] = $result['restored'];
+            $restore['media_reused'] = $result['reused'];
+            $restore['media_missing'] = $result['missing'];
+            $restore['media_failed'] = $result['failed'];
+            $restore['media_warnings'] = array_slice($result['warnings'], 0, 50);
+        }
+    }
+
+    $references = [];
+    foreach (is_array($preview['items'] ?? null) ? $preview['items'] : [] as $rawItem) {
+        if (!is_array($rawItem)) {
+            continue;
+        }
+        $meta = BMS_ImportItem::cleanMeta($rawItem['meta'] ?? []);
+        $placeId = (int)($meta['location_place_id'] ?? 0);
+        if (($meta['exact'] ?? '') === '1' && $placeId > 0 && !isset($references[$placeId])) {
+            $references[$placeId] = ['name' => (string)($meta['location_name'] ?? ''), 'locality' => (string)($meta['location_locality'] ?? '')];
+        }
+    }
+    foreach (bms_portability_prepare_place_references($references) as $from => $to) {
+        $restore['place_map'][(string)$from] = (int)$to;
+    }
+
+    return $restore;
+}
+
+/** Remove Markdown links and images that point at any of the given media paths. */
+function bms_import_remove_media_references(string $body, array $paths): string
+{
+    if ($body === '' || $paths === []) {
+        return $body;
+    }
+    $paths = array_fill_keys($paths, true);
+    $body = preg_replace_callback('/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/', static function (array $match) use ($paths): string {
+        $path = bms_portability_media_path_from_url((string)$match[1]);
+        return $path !== '' && isset($paths[$path]) ? '' : (string)$match[0];
+    }, $body) ?? $body;
+    return trim(preg_replace('/\n{3,}/', "\n\n", $body) ?? $body);
+}
+
+/**
+ * @param list<array<string,mixed>> $items
+ * @param array<string,mixed> $restore the result of bms_import_prepare_restore()
+ * @return array{imported:int,skipped:int,published:int,drafted:int,media_imported:int,media_removed:int,media_failed:int,pinned:int,scheduled_as_draft:list<string>,times_approximate:int,details:list<string>}
+ */
+function bms_import_commit_items(array $items, string $targetStatus, bool $preserveDates, string $duplicatePolicy, string $mediaPolicy = 'remote', array $restore = []): array
 {
     $targetStatus = in_array($targetStatus, ['draft', 'published', 'scheduled', 'original'], true) ? $targetStatus : 'draft';
     $duplicatePolicy = in_array($duplicatePolicy, ['skip', 'rename'], true) ? $duplicatePolicy : 'skip';
     $mediaPolicy = in_array($mediaPolicy, ['remote', 'import', 'skip'], true) ? $mediaPolicy : 'remote';
-    $summary = ['imported' => 0, 'skipped' => 0, 'published' => 0, 'drafted' => 0, 'media_imported' => 0, 'media_removed' => 0, 'media_failed' => 0, 'details' => []];
+    $summary = ['imported' => 0, 'skipped' => 0, 'published' => 0, 'drafted' => 0, 'media_imported' => 0, 'media_removed' => 0, 'media_failed' => 0, 'pinned' => 0, 'scheduled_as_draft' => [], 'times_approximate' => 0, 'details' => []];
     $mediaCache = [];
     $authorId = function_exists('bms_current_user_id') ? bms_current_user_id() : null;
+    $mediaMap = is_array($restore['media_map'] ?? null) ? array_map('strval', $restore['media_map']) : [];
+    $mediaRemoved = is_array($restore['media_removed'] ?? null) ? array_values(array_map('strval', $restore['media_removed'])) : [];
+    $placeMap = is_array($restore['place_map'] ?? null) ? $restore['place_map'] : [];
+
+    // Publication times are restored as exact instants. Let this site read
+    // them as UTC first; see bms_portability_prepare_publication_cutover().
+    $cutover = '';
+    if ($preserveDates) {
+        $instants = [];
+        foreach ($items as $rawItem) {
+            $meta = is_array($rawItem) ? BMS_ImportItem::cleanMeta($rawItem['meta'] ?? []) : [];
+            if (($meta['published_at'] ?? '') !== '') {
+                $instants[] = (string)$meta['published_at'];
+            }
+        }
+        if ($instants !== []) {
+            $cutover = bms_portability_prepare_publication_cutover($instants);
+        }
+    }
 
     foreach ($items as $rawItem) {
         $item = BMS_ImportItem::fromArray($rawItem);
+        $exact = $item->metaValue('exact') === '1';
         $contentType = bms_import_normalize_content_type($item->contentType);
         $status = $targetStatus === 'original' ? bms_import_normalize_status($item->status) : $targetStatus;
+        $scheduledAt = '';
+        if ($status === 'scheduled' && $contentType === 'stream') {
+            // A scheduled post needs a time still ahead. Without one it
+            // would never publish, or publish at once, so it waits as a draft.
+            $scheduledAt = bms_portability_utc_from_value($item->metaValue('scheduled_at'));
+            $due = $scheduledAt !== '' ? (new DateTimeImmutable($scheduledAt, bms_utc_timezone()))->getTimestamp() : 0;
+            if ($scheduledAt === '' || $due <= time()) {
+                $label = $item->title !== '' ? $item->title : $item->slug;
+                $summary['scheduled_as_draft'][] = $label;
+                $summary['details'][] = 'Imported “' . $label . '” as a draft because its scheduled time ' . ($scheduledAt === '' ? 'is missing.' : 'has already passed.');
+                $status = 'draft';
+                $scheduledAt = '';
+            }
+        }
         $section = $status === 'published' ? 'published' : ($status === 'scheduled' ? 'scheduled' : 'drafts');
         if ($contentType === 'page' && $section === 'scheduled') {
             $section = 'drafts';
@@ -361,7 +488,12 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         }
         $databaseSection = $contentType === 'page' ? 'pages/' . $section : $section;
         $date = $preserveDates ? bms_import_normalize_date($item->date) : date('Y-m-d');
-        $createdAt = $preserveDates ? bms_import_normalize_datetime($item->createdAt) : date('Y-m-d H:i:s');
+        $createdAt = date('Y-m-d H:i:s');
+        if ($preserveDates) {
+            $createdAt = $exact && (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $item->createdAt) === 1 || $item->createdAt === '')
+                ? $item->createdAt
+                : bms_import_normalize_datetime($item->createdAt);
+        }
         $slug = $contentType === 'page' ? bms_page_clean_slug_candidate($item->slug) : bms_slugify($item->slug);
         if ($slug === '') {
             $slug = $contentType === 'page'
@@ -397,8 +529,22 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         if ($mediaGallery) {
             $featuredMedia = (string)$mediaGallery[0];
         }
+
+        if ($exact) {
+            // A Bonumark export restores its own media library. Its posts keep
+            // their bodies; only references to restored or removed library
+            // files change. Remote images stay remote unless media is skipped.
+            if ($mediaRemoved !== []) {
+                $body = bms_import_remove_media_references($body, $mediaRemoved);
+                $removedLookup = array_fill_keys($mediaRemoved, true);
+                $mediaGallery = array_values(array_filter($mediaGallery, static fn($media): bool => !isset($removedLookup[bms_portability_media_path_from_url((string)$media)])));
+            }
+            $body = bms_portability_rewrite_media_references($body, $mediaMap);
+            $mediaGallery = array_map(static fn($media): string => bms_portability_rewrite_media_value((string)$media, $mediaMap), $mediaGallery);
+        }
+
         $hasStagedMedia = function_exists('bms_import_extract_staged_media_urls') && count(bms_import_extract_staged_media_urls($body)) > 0;
-        if ($mediaPolicy !== 'remote' || $hasStagedMedia) {
+        if (($mediaPolicy !== 'remote' && (!$exact || $mediaPolicy === 'skip')) || $hasStagedMedia) {
             $mediaResult = bms_import_apply_media_policy_to_body($body, $mediaPolicy, $mediaCache);
             $body = $mediaResult['body'];
             $summary['media_imported'] += (int)$mediaResult['imported'];
@@ -416,9 +562,11 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
             if ($galleryMedia === '') {
                 continue;
             }
-            $mediaNeedsProcessing = (function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($galleryMedia))
-                || ($mediaPolicy === 'import' && function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($galleryMedia))
-                || ($mediaPolicy === 'skip' && ((function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($galleryMedia)) || (function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($galleryMedia))));
+            $isStaged = function_exists('bms_import_is_staged_media_url') && bms_import_is_staged_media_url($galleryMedia);
+            $isRemote = function_exists('bms_import_is_remote_http_url') && bms_import_is_remote_http_url($galleryMedia);
+            $mediaNeedsProcessing = $isStaged
+                || ($mediaPolicy === 'import' && $isRemote && !$exact)
+                || ($mediaPolicy === 'skip' && ($isStaged || $isRemote));
             if ($mediaNeedsProcessing) {
                 $mediaProbe = '![Gallery photo ' . ($galleryIndex + 1) . '](' . $galleryMedia . ')';
                 $mediaResult = bms_import_apply_media_policy_to_body($mediaProbe, $mediaPolicy, $mediaCache);
@@ -442,8 +590,28 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         $mediaGallery = bms_normalize_media_gallery($processedGallery);
         $featuredMedia = $mediaGallery[0] ?? '';
 
+        // Fields carried by the importer: SEO, link preview, location, and the
+        // schedule. Importers that read none of them leave these empty.
+        $carried = [
+            'seo_title' => $item->metaValue('seo_title'),
+            'robots' => $item->metaValue('robots'),
+        ];
+        foreach (bms_portability_link_preview_keys() as $key) {
+            $carried[$key] = $item->metaValue($key);
+        }
+        foreach (bms_portability_location_keys() as $key) {
+            $carried[$key] = $item->metaValue($key);
+        }
+        $placeId = (int)$carried['location_place_id'];
+        if ($placeId > 0 && isset($placeMap[(string)$placeId])) {
+            $carried['location_place_id'] = (string)(int)$placeMap[(string)$placeId];
+        }
+        $exportedScheduledAt = bms_portability_utc_from_value($item->metaValue('scheduled_at'));
+        $publishedScheduledAt = $status === 'published' && $contentType === 'stream' && $preserveDates ? $exportedScheduledAt : '';
+        $carried['scheduled_at'] = $status === 'scheduled' ? $scheduledAt : $publishedScheduledAt;
+
         if ($contentType === 'page') {
-            $fields = [
+            $fields = array_merge([
                 'title' => $item->title,
                 'slug' => $slug,
                 'status' => $status,
@@ -453,15 +621,13 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
                 'featured_media' => $featuredMedia,
                 'media_gallery' => $mediaGallery,
                 'stream_created_at' => $createdAt,
-                'seo_title' => '',
-                'robots' => '',
-            ];
+            ], $carried);
             $fields = bms_page_prepare_metadata_fields($fields, $body, '');
             $fields['slug'] = $slug;
             $fields['status'] = $status;
             $fields['date'] = $date;
         } else {
-            $fields = [
+            $fields = array_merge([
                 'title' => $item->title,
                 'slug' => $slug,
                 'status' => $status,
@@ -473,20 +639,30 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
                 'featured_media' => $featuredMedia,
                 'media_gallery' => $mediaGallery,
                 'stream_created_at' => $createdAt,
-                'seo_title' => '',
-                'robots' => '',
-            ];
+            ], $carried);
             $fields = bms_stream_prepare_metadata_fields($fields, $body, '');
             $fields['slug'] = $slug;
             $fields['status'] = $status;
             $fields['date'] = $date;
             $fields['stream_created_at'] = $createdAt;
         }
+        if ($exact) {
+            // Keep the exported values, empty ones included, instead of the
+            // titles and descriptions the editor would generate.
+            if (trim($item->title) !== '') {
+                $fields['title'] = $item->title;
+            }
+            $fields['description'] = $item->description;
+            $fields['seo_title'] = $carried['seo_title'];
+        }
 
         $raw = bms_build_markdown_document($fields, $body);
         $page = bms_parse_markdown_string($raw);
         $page['content_type'] = $contentType;
         $page['post_type'] = $contentType;
+        if ($carried['scheduled_at'] !== '') {
+            $page['scheduled_at'] = $carried['scheduled_at'];
+        }
         $filename = $page['slug'] . '.md';
         if (function_exists('bms_find_database_content_by_slug_status') && bms_find_database_content_by_slug_status((string)$page['slug'], $status, $contentType)) {
             $summary['skipped']++;
@@ -501,6 +677,38 @@ function bms_import_commit_items(array $items, string $targetStatus, bool $prese
         } elseif (function_exists('bms_sync_stream_metadata')) {
             bms_sync_stream_metadata($page, $databaseSection, $filename, $authorId);
         }
+
+        // Columns the content record does not carry: the publication time, the
+        // time a published post was scheduled for, and the pin state.
+        $post = function_exists('bms_find_post_by_slug_status') ? bms_find_post_by_slug_status((string)$page['slug'], $status, $contentType) : null;
+        $postId = is_array($post) ? (int)($post['id'] ?? 0) : 0;
+        if ($postId > 0) {
+            $updates = [];
+            $publishedAt = $preserveDates && $status !== 'scheduled' ? bms_portability_utc_from_value($item->metaValue('published_at')) : '';
+            if ($publishedAt !== '') {
+                $storage = bms_portability_published_at_storage($publishedAt, $cutover !== '' ? $cutover : bms_portability_current_cutover());
+                $updates['published_at'] = $storage['value'];
+                if (!$storage['exact']) {
+                    $summary['times_approximate']++;
+                    $summary['details'][] = 'The publication time of “' . $item->title . '” could not be stored exactly on this site because of its pre-0.5.23 timestamp history.';
+                }
+            }
+            if ($publishedScheduledAt !== '') {
+                $updates['scheduled_at'] = $publishedScheduledAt;
+            }
+            if ($status === 'published' && $contentType === 'stream' && $item->metaValue('is_pinned') === '1') {
+                $pinnedAt = $preserveDates ? bms_portability_utc_from_value($item->metaValue('pinned_at')) : '';
+                $updates['is_pinned'] = 1;
+                $updates['pinned_at'] = $pinnedAt !== '' ? $pinnedAt : gmdate('Y-m-d H:i:s');
+                $summary['pinned']++;
+            }
+            if ($updates !== []) {
+                $assignments = implode(', ', array_map(static fn(string $column): string => $column . ' = :' . $column, array_keys($updates)));
+                $stmt = bms_db()->prepare('UPDATE ' . bms_table('posts') . ' SET ' . $assignments . ' WHERE id = :id');
+                $stmt->execute($updates + ['id' => $postId]);
+            }
+        }
+
         if ($status === 'published') {
             $summary['published']++;
         } else {

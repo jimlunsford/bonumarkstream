@@ -1601,9 +1601,15 @@ if (!str_contains($importAdmin, '1. Upload and create preview')
     bm_smoke_fail($failures, 'Import workflows must distinguish staging, confirmation, database writes, and private-folder migration.');
 }
 if (!str_contains($exportAdmin, 'Portable content and public-facing outputs')
-    || !str_contains($exportAdmin, 'Private backup packages')
+    || !str_contains($exportAdmin, 'Private database packages')
     || !str_contains($exportAdmin, 'Sensitive account and security data')) {
-    bm_smoke_fail($failures, 'Export must distinguish portable outputs from sensitive private backups.');
+    bm_smoke_fail($failures, 'Export must distinguish portable outputs from sensitive private database packages.');
+}
+if (!str_contains($exportAdmin, 'Exports are content-only portability, not a backup.')
+    || !str_contains($exportAdmin, 'Comments, commenter accounts, settings, and analytics.')
+    || !str_contains($exportAdmin, '<dt>Full recovery</dt>')
+    || str_contains($exportAdmin, 'Private backup packages')) {
+    bm_smoke_fail($failures, 'Export must say it is content-only, list what Import does not restore, and point to server backups for full recovery.');
 }
 if (!str_contains($upgradeAdmin, 'Run Upgrade replaces package-managed software')
     || !str_contains($upgradeAdmin, '1. Upload and check a trusted release ZIP')

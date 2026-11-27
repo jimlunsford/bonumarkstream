@@ -18,6 +18,14 @@ class BMS_ImportItem
     public array $tags;
     /** @var list<string> */
     public array $warnings;
+    /**
+     * Fields beyond the basic set, kept exactly as an importer read them:
+     * SEO, link preview, location, publication, and pin values. Only the
+     * keys in metaKeys() are kept.
+     *
+     * @var array<string,string>
+     */
+    public array $meta;
 
     /**
      * @param list<string> $tags
@@ -36,7 +44,8 @@ class BMS_ImportItem
         array $tags = [],
         array $warnings = [],
         string $contentType = 'stream',
-        array $mediaGallery = []
+        array $mediaGallery = [],
+        array $meta = []
     ) {
         $this->title = $title;
         $this->slug = $slug;
@@ -51,6 +60,37 @@ class BMS_ImportItem
         $this->mediaGallery = bms_normalize_media_gallery($mediaGallery, $featuredMedia);
         $this->tags = $tags;
         $this->warnings = $warnings;
+        $this->meta = self::cleanMeta($meta);
+    }
+
+    /** @return list<string> */
+    public static function metaKeys(): array
+    {
+        return [
+            'exact', 'seo_title', 'robots', 'scheduled_at', 'published_at', 'published_at_source', 'is_pinned', 'pinned_at',
+            'link_preview_url', 'link_preview_title', 'link_preview_description', 'link_preview_image', 'link_preview_site_name',
+            'location_place_id', 'location_name', 'location_category', 'location_area', 'location_locality', 'location_region', 'location_country', 'location_display_mode',
+        ];
+    }
+
+    /** @return array<string,string> */
+    public static function cleanMeta(mixed $meta): array
+    {
+        if (!is_array($meta)) {
+            return [];
+        }
+        $clean = [];
+        foreach (self::metaKeys() as $key) {
+            if (array_key_exists($key, $meta) && is_scalar($meta[$key])) {
+                $clean[$key] = (string)$meta[$key];
+            }
+        }
+        return $clean;
+    }
+
+    public function metaValue(string $key): string
+    {
+        return (string)($this->meta[$key] ?? '');
     }
 
     /** @return array<string,mixed> */
@@ -70,6 +110,7 @@ class BMS_ImportItem
             'content_type' => $this->contentType,
             'tags' => $this->tags,
             'warnings' => $this->warnings,
+            'meta' => $this->meta,
         ];
     }
 
@@ -91,7 +132,8 @@ class BMS_ImportItem
             is_array($tags) ? array_values(array_filter(array_map('strval', $tags))) : [],
             is_array($warnings) ? array_values(array_filter(array_map('strval', $warnings))) : [],
             in_array((string)($data['content_type'] ?? $data['post_type'] ?? 'stream'), ['stream', 'page'], true) ? (string)($data['content_type'] ?? $data['post_type'] ?? 'stream') : 'stream',
-            is_array($data['media_gallery'] ?? null) ? $data['media_gallery'] : []
+            is_array($data['media_gallery'] ?? null) ? $data['media_gallery'] : [],
+            is_array($data['meta'] ?? null) ? $data['meta'] : []
         );
     }
 }

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../_bonumark_stream/app/auth.php';
 require_once __DIR__ . '/../_bonumark_stream/app/media.php';
+require_once __DIR__ . '/../_bonumark_stream/app/portability.php';
 require_once __DIR__ . '/_layout.php';
 bms_require_login();
 bms_require_capability('view_system');
@@ -57,6 +58,7 @@ function bms_export_markdown_from_database(ZipArchive $zip): int
         'generated_at' => date('c'),
         'source' => 'database-first-content-records',
         'version' => bms_version(),
+        'format_version' => bms_portability_format_version(),
         'items' => [],
     ];
     $sections = [
@@ -73,7 +75,9 @@ function bms_export_markdown_from_database(ZipArchive $zip): int
                 $slug = 'content-' . (++$count);
             }
             $filename = $slug . '.md';
-            $raw = function_exists('bms_database_content_raw') ? bms_database_content_raw($page) : bms_build_markdown_document($page, (string)($page['body'] ?? ''));
+            // The stored document plus the publication fields kept in database
+            // columns: the publication instant and the pin state.
+            $raw = bms_portability_export_document($page);
             $zipPath = 'markdown/' . trim($zipDir, '/') . '/' . $filename;
             bms_export_add_string($zip, $zipPath, $raw);
             $manifest['items'][] = [
@@ -88,8 +92,21 @@ function bms_export_markdown_from_database(ZipArchive $zip): int
         }
     }
     bms_export_add_string($zip, 'markdown/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    bms_export_add_string($zip, 'markdown/README.txt', "This Markdown export was generated from database-first Bonumark Stream content records. Markdown is export output and import material only.\n");
+    // Media library details, including files no post uses. A Full export also
+    // carries the files; Import restores both.
+    bms_export_add_string($zip, bms_portability_media_manifest_entry(), json_encode(bms_portability_media_manifest(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    bms_export_add_string($zip, 'markdown/README.txt', "This Markdown export was generated from database-first Bonumark Stream content records. Markdown is export output and import material only.\n\nThis is a content-only export, not a backup. It carries Stream Posts, Pages, and media library details. It does not carry comments, commenter accounts, settings, analytics, Profiles, the Local Places directory, or ActivityPub state. Use server backups of the database and site files for full recovery.\n");
     return $count;
+}
+
+/**
+ * Settings that hold secrets. Their values are never written to an export.
+ *
+ * @return list<string>
+ */
+function bms_export_secret_setting_keys(): array
+{
+    return ['mail_smtp_password'];
 }
 
 function bms_export_database_tables(): array
@@ -117,7 +134,9 @@ function bms_export_database_tables(): array
 function bms_export_database_sql(): string
 {
     $tables = bms_export_database_tables();
-    $sql = "-- Bonumark Stream database export\n-- Generated: " . date('c') . "\n-- Warning: this private backup may contain password hashes, email addresses, API token hashes, security logs, and account data.\n\n";
+    $sql = "-- Bonumark Stream database export\n-- Generated: " . date('c') . "\n-- Warning: this private backup may contain password hashes, email addresses, API token hashes, security logs, and account data.\n-- The SMTP password is never included.\n\n";
+    $settingsTable = bms_table('settings');
+    $secretSettings = bms_export_secret_setting_keys();
     foreach ($tables as $table) {
         $safeTable = preg_replace('/[^A-Za-z0-9_]/', '', $table) ?: '';
         if ($safeTable === '' || !str_starts_with($safeTable, bms_table_prefix())) {
@@ -130,6 +149,9 @@ function bms_export_database_sql(): string
         }
         $sql .= "-- Table: {$safeTable}\n";
         foreach ($rows as $row) {
+            if ($safeTable === $settingsTable && in_array((string)($row['setting_key'] ?? ''), $secretSettings, true)) {
+                continue;
+            }
             $columns = array_map(fn($c) => '`' . str_replace('`', '``', $c) . '`', array_keys($row));
             $values = array_map(function ($value) {
                 if ($value === null) { return 'NULL'; }
@@ -254,19 +276,26 @@ $zipReady = class_exists('ZipArchive');
 $staticReady = $staticRendererReady;
 ?>
 <div class="system-workspace">
-<p class="system-intro">Download your content and data in the format you need.</p>
+<p class="system-intro">Exports are content-only portability, not a backup. Import can bring an export's posts, Pages, and media into another Bonumark Stream site.</p>
 <?php if (!$zipReady): ?>
 <div class="system-warning"><h2>Exports unavailable</h2><p>PHP ZipArchive is unavailable. Your host must enable the Zip extension before any export can be created.</p></div>
 <?php endif; ?>
 <?php if (!$staticReady): ?>
 <div class="system-warning"><h2>Static output unavailable</h2><p>The static renderer is unavailable in this request. Static Site and Full package downloads are disabled here because they cannot include the expected HTML output. Markdown, Media and Database remain available when ZipArchive is enabled.</p></div>
 <?php endif; ?>
-<section class="system-section"><h2>Portable content and public-facing outputs</h2><p class="meta">Review the contents before sharing. Markdown includes draft and scheduled content and stored content versions; public media can include files used by unpublished content.</p>
+<section class="system-section export-scope"><h2>What Import can restore</h2>
+<dl class="system-facts">
+  <div><dt>Included</dt><dd>Stream Posts and Pages, including drafts and scheduled posts, with their dates and publication times, tags, SEO title and robots setting, link previews, locations, photo galleries, and pin state. Media library details: original file names, descriptions, and captions, including media no post uses. Full exports also carry the media files.</dd></div>
+  <div><dt>Not included</dt><dd>Comments, commenter accounts, settings, and analytics. Profiles, the Local Places directory, and ActivityPub state are not included either. The SQL file in Database and Full exports is a private reference copy; Import never runs it.</dd></div>
+  <div><dt>Full recovery</dt><dd>Keep server backups of the database and the site files, including <code>_bonumark_stream/config.php</code> and <code>media/</code>. Restoring those backups is the only way to recover everything.</dd></div>
+</dl>
+</section>
+<section class="system-section"><h2>Portable content and public-facing outputs</h2><p class="meta">Review the contents before sharing. Markdown includes draft and scheduled content, stored content versions, and media library details such as original file names; public media can include files used by unpublished content.</p>
 <div class="system-export-list">
 <?php foreach ([
-  'markdown' => ['Markdown', 'Posts and pages generated from database records, including drafts, scheduled posts, front matter and stored content versions. Use for migration or a readable content archive.'],
+  'markdown' => ['Markdown', 'Stream Posts and Pages from database records, including drafts and scheduled posts, with front matter, publication times, pin state, media library details, and stored content versions. Media files are not included; use Full to move media too.'],
   'static' => ['Static Site', 'A portable HTML copy with feeds, assets and media, using the existing public renderer. The live site continues to render dynamically.'],
-  'media' => ['Media', 'Files from the public media directory. Use to move or keep a copy of uploaded media.'],
+  'media' => ['Media', 'Files from the public media directory. Use to move or keep a copy of uploaded media. Import restores media from a Full export, not from this file alone.'],
 ] as $key => $copy): ?>
 <form method="post" class="system-export-row">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -276,12 +305,12 @@ $staticReady = $staticRendererReady;
 </form>
 <?php endforeach; ?>
 </div></section>
-<section class="system-section"><h2>Private backup packages</h2>
-<div class="system-warning"><strong>Sensitive account and security data</strong><p>Database and Full exports can contain password hashes, email addresses, private configuration-related records, API-token hashes, invites, reset records and security logs. Store them securely. Do not distribute them publicly.</p></div>
+<section class="system-section"><h2>Private database packages</h2>
+<div class="system-warning"><strong>Sensitive account and security data</strong><p>Database and Full exports can contain password hashes, email addresses, private configuration-related records, API-token hashes, invites, reset records and security logs. They never include the SMTP password. Store them securely. Do not distribute them publicly.</p></div>
 <div class="system-export-list">
 <?php foreach ([
-  'database' => ['Database', 'Database table contents as SQL INSERT records. This export does not include CREATE TABLE schema and is not a complete disaster-recovery backup.'],
-  'full' => ['Full package', 'Markdown, content versions, static output, media and the private database export in one ZIP. This is not a server snapshot or a complete copy of application configuration.'],
+  'database' => ['Database', 'Database table contents as SQL INSERT records, for reference. This export does not include CREATE TABLE schema and is not a backup.'],
+  'full' => ['Full package', 'Markdown, content versions, static output, media and the private database export in one ZIP. Import restores its posts, Pages, and media. This is not a server snapshot or a backup of configuration.'],
 ] as $key => $copy): ?>
 <form method="post" class="system-export-row">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -291,6 +320,6 @@ $staticReady = $staticRendererReady;
 </form>
 <?php endforeach; ?>
 </div></section>
-<p class="system-note">Each export downloads as a ZIP. Bonumark removes its temporary export file after streaming the download. Import restores supported content and media; it does not execute the database SQL.</p>
+<p class="system-note">Each export downloads as a ZIP. Bonumark removes its temporary export file after streaming the download. Import restores Stream Posts, Pages, and media from a Markdown or Full export; it does not execute the database SQL.</p>
 </div>
 <?php bms_admin_footer(); ?>

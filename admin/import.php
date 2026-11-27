@@ -27,6 +27,41 @@ function bms_import_flash_detail_summary(array $details): string
     return implode(' ', $filtered);
 }
 
+/** Flash text for the one-time media library restore of a Bonumark export. */
+function bms_import_restore_flash_notes(array $restore): string
+{
+    $notes = '';
+    $restored = (int)($restore['media_restored'] ?? 0) + (int)($restore['media_reused'] ?? 0);
+    if ($restored > 0) {
+        $notes .= ' Restored ' . $restored . ' media library file(s).';
+    }
+    $removed = count(is_array($restore['media_removed'] ?? null) ? $restore['media_removed'] : []);
+    if ($removed > 0) {
+        $notes .= ' Left out ' . $removed . ' media library file(s) and removed references to them, as chosen.';
+    }
+    $problems = (int)($restore['media_failed'] ?? 0) + (int)($restore['media_missing'] ?? 0);
+    if ($problems > 0) {
+        $warnings = array_slice(array_map('strval', is_array($restore['media_warnings'] ?? null) ? $restore['media_warnings'] : []), 0, 3);
+        $notes .= ' ' . $problems . ' media file(s) could not be restored' . ($warnings ? ': ' . implode(' ', $warnings) : '.');
+    }
+    return $notes;
+}
+
+/** Flash text for items whose schedule or publication time changed on import. */
+function bms_import_item_flash_notes(array $summary): string
+{
+    $notes = '';
+    $drafted = array_map('strval', is_array($summary['scheduled_as_draft'] ?? null) ? $summary['scheduled_as_draft'] : []);
+    if ($drafted !== []) {
+        $shown = array_slice($drafted, 0, 5);
+        $notes .= ' ' . count($drafted) . ' scheduled item(s) were imported as drafts because their scheduled time was missing or had already passed: ' . implode(', ', $shown) . (count($drafted) > count($shown) ? ', and others' : '') . '.';
+    }
+    if ((int)($summary['times_approximate'] ?? 0) > 0) {
+        $notes .= ' ' . (int)$summary['times_approximate'] . ' publication time(s) could not be stored exactly because of this site\'s pre-0.5.23 timestamp history.';
+    }
+    return $notes;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     bms_verify_csrf();
     $action = (string)($_POST['import_action'] ?? '');
@@ -109,7 +144,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $mediaPolicy = $isBlueskyImport ? 'remote' : (string)($_POST['media_policy'] ?? 'remote');
-            $summary = bms_import_commit_items($selectedItems, $targetStatus, $preserveDates, $duplicatePolicy, $mediaPolicy);
+            $mediaPolicy = in_array($mediaPolicy, ['remote', 'import', 'skip'], true) ? $mediaPolicy : 'remote';
+            // The media library and Local Places references are prepared once,
+            // before the first batch, and reused by later batches.
+            $firstRestore = empty($preview['restore']['prepared']);
+            $restore = bms_import_prepare_restore($preview, $mediaPolicy);
+            if ($firstRestore) {
+                $preview['restore'] = $restore;
+                bms_import_save_preview_payload($preview);
+            }
+            $summary = bms_import_commit_items($selectedItems, $targetStatus, $preserveDates, $duplicatePolicy, $mediaPolicy, $restore);
+            $restoreNotes = $firstRestore ? bms_import_restore_flash_notes($restore) : '';
+            $itemNotes = bms_import_item_flash_notes($summary);
             $totalItems = count($items);
             $batchCount = count($selectedItems);
             $batchEnd = min($totalItems, $rangeStart + $batchCount - 1);
@@ -130,6 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($summary['media_failed'] ?? 0) > 0) {
                 $message .= ' Could not import ' . $summary['media_failed'] . ' image file(s); details: ' . bms_import_flash_detail_summary($summary['details'] ?? []);
             }
+            $message .= $restoreNotes . $itemNotes;
 
             if ($nextStart <= $totalItems) {
                 bms_import_update_preview_progress($preview, [
@@ -160,6 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($summary['media_failed'] ?? 0) > 0) {
                 $message .= ' Some media could not be imported; details: ' . bms_import_flash_detail_summary($summary['details'] ?? []);
             }
+            $message .= $restoreNotes . $itemNotes;
             bms_flash($message, 'success');
             $redirectStatus = $targetStatus === 'original' ? 'all' : ($targetStatus === 'published' ? 'published' : 'draft');
             bms_redirect(bms_admin_url('content.php' . ($redirectStatus === 'all' ? '' : '?status=' . $redirectStatus)));
@@ -218,7 +266,8 @@ bms_admin_header('Import', [
           }
       }
   }
-  $previewImageCount = $previewRemoteImageCount + $previewStagedImageCount;
+  $previewLibraryCount = count(is_array($preview['media_library']['items'] ?? null) ? $preview['media_library']['items'] : []);
+  $previewImageCount = $previewRemoteImageCount + $previewStagedImageCount + $previewLibraryCount;
   $defaultMediaPolicy = $previewImageCount > 0 ? 'import' : 'remote';
   $progress = is_array($preview['progress'] ?? null) ? $preview['progress'] : [];
   $isBlueskyPreview = stripos((string)($preview['importer'] ?? ''), 'Bluesky') !== false;
@@ -373,7 +422,8 @@ bms_admin_header('Import', [
 
 <details class="system-section import-format-panel"><summary>Supported formats and limitations</summary>
   <div class="operations-panel-heading"><div><h2>Import formats</h2><p class="meta">Use archives you created, exported, or trust. Unsupported executable files are not accepted.</p></div><span class="operation-risk-label">Reference</span></div>
-  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by System > Export. It safely restores database-first Markdown export entries from <code>markdown/posts</code> and <code>markdown/pages</code>, stages referenced files from the export's <code>media</code> folder, rewrites restored media references for the new install during confirmation, and preserves dates, slugs, descriptions, statuses, and tags. It does not execute database SQL from the export.</p>
+  <p class="meta">The Bonumark importer accepts Bonumark Stream export ZIP files created by System > Export. It restores Stream Posts and Pages from <code>markdown/posts</code> and <code>markdown/pages</code> with their slugs, statuses, dates and publication times, descriptions, tags, SEO title and robots setting, link previews, locations, galleries, and pin state. From a Full export it restores every media library file, including files no post uses, at its original path with its original file name, description, and caption. Choose Use detected status to keep published, draft, and scheduled states; a scheduled post whose time is missing or has passed imports as a draft.</p>
+  <p class="meta">Import is content-only, not a restore from backup. Comments, commenter accounts, settings, analytics, Profiles, and the Local Places directory are not restored, and the database SQL in an export is never executed. Use server backups of the database and site files for full recovery.</p>
   <p class="meta">The WordPress importer accepts standard WordPress export XML files from Tools > Export in WordPress. It imports posts only, skips pages, attachments, revisions, menu items, trashed posts, and auto-drafts, converts common HTML into Markdown-style content, preserves WordPress categories and tags as Bonumark Stream tags, and can optionally import remote WordPress images into Bonumark Stream Media during confirmed import. Large exports no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Twitter/X importer accepts downloaded archive ZIP files. It looks for tweet data files such as <code>data/tweets.js</code>, imports authored posts, skips retweets and unsupported account data, preserves original dates, converts tweet text into Markdown-style content, turns hashtags into tags, and stages supported local archive images for Media import during confirmation. Large archives no longer need to be split manually; Bonumark stores the full prepared import privately and shows a smaller preview sample with optional batch controls.</p>
   <p class="meta">The Bluesky importer treats AT Protocol repository <code>.car</code> files as the primary export format. It reads <code>app.bsky.feed.post</code> records, skips replies and repost records, preserves original dates, converts post text into Markdown-style content, turns hashtags into tags, and preserves links found in post text or external link cards. Large Bluesky archives do not need to be split manually; Bonumark stores the full prepared import privately, shows a smaller preview sample, and imports the prepared posts when confirmed. Bluesky CAR exports currently import text, timestamps, hashtags, and links only. Media import is not available from Bluesky CAR exports at this time.</p>
