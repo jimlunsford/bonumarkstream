@@ -6,7 +6,7 @@ Bonumark Stream is a dynamic, database-first microblog CMS designed for normal s
 
 The database is the runtime source of truth for posts, pages, accounts, Profiles, comments, media records, settings, likes, drafts, trash, revisions, scheduled work, Local Places, analytics, and registration data.
 
-Markdown is used for import, export, backup, and portability. Runtime rendering does not depend on Markdown files as fallback storage.
+Markdown is used for import, export, and portability. Runtime rendering does not depend on Markdown files as fallback storage. Export and Import are content-only: they carry Stream Posts, Pages, and the media library, never comments, accounts, settings, or analytics, and are not a backup.
 
 ## Durable post identity
 

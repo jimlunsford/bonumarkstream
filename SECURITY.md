@@ -31,6 +31,9 @@ Do not open a public issue for a suspected security vulnerability. Use GitHub pr
 - Theme packages are code-free. PHP, JavaScript, HTML files, server configuration files, symlinks, and executable code are rejected during theme ZIP installation.
 - `_bonumark_stream/` and `scripts/` are protected by `.htaccess` on Apache and LiteSpeed; the package also ships a maintained Nginx configuration example.
 - Remote Posting API tokens are scoped and stored as hashes.
+- The SMTP password is stored encrypted with a key derived from the installation security salt in `config.php`, and no export includes it.
+- Public sign-in shows the same message for an unknown, pending, or inactive account and a wrong password, and every attempt counts toward the throttle. Resetting your own password in Admin needs your current password.
+- An upgrade interrupted after its database migrations begin resumes only with the exact release ZIP that started it, unless the owner explicitly accepts a different package.
 
 Nginx deployments should start with `docs/server/NGINX.md` and the shipped configuration example. Other web servers must provide equivalent deny rules for private folders, `scripts/`, and config files. Shipped test scripts are CLI-only and must not be exposed through the web server.
 

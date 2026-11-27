@@ -17,7 +17,7 @@ Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
 Bonumark Stream is a lightweight PHP/MySQL publishing system for short posts, notes, links, photos, pages, comments, profiles, likes, feeds, imports, exports, and owner-controlled site presentation.
 
-The normal runtime is database-first and dynamically rendered. Markdown remains part of the system for import, export, backup, and portability, but it is not the runtime source of truth.
+The normal runtime is database-first and dynamically rendered. Markdown remains part of the system for import, export, and portability, but it is not the runtime source of truth. Export and Import are content-only: they move posts, Pages, and media between sites, not comments, accounts, settings, or analytics. Server backups of the database and files are the full recovery path.
 
 Bonumark Stream is intentionally not a social network and not a multi-author publishing platform. The Admin account owns publishing. Optional Commenter accounts can participate through comments and profile/account features when enabled.
 
@@ -127,7 +127,7 @@ ActivityPub requires a root-level HTTPS site, domain-root WebFinger routing, Ope
 
 - Database-first runtime
 - Markdown import/export
-- Bonumark import/export tooling
+- Bonumark import/export tooling for content-only portability (posts, Pages, and media; not a backup)
 - Optional static export
 - Owner-controlled Profile export
 - Upgrade backups and recovery boundaries
