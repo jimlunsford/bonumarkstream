@@ -99,13 +99,21 @@ Private signing keys are encrypted with installation-derived key material and ar
 
 If the active key is missing, corrupted, undecryptable, or mismatched, delivery stops safely and System Check reports recovery is needed. Admin can provision or rotate a usable key while the actor is live. A permanently retired actor cannot receive a new signing key. Its retained key is needed until final Actor Delete delivery has completed.
 
-Inbound verification supports legacy HTTP Signatures and RFC 9421 HTTP Message Signatures. A cached remote actor is refreshed once when a legitimate key-ID change or stable-key-ID signature mismatch indicates possible remote rotation. The refreshed actor URI, key owner, key ID, request coverage, digest, and signature must all validate.
+Inbound verification supports legacy HTTP Signatures and RFC 9421 HTTP Message Signatures. A cached remote actor is refreshed once when a legitimate key-ID change or stable-key-ID signature mismatch indicates possible remote rotation. The refreshed actor URI, key owner, key ID, request coverage, digest, and signature must all validate. Refreshes count against the inbox lookup limits described under Security model.
 
 ## Security model
 
 Federation remote access requires public HTTPS and the hardened Bonumark transport. It rejects loopback, private, link-local, reserved, carrier-grade NAT, and metadata destinations; validates DNS; pins connections when supported; verifies the connected address; and revalidates every bounded redirect. Timeouts, redirect counts, response sizes, JSON depth, inbound request size, and remote HTML are bounded.
 
 Inbox processing verifies Host, Date or signature creation time, Digest or Content-Digest, signed target fields, actor, key owner, activity identity, replay state, and durable deduplication. Remote HTML and links are sanitized before presentation. Frontend owner actions require authentication, owner capability, and CSRF validation.
+
+Inbox checks that need neither the network nor the signer's key run first: Host, the signature fields and covered components, Digest or Content-Digest, and Date or signature creation time. A request that fails any of them is rejected before Bonumark fetches anything. A request from a cached actor whose cache entry is still fresh then goes straight to signature verification and is never limited. Only a request whose actor must be fetched or refreshed reaches the inbox lookup limits:
+
+- Lookups that fail, or whose request then does not authenticate, count against the client network (an IPv4 address, or the /64 network of an IPv6 address) and against the actor's host. Within any 10 minutes, one network may cause 10 such lookups and one actor host 30.
+- An actor whose fetch failed is not fetched again for 10 minutes, whichever network names it.
+- A lookup whose request authenticates stops counting, so ordinary federation from new actors is not limited.
+
+A request refused by these limits receives HTTP 429, which federation servers retry later. The lookup records hold only salted hashes of the network, host, and actor, in the same attempts table the Remote Posting API uses. Records older than an hour are removed as new lookups are made.
 
 ## Hosting requirements
 

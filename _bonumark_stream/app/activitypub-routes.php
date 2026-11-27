@@ -238,6 +238,7 @@ function bms_dispatch_activitypub_route(string $route): bool
                 'request_target' => (string)($_SERVER['REQUEST_URI'] ?? '/activitypub/inbox'),
                 'headers' => $headers,
                 'body' => $body,
+                'remote_address' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
             ]);
             bms_activitypub_emit_json(
                 ['accepted' => true, 'status' => (string)($result['status'] ?? 'processed')],

@@ -226,6 +226,145 @@ function bms_activitypub_discover_remote_actor(string $actorUri, bool $force = f
     return bms_activitypub_store_remote_actor($actor);
 }
 
+/**
+ * Limits on remote actor fetches caused by inbox requests that have not
+ * authenticated yet.
+ *
+ * An inbox request names its actor before anything proves the sender holds
+ * that actor's key, and an actor that is not cached must be fetched before
+ * its signature can be checked. A fetch whose request then authenticates
+ * stops counting, so ordinary federation from new actors is not limited.
+ * Fetches that fail, or whose request does not authenticate, count against
+ * the client network (an IPv4 address or an IPv6 /64) and the actor's host
+ * within a sliding window. A failed actor fetch is not repeated for a short
+ * time. Requests from fresh cached actors never reach these limits.
+ *
+ * @return array{window_seconds:int,network_failures:int,host_failures:int,failure_cache_seconds:int}
+ */
+function bms_activitypub_inbox_discovery_policy(): array
+{
+    return [
+        'window_seconds' => 600,
+        'network_failures' => 10,
+        'host_failures' => 30,
+        'failure_cache_seconds' => 600,
+    ];
+}
+
+/**
+ * The lookup records share the generic attempts table with the Remote
+ * Posting API, under their own routes.
+ */
+function bms_activitypub_inbox_discovery_routes(): array
+{
+    return [
+        'network' => 'activitypub_discovery_network',
+        'host' => 'activitypub_discovery_host',
+        'failure' => 'activitypub_actor_fetch_failure',
+    ];
+}
+
+function bms_activitypub_inbox_discovery_hash(string $scope, string $value): string
+{
+    return hash('sha256', 'bonumark-activitypub-discovery|' . $scope . '|' . $value . '|' . (string)(bms_config()['security_salt'] ?? ''));
+}
+
+function bms_activitypub_actor_fetch_recently_failed(string $actorUri): bool
+{
+    $policy = bms_activitypub_inbox_discovery_policy();
+    $stmt = bms_db()->prepare('SELECT 1 FROM ' . bms_table('api_rate_limit_attempts') . ' WHERE identifier_hash = :identifier_hash AND route = :route AND attempted_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ' . (int)$policy['failure_cache_seconds'] . ' SECOND) LIMIT 1');
+    $stmt->execute(['identifier_hash' => bms_activitypub_inbox_discovery_hash('actor', $actorUri), 'route' => bms_activitypub_inbox_discovery_routes()['failure']]);
+    return $stmt->fetchColumn() !== false;
+}
+
+function bms_activitypub_record_actor_fetch_failure(string $actorUri): void
+{
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('api_rate_limit_attempts') . ' (identifier_hash, route, success, attempted_at) VALUES (:identifier_hash, :route, 0, UTC_TIMESTAMP())');
+    $stmt->execute(['identifier_hash' => bms_activitypub_inbox_discovery_hash('actor', $actorUri), 'route' => bms_activitypub_inbox_discovery_routes()['failure']]);
+}
+
+/**
+ * Reserve one actor fetch for the client network and for the actor's host,
+ * or refuse it. Each reservation is written before it is counted, so two
+ * requests running at once cannot both take the last place.
+ *
+ * @return list<int> The reservation IDs.
+ */
+function bms_activitypub_reserve_actor_discovery(string $actorUri, string $clientAddress): array
+{
+    $policy = bms_activitypub_inbox_discovery_policy();
+    $routes = bms_activitypub_inbox_discovery_routes();
+    $host = strtolower(rtrim((string)parse_url($actorUri, PHP_URL_HOST), '.'));
+    $rules = [
+        [$routes['network'], bms_activitypub_inbox_discovery_hash('network', bms_client_network_key($clientAddress)), (int)$policy['network_failures']],
+        [$routes['host'], bms_activitypub_inbox_discovery_hash('host', $host), (int)$policy['host_failures']],
+    ];
+    $pdo = bms_db();
+    $table = bms_table('api_rate_limit_attempts');
+    $insert = $pdo->prepare('INSERT INTO ' . $table . ' (identifier_hash, route, success, attempted_at) VALUES (:identifier_hash, :route, 0, UTC_TIMESTAMP())');
+    $count = $pdo->prepare('SELECT COUNT(*) FROM ' . $table . ' WHERE identifier_hash = :identifier_hash AND route = :route AND success = 0 AND attempted_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ' . (int)$policy['window_seconds'] . ' SECOND)');
+    $reserved = [];
+    foreach ($rules as [$route, $identifier, $limit]) {
+        $insert->execute(['identifier_hash' => $identifier, 'route' => $route]);
+        $reserved[] = (int)$pdo->lastInsertId();
+        $count->execute(['identifier_hash' => $identifier, 'route' => $route]);
+        if ((int)$count->fetchColumn() > $limit) {
+            $pdo->exec('DELETE FROM ' . $table . ' WHERE id IN (' . implode(',', array_map('intval', $reserved)) . ')');
+            throw new BmsActivityPubSecurityException('Too many unverified remote actor lookups. Try again later.', 429);
+        }
+    }
+    if (random_int(1, 50) === 1) {
+        $pdo->exec('DELETE FROM ' . $table . " WHERE route IN ('" . implode("', '", array_values($routes)) . "') AND attempted_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)");
+    }
+    return $reserved;
+}
+
+/** An authenticated request's actor fetches no longer count against the limits. */
+function bms_activitypub_settle_actor_discovery(array $reservations): void
+{
+    $ids = array_values(array_filter(array_map('intval', $reservations), static fn(int $id): bool => $id > 0));
+    if ($ids !== []) {
+        bms_db()->exec('UPDATE ' . bms_table('api_rate_limit_attempts') . ' SET success = 1 WHERE id IN (' . implode(',', $ids) . ')');
+    }
+}
+
+/**
+ * The remote actor for an inbox request. A fresh cached actor is returned
+ * with no lookup limit. Any fetch, including a refresh of a cached actor,
+ * first passes the failure cache and the per-network and per-host limits.
+ *
+ * @param array{client_address:string,reservations:list<int>} $discovery
+ */
+function bms_activitypub_inbox_remote_actor(string $actorUri, bool $refresh, array &$discovery, ?callable $fetcher = null, ?callable $resolver = null): array
+{
+    if (!$refresh) {
+        $cached = bms_activitypub_cached_remote_actor($actorUri, false);
+        if (is_array($cached)) {
+            bms_activitypub_validate_remote_url($actorUri, $resolver, false);
+            return $cached;
+        }
+    }
+    $state = bms_db()->prepare('SELECT lifecycle_state FROM ' . bms_table('activitypub_remote_actors') . ' WHERE actor_uri = :actor_uri LIMIT 1');
+    $state->execute(['actor_uri' => $actorUri]);
+    if ((string)$state->fetchColumn() === 'deleted') {
+        throw new BmsActivityPubSecurityException('The remote actor is permanently deleted.', 410);
+    }
+    if (bms_activitypub_actor_fetch_recently_failed($actorUri)) {
+        throw new BmsActivityPubSecurityException('The remote actor could not be fetched recently. Try again later.', 429);
+    }
+    $discovery['reservations'] = array_merge($discovery['reservations'], bms_activitypub_reserve_actor_discovery($actorUri, (string)$discovery['client_address']));
+    try {
+        return bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
+    } catch (Throwable $e) {
+        try {
+            bms_activitypub_record_actor_fetch_failure($actorUri);
+        } catch (Throwable $recordError) {
+            error_log('Bonumark Stream could not record a failed ActivityPub actor fetch: ' . $recordError->getMessage());
+        }
+        throw $e;
+    }
+}
+
 function bms_activitypub_inbox_request_headers(): array
 {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
@@ -592,13 +731,20 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
         throw new BmsActivityPubSecurityException('The signed Host does not match this site.', 401);
     }
 
-    $signatureMetadata = bms_activitypub_signature_metadata(['headers' => $headers]);
-    $signatureKeyId = trim((string)$signatureMetadata['key_id']);
-    bms_activitypub_validate_remote_url($signatureKeyId, $resolver, true);
+    $request['headers'] = $headers;
+    $request['body'] = $body;
+    $request['resolver'] = $resolver;
+    // Every check that needs neither the network nor the signer's key runs
+    // before any remote actor is fetched: the signature fields and covered
+    // components, the body digest, and the signature time.
+    $prepared = bms_activitypub_prepare_http_signature($request, $now);
+    $signatureKeyId = trim((string)$prepared['key_id']);
 
-    // Discovery is bounded and SSRF-safe. New documents are not cached until
-    // their key has successfully authenticated the activity.
-    $remoteActor = bms_activitypub_discover_remote_actor($actorUri, false, $fetcher, $resolver, false);
+    // Discovery is bounded and SSRF-safe, and every fetch passes the
+    // pre-authentication lookup limits first. New documents are not cached
+    // until their key has successfully authenticated the activity.
+    $discovery = ['client_address' => (string)($request['remote_address'] ?? ($_SERVER['REMOTE_ADDR'] ?? '')), 'reservations' => []];
+    $remoteActor = bms_activitypub_inbox_remote_actor($actorUri, false, $discovery, $fetcher, $resolver);
     $remoteActorWasCached = isset($remoteActor['id']);
     if (!hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
         throw new BmsActivityPubSecurityException('The signing key does not belong to the activity actor.', 401);
@@ -606,18 +752,15 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
     if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId) && $remoteActorWasCached) {
         // A changed key ID can be legitimate rotation. Refresh exactly once,
         // then apply the same exact actor and key-owner validation.
-        $remoteActor = bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
+        $remoteActor = bms_activitypub_inbox_remote_actor($actorUri, true, $discovery, $fetcher, $resolver);
         $remoteActorWasCached = false;
     }
     if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId)
         || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
         throw new BmsActivityPubSecurityException('The signing key does not belong to the activity actor.', 401);
     }
-    $request['headers'] = $headers;
-    $request['body'] = $body;
-    $request['resolver'] = $resolver;
     try {
-        $verification = bms_activitypub_verify_http_signature($request, (string)$remoteActor['public_key_pem'], $now);
+        $verification = bms_activitypub_verify_prepared_http_signature($prepared, (string)$remoteActor['public_key_pem'], $resolver);
     } catch (BmsActivityPubSecurityException $e) {
         // One bounded refresh handles legitimate rotation of the key material
         // at a stable key ID. Parse, coverage, date, and digest failures never
@@ -625,14 +768,15 @@ function bms_activitypub_receive_inbox(array $request, ?callable $fetcher = null
         if ($e->securityReason() !== 'signature_mismatch' || !$remoteActorWasCached) {
             throw $e;
         }
-        $remoteActor = bms_activitypub_discover_remote_actor($actorUri, true, $fetcher, $resolver, false);
+        $remoteActor = bms_activitypub_inbox_remote_actor($actorUri, true, $discovery, $fetcher, $resolver);
         $remoteActorWasCached = false;
         if (!hash_equals((string)$remoteActor['public_key_id'], $signatureKeyId)
             || !hash_equals($actorUri, (string)$remoteActor['key_owner_uri'])) {
             throw new BmsActivityPubSecurityException('The refreshed signing key does not belong to the activity actor.', 401);
         }
-        $verification = bms_activitypub_verify_http_signature($request, (string)$remoteActor['public_key_pem'], $now);
+        $verification = bms_activitypub_verify_prepared_http_signature($prepared, (string)$remoteActor['public_key_pem'], $resolver);
     }
+    bms_activitypub_settle_actor_discovery($discovery['reservations']);
     if (!$remoteActorWasCached) {
         $remoteActor = bms_activitypub_store_remote_actor($remoteActor);
     }
