@@ -50,7 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_admin_reset_user_password(
                 $userId,
                 (string)($_POST['new_password'] ?? ''),
-                (string)($_POST['confirm_password'] ?? '')
+                (string)($_POST['confirm_password'] ?? ''),
+                (string)($_POST['reset_current_password'] ?? '')
             );
             bms_flash($isCurrentUser
                 ? 'Password reset. Every other device signed in to your account is signed out; this browser stays signed in.'
@@ -184,6 +185,12 @@ bms_admin_header('Edit Account', [
 
     <label for="confirm_password">Confirm temporary password</label>
     <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required>
+
+    <?php if ($isCurrentUser): ?>
+    <label for="reset_current_password">Your current password</label>
+    <input id="reset_current_password" name="reset_current_password" type="password" autocomplete="current-password" required>
+    <p class="field-help">Needed to reset your own password.</p>
+    <?php endif; ?>
 
     <button type="submit">Reset Password</button>
   </form>

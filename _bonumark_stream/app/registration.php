@@ -54,6 +54,26 @@ function bms_registration_account_requires_admin_approval(string $role = 'commen
     return bms_registration_require_admin_approval();
 }
 
+/**
+ * The one message every failed public sign-in shows. It depends only on the
+ * site's registration settings, never on the account, and tells a new account
+ * holder where to go: confirm the email address, or wait for approval.
+ */
+function bms_public_sign_in_failure_message(): string
+{
+    $message = 'Login failed. Check the username and password.';
+    if (!bms_public_registration_enabled()) {
+        return $message;
+    }
+    if (bms_registration_require_email_verification()) {
+        $message .= ' If you created an account recently, confirm your email address first. You can request a new verification link on this page.';
+    }
+    if (bms_registration_require_admin_approval()) {
+        $message .= ' New accounts can also need the site owner\'s approval before they can sign in.';
+    }
+    return $message;
+}
+
 function bms_registration_honeypot_enabled(): bool
 {
     return (string)bms_setting_or_config('registration_honeypot_enabled', '1') === '1';

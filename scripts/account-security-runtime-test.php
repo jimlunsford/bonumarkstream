@@ -14,7 +14,9 @@
  * "Sign out all other devices"; verification links limited to pending,
  * unverified accounts; password-gated, confirmed email changes with unique
  * addresses and a deterministic recovery lookup; comment rate limits and the
- * optional first-comment hold.
+ * optional first-comment hold; resetting your own password in Admin needs the
+ * current password; public sign-in shows one message for unknown, pending,
+ * and inactive accounts and wrong passwords, and counts every attempt.
  *
  * Every check is reported, so a run against an older tree shows exactly
  * which protections are missing.
@@ -696,6 +698,104 @@ try {
         bms_acct_request('/admin/comments.php?status=pending', $owner, ['csrf_token' => bms_acct_token($page['body']), 'moderation_action' => 'approve', 'comment_id' => $commentId], '127.0.0.20');
         bms_acct_comment($kate, '127.0.0.21', 'Kate third comment');
         bms_acct_expect((bms_acct_row('comments', "body = 'Kate third comment'")['status'] ?? '') === 'approved', 'After the owner approves one, the commenter\'s comments follow the normal setting');
+    });
+
+    // ------------------------------------------------------------------
+    bms_acct_section('own-reset', 'Resetting your own password in Admin', static function () use ($ownerId): void {
+        global $ownerPassword;
+        $session = bms_acct_admin_login('owner', $ownerPassword, '127.0.0.50');
+        $other = bms_acct_admin_login('owner', $ownerPassword, '127.0.0.51');
+        bms_acct_expect($session !== [] && $other !== [], 'The owner is signed in in two sessions');
+        $page = bms_acct_request('/admin/user-edit.php?id=' . $ownerId, $session, null, '127.0.0.50');
+        bms_acct_expect(str_contains($page['body'], 'name="reset_current_password"'), 'Admin → Accounts asks for your current password when you reset your own');
+        $before = (string)bms_acct_user('owner')['password_hash'];
+        $form = ['csrf_token' => bms_acct_token($page['body']), 'action' => 'reset_password', 'user_id' => $ownerId, 'new_password' => 'Owner-Reset-Passphrase-48', 'confirm_password' => 'Owner-Reset-Passphrase-48'];
+        bms_acct_request('/admin/user-edit.php?id=' . $ownerId, $session, $form, '127.0.0.50');
+        $result = bms_acct_request('/admin/user-edit.php?id=' . $ownerId, $session, null, '127.0.0.50');
+        bms_acct_expect((string)bms_acct_user('owner')['password_hash'] === $before && str_contains($result['body'], 'Enter your current password to reset your own password.'), 'Your own reset without the current password changes nothing');
+        bms_acct_request('/admin/user-edit.php?id=' . $ownerId, $session, $form + ['reset_current_password' => 'Not-The-Owner-Password-1'], '127.0.0.50');
+        bms_acct_expect((string)bms_acct_user('owner')['password_hash'] === $before, 'Your own reset with a wrong current password changes nothing');
+        bms_acct_expect(bms_acct_admin_signed_in($other, '127.0.0.51'), 'Refused resets leave other sessions signed in');
+        bms_acct_request('/admin/user-edit.php?id=' . $ownerId, $session, $form + ['reset_current_password' => $ownerPassword], '127.0.0.50');
+        bms_acct_expect(password_verify('Owner-Reset-Passphrase-48', (string)bms_acct_user('owner')['password_hash']), 'Your own reset with the current password sets the new password');
+        $ownerPassword = 'Owner-Reset-Passphrase-48';
+        bms_acct_expect(bms_acct_admin_signed_in($session, '127.0.0.50') && !bms_acct_admin_signed_in($other, '127.0.0.51'), 'The reset keeps this session and signs out the other one');
+
+        // Resetting another account's password still needs no current password.
+        $erinId = (int)bms_acct_user('erin')['id'];
+        $page = bms_acct_request('/admin/user-edit.php?id=' . $erinId, $session, null, '127.0.0.50');
+        bms_acct_expect(!str_contains($page['body'], 'name="reset_current_password"'), 'Resetting another account does not ask for your password');
+        bms_acct_request('/admin/user-edit.php?id=' . $erinId, $session, ['csrf_token' => bms_acct_token($page['body']), 'action' => 'reset_password', 'user_id' => $erinId, 'new_password' => 'Erin-Temporary-Pass-48', 'confirm_password' => 'Erin-Temporary-Pass-48'], '127.0.0.50');
+        bms_acct_expect(password_verify('Erin-Temporary-Pass-48', (string)bms_acct_user('erin')['password_hash']), 'The owner can still reset another account\'s password');
+    });
+
+    // ------------------------------------------------------------------
+    bms_acct_section('sign-in-messages', 'Public sign-in reveals no account state', static function () use ($pdo, $prefix, $hash): void {
+        $seedState = $pdo->prepare("INSERT INTO `{$prefix}users` (username, display_name, email, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'commenter', ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())");
+        $seedState->execute(['pendingnew', 'Pending New', 'pendingnew@example.test', null, $hash, 'pending']);
+        $seedState->execute(['pendingowner', 'Pending Owner', 'pendingowner@example.test', gmdate('Y-m-d H:i:s'), $hash, 'pending']);
+        $seedState->execute(['retired', 'Retired', 'retired@example.test', gmdate('Y-m-d H:i:s'), $hash, 'inactive']);
+        $notice = static function (string $html): string {
+            return preg_match('/<div class="account-notice[^"]*"[^>]*>(.*?)<\/div>/s', $html, $match) === 1 ? trim(html_entity_decode(strip_tags($match[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '';
+        };
+        $attempt = static function (string $username, string $password, string $ip) use ($notice): array {
+            $jar = [];
+            $page = bms_acct_request('/account.php', $jar, null, $ip);
+            $response = bms_acct_request('/account.php', $jar, ['csrf_token' => bms_acct_token($page['body']), 'action' => 'login', 'username' => $username, 'password' => $password], $ip);
+            return ['status' => $response['status'], 'notice' => $notice($response['body'])];
+        };
+        $cases = [
+            'an unknown username' => ['nobody-here', BMS_ACCT_PASSWORD],
+            'a wrong password' => ['frank', 'Not-Franks-Password-1'],
+            'a pending, unverified account' => ['pendingnew', BMS_ACCT_PASSWORD],
+            'a pending account awaiting approval' => ['pendingowner', BMS_ACCT_PASSWORD],
+            'an inactive account' => ['retired', BMS_ACCT_PASSWORD],
+        ];
+        $messages = [];
+        $network = 60;
+        foreach ($cases as $label => [$username, $password]) {
+            $before = bms_acct_count('login_attempts', 'username = ? AND success = 0', [$username]);
+            $result = $attempt($username, $password, '127.0.0.' . $network++);
+            $messages[$label] = $result['notice'];
+            bms_acct_expect($result['status'] === 200 && $result['notice'] !== '', 'Sign-in with ' . $label . ' fails');
+            bms_acct_expect(bms_acct_count('login_attempts', 'username = ? AND success = 0', [$username]) === $before + 1, 'Sign-in with ' . $label . ' counts as a failed attempt');
+            bms_acct_expect(preg_match('/pending|awaiting|waiting for|verify the account|inactive|that account/i', $result['notice']) !== 1, 'Sign-in with ' . $label . ' says nothing about the account\'s state');
+        }
+        bms_acct_expect(count(array_unique($messages)) === 1, 'Every failed sign-in shows the same message (' . implode(' | ', array_map(static fn(string $label, string $message): string => $label . ': ' . $message, array_keys($messages), $messages)) . ')');
+        bms_acct_expect(str_contains((string)reset($messages), 'request a new verification link'), 'The shared message points new accounts to the verification link');
+
+        // Attempts with pending and inactive usernames count toward the
+        // network limit: past it, even a correct password waits.
+        // Twenty failures from one network are free; the next ones wait one
+        // and then two seconds, so these are spaced to be counted. Six
+        // usernames keep each one under its own per-username limit.
+        $ip = '127.0.0.70';
+        $rotation = ['pendingnew', 'pendingowner', 'retired', 'ghost-one', 'ghost-two', 'ghost-three'];
+        $rotationList = "'" . implode("', '", $rotation) . "'";
+        $recordedBefore = bms_acct_count('login_attempts', "username IN ({$rotationList}) AND success = 0");
+        for ($i = 0; $i < 22; $i++) {
+            if ($i === 20) {
+                usleep(1200000);
+            } elseif ($i === 21) {
+                usleep(2200000);
+            }
+            $attempt($rotation[$i % count($rotation)], BMS_ACCT_PASSWORD, $ip);
+        }
+        bms_acct_expect(bms_acct_count('login_attempts', "username IN ({$rotationList}) AND success = 0") === $recordedBefore + 22, 'Every pending, inactive, and unknown attempt is recorded by the throttle');
+        bms_acct_expect(bms_acct_account_login('grace', BMS_ACCT_PASSWORD, $ip) === [], 'After many pending, inactive, and unknown attempts, the network is slowed for every username');
+        bms_acct_expect(bms_acct_account_login('grace', BMS_ACCT_PASSWORD, '127.0.0.71') !== [], 'The same account still signs in from another network');
+
+        // A pending account holder still has a path: the resend form, which
+        // answers the same way for every username.
+        $before = bms_acct_mail_files();
+        $visitor = [];
+        $page = bms_acct_request('/account.php', $visitor, null, '127.0.0.72');
+        bms_acct_expect(str_contains($page['body'], 'name="action" value="resend_verification"'), 'The sign-in page offers the verification resend form');
+        $pending = bms_acct_request('/account.php', $visitor, ['csrf_token' => bms_acct_token($page['body']), 'action' => 'resend_verification', 'username_or_email' => 'pendingnew'], '127.0.0.72');
+        $unknown = bms_acct_request('/account.php', $visitor, ['csrf_token' => bms_acct_token($page['body']), 'action' => 'resend_verification', 'username_or_email' => 'nobody-here'], '127.0.0.73');
+        $sent = bms_acct_new_mail($before);
+        bms_acct_expect($notice($pending['body']) !== '' && $notice($pending['body']) === $notice($unknown['body']), 'The resend form answers the same for a pending and an unknown username');
+        bms_acct_expect(count($sent) === 1 && str_contains(bms_acct_mail_text($sent[0]), 'pendingnew@example.test') && bms_acct_mail_link($sent, 'verify') !== '', 'The pending account receives a fresh verification link');
     });
 
     fwrite(STDOUT, "\nAccounts runtime test: " . ($checks - count($failures)) . ' passed, ' . count($failures) . " failed.\n");

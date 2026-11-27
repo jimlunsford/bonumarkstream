@@ -114,18 +114,14 @@ function bms_handle_account_route(): void
             bms_verify_csrf();
             $action = (string)($_POST['action'] ?? '');
             if ($action === 'login') {
-                $loginUsername = (string)($_POST['username'] ?? '');
-                $candidate = function_exists('bms_find_user_by_username_any') ? bms_find_user_by_username_any($loginUsername) : null;
-                if (is_array($candidate) && (string)($candidate['status'] ?? '') === 'pending') {
-                    if (trim((string)($candidate['email_verified_at'] ?? '')) !== '') {
-                        throw new RuntimeException('That account is waiting for admin approval.');
-                    }
-                    throw new RuntimeException('That account is pending. Check your email and verify the account before signing in.');
-                }
-                if (bms_attempt_login($loginUsername, (string)($_POST['password'] ?? ''), !empty($_POST['remember_me']) && bms_remember_login_enabled())) {
+                // Every failure reads the same, whether the account is unknown,
+                // pending, or inactive, the password is wrong, or there were
+                // too many attempts, and every attempt counts toward the
+                // sign-in throttle. Account state is never shown here.
+                if (bms_attempt_login((string)($_POST['username'] ?? ''), (string)($_POST['password'] ?? ''), !empty($_POST['remember_me']) && bms_remember_login_enabled())) {
                     bms_redirect($returnTo !== '' ? $returnTo : bms_url_path('account.php'));
                 }
-                throw new RuntimeException('Login failed. Check the username and password.');
+                throw new RuntimeException(bms_public_sign_in_failure_message());
             }
             if ($action === 'register') {
                 $result = bms_registration_create_public_account(
