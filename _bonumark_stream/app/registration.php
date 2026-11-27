@@ -223,7 +223,10 @@ function bms_registration_find_user_by_verification_token(string $token): ?array
         return null;
     }
 
-    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . ' WHERE verification_token_hash = :hash AND verification_token_expires_at >= NOW() LIMIT 1');
+    // Only an account still waiting for its first email verification can use
+    // a verification link. An approved, active, or deactivated account never
+    // changes status through one.
+    $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . " WHERE verification_token_hash = :hash AND verification_token_expires_at >= NOW() AND status = 'pending' AND email_verified_at IS NULL LIMIT 1");
     $stmt->execute(['hash' => bms_registration_token_hash($token)]);
     $user = $stmt->fetch();
     return is_array($user) ? $user : null;
@@ -248,11 +251,15 @@ function bms_registration_verify_token(string $token): array
     $requiresApproval = bms_registration_account_requires_admin_approval((string)($user['role'] ?? 'commenter'));
     $newStatus = $requiresApproval ? 'pending' : 'active';
 
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET status = :status, email_verified_at = NOW(), verification_token_hash = NULL, verification_token_expires_at = NULL, updated_at = NOW() WHERE id = :id');
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . " SET status = :status, email_verified_at = NOW(), verification_token_hash = NULL, verification_token_expires_at = NULL, updated_at = NOW() WHERE id = :id AND verification_token_hash = :hash AND status = 'pending' AND email_verified_at IS NULL");
     $stmt->execute([
         'status' => $newStatus,
         'id' => (int)$user['id'],
+        'hash' => bms_registration_token_hash(trim($token)),
     ]);
+    if ($stmt->rowCount() < 1) {
+        throw new RuntimeException('Verification link is invalid or expired.');
+    }
 
     return bms_find_user_by_id_any((int)$user['id']) ?? $user;
 }
@@ -537,11 +544,13 @@ function bms_registration_resend_verification(string $usernameOrEmail): string
 
     $mailSent = false;
     try {
-        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . ' WHERE status = :status AND (username = :username OR email = :email) LIMIT 1');
+        $username = bms_normalize_username($needle);
+        $stmt = bms_db()->prepare('SELECT * FROM ' . bms_table('users') . ' WHERE status = :status AND (username = :username OR email = :email) ORDER BY CASE WHEN username = :username_rank THEN 0 ELSE 1 END ASC, id ASC LIMIT 1');
         $stmt->execute([
             'status' => 'pending',
-            'username' => bms_normalize_username($needle),
+            'username' => $username,
             'email' => strtolower($needle),
+            'username_rank' => $username,
         ]);
         $user = $stmt->fetch();
 
@@ -557,4 +566,144 @@ function bms_registration_resend_verification(string $usernameOrEmail): string
     }
 
     return bms_registration_resend_generic_message();
+}
+
+/** Mail can deliver the confirmation link a self-service email change needs. */
+function bms_account_email_change_ready(): bool
+{
+    $settings = bms_mail_settings();
+    return (string)($settings['mail_transport'] ?? 'disabled') !== 'disabled'
+        && trim((string)($settings['mail_from_email'] ?? '')) !== '';
+}
+
+function bms_account_email_change_url(string $token): string
+{
+    return bms_site_url('account.php?action=confirm_email&token=' . rawurlencode($token));
+}
+
+/** The pending email change of an account, or '' when none is waiting. */
+function bms_account_pending_email(array $user): string
+{
+    $pending = trim((string)($user['pending_email'] ?? ''));
+    $expires = trim((string)($user['pending_email_expires_at'] ?? ''));
+    if ($pending === '' || $expires === '') {
+        return '';
+    }
+    try {
+        return (new DateTimeImmutable($expires, bms_utc_timezone()))->getTimestamp() >= time() ? $pending : '';
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
+ * Store a pending email change and send its confirmation link to the new
+ * address. The account keeps its current address until the link is opened.
+ * A newer request replaces an older one.
+ */
+function bms_account_request_email_change(int $userId, string $newEmail): void
+{
+    $newEmail = bms_normalize_email($newEmail);
+    if ($userId < 1 || $newEmail === '' || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Enter a valid email address or leave it blank.');
+    }
+    if (!bms_users_has_column('pending_email')) {
+        throw new RuntimeException('Email changes are available after the pending database upgrade completes.');
+    }
+
+    $token = bin2hex(random_bytes(32));
+    $stmt = bms_db()->prepare("UPDATE " . bms_table('users') . " SET pending_email = :pending_email, pending_email_token_hash = :hash, pending_email_expires_at = DATE_ADD(NOW(), INTERVAL 24 HOUR), updated_at = NOW() WHERE id = :id AND status = 'active'");
+    $stmt->execute([
+        'pending_email' => $newEmail,
+        'hash' => bms_registration_token_hash($token),
+        'id' => $userId,
+    ]);
+    $user = bms_find_user_by_id_any($userId);
+    if (!$user || $stmt->rowCount() < 1) {
+        throw new RuntimeException('Your account could not be updated. Sign in again and retry.');
+    }
+
+    try {
+        bms_account_send_email_change_confirmation($user, $newEmail, $token);
+    } catch (Throwable $e) {
+        bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET pending_email = NULL, pending_email_token_hash = NULL, pending_email_expires_at = NULL WHERE id = :id AND pending_email_token_hash = :hash')
+            ->execute(['id' => $userId, 'hash' => bms_registration_token_hash($token)]);
+        error_log('Bonumark Stream email change mail error: ' . $e->getMessage());
+        throw new RuntimeException('The confirmation email could not be sent. Your email address was not changed. Try again later.');
+    }
+}
+
+function bms_account_send_email_change_confirmation(array $user, string $newEmail, string $token): void
+{
+    $settings = bms_mail_settings();
+    $siteName = (string)bms_setting_or_config('site_name', 'Bonumark Stream');
+    $url = bms_account_email_change_url($token);
+    $displayName = trim((string)($user['display_name'] ?? $user['username'] ?? 'there'));
+    $body = "Hi {$displayName},\n\n"
+        . "Confirm this email address for your {$siteName} account:\n\n"
+        . $url . "\n\n"
+        . "This link expires in 24 hours. Your account keeps its current email address until you open it. If you did not ask for this change, ignore this email.\n";
+
+    $message = bms_mail_message_from_settings(
+        $settings,
+        $newEmail,
+        'Confirm your new ' . $siteName . ' email address',
+        $body,
+        'plain_text'
+    );
+
+    bms_mail_send($settings, $message);
+}
+
+/**
+ * Apply the pending email change a confirmation link belongs to. The new
+ * address becomes the account's verified address and its unique claim.
+ */
+function bms_account_confirm_email_change(string $token): array
+{
+    $token = trim($token);
+    if ($token === '' || strlen($token) < 32 || !bms_users_has_column('pending_email')) {
+        throw new RuntimeException('Email confirmation link is invalid or expired.');
+    }
+
+    $hash = bms_registration_token_hash($token);
+    $stmt = bms_db()->prepare("SELECT * FROM " . bms_table('users') . " WHERE pending_email_token_hash = :hash AND pending_email_expires_at >= NOW() AND status = 'active' LIMIT 1");
+    $stmt->execute(['hash' => $hash]);
+    $user = $stmt->fetch();
+    if (!is_array($user)) {
+        throw new RuntimeException('Email confirmation link is invalid or expired.');
+    }
+
+    $userId = (int)$user['id'];
+    $newEmail = bms_normalize_email((string)($user['pending_email'] ?? ''));
+    $clearPending = static function () use ($userId, $hash): void {
+        bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET pending_email = NULL, pending_email_token_hash = NULL, pending_email_expires_at = NULL WHERE id = :id AND pending_email_token_hash = :hash')
+            ->execute(['id' => $userId, 'hash' => $hash]);
+    };
+    if ($newEmail === '' || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        $clearPending();
+        throw new RuntimeException('Email confirmation link is invalid or expired.');
+    }
+    if (bms_email_in_use($newEmail, $userId)) {
+        $clearPending();
+        throw new RuntimeException(bms_email_in_use_message());
+    }
+
+    $update = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET email = :email, email_normalized = :email_normalized, email_verified_at = NOW(), pending_email = NULL, pending_email_token_hash = NULL, pending_email_expires_at = NULL, updated_at = NOW() WHERE id = :id AND pending_email_token_hash = :hash');
+    try {
+        $update->execute(['email' => $newEmail, 'email_normalized' => $newEmail, 'id' => $userId, 'hash' => $hash]);
+    } catch (PDOException $e) {
+        if (bms_is_duplicate_email_claim_error($e)) {
+            $clearPending();
+            throw new RuntimeException(bms_email_in_use_message());
+        }
+        throw $e;
+    }
+    if ($update->rowCount() < 1) {
+        throw new RuntimeException('Email confirmation link is invalid or expired.');
+    }
+
+    // The old address may now be held by exactly one other account.
+    bms_users_claim_unique_emails();
+    return bms_find_user_by_id_any($userId) ?? $user;
 }

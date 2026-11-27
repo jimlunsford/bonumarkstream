@@ -53,7 +53,7 @@ $pwaTags = function_exists('bms_pwa_meta_tags') ? bms_pwa_meta_tags() : '';
         <input id="remember_me" type="checkbox" name="remember_me" value="1" <?= $remember ? 'checked' : '' ?>>
         <span>Remember this device</span>
       </label>
-      <p class="field-help">Keeps this browser signed in for up to <?= htmlspecialchars((string)bms_remember_login_days(), ENT_QUOTES, 'UTF-8') ?> days unless you log out, change your password, or reset the account password.</p>
+      <p class="field-help">Keeps this browser signed in for up to <?= htmlspecialchars((string)bms_remember_login_days(), ENT_QUOTES, 'UTF-8') ?> days unless you log out, change or reset your password, or sign out other devices.</p>
       <?php endif; ?>
       <button type="submit">Log in</button>
       <p class="meta">The admin account is created during installation. There is no default password.</p>

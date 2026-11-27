@@ -17,12 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $verify = isset($_POST['registration_require_email_verification']) ? '1' : '0';
             $approval = isset($_POST['registration_require_admin_approval']) ? '1' : '0';
             $honeypot = isset($_POST['registration_honeypot_enabled']) ? '1' : '0';
+            $holdFirstComment = isset($_POST['comments_hold_first_comment']) ? '1' : '0';
 
             bms_set_setting('registration_mode', $mode);
             bms_set_setting('registration_default_role', 'commenter');
             bms_set_setting('registration_require_email_verification', $verify);
             bms_set_setting('registration_require_admin_approval', $approval);
             bms_set_setting('registration_honeypot_enabled', $honeypot);
+            bms_set_setting('comments_hold_first_comment', $holdFirstComment);
             bms_set_setting('comment_registration_enabled', $mode !== 'disabled' ? '1' : '0');
 
             bms_flash('Commenter registration settings saved.', 'success');
@@ -56,6 +58,7 @@ $mode = bms_registration_mode();
 $verify = bms_registration_require_email_verification();
 $approval = bms_registration_require_admin_approval();
 $honeypot = bms_registration_honeypot_enabled();
+$holdFirstComment = (string)bms_setting_or_config('comments_hold_first_comment', '0') === '1';
 $mailReady = bms_registration_mail_ready();
 $accountUrl = bms_url_path('account.php');
 $invites = bms_registration_list_invites();
@@ -195,6 +198,14 @@ bms_admin_header('Registration', [
           <span>
             <strong>Use the quiet anti-spam field</strong>
             <small>Blocks simple registration bots without adding a captcha or interrupting real people.</small>
+          </span>
+        </label>
+
+        <label class="registration-option-card">
+          <input type="checkbox" name="comments_hold_first_comment" value="1" <?= $holdFirstComment ? 'checked' : '' ?>>
+          <span>
+            <strong>Hold a new commenter's first comment for review</strong>
+            <small>Comments wait in Comments, Pending, until you approve one from that commenter. After that, their comments follow the normal setting.</small>
           </span>
         </label>
       </div>

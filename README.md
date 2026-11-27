@@ -84,7 +84,7 @@ ActivityPub requires a root-level HTTPS site, domain-root WebFinger routing, Ope
 - Profile cover media and photo gallery
 - Canonical Profile URLs plus Open Graph, Twitter, and structured identity metadata
 - Optional Commenter accounts
-- Public comments with moderation
+- Public comments with moderation and rate limits
 - Public likes with rate limiting
 - Password reset and verification flows
 - Remember-this-device login persistence
@@ -244,7 +244,10 @@ Bonumark Stream includes:
 
 - Authenticated and capability-checked Admin routes
 - CSRF protection for mutating Admin actions and public comments
-- Rate-limited public likes
+- Rate-limited public likes and comments
+- Sign-in throttling per username and network, with no lockout of a username by itself
+- Sessions that end when the account's password changes or the owner signs out other devices
+- One account per email address, with password-confirmed, verified email changes
 - Validated media uploads with SVG uploads blocked
 - Hashed Remote Posting API tokens
 - Code-free theme package validation

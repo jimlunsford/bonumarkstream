@@ -59,7 +59,7 @@
     var pickers = scope.querySelectorAll('[data-local-places]');
 
     pickers.forEach(function (picker) {
-      if (picker.dataset.localPlacesInitialized === '1') {
+      if (picker.dataset.localPlacesInitialized === '1' || insideUserContent(picker)) {
         return;
       }
       picker.dataset.localPlacesInitialized = '1';
@@ -90,8 +90,8 @@
       var newPublicLabel = picker.querySelector('[data-place-new-public-label]');
       var newLatitude = picker.querySelector('[data-place-new-latitude]');
       var newLongitude = picker.querySelector('[data-place-new-longitude]');
-      var nearbyEndpoint = picker.getAttribute('data-nearby-endpoint') || '';
-      var saveEndpoint = picker.getAttribute('data-save-endpoint') || '';
+      var nearbyEndpoint = coreEndpoint(picker.getAttribute('data-nearby-endpoint'), ['admin/places-nearby.php']);
+      var saveEndpoint = coreEndpoint(picker.getAttribute('data-save-endpoint'), ['admin/places-save.php']);
       var lastFocused = null;
 
       function csrfToken() {
@@ -476,7 +476,7 @@
     var forms = scope.querySelectorAll('[data-stream-form]');
 
     forms.forEach(function (form) {
-      if (form.dataset.streamInitialized === '1') {
+      if (form.dataset.streamInitialized === '1' || insideUserContent(form)) {
         return;
       }
       form.dataset.streamInitialized = '1';
@@ -494,12 +494,12 @@
       var scheduleCancel = form.querySelector('[data-stream-schedule-cancel]');
       var submitActionInput = form.querySelector('[data-stream-submit-action]');
       var scheduleEnabledInput = form.querySelector('[data-stream-schedule-enabled]');
-      var scheduledRunnerUrl = form.getAttribute('data-stream-scheduled-runner-url') || '';
+      var scheduledRunnerUrl = coreEndpoint(form.getAttribute('data-stream-scheduled-runner-url'), ['admin/scheduled-runner.php']);
       var scheduledRunnerCsrfInput = form.querySelector('input[name="csrf_token"]');
       var linkPreview = form.querySelector('[data-link-preview]');
       var linkPreviewEnabled = form.querySelector('[data-link-preview-enabled]');
       var linkPreviewFields = form.querySelectorAll('[data-link-preview-field]');
-      var linkPreviewEndpoint = linkPreview ? linkPreview.getAttribute('data-link-preview-endpoint') || '' : '';
+      var linkPreviewEndpoint = linkPreview ? coreEndpoint(linkPreview.getAttribute('data-link-preview-endpoint'), ['admin/link-preview.php']) : '';
       var linkPreviewTimer = null;
       var linkPreviewLastUrl = '';
       var linkPreviewRemovedUrl = '';
@@ -1140,32 +1140,48 @@
   // inside these containers is never treated as a core composer mount.
   var userContentSelector = '.stream-card-content, [data-stream-quick-edit-content], .site-page-content, .profile-about-content, .comment-federated-content, .following-content, .comment-body';
 
-  // Return the core composer endpoint for a core-rendered mount, or '' when
-  // the mount or its endpoint is not the one core renders.
-  function composerMountEndpoint(mount) {
-    if (!mount || mount.tagName !== 'SECTION' || !mount.classList.contains('stream-composer-mount')) {
-      return '';
-    }
-    if (mount.parentElement && mount.parentElement.closest(userContentSelector)) {
-      return '';
-    }
+  function insideUserContent(element) {
+    return !!(element && element.parentElement && element.parentElement.closest(userContentSelector));
+  }
 
-    var declared = mount.getAttribute('data-stream-composer-endpoint') || '';
+  // Endpoints read from markup are used only when they are the same-origin
+  // core endpoint at one of the given paths below the Bonumark base. Return
+  // that endpoint without query or fragment, or '' for anything else.
+  function coreEndpoint(declared, corePaths) {
+    declared = String(declared || '').trim();
     var base = streamAssetBase();
     if (!declared || !base) {
       return '';
     }
 
     try {
+      var pageOrigin = new URL(window.location.href).origin;
       var url = new URL(declared, window.location.href);
-      var expected = new URL('admin/stream-composer.php', base);
-      if (url.origin !== window.location.origin || expected.origin !== window.location.origin || url.pathname !== expected.pathname) {
+      if (url.origin !== pageOrigin) {
         return '';
       }
-      return expected.origin + expected.pathname;
+      for (var i = 0; i < corePaths.length; i++) {
+        var expected = new URL(corePaths[i], base);
+        if (expected.origin === pageOrigin && url.pathname === expected.pathname) {
+          return expected.origin + expected.pathname;
+        }
+      }
     } catch (error) {
       return '';
     }
+    return '';
+  }
+
+  // Return the core composer endpoint for a core-rendered mount, or '' when
+  // the mount or its endpoint is not the one core renders.
+  function composerMountEndpoint(mount) {
+    if (!mount || mount.tagName !== 'SECTION' || !mount.classList.contains('stream-composer-mount')) {
+      return '';
+    }
+    if (insideUserContent(mount)) {
+      return '';
+    }
+    return coreEndpoint(mount.getAttribute('data-stream-composer-endpoint'), ['admin/stream-composer.php']);
   }
 
   function loadComposerMounts() {
@@ -1255,19 +1271,12 @@
     return '';
   }
 
+  var likeEndpointPaths = ['stream-like.php', 'admin/stream-like.php'];
+
+  // Only the same-origin core Like endpoints are ever requested.
   function addUniqueEndpoint(list, endpoint) {
-    endpoint = String(endpoint || '').trim();
-    if (!endpoint) {
-      return;
-    }
-
-    try {
-      endpoint = new URL(endpoint, window.location.href).href;
-    } catch (error) {
-      return;
-    }
-
-    if (list.indexOf(endpoint) === -1) {
+    endpoint = coreEndpoint(endpoint, likeEndpointPaths);
+    if (endpoint && list.indexOf(endpoint) === -1) {
       list.push(endpoint);
     }
   }
@@ -1458,7 +1467,9 @@
 
   function hydrateLikes(root) {
     var scope = root || document;
-    var buttons = Array.prototype.slice.call(scope.querySelectorAll('[data-stream-like]'));
+    var buttons = Array.prototype.slice.call(scope.querySelectorAll('[data-stream-like]')).filter(function (button) {
+      return !insideUserContent(button);
+    });
     if (!buttons.length || typeof fetch !== 'function') {
       return;
     }
@@ -1501,7 +1512,7 @@
   function setupLikes(root) {
     var scope = root || document;
     scope.querySelectorAll('[data-stream-like]').forEach(function (button) {
-      if (button.dataset.likeInitialized === '1') {
+      if (button.dataset.likeInitialized === '1' || insideUserContent(button)) {
         return;
       }
       button.dataset.likeInitialized = '1';
@@ -1727,9 +1738,9 @@
   function setupComments(root) {
     var scope = root || document;
     scope.querySelectorAll('[data-comments-mount]').forEach(function (mount) {
-      if (mount.dataset.commentsInitialized === '1') { return; }
+      if (mount.dataset.commentsInitialized === '1' || insideUserContent(mount)) { return; }
       mount.dataset.commentsInitialized = '1';
-      var endpoint = mount.getAttribute('data-comments-endpoint') || '';
+      var endpoint = coreEndpoint(mount.getAttribute('data-comments-endpoint'), ['comments.php']);
       var slug = mount.getAttribute('data-comments-slug') || '';
       if (!endpoint || !slug) { return; }
       var requestVersion = 0;
@@ -1804,7 +1815,7 @@
           var original = submit ? submit.textContent : '';
           mount.setAttribute('aria-busy', 'true'); announce('Posting comment.');
           if (submit) { submit.disabled = true; submit.textContent = 'Posting...'; }
-          fetch(form.getAttribute('action') || endpoint, {
+          fetch(coreEndpoint(form.getAttribute('action'), ['comments.php']) || endpoint, {
             method: 'POST', body: new FormData(form), credentials: 'same-origin'
           }).then(function (response) {
             return response.text().then(function (html) { return { html: html, ok: response.ok }; });

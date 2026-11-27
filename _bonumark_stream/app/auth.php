@@ -45,6 +45,118 @@ function bms_find_user_by_id_any(int|string $id): ?array
     return is_array($user) ? $user : null;
 }
 
+/**
+ * Columns of the users table, read once per request. Code that writes a column
+ * added by a later migration checks here first, so sign-in and the upgrade
+ * screens keep working while an interrupted upgrade waits to be resumed.
+ *
+ * @return array<string,true>
+ */
+function bms_users_columns(): array
+{
+    static $columns = null;
+    if (is_array($columns)) {
+        return $columns;
+    }
+    try {
+        $found = [];
+        foreach (bms_db()->query('SHOW COLUMNS FROM ' . bms_table('users'))->fetchAll() as $row) {
+            $found[(string)($row['Field'] ?? '')] = true;
+        }
+        $columns = $found;
+        return $columns;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function bms_users_has_column(string $column): bool
+{
+    return isset(bms_users_columns()[$column]);
+}
+
+function bms_normalize_email(string $email): string
+{
+    return strtolower(trim($email));
+}
+
+/**
+ * True when another account already uses this address: either its unique
+ * claim, or an unclaimed address that earlier versions allowed to be shared.
+ */
+function bms_email_in_use(string $email, int $exceptUserId = 0): bool
+{
+    $email = bms_normalize_email($email);
+    if ($email === '') {
+        return false;
+    }
+    $sql = 'SELECT id FROM ' . bms_table('users') . ' WHERE id <> :id AND (email = :email';
+    $params = ['id' => $exceptUserId, 'email' => $email];
+    if (bms_users_has_column('email_normalized')) {
+        $sql .= ' OR email_normalized = :claim';
+        $params['claim'] = $email;
+    }
+    $stmt = bms_db()->prepare($sql . ') LIMIT 1');
+    $stmt->execute($params);
+    return $stmt->fetchColumn() !== false;
+}
+
+function bms_email_in_use_message(): string
+{
+    return 'That email address is already in use by another account.';
+}
+
+function bms_is_duplicate_email_claim_error(Throwable $e): bool
+{
+    return $e instanceof PDOException
+        && (string)$e->getCode() === '23000'
+        && str_contains((string)$e->getMessage(), 'email_normalized');
+}
+
+/**
+ * Claim every address that exactly one account holds and nobody has claimed
+ * yet. Addresses shared by several accounts stay unclaimed until the owner
+ * resolves them; System Check lists those accounts.
+ */
+function bms_users_claim_unique_emails(): void
+{
+    if (!bms_users_has_column('email_normalized')) {
+        return;
+    }
+    $table = bms_table('users');
+    try {
+        bms_db()->exec('UPDATE ' . $table . ' u INNER JOIN (SELECT LOWER(TRIM(email)) AS normalized_email FROM ' . $table . " WHERE TRIM(email) <> '' GROUP BY LOWER(TRIM(email)) HAVING COUNT(*) = 1) single ON single.normalized_email = LOWER(TRIM(u.email)) LEFT JOIN (SELECT email_normalized AS claimed_email FROM " . $table . ' WHERE email_normalized IS NOT NULL GROUP BY email_normalized) claimed ON claimed.claimed_email = single.normalized_email SET u.email_normalized = single.normalized_email WHERE u.email_normalized IS NULL AND claimed.claimed_email IS NULL');
+    } catch (Throwable $e) {
+        // Claims are an index over the stored addresses; the next account
+        // change retries. The email check above still blocks new duplicates.
+        error_log('Bonumark Stream email claim refresh failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Groups of accounts that share one email address, for System Check.
+ *
+ * @return list<list<string>> usernames per shared address
+ */
+function bms_users_shared_email_groups(): array
+{
+    $table = bms_table('users');
+    $stmt = bms_db()->query('SELECT LOWER(TRIM(email)) AS normalized_email, username FROM ' . $table . " WHERE TRIM(email) <> '' AND LOWER(TRIM(email)) IN (SELECT shared.normalized_email FROM (SELECT LOWER(TRIM(email)) AS normalized_email FROM " . $table . " WHERE TRIM(email) <> '' GROUP BY LOWER(TRIM(email)) HAVING COUNT(*) > 1) shared) ORDER BY normalized_email ASC, id ASC");
+    $groups = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $groups[(string)$row['normalized_email']][] = (string)$row['username'];
+    }
+    return array_values($groups);
+}
+
+/** SQL assignments that cancel a pending email change, when supported. */
+function bms_users_pending_email_clear_sql(): string
+{
+    return bms_users_has_column('pending_email')
+        ? ', pending_email = NULL, pending_email_token_hash = NULL, pending_email_expires_at = NULL'
+        : '';
+}
+
 function bms_guest_user(): array
 {
     return [
@@ -237,8 +349,7 @@ function bms_restore_remembered_login(): bool
         }
 
         session_regenerate_id(true);
-        $_SESSION['bms_logged_in'] = true;
-        $_SESSION['bms_user_id'] = (int)$user['id'];
+        bms_bind_login_session($user);
 
         $newValidator = bin2hex(random_bytes(32));
         $expires = time() + (bms_remember_login_days() * 86400);
@@ -257,29 +368,261 @@ function bms_restore_remembered_login(): bool
 
 function bms_clear_login_session(): void
 {
-    unset($_SESSION['bms_logged_in'], $_SESSION['bms_user_id']);
+    unset($_SESSION['bms_logged_in'], $_SESSION['bms_user_id'], $_SESSION['bms_session_version']);
+}
+
+/**
+ * The account's credential generation. It starts at 1 and changes whenever a
+ * password is changed or reset, or the owner signs out other devices. Before
+ * the migration that adds it, every account reads as 1.
+ */
+function bms_user_session_version(array $user): int
+{
+    return max(1, (int)($user['session_version'] ?? 1));
+}
+
+function bms_bind_login_session(array $user): void
+{
+    $_SESSION['bms_logged_in'] = true;
+    $_SESSION['bms_user_id'] = (int)$user['id'];
+    $_SESSION['bms_session_version'] = bms_user_session_version($user);
+}
+
+function bms_session_version_matches(array $user): bool
+{
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        return false;
+    }
+    $expected = bms_user_session_version($user);
+    if (!array_key_exists('bms_session_version', $_SESSION)) {
+        // A session signed in before sessions carried a version stays valid
+        // only while the account is still on its first credential generation.
+        if ($expected !== 1) {
+            return false;
+        }
+        $_SESSION['bms_session_version'] = 1;
+        return true;
+    }
+    return (int)$_SESSION['bms_session_version'] === $expected;
+}
+
+/**
+ * The signed-in account for this session, or null. A session whose account
+ * is no longer active, or whose credentials changed after it signed in, is
+ * signed out here and its remembered-device token is revoked.
+ */
+function bms_session_user(): ?array
+{
+    bms_restore_remembered_login();
+    $sessionId = $_SESSION['bms_user_id'] ?? null;
+    if (empty($_SESSION['bms_logged_in']) || !is_numeric($sessionId) || (int)$sessionId < 1) {
+        return null;
+    }
+    $user = bms_find_user_by_id((int)$sessionId);
+    if ($user && bms_session_version_matches($user)) {
+        return $user;
+    }
+    bms_clear_login_session();
+    bms_revoke_current_remember_token();
+    return null;
 }
 
 function bms_current_user(): array
 {
-    bms_restore_remembered_login();
-    $sessionId = $_SESSION['bms_user_id'] ?? null;
-    if (!empty($_SESSION['bms_logged_in']) && $sessionId !== null) {
-        $user = bms_find_user_by_id($sessionId);
-        if ($user) {
-            return $user;
-        }
-        bms_clear_login_session();
-        bms_revoke_current_remember_token();
+    return bms_session_user() ?? bms_guest_user();
+}
+
+/**
+ * Move an account to a new credential generation. Every session signed in
+ * under the old generation is rejected on its next request. Returns the new
+ * value, or null when the database has not been migrated yet.
+ */
+function bms_bump_user_session_version(int $userId): ?int
+{
+    if ($userId < 1 || !bms_users_has_column('session_version')) {
+        return null;
+    }
+    $pdo = bms_db();
+    $stmt = $pdo->prepare('UPDATE ' . bms_table('users') . ' SET session_version = session_version + 1 WHERE id = :id');
+    $stmt->execute(['id' => $userId]);
+    $stmt = $pdo->prepare('SELECT session_version FROM ' . bms_table('users') . ' WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $userId]);
+    $version = $stmt->fetchColumn();
+    return $version === false ? null : max(1, (int)$version);
+}
+
+/**
+ * Keep the session that made a credential change signed in under the new
+ * generation. Its session ID is replaced, so an older copy of this session's
+ * cookie is signed out as well.
+ */
+function bms_rebind_current_session(int $userId, ?int $version): void
+{
+    if ($version === null || empty($_SESSION['bms_logged_in']) || (int)($_SESSION['bms_user_id'] ?? 0) !== $userId) {
+        return;
+    }
+    if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
+        session_regenerate_id(true);
+    }
+    $_SESSION['bms_session_version'] = $version;
+}
+
+/** The selector of this browser's remembered-device cookie, or ''. */
+function bms_current_remember_selector(): string
+{
+    $parts = explode(':', (string)($_COOKIE[bms_remember_cookie_name()] ?? ''), 2);
+    $selector = $parts[0] ?? '';
+    return preg_match('/^[a-f0-9]{24}$/', $selector) ? $selector : '';
+}
+
+/**
+ * Sign out every other session and remembered device of the current account.
+ * This browser stays signed in and keeps its own remembered-device token.
+ */
+function bms_sign_out_other_devices(): void
+{
+    $user = bms_current_user();
+    $userId = (int)($user['id'] ?? 0);
+    if ($userId < 1) {
+        throw new RuntimeException('Sign in before signing out other devices.');
+    }
+    if (!bms_users_has_column('session_version')) {
+        throw new RuntimeException('Signing out other devices is available after the pending database upgrade completes.');
     }
 
-    return bms_guest_user();
+    $pdo = bms_db();
+    $startedTransaction = !$pdo->inTransaction() && $pdo->beginTransaction();
+    try {
+        $sql = 'DELETE FROM ' . bms_table('remember_tokens') . ' WHERE user_id = :user_id';
+        $params = ['user_id' => $userId];
+        $selector = bms_current_remember_selector();
+        if ($selector !== '') {
+            $sql .= ' AND selector <> :selector';
+            $params['selector'] = $selector;
+        }
+        $pdo->prepare($sql)->execute($params);
+        $version = bms_bump_user_session_version($userId);
+        if ($startedTransaction) {
+            $pdo->commit();
+        }
+    } catch (Throwable $e) {
+        if ($startedTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+    bms_rebind_current_session($userId, $version);
+}
+
+/**
+ * The network a sign-in attempt comes from. IPv4 addresses are used as they
+ * are. An IPv6 address counts as its /64 network, because one subscriber
+ * usually controls a whole /64.
+ */
+function bms_login_network_address(): string
+{
+    $ip = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    $packed = $ip !== '' ? @inet_pton($ip) : false;
+    if (!is_string($packed)) {
+        return $ip !== '' ? $ip : 'unknown';
+    }
+    if (strlen($packed) === 16) {
+        if (str_starts_with($packed, str_repeat("\0", 10) . "\xff\xff")) {
+            return (string)inet_ntop(substr($packed, 12));
+        }
+        return (string)inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+    return (string)inet_ntop($packed);
 }
 
 function bms_login_ip_hash(): string
 {
-    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
-    return hash('sha256', $ip . '|' . (string)(bms_config()['security_salt'] ?? 'bonumark'));
+    return hash('sha256', bms_login_network_address() . '|' . (string)(bms_config()['security_salt'] ?? 'bonumark'));
+}
+
+/**
+ * Sign-in throttling. Failures are counted per username and network, and per
+ * network across all usernames, over a sliding window. Past the free
+ * failures, each further attempt waits a delay that doubles with every
+ * failure, up to the cap. Nothing ever locks a username by itself, so
+ * failures from one network never block the same account elsewhere.
+ */
+function bms_login_throttle_policy(): array
+{
+    return [
+        'window_seconds' => 3600,
+        'pair_free_failures' => 5,
+        'network_free_failures' => 20,
+        'base_delay_seconds' => 1,
+        'max_delay_seconds' => 900,
+    ];
+}
+
+function bms_login_throttle_delay(int $failures, int $freeFailures, array $policy): int
+{
+    if ($failures < $freeFailures) {
+        return 0;
+    }
+    $steps = min(30, $failures - $freeFailures);
+    return (int)min((int)$policy['max_delay_seconds'], (int)$policy['base_delay_seconds'] * (2 ** $steps));
+}
+
+/**
+ * Evaluate the throttle from the recorded attempts of one network. Each
+ * attempt is ['username' => string, 'success' => bool, 'time' => int], in
+ * the order recorded. A success resets that username's failures from this
+ * network, never the network's own count.
+ *
+ * @param list<array{username:string,success:bool,time:int}> $attempts
+ * @return array{limited:bool,retry_after:int,pair_failures:int,network_failures:int}
+ */
+function bms_login_throttle_evaluate(array $attempts, string $username, int $now, ?array $policy = null): array
+{
+    $policy = $policy ?? bms_login_throttle_policy();
+    $cutoff = $now - (int)$policy['window_seconds'];
+    $pairFailures = 0;
+    $pairLast = 0;
+    $networkFailures = 0;
+    $networkLast = 0;
+    foreach ($attempts as $attempt) {
+        $time = (int)($attempt['time'] ?? 0);
+        if ($time <= $cutoff) {
+            continue;
+        }
+        $success = !empty($attempt['success']);
+        if (!$success) {
+            $networkFailures++;
+            $networkLast = max($networkLast, $time);
+        }
+        if ((string)($attempt['username'] ?? '') === $username) {
+            if ($success) {
+                $pairFailures = 0;
+                $pairLast = 0;
+            } else {
+                $pairFailures++;
+                $pairLast = max($pairLast, $time);
+            }
+        }
+    }
+
+    $retryAfter = 0;
+    foreach ([
+        [$pairFailures, $pairLast, (int)$policy['pair_free_failures']],
+        [$networkFailures, $networkLast, (int)$policy['network_free_failures']],
+    ] as [$failures, $last, $free]) {
+        $delay = bms_login_throttle_delay($failures, $free, $policy);
+        $elapsed = $now - $last;
+        if ($delay > 0 && $elapsed < $delay) {
+            $retryAfter = max($retryAfter, $delay - $elapsed);
+        }
+    }
+
+    return [
+        'limited' => $retryAfter > 0,
+        'retry_after' => $retryAfter,
+        'pair_failures' => $pairFailures,
+        'network_failures' => $networkFailures,
+    ];
 }
 
 function bms_login_fallback_path(): string
@@ -299,7 +642,7 @@ function bms_load_login_fallback_attempts(): array
 
 function bms_save_login_fallback_attempts(array $attempts): void
 {
-    $cutoff = time() - 3600;
+    $cutoff = time() - (int)bms_login_throttle_policy()['window_seconds'];
     $attempts = array_values(array_filter($attempts, function ($attempt) use ($cutoff) {
         return is_array($attempt) && (int)($attempt['time'] ?? 0) >= $cutoff;
     }));
@@ -322,24 +665,23 @@ function bms_record_login_attempt_fallback(string $username, bool $success): voi
     }
 }
 
-function bms_login_rate_limited_fallback(string $username): bool
+function bms_login_throttle_state_fallback(string $username): array
 {
     try {
-        $cutoff = time() - 900;
-        $username = bms_normalize_username($username);
         $ipHash = bms_login_ip_hash();
-        $count = 0;
+        $attempts = [];
         foreach (bms_load_login_fallback_attempts() as $attempt) {
-            if (!is_array($attempt) || !empty($attempt['success']) || (int)($attempt['time'] ?? 0) < $cutoff) {
-                continue;
-            }
-            if (($attempt['username'] ?? '') === $username || ($attempt['ip_hash'] ?? '') === $ipHash) {
-                $count++;
+            if (is_array($attempt) && (string)($attempt['ip_hash'] ?? '') === $ipHash) {
+                $attempts[] = [
+                    'username' => (string)($attempt['username'] ?? ''),
+                    'success' => !empty($attempt['success']),
+                    'time' => (int)($attempt['time'] ?? 0),
+                ];
             }
         }
-        return $count >= 10;
+        return bms_login_throttle_evaluate($attempts, bms_normalize_username($username), time());
     } catch (Throwable $e) {
-        return true;
+        return ['limited' => true, 'retry_after' => 60, 'pair_failures' => 0, 'network_failures' => 0];
     }
 }
 
@@ -357,20 +699,33 @@ function bms_record_login_attempt(string $username, bool $success): void
     }
 }
 
-function bms_login_rate_limited(string $username): bool
+/** @return array{limited:bool,retry_after:int,pair_failures:int,network_failures:int} */
+function bms_login_throttle_state(string $username): array
 {
     try {
-        $stmt = bms_db()->prepare('SELECT COUNT(*) FROM ' . bms_table('login_attempts') . ' WHERE attempted_at > (NOW() - INTERVAL 15 MINUTE) AND success = 0 AND (username = :username OR ip_hash = :ip_hash)');
-        $stmt->execute([
-            'username' => bms_normalize_username($username),
-            'ip_hash' => bms_login_ip_hash(),
-        ]);
-        return (int)$stmt->fetchColumn() >= 10;
+        $pdo = bms_db();
+        $window = (int)bms_login_throttle_policy()['window_seconds'];
+        $stmt = $pdo->prepare('SELECT username, success, UNIX_TIMESTAMP(attempted_at) AS attempted FROM ' . bms_table('login_attempts') . ' WHERE ip_hash = :ip_hash AND attempted_at > (NOW() - INTERVAL ' . $window . ' SECOND) ORDER BY attempted_at ASC, id ASC');
+        $stmt->execute(['ip_hash' => bms_login_ip_hash()]);
+        $attempts = [];
+        foreach ($stmt->fetchAll() ?: [] as $row) {
+            $attempts[] = [
+                'username' => (string)($row['username'] ?? ''),
+                'success' => (int)($row['success'] ?? 0) === 1,
+                'time' => (int)($row['attempted'] ?? 0),
+            ];
+        }
+        $now = (int)$pdo->query('SELECT UNIX_TIMESTAMP()')->fetchColumn();
+        return bms_login_throttle_evaluate($attempts, bms_normalize_username($username), $now);
     } catch (Throwable $e) {
-        return bms_login_rate_limited_fallback($username);
+        return bms_login_throttle_state_fallback($username);
     }
 }
 
+function bms_login_rate_limited(string $username): bool
+{
+    return bms_login_throttle_state($username)['limited'];
+}
 
 function bms_roles(): array
 {
@@ -552,8 +907,10 @@ function bms_create_user(string $username, string $displayName, string $email, s
     bms_validate_password_policy($password, $username, $email);
     $existing = bms_find_user_by_username_any($username);
     if ($existing) { throw new RuntimeException('That username is already taken.'); }
-    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('users') . ' (username, display_name, email, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
-    $stmt->execute([
+    if (bms_email_in_use($email)) { throw new RuntimeException(bms_email_in_use_message()); }
+    $claim = bms_users_has_column('email_normalized');
+    $stmt = bms_db()->prepare('INSERT INTO ' . bms_table('users') . ' (username, display_name, email, ' . ($claim ? 'email_normalized, ' : '') . 'email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, ' . ($claim ? ':email_normalized, ' : '') . ':email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
+    $params = [
         'username' => $username,
         'display_name' => $displayName,
         'email' => $email,
@@ -561,7 +918,18 @@ function bms_create_user(string $username, string $displayName, string $email, s
         'password_hash' => password_hash($password, PASSWORD_DEFAULT),
         'role' => $role,
         'status' => $status,
-    ]);
+    ];
+    if ($claim) {
+        $params['email_normalized'] = $email !== '' ? $email : null;
+    }
+    try {
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        if (bms_is_duplicate_email_claim_error($e)) {
+            throw new RuntimeException(bms_email_in_use_message());
+        }
+        throw $e;
+    }
     return bms_find_user_by_id_any((int)bms_db()->lastInsertId()) ?? [];
 }
 
@@ -584,7 +952,13 @@ function bms_update_user_role_status(int $id, string $role, string $status): voi
         throw new RuntimeException('The site must keep one active admin account.');
     }
 
-    $emailVerifiedSql = $status === 'active' ? ', email_verified_at = COALESCE(email_verified_at, NOW()), verification_token_hash = NULL, verification_token_expires_at = NULL' : '';
+    $emailVerifiedSql = '';
+    if ($status === 'active') {
+        $emailVerifiedSql = ', email_verified_at = COALESCE(email_verified_at, NOW()), verification_token_hash = NULL, verification_token_expires_at = NULL';
+    } elseif ($status === 'inactive') {
+        // A deactivated account keeps no live verification or email-change link.
+        $emailVerifiedSql = ', verification_token_hash = NULL, verification_token_expires_at = NULL' . bms_users_pending_email_clear_sql();
+    }
     $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET role = :role, status = :status' . $emailVerifiedSql . ', updated_at = NOW() WHERE id = :id');
     $stmt->execute(['role' => $role, 'status' => $status, 'id' => $id]);
 }
@@ -611,7 +985,7 @@ function bms_user_delete_reassign_targets(int $excludeUserId): array
     return $stmt->fetchAll() ?: [];
 }
 
-function bms_admin_update_user_account(int $id, string $username, string $displayName, string $email, string $role, string $status, string $profileVisibility, bool $emailVerified): array
+function bms_admin_update_user_account(int $id, string $username, string $displayName, string $email, string $role, string $status, string $profileVisibility, bool $emailVerified, string $currentPassword = ''): array
 {
     bms_require_capability('manage_users');
     $existing = bms_find_user_by_id_any($id);
@@ -656,8 +1030,21 @@ function bms_admin_update_user_account(int $id, string $username, string $displa
         throw new RuntimeException('You cannot remove your own active admin access.');
     }
 
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, display_name = :display_name, email = :email, role = :role, status = :status, profile_visibility = :profile_visibility, email_verified_at = :email_verified_at, verification_token_hash = NULL, verification_token_expires_at = NULL, updated_at = NOW() WHERE id = :id');
-    $stmt->execute([
+    $emailChanged = bms_normalize_email((string)($existing['email'] ?? '')) !== $email;
+    if ($emailChanged && $id === $currentId) {
+        // Changing your own recovery address needs your password, wherever
+        // the change is made.
+        $hash = (string)($existing['password_hash'] ?? '');
+        if ($hash === '' || !password_verify($currentPassword, $hash)) {
+            throw new RuntimeException('Enter your current password to change your own email address.');
+        }
+    }
+    if ($emailChanged && bms_email_in_use($email, $id)) {
+        throw new RuntimeException(bms_email_in_use_message());
+    }
+
+    $claimSql = '';
+    $params = [
         'username' => $username,
         'display_name' => $displayName,
         'email' => $email,
@@ -666,7 +1053,23 @@ function bms_admin_update_user_account(int $id, string $username, string $displa
         'profile_visibility' => $profileVisibility,
         'email_verified_at' => $emailVerified ? gmdate('Y-m-d H:i:s') : null,
         'id' => $id,
-    ]);
+    ];
+    if ($emailChanged && bms_users_has_column('email_normalized')) {
+        $claimSql = ', email_normalized = :email_normalized' . bms_users_pending_email_clear_sql();
+        $params['email_normalized'] = $email !== '' ? $email : null;
+    }
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, display_name = :display_name, email = :email' . $claimSql . ', role = :role, status = :status, profile_visibility = :profile_visibility, email_verified_at = :email_verified_at, verification_token_hash = NULL, verification_token_expires_at = NULL, updated_at = NOW() WHERE id = :id');
+    try {
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        if (bms_is_duplicate_email_claim_error($e)) {
+            throw new RuntimeException(bms_email_in_use_message());
+        }
+        throw $e;
+    }
+    if ($emailChanged) {
+        bms_users_claim_unique_emails();
+    }
 
     $current = bms_current_user();
     if ($id === (int)($current['id'] ?? 0) && $role === 'admin') {
@@ -689,11 +1092,7 @@ function bms_admin_reset_user_password(int $id, string $password, string $confir
     bms_validate_password_policy($password, (string)($user['username'] ?? ''), (string)($user['email'] ?? ''));
 
     $pdo = bms_db();
-    $stmt = $pdo->prepare('UPDATE ' . bms_table('users') . ' SET password_hash = :password_hash, updated_at = NOW() WHERE id = :id');
-    $stmt->execute([
-        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-        'id' => $id,
-    ]);
+    $version = bms_store_user_password($id, $password);
     bms_revoke_user_remember_tokens($id);
 
     try {
@@ -701,6 +1100,38 @@ function bms_admin_reset_user_password(int $id, string $password, string $confir
         $stmt->execute(['user_id' => $id]);
     } catch (Throwable $e) {
         // Password reset token cleanup should not block an admin password reset.
+    }
+
+    // Resetting your own password from Admin keeps this session signed in.
+    bms_rebind_current_session($id, $version);
+}
+
+/**
+ * Store a new password and move the account to a new credential generation
+ * in one transaction, so every other session signed in with the old password
+ * is signed out on its next request. Returns the new generation, or null
+ * before the session-binding migration has run.
+ */
+function bms_store_user_password(int $userId, string $password): ?int
+{
+    $pdo = bms_db();
+    $startedTransaction = !$pdo->inTransaction() && $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare('UPDATE ' . bms_table('users') . ' SET password_hash = :password_hash, updated_at = NOW() WHERE id = :id');
+        $stmt->execute([
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'id' => $userId,
+        ]);
+        $version = bms_bump_user_session_version($userId);
+        if ($startedTransaction) {
+            $pdo->commit();
+        }
+        return $version;
+    } catch (Throwable $e) {
+        if ($startedTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
     }
 }
 
@@ -826,6 +1257,9 @@ function bms_admin_delete_user(int $id, int $reassignToUserId, string $confirmat
         }
         throw $e;
     }
+
+    // An address the deleted account shared may now belong to one account.
+    bms_users_claim_unique_emails();
 
     if (function_exists('bms_user_avatar_delete_file')) {
         bms_user_avatar_delete_file((string)($user['avatar_path'] ?? ''));
@@ -996,7 +1430,18 @@ function bms_profile_social_links_for_user(array $user): array
 }
 
 
-function bms_update_current_user_account(string $username, string $email = ''): array
+/**
+ * Save the signed-in account's username and handle an email change.
+ *
+ * Changing the email address needs the current password. A new address takes
+ * effect only after the person opens the confirmation link sent to it; until
+ * then the account keeps its current address. Removing the address applies
+ * at once.
+ *
+ * @return array{user:array,email_change:string,pending_email:string}
+ *   email_change is 'none', 'pending', or 'removed'.
+ */
+function bms_update_current_user_account(string $username, string $email = '', string $currentPassword = ''): array
 {
     $current = bms_current_user();
     $currentId = (int)($current['id'] ?? 0);
@@ -1005,7 +1450,7 @@ function bms_update_current_user_account(string $username, string $email = ''): 
     }
 
     $username = bms_normalize_username($username);
-    $email = trim($email);
+    $email = bms_normalize_email($email);
 
     if (strlen($username) < 3) {
         throw new RuntimeException('Username must be at least 3 characters.');
@@ -1020,14 +1465,51 @@ function bms_update_current_user_account(string $username, string $email = ''): 
         throw new RuntimeException('That username is already taken.');
     }
 
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, email = :email, updated_at = NOW() WHERE id = :id');
-    $stmt->execute([
-        'username' => $username,
-        'email' => $email,
-        'id' => $currentId,
-    ]);
+    $emailChange = 'none';
+    if ($email !== bms_normalize_email((string)($current['email'] ?? ''))) {
+        $hash = (string)($current['password_hash'] ?? '');
+        if ($hash === '' || !password_verify($currentPassword, $hash)) {
+            throw new RuntimeException('Enter your current password to change your email address.');
+        }
+        if ($email !== '' && bms_email_in_use($email, $currentId)) {
+            throw new RuntimeException(bms_email_in_use_message());
+        }
+        if ($email !== '') {
+            if (!function_exists('bms_account_email_change_ready') || !bms_account_email_change_ready()) {
+                throw new RuntimeException(bms_current_user_can('manage_users')
+                    ? 'This site cannot send email yet, so a new address cannot be confirmed. Configure Mail in Settings, or change the address in Admin under Accounts.'
+                    : 'This site cannot send email yet, so a new address cannot be confirmed. Ask the site admin to change your address.');
+            }
+            $emailChange = 'pending';
+        } else {
+            $emailChange = 'removed';
+        }
+    }
 
-    return bms_find_user_by_id($currentId) ?? bms_current_user();
+    // Request the confirmation first: if it cannot be sent, nothing changes.
+    if ($emailChange === 'pending') {
+        bms_account_request_email_change($currentId, $email);
+    }
+
+    $sql = 'UPDATE ' . bms_table('users') . ' SET username = :username';
+    $params = ['username' => $username, 'id' => $currentId];
+    if ($emailChange === 'removed') {
+        $sql .= ", email = '', email_verified_at = NULL"
+            . (bms_users_has_column('email_normalized') ? ', email_normalized = NULL' : '')
+            . bms_users_pending_email_clear_sql();
+    }
+    $stmt = bms_db()->prepare($sql . ', updated_at = NOW() WHERE id = :id');
+    $stmt->execute($params);
+
+    if ($emailChange === 'removed') {
+        bms_users_claim_unique_emails();
+    }
+
+    return [
+        'user' => bms_find_user_by_id($currentId) ?? bms_current_user(),
+        'email_change' => $emailChange,
+        'pending_email' => $emailChange === 'pending' ? $email : '',
+    ];
 }
 
 function bms_update_current_user_profile(string $username, string $displayName, string $email = '', string $bio = '', string $website = '', string $profileVisibility = 'public', array $socialLinksInput = []): array
@@ -1036,7 +1518,6 @@ function bms_update_current_user_profile(string $username, string $displayName, 
     $currentId = (int)($current['id'] ?? 0);
     $username = bms_normalize_username($username);
     $displayName = trim($displayName);
-    $email = trim($email);
     $bio = trim($bio);
     $website = trim($website);
     $profileVisibility = $profileVisibility === 'private' ? 'private' : 'public';
@@ -1053,8 +1534,10 @@ function bms_update_current_user_profile(string $username, string $displayName, 
         throw new RuntimeException('Display name is too long. Keep it under 120 characters.');
     }
 
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new RuntimeException('Enter a valid email address or leave it blank.');
+    // This helper never changes the email address. An email change needs
+    // the current password and confirmation; see Account details.
+    if (bms_normalize_email($email) !== bms_normalize_email((string)($current['email'] ?? ''))) {
+        throw new RuntimeException('Change your email address from Account details. It needs your current password.');
     }
 
     if ($website !== '') {
@@ -1078,11 +1561,10 @@ function bms_update_current_user_profile(string $username, string $displayName, 
         throw new RuntimeException('That username is already taken.');
     }
 
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, display_name = :display_name, email = :email, bio = :bio, website = :website, social_links = :social_links, profile_visibility = :profile_visibility, updated_at = NOW() WHERE id = :id');
+    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET username = :username, display_name = :display_name, bio = :bio, website = :website, social_links = :social_links, profile_visibility = :profile_visibility, updated_at = NOW() WHERE id = :id');
     $stmt->execute([
         'username' => $username,
         'display_name' => $displayName,
-        'email' => $email,
         'bio' => $bio,
         'website' => $website,
         'social_links' => $socialLinks,
@@ -1127,29 +1609,15 @@ function bms_update_current_user_password(string $currentPassword, string $newPa
         throw new RuntimeException('New password and confirmation do not match.');
     }
 
-    $stmt = bms_db()->prepare('UPDATE ' . bms_table('users') . ' SET password_hash = :password_hash, updated_at = NOW() WHERE id = :id');
-    $stmt->execute([
-        'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
-        'id' => $currentId,
-    ]);
+    $version = bms_store_user_password($currentId, $newPassword);
     bms_revoke_user_remember_tokens($currentId);
+    // This session made the change, so it stays signed in.
+    bms_rebind_current_session($currentId, $version);
 }
 
 function bms_is_logged_in(): bool
 {
-    bms_restore_remembered_login();
-    if (empty($_SESSION['bms_logged_in']) || empty($_SESSION['bms_user_id'])) {
-        return false;
-    }
-
-    $user = bms_find_user_by_id((int)$_SESSION['bms_user_id']);
-    if (!$user) {
-        bms_clear_login_session();
-        bms_revoke_current_remember_token();
-        return false;
-    }
-
-    return true;
+    return bms_session_user() !== null;
 }
 
 function bms_require_login(): void
@@ -1165,6 +1633,8 @@ function bms_attempt_login(string $username, string $password, bool $remember = 
 {
     bms_require_installed();
 
+    // Remembered devices are never throttled: they sign in through
+    // bms_restore_remembered_login(), which does not consult this limit.
     if (bms_login_rate_limited($username)) {
         return false;
     }
@@ -1174,8 +1644,7 @@ function bms_attempt_login(string $username, string $password, bool $remember = 
 
     if ($user && $hash !== '' && password_verify($password, $hash)) {
         session_regenerate_id(true);
-        $_SESSION['bms_logged_in'] = true;
-        $_SESSION['bms_user_id'] = (int)$user['id'];
+        bms_bind_login_session($user);
         if ($remember) {
             bms_create_remember_token((int)$user['id']);
         } else {

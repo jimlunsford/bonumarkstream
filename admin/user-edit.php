@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 bms_normalize_role((string)($user['role'] ?? 'commenter')),
                 (string)($_POST['status'] ?? 'active'),
                 (string)($_POST['profile_visibility'] ?? 'public'),
-                !empty($_POST['email_verified'])
+                !empty($_POST['email_verified']),
+                (string)($_POST['current_password'] ?? '')
             );
             bms_flash('Account updated.', 'success');
             bms_redirect(bms_admin_url('user-edit.php?id=' . $userId));
@@ -51,7 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string)($_POST['new_password'] ?? ''),
                 (string)($_POST['confirm_password'] ?? '')
             );
-            bms_flash('Password reset. Share the temporary password securely.', 'success');
+            bms_flash($isCurrentUser
+                ? 'Password reset. Every other device signed in to your account is signed out; this browser stays signed in.'
+                : 'Password reset. Every device signed in to this account is signed out. Share the temporary password securely.', 'success');
             bms_redirect(bms_admin_url('user-edit.php?id=' . $userId . '#reset-password'));
         }
 
@@ -70,7 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
         bms_log_admin_exception('user-edit', $e);
 
-        bms_flash('The requested action could not be completed. Please try again.', 'error');
+        // Validation messages tell the owner what to fix. Database and
+        // internal errors stay generic.
+        $reason = ($e instanceof RuntimeException && !$e instanceof PDOException) ? trim($e->getMessage()) : '';
+        bms_flash($reason !== '' ? $reason : 'The requested action could not be completed. Please try again.', 'error');
         bms_redirect(bms_admin_url('user-edit.php?id=' . $userId));
     }
 }
@@ -133,6 +139,12 @@ bms_admin_header('Edit Account', [
 
     <label for="email">Email</label>
     <input id="email" name="email" type="email" value="<?= htmlspecialchars((string)($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+    <p class="field-help">Each email address can belong to only one account.</p>
+    <?php if ($isCurrentUser): ?>
+    <label for="current_password">Your current password</label>
+    <input id="current_password" name="current_password" type="password" autocomplete="current-password">
+    <p class="field-help">Needed only to change your own email address.</p>
+    <?php endif; ?>
 
     <p class="field-help"><strong>Account type:</strong> <?= htmlspecialchars(bms_role_label((string)($user['role'] ?? 'commenter')), ENT_QUOTES, 'UTF-8') ?>. Account type is fixed in Bonumark Stream: one admin, plus commenter accounts.</p>
 
@@ -161,7 +173,7 @@ bms_admin_header('Edit Account', [
 
 <section id="reset-password" class="panel settings-panel">
   <h2>Reset password</h2>
-  <p class="meta">Set a temporary password for this account. They should change it after signing in.</p>
+  <p class="meta">Set a temporary password for this account. They should change it after signing in. Resetting it signs out every device signed in to the account<?= $isCurrentUser ? ' except this browser' : '' ?>.</p>
   <form method="post" class="settings-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(bms_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="reset_password">

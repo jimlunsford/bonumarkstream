@@ -331,6 +331,7 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
     }
 
     $requiredColumns = [
+        'users' => ['session_version', 'email_normalized', 'pending_email', 'pending_email_token_hash', 'pending_email_expires_at'],
         'posts' => ['scheduled_at', 'is_pinned', 'pinned_at'],
         'trash' => ['post_id', 'original_status', 'content_body', 'content_front_matter'],
         'media' => ['privacy_status', 'privacy_note', 'privacy_checked_at'],
@@ -379,6 +380,22 @@ function bms_database_smoke_verify_schema(PDO $pdo, string $prefix, array $expec
         if ($indexStmt === false || !$indexStmt->fetch()) {
             throw new RuntimeException("{$label} expected posts index was not created: {$index}");
         }
+    }
+
+    $emailClaimIndex = $pdo->query("SHOW INDEX FROM `{$prefix}users` WHERE Key_name = 'email_normalized'");
+    $emailClaimIndex = $emailClaimIndex ? $emailClaimIndex->fetch() : false;
+    if (!is_array($emailClaimIndex) || (int)($emailClaimIndex['Non_unique'] ?? 1) !== 0) {
+        throw new RuntimeException("{$label} account email claims are not uniquely indexed.");
+    }
+    foreach ([['login_attempts', 'ip_attempted'], ['login_attempts', 'username_ip_attempted'], ['comments', 'user_created'], ['comments', 'ip_created']] as [$table, $index]) {
+        $indexStmt = $pdo->query("SHOW INDEX FROM `{$prefix}{$table}` WHERE Key_name = " . $pdo->quote($index));
+        if ($indexStmt === false || !$indexStmt->fetch()) {
+            throw new RuntimeException("{$label} expected {$table} index was not created: {$index}");
+        }
+    }
+    $sendmailRow = $pdo->query("SELECT COUNT(*) FROM `{$prefix}settings` WHERE setting_key = 'mail_sendmail_path'");
+    if ($sendmailRow === false || (int)$sendmailRow->fetchColumn() !== 0) {
+        throw new RuntimeException("{$label} still stores the unused Sendmail path setting.");
     }
 
     $generationIndex = $pdo->query("SHOW INDEX FROM `{$prefix}activitypub_local_objects` WHERE Key_name = 'post_generation'");

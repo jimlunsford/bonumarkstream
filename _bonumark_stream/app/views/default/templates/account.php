@@ -456,6 +456,11 @@ $formatDate = static function ($value): string {
                 <label>Username<input name="username" value="<?= $h((string)($user['username'] ?? '')) ?>" autocomplete="username" maxlength="60" required></label>
                 <p class="field-help account-profile-help">Your username is used for login, your public handle, and your profile URL.</p>
                 <label>Email<input name="email" type="email" value="<?= $h((string)($user['email'] ?? '')) ?>" autocomplete="email"></label>
+                <?php if ((string)($data['account_pending_email'] ?? '') !== ''): ?>
+                  <p class="field-help account-profile-help">Waiting for confirmation: <?= $h((string)$data['account_pending_email']) ?>. Open the link sent to that address within 24 hours. Your account keeps its current address until then.</p>
+                <?php endif; ?>
+                <label>Current password<input name="current_password" type="password" autocomplete="current-password"></label>
+                <p class="field-help account-profile-help">Needed only to change your email address. A new address takes effect after you open the confirmation link sent to it.</p>
                 <button type="submit">Save account details</button>
               </form>
             </section>
@@ -512,7 +517,18 @@ $formatDate = static function ($value): string {
                 <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
                 <label>New password<input name="new_password" type="password" autocomplete="new-password" required></label>
                 <label>Confirm new password<input name="confirm_password" type="password" autocomplete="new-password" required></label>
+                <p class="field-help account-profile-help">Changing your password signs out every other device. This browser stays signed in.</p>
                 <button type="submit">Change Password</button>
+              </form>
+            </section>
+
+            <section class="stream-state-card account-card ledger-panel ledger-account-panel">
+              <h2>Signed-in devices</h2>
+              <p class="meta">Sign out every other browser and app signed in to your account, including devices you chose to remember. This browser stays signed in.</p>
+              <form method="post" class="account-form">
+                <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+                <input type="hidden" name="action" value="sign_out_other_devices">
+                <button type="submit">Sign out all other devices</button>
               </form>
             </section>
           <?php endif; ?>
@@ -561,7 +577,7 @@ $formatDate = static function ($value): string {
               <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
               <?php if (!empty($data['remember_login_enabled'])): ?>
                 <label class="checkbox-line"><input type="checkbox" name="remember_me" value="1"> <span>Remember this device</span></label>
-                <p class="meta">Keeps this browser signed in for up to <?= $h((string)($data['remember_login_days'] ?? 30)) ?> days unless you log out, change your password, or reset the account password.</p>
+                <p class="meta">Keeps this browser signed in for up to <?= $h((string)($data['remember_login_days'] ?? 30)) ?> days unless you log out, change or reset your password, or sign out other devices.</p>
               <?php endif; ?>
               <button type="submit">Sign In</button>
               <p class="meta"><a href="<?= $h((string)($data['forgot_password_url'] ?? 'account.php?action=forgot')) ?>">Forgot your password?</a></p>

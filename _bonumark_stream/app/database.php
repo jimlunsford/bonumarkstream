@@ -672,11 +672,13 @@ function bms_db_insert_initial_data(array $site, array $admin): void
         bms_set_setting($key, (string)$value);
     }
 
-    $stmt = $pdo->prepare('INSERT INTO ' . bms_table('users') . ' (username, display_name, email, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
+    $adminEmail = trim((string)$admin['email']);
+    $stmt = $pdo->prepare('INSERT INTO ' . bms_table('users') . ' (username, display_name, email, email_normalized, email_verified_at, password_hash, role, status, created_at, updated_at) VALUES (:username, :display_name, :email, :email_normalized, :email_verified_at, :password_hash, :role, :status, NOW(), NOW())');
     $stmt->execute([
         'username' => bms_normalize_username((string)$admin['username']),
         'display_name' => trim((string)$admin['display_name']),
-        'email' => trim((string)$admin['email']),
+        'email' => $adminEmail,
+        'email_normalized' => $adminEmail !== '' ? strtolower($adminEmail) : null,
         'email_verified_at' => gmdate('Y-m-d H:i:s'),
         'password_hash' => password_hash((string)$admin['password'], PASSWORD_DEFAULT),
         'role' => 'admin',
