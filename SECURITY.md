@@ -18,6 +18,7 @@ Do not open a public issue for a suspected security vulnerability. Use GitHub pr
 
 ## Security model
 
+- Until installation finishes, the installer asks for a one-time setup key from `_bonumark_stream/setup-key.php` before it accepts any settings, connects to a database, or runs server checks. Wrong keys are limited per network, database connection failures show one message whatever the cause, and the key file is deleted when installation finishes.
 - Admin routes require login and capability checks.
 - Mutating admin actions use CSRF protection.
 - Public comments use CSRF protection and are rate limited per account and per network. The owner can hold a new commenter's first comment for review.

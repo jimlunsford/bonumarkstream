@@ -37,14 +37,29 @@ See [`COMPATIBILITY.md`](COMPATIBILITY.md) for the maintained PHP/database matri
 ## Steps
 
 1. Upload the package contents to the target web root or subdirectory.
-2. Visit `install.php`.
-3. Confirm the server checks.
-4. Enter the database connection details.
-5. Create the sole Admin account.
-6. Finish installation.
-7. Log in at `/admin/`.
+2. Visit `install.php`. The installer writes a one-time setup key to a new file, `_bonumark_stream/setup-key.php`, and asks for it.
+3. Open `_bonumark_stream/setup-key.php` in your hosting file manager or FTP program, copy the setup key, and paste it into the installer.
+4. Confirm the server checks.
+5. Enter the database connection details.
+6. Create the sole Admin account.
+7. Finish installation. The installer deletes the setup key file.
+8. Log in at `/admin/`.
 
 The installer creates an empty site. It does not publish sample posts or pages.
+
+## Setup key
+
+The setup key proves that the person in the browser can open files on the server. Until the key is entered, the installer shows only the setup key screen: it accepts no settings, connects to no database, and runs no server checks. You only need the same file access you used to upload Bonumark Stream. No shell, SSH, or command line is needed.
+
+- **Where it is:** `_bonumark_stream/setup-key.php`, inside the folder you uploaded. The file is plain text. Open it in your file manager's editor or download it with FTP. The key is the line that starts with `Setup key:`, six groups of four letters and numbers such as `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`. Dashes, spaces, and letter case do not matter when you paste it.
+- **It is never shown in the browser.** The `_bonumark_stream` folder is blocked from the web, and the key file itself shows nothing if it is opened over HTTP.
+- **Wrong keys are limited.** After five wrong keys from one network within 15 minutes, the installer refuses further keys from that network until 15 minutes have passed.
+- **To get a new key,** delete `_bonumark_stream/setup-key.php` and reload the installer. It writes a new key. This also clears the wrong-key limit, and a browser that entered the old key has to enter the new one.
+- **After installation** the installer deletes the key file. The installer never runs again on an installed site.
+
+If the installer cannot create the key file, give the PHP process write access to the `_bonumark_stream` folder. The installer needs the same access to save `config.php` there.
+
+When the database connection fails, the installer shows one message for every cause: a wrong password, an unknown host, and an unreachable server look the same in the browser. The exact reason is written to the PHP error log, which most hosting control panels let you read.
 
 ## Private-storage verification during install
 
@@ -58,8 +73,8 @@ A locked-down application tree is supported, but installation itself must be abl
 
 1. Deploy the Bonumark application files as the application owner.
 2. Configure the web server so `_bonumark_stream/` and `scripts/` are blocked before visiting `install.php`.
-3. Give the PHP/web identity the minimum temporary write access needed to create `_bonumark_stream/config.php`, `_bonumark_stream/installed.lock`, and the runtime directories reported by the installer. Do not make the whole application tree permanently writable.
-4. Run `install.php` and complete database/site setup.
+3. Give the PHP/web identity the minimum temporary write access needed to create `_bonumark_stream/setup-key.php`, `_bonumark_stream/config.php`, `_bonumark_stream/installed.lock`, and the runtime directories reported by the installer. Do not make the whole application tree permanently writable.
+4. Run `install.php`, enter the setup key from `_bonumark_stream/setup-key.php`, and complete database/site setup.
 5. Ensure the runtime paths remain writable to PHP, including `_bonumark_stream/data/`, `_bonumark_stream/tmp/`, import/version/upgrade storage, and public `media/`.
 6. Remove the temporary PHP write access to application/config creation paths so package-managed code returns to the locked-down owner-controlled model.
 7. From the site root, run `php scripts/deployment-check.php`.

@@ -217,7 +217,7 @@ Apache and LiteSpeed use the included `.htaccess` rules. Nginx deployments can u
 
 1. Download the latest release ZIP.
 2. Upload the package contents to the target web root or subdirectory.
-3. Visit `install.php`.
+3. Visit `install.php`, then open `_bonumark_stream/setup-key.php` with your file manager or FTP and enter the one-time setup key it contains.
 4. Confirm the server checks and enter the database connection details.
 5. Create the first Admin account.
 6. Complete installation and sign in at `/admin/`.
@@ -242,6 +242,7 @@ Full instructions: [docs/UPGRADING.md](docs/UPGRADING.md).
 
 Bonumark Stream includes:
 
+- A one-time setup key, read from the private folder, before the installer accepts any settings
 - Authenticated and capability-checked Admin routes
 - CSRF protection for mutating Admin actions and public comments
 - Rate-limited public likes and comments

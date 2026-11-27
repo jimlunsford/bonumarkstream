@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_bonumark_stream/app/database.php';
+require_once __DIR__ . '/_bonumark_stream/app/install-key.php';
 
 bms_start_secure_session();
 bms_send_security_headers();
@@ -27,6 +28,12 @@ function bm_verify_install_token(): void
 function bm_install_url(string $step = ''): string
 {
     return bms_url_path('install.php' . ($step ? '?step=' . urlencode($step) : ''));
+}
+
+/** Relative to the installer itself, so it also works from a subfolder. */
+function bm_install_relative_url(string $step = ''): string
+{
+    return 'install.php' . ($step ? '?step=' . urlencode($step) : '');
 }
 
 
@@ -98,6 +105,18 @@ function bm_sanitize_prefix(string $prefix): string
     return $prefix !== '' ? $prefix : 'bms_';
 }
 
+/**
+ * One message for every database connection failure. A refused port, an
+ * unknown host, a timeout, and a wrong password look the same in the browser,
+ * so the installer cannot be used to probe the network. The exact reason is
+ * written to the PHP error log for the site owner.
+ */
+function bm_installer_connection_failure(PDOException $e): RuntimeException
+{
+    bms_log_sanitized_exception('installer-database', $e);
+    return new RuntimeException('Bonumark Stream could not connect to the database with these details. Check the database name, username, password, and host, then try again. The exact reason is recorded in the PHP error log.');
+}
+
 function bm_connect(array $db): PDO
 {
     $host = (string)($db['host'] ?? 'localhost');
@@ -106,11 +125,15 @@ function bm_connect(array $db): PDO
     $pass = (string)($db['password'] ?? '');
     $charset = (string)($db['charset'] ?? 'utf8mb4');
     $dsn = "mysql:host={$host};dbname={$name};charset={$charset}";
-    $pdo = new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    try {
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    } catch (PDOException $e) {
+        throw bm_installer_connection_failure($e);
+    }
     // Fresh-install schema and seed writes must use the same canonical UTC
     // database session as normal runtime connections.
     $pdo->exec("SET time_zone = '+00:00'");
@@ -258,6 +281,42 @@ function bm_installer_error_page(string $title, string $message, int $status = 4
     exit;
 }
 
+/** True when this browser session entered the current setup key. */
+function bm_install_key_verified(string $setupKey): bool
+{
+    return hash_equals(bms_install_key_fingerprint($setupKey), (string)($_SESSION['bm_install_setup_key'] ?? ''));
+}
+
+/** The first installer screen: ask for the setup key and nothing else. */
+function bm_installer_key_page(string $error = '', int $status = 200): never
+{
+    http_response_code($status);
+    bm_installer_header('Enter your setup key');
+    if ($error !== '') {
+        echo '<div class="flash error" role="alert">' . htmlspecialchars($error, ENT_QUOTES, 'UTF-8') . '</div>';
+    }
+    ?>
+    <section class="panel">
+      <p>Before setup starts, Bonumark Stream checks that you are the person who uploaded it to this server. It has written a one-time setup key to a file there, which only someone with access to the site's files can open.</p>
+      <ol>
+        <li>Open your hosting file manager or FTP program.</li>
+        <li>In the folder where you uploaded Bonumark Stream, open <code>_bonumark_stream/setup-key.php</code>.</li>
+        <li>Copy the setup key from that file and paste it below.</li>
+      </ol>
+      <p class="field-help">Bonumark Stream deletes the file when installation finishes. To get a new key, delete the file and reload this page.</p>
+    </section>
+    <form method="post" action="<?= htmlspecialchars(bm_install_relative_url('key'), ENT_QUOTES, 'UTF-8') ?>" class="panel settings-form">
+      <input type="hidden" name="install_token" value="<?= htmlspecialchars(bm_install_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <label for="field_setup_key">Setup key</label>
+      <input id="field_setup_key" type="text" name="setup_key" value="" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="field_setup_key_help" required>
+      <p class="field-help" id="field_setup_key_help">Six groups of four letters and numbers, like XXXX-XXXX-XXXX-XXXX-XXXX-XXXX. Dashes and spaces are optional.</p>
+      <button type="submit">Continue</button>
+    </form>
+    <?php
+    bm_installer_footer();
+    exit;
+}
+
 function bm_field(string $name, string $label, string $value = '', string $type = 'text', string $help = '', bool $required = true): void
 {
     $id = 'field_' . preg_replace('/[^a-z0-9_]+/i', '_', $name);
@@ -271,8 +330,42 @@ function bm_field(string $name, string $label, string $value = '', string $type 
 $step = (string)($_GET['step'] ?? 'welcome');
 $error = '';
 
+// Setup key gate. Until this browser session enters the key written to
+// _bonumark_stream/setup-key.php, no step accepts settings, opens a database
+// connection, or makes a network request.
+$setupKey = bms_install_key_ensure();
+if ($setupKey === null) {
+    bm_installer_error_page('Setup key unavailable', 'Bonumark Stream could not create its setup key file in the _bonumark_stream folder. Make sure the PHP process can write to that folder, which will also hold config.php, then reload this page.', 503);
+}
+if (!bm_install_key_verified($setupKey)) {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        bm_installer_key_page();
+    }
+    bm_verify_install_token();
+    if ($step !== 'key') {
+        bm_installer_key_page('Enter the setup key before continuing.', 403);
+    }
+    $outcome = bms_install_key_check((string)($_POST['setup_key'] ?? ''), $setupKey, (string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($outcome === 'accepted') {
+        session_regenerate_id(true);
+        $_SESSION['bm_install_setup_key'] = bms_install_key_fingerprint($setupKey);
+        bms_redirect(bm_install_relative_url());
+    }
+    if ($outcome === 'limited') {
+        bm_installer_key_page('Too many wrong setup keys were entered from this network. Wait 15 minutes, or delete _bonumark_stream/setup-key.php and reload this page to get a new key.', 429);
+    }
+    if ($outcome === 'unavailable') {
+        bm_installer_key_page('Bonumark Stream could not record setup key attempts in the _bonumark_stream folder. Make sure the PHP process can write to that folder, then try again.', 503);
+    }
+    bm_installer_key_page('That setup key is not correct. Copy it again from _bonumark_stream/setup-key.php.', 403);
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     bm_verify_install_token();
+
+    if ($step === 'key') {
+        bms_redirect(bm_install_relative_url());
+    }
 
     if ($step === 'database') {
         $db = [
@@ -288,7 +381,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!bms_db_supports_mysql()) {
                 throw new RuntimeException('The PDO MySQL extension is not enabled on this server. Ask your host to enable pdo_mysql.');
             }
-            $dbInfo = bms_db_test_connection($db);
+            try {
+                $dbInfo = bms_db_test_connection($db);
+            } catch (PDOException $e) {
+                throw bm_installer_connection_failure($e);
+            }
             $_SESSION['bm_install_db'] = $db;
             $_SESSION['bm_install_db_info'] = $dbInfo;
             bms_redirect(bm_install_url('setup'));
@@ -371,10 +468,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $userId = bm_seed_database($pdo, (string)$db['prefix'], $site, $admin);
 
             bms_write_file(bms_installed_lock_path(), "Installed: " . date('c') . "\nVersion: " . bms_version() . "\n");
+            bms_install_key_retire();
             $_SESSION['bms_logged_in'] = true;
             $_SESSION['bms_user_id'] = $userId;
             $_SESSION['bms_session_version'] = 1;
-            unset($_SESSION['bm_install_db'], $_SESSION['bm_install_db_info']);
+            unset($_SESSION['bm_install_db'], $_SESSION['bm_install_db_info'], $_SESSION['bm_install_setup_key']);
             bms_redirect(bms_admin_url());
         } catch (Throwable $e) {
             $error = $e->getMessage();
