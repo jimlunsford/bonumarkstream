@@ -313,6 +313,30 @@ function bms_import_save_preview_payload(array $preview): void
     }
 }
 
+function bms_import_preview_is_bonumark_export(array $preview): bool
+{
+    return hash_equals((new BMS_BonumarkExportImporter())->label(), (string)($preview['importer'] ?? ''));
+}
+
+/**
+ * The import options preselected for a preview. A Bonumark export keeps its
+ * detected status and dates; every other format imports as drafts. Choices
+ * the owner made for an earlier batch of the same preview are kept, and the
+ * owner can change either option before importing.
+ *
+ * @return array{target_status:string,preserve_dates:bool}
+ */
+function bms_import_default_options(array $preview): array
+{
+    $progress = is_array($preview['progress'] ?? null) ? $preview['progress'] : [];
+    $formatDefault = bms_import_preview_is_bonumark_export($preview) ? 'original' : 'draft';
+    $status = (string)($progress['last_target_status'] ?? $formatDefault);
+    return [
+        'target_status' => in_array($status, ['draft', 'published', 'original'], true) ? $status : $formatDefault,
+        'preserve_dates' => !isset($progress['last_preserve_dates']) || (int)$progress['last_preserve_dates'] === 1,
+    ];
+}
+
 function bms_import_update_preview_progress(array $preview, array $progress): void
 {
     $existing = is_array($preview['progress'] ?? null) ? $preview['progress'] : [];

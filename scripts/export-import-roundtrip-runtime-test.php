@@ -428,6 +428,7 @@ try {
     rt_expect($preview['status'] === 200 && preg_match('/name="preview_token"\s+value="([^"]+)"/', $preview['body'], $previewMatch) === 1, 'Target: Full export creates an import preview');
     $previewText = rt_flash_text($preview['body']);
     rt_expect(str_contains($previewText, 'no post uses'), 'Preview reports media library files no post uses');
+    rt_expect(str_contains($preview['body'], '<option value="original" selected>Use detected status</option>') && preg_match('/<input type="checkbox" name="preserve_dates" value="1" checked>/', $preview['body']) === 1, 'A Bonumark export preview preselects Use detected status and Preserve dates');
     rt_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$t}posts`")->fetchColumn() === 0 && (int)$pdo->query("SELECT COUNT(*) FROM `{$t}media`")->fetchColumn() === 0, 'Preview writes no content or media records');
     $confirm = rt_request($bases['target'], '/admin/import.php', $targetOwner, [
         'csrf_token' => $importToken, 'import_action' => 'import', 'preview_token' => html_entity_decode((string)($previewMatch[1] ?? ''), ENT_QUOTES, 'UTF-8'),
@@ -559,6 +560,11 @@ try {
     rt_expect((int)$pdo->query("SELECT COUNT(*) FROM `{$t}posts`")->fetchColumn() === 11 && (int)$pdo->query("SELECT COUNT(*) FROM `{$t}media`")->fetchColumn() === 6, 'Importing the same export again duplicates no posts or media');
     rt_expect((glob($trees['target'] . '/_bonumark_stream/import-staging/*/*') ?: []) === [] || (glob($trees['target'] . '/_bonumark_stream/import-staging/previews/*') ?: []) === [], 'Confirmed imports clean their private preview files');
     rt_expect($targetCutoverBefore !== '' && (string)$pdo->query("SELECT setting_value FROM `{$t}settings` WHERE setting_key = 'stream_published_at_utc_cutover'")->fetchColumn() <= '2019-06-01 16:00:00', 'The fresh install reads every imported publication time as UTC');
+
+    // Other formats keep the Draft default.
+    $markdownPreview = rt_upload($bases['target'], $targetOwner, $importToken, 'note.md', "---\ntitle: Imported note\n---\nA note to import.\n");
+    rt_expect($markdownPreview['status'] === 200 && str_contains($markdownPreview['body'], '<option value="draft" selected>Import as drafts</option>') && !str_contains($markdownPreview['body'], '<option value="original" selected>'), 'A Markdown preview keeps Import as drafts preselected');
+    rt_request($bases['target'], '/admin/import.php', $targetOwner, ['csrf_token' => $importToken, 'import_action' => 'clear']);
     $report['completed'] = true;
 } catch (Throwable $e) {
     rt_expect(false, 'Round trip ran without error (' . get_class($e) . ': ' . $e->getMessage() . ')');

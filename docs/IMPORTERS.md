@@ -21,6 +21,8 @@ Markdown, JSON, and Bonumark export imports preserve an ordered `media_gallery` 
 
 **Admin → System → Export** and **Import** move content between Bonumark Stream sites. They are not a backup. For full recovery, keep server backups of the database and the site files, including `_bonumark_stream/config.php` and `media/`, and restore those.
 
+When Import detects a Bonumark export, it preselects **Use detected status** and **Preserve imported dates when available**. Other formats keep **Import as drafts** preselected. You can change either option before confirming the import.
+
 A **Full** export, imported into another site with **Use detected status** and **Preserve imported dates when available**, restores:
 
 - Stream Posts and Pages, published, draft, and scheduled, with their slugs, titles, descriptions, tags, and bodies.
