@@ -566,7 +566,15 @@ function bms_upgrade_recovery_state(): array
         'backup_path' => trim((string)($state['backup_path'] ?? '')),
         'started_at' => trim((string)($state['started_at'] ?? '')),
         'updated_at' => trim((string)($state['updated_at'] ?? '')),
+        'package_sha256' => bms_upgrade_recovery_clean_sha256((string)($state['package_sha256'] ?? '')),
     ];
+}
+
+/** A lowercase SHA-256 hex digest, or '' when the value is not one. */
+function bms_upgrade_recovery_clean_sha256(string $value): string
+{
+    $value = strtolower(trim($value));
+    return preg_match('/^[a-f0-9]{64}$/', $value) === 1 ? $value : '';
 }
 
 function bms_write_upgrade_recovery_state(array $state): void
@@ -584,6 +592,9 @@ function bms_write_upgrade_recovery_state(array $state): void
         'backup_path' => trim((string)($state['backup_path'] ?? '')),
         'started_at' => trim((string)($state['started_at'] ?? gmdate('c'))),
         'updated_at' => gmdate('c'),
+        // The release ZIP whose migrations started. Recovery resumes with
+        // that exact package unless the owner explicitly accepts another.
+        'package_sha256' => bms_upgrade_recovery_clean_sha256((string)($state['package_sha256'] ?? '')),
     ];
 
     $encoded = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -602,12 +613,23 @@ function bms_clear_upgrade_recovery_state(): void
     }
 }
 
-function bms_upgrade_recovery_matches_package(string $version): bool
+/**
+ * Whether a package is the exact one an interrupted upgrade recorded: the
+ * same target version and the same ZIP SHA-256. A record without a package
+ * digest, from an earlier version or the manual migration workflow, matches
+ * no package.
+ */
+function bms_upgrade_recovery_matches_package(string $version, string $packageSha256 = ''): bool
 {
     $state = bms_upgrade_recovery_state();
+    $recorded = (string)($state['package_sha256'] ?? '');
+    $packageSha256 = bms_upgrade_recovery_clean_sha256($packageSha256);
     return (string)($state['status'] ?? '') === 'recovery_required'
         && $version !== ''
-        && hash_equals((string)($state['to_version'] ?? ''), $version);
+        && hash_equals((string)($state['to_version'] ?? ''), $version)
+        && $recorded !== ''
+        && $packageSha256 !== ''
+        && hash_equals($recorded, $packageSha256);
 }
 
 

@@ -5,7 +5,10 @@
  * Covers theme SVG refusal and the passive-file server rules, Markdown
  * placeholder escaping, the shared outbound address guard, Sendmail
  * hardening, the media PHP denial, the minimal API status payload, the
- * dot-directory and WebFinger rules, and the related public fixes.
+ * dot-directory and WebFinger rules, and the related public fixes. Also the
+ * SMTP password encryption, upgrade recovery bound to its package, the
+ * current-password check for your own Admin reset, and the uniform public
+ * sign-in failure.
  *
  * Every check is reported, so a run against an older tree shows exactly which
  * protections are missing. Theme installation and config-dependent checks run
@@ -290,6 +293,84 @@ function bms_sec_child(string $tree, string $check): void
             $report['warnings'] = array_values((array)($health['warnings'] ?? []));
         } elseif ($check === 'verification-url') {
             $report['url'] = bms_registration_verification_url('token123');
+        } elseif ($check === 'smtp-secret') {
+            // The SMTP password is encrypted with a key from config.php's salt.
+            $secret = 'pa"ss\\word ✓';
+            $stored = bms_mail_encrypt_secret($secret);
+            $report['prefixed'] = str_starts_with($stored, 'bms-enc:v1:');
+            $report['no_plain'] = !str_contains($stored, 'pa"ss');
+            $report['decrypts'] = bms_mail_decrypt_secret($stored) === $secret;
+            $report['fresh_iv'] = bms_mail_encrypt_secret($secret) !== $stored;
+            $report['plaintext_passthrough'] = bms_mail_decrypt_secret('legacy-plain-value') === 'legacy-plain-value';
+            $payload = json_decode(substr($stored, strlen('bms-enc:v1:')), true);
+            $ciphertext = base64_decode((string)($payload['ciphertext'] ?? ''), true);
+            $ciphertext[0] = chr(ord($ciphertext[0]) ^ 1);
+            $payload['ciphertext'] = base64_encode($ciphertext);
+            try {
+                bms_mail_decrypt_secret('bms-enc:v1:' . json_encode($payload));
+                $report['tamper_refused'] = false;
+            } catch (Throwable $e) {
+                $report['tamper_refused'] = true;
+            }
+            $configPath = $tree . '/_bonumark_stream/config.php';
+            $config = require $configPath;
+            file_put_contents($configPath, "<?php\nreturn " . var_export(['security_salt' => bin2hex(random_bytes(16))] + $config, true) . ";\n");
+            bms_config(true);
+            try {
+                bms_mail_decrypt_secret($stored);
+                $report['other_salt_refused'] = false;
+            } catch (Throwable $e) {
+                $report['other_salt_refused'] = true;
+            }
+            file_put_contents($configPath, "<?php\nreturn " . var_export(['security_salt' => 'short-salt'] + $config, true) . ";\n");
+            bms_config(true);
+            $report['short_salt_unavailable'] = !bms_mail_secret_storage_available();
+            try {
+                bms_mail_encrypt_secret('x');
+                $report['short_salt_refused'] = false;
+            } catch (Throwable $e) {
+                $report['short_salt_refused'] = true;
+            }
+            file_put_contents($configPath, "<?php\nreturn " . var_export($config, true) . ";\n");
+            bms_config(true);
+        } elseif ($check === 'recovery-package') {
+            // Upgrade recovery resumes with the exact package that started it.
+            require_once $tree . '/_bonumark_stream/app/upgrader.php';
+            if (!is_dir($tree . '/_bonumark_stream/data')) {
+                mkdir($tree . '/_bonumark_stream/data', 0700, true);
+            }
+            $marker = bms_upgrade_recovery_marker_path();
+            $digest = hash('sha256', 'package bytes');
+            $other = hash('sha256', 'other package bytes');
+            $status = static function (string $version, string $sha): string {
+                try {
+                    return bms_upgrade_recovery_package_status($version, $sha);
+                } catch (Throwable $e) {
+                    return 'refused';
+                }
+            };
+            $report['none'] = $status('9.9.9', $digest);
+            bms_write_upgrade_recovery_state(['status' => 'recovery_required', 'from_version' => '9.9.8', 'to_version' => '9.9.9', 'backup_path' => 'backup', 'package_sha256' => $digest]);
+            $report['recorded'] = (string)(bms_upgrade_recovery_state()['package_sha256'] ?? '') === $digest;
+            $report['match'] = $status('9.9.9', $digest);
+            $report['different'] = $status('9.9.9', $other);
+            $report['other_version'] = $status('9.9.10', $digest);
+            $report['matches_helper'] = [bms_upgrade_recovery_matches_package('9.9.9', $digest), bms_upgrade_recovery_matches_package('9.9.9', $other), bms_upgrade_recovery_matches_package('9.9.9')];
+            try {
+                bms_upgrade_assert_recovery_allows_package('9.9.9', $other);
+                $report['different_refused'] = false;
+            } catch (Throwable $e) {
+                $report['different_refused'] = $e instanceof BmsUpgradeRecoveryPackageException;
+            }
+            $report['different_acknowledged'] = bms_upgrade_assert_recovery_allows_package('9.9.9', $other, true);
+            $report['match_allowed'] = bms_upgrade_assert_recovery_allows_package('9.9.9', $digest);
+            file_put_contents($marker, json_encode(['status' => 'recovery_required', 'from_version' => '9.9.8', 'to_version' => '9.9.9', 'backup_path' => 'backup']));
+            $report['legacy'] = $status('9.9.9', $digest);
+            file_put_contents($marker, json_encode(['status' => 'migration_in_progress', 'to_version' => '9.9.9', 'package_sha256' => $digest]));
+            $report['in_progress'] = $status('9.9.9', $digest);
+            bms_upgrade_write_recovery_marker(['status' => 'recovery_required', 'from_version' => '9.9.8', 'to_version' => '9.9.9', 'backup_path' => 'backup', 'package_sha256' => $digest]);
+            $report['written'] = (string)(json_decode((string)file_get_contents($marker), true)['package_sha256'] ?? '') === $digest;
+            bms_clear_upgrade_recovery_state();
         } else {
             $report['error'] = 'unknown check';
         }
@@ -674,9 +755,58 @@ try {
         $report = bms_sec_run_child($tree, 'verification-url');
         bms_sec_check('#57', 'Verification email link is absolute from the stored base URL', ($report['url'] ?? '') === 'https://example.test/account.php?action=verify&token=token123');
     });
+
+    // #49: the SMTP password is encrypted at rest.
+    bms_sec_section('#49', static function () use ($tree): void {
+        $report = bms_sec_run_child($tree, 'smtp-secret');
+        bms_sec_check('#49', 'An encrypted SMTP password is marked and does not contain the password', !empty($report['prefixed']) && !empty($report['no_plain']));
+        bms_sec_check('#49', 'It decrypts to the exact password, with a fresh nonce each time', !empty($report['decrypts']) && !empty($report['fresh_iv']));
+        bms_sec_check('#49', 'A password an earlier version saved unencrypted still reads as itself', !empty($report['plaintext_passthrough']));
+        bms_sec_check('#49', 'A changed ciphertext is refused', !empty($report['tamper_refused']));
+        bms_sec_check('#49', 'Another installation salt cannot decrypt it', !empty($report['other_salt_refused']));
+        bms_sec_check('#49', 'Without a 32-character salt nothing is encrypted or stored', !empty($report['short_salt_unavailable']) && !empty($report['short_salt_refused']));
+    });
+
+    // #50: upgrade recovery is bound to the package that started it.
+    bms_sec_section('#50', static function () use ($tree): void {
+        $report = bms_sec_run_child($tree, 'recovery-package');
+        bms_sec_check('#50', 'Without a recovery record any package may proceed', ($report['none'] ?? '') === 'none');
+        bms_sec_check('#50', 'The recovery record keeps the package SHA-256', !empty($report['recorded']));
+        bms_sec_check('#50', 'The exact recorded package matches', ($report['match'] ?? '') === 'match' && !empty($report['match_allowed']));
+        bms_sec_check('#50', 'Another package with the same version needs acknowledgement', ($report['different'] ?? '') === 'different' && !empty($report['different_refused']) && !empty($report['different_acknowledged']));
+        bms_sec_check('#50', 'Another version is still refused', ($report['other_version'] ?? '') === 'refused');
+        bms_sec_check('#50', 'The match helper needs the same version and digest', ($report['matches_helper'] ?? []) === [true, false, false]);
+        bms_sec_check('#50', 'A record without a digest needs acknowledgement', ($report['legacy'] ?? '') === 'different');
+        bms_sec_check('#50', 'A migration still in progress is refused', ($report['in_progress'] ?? '') === 'refused');
+        bms_sec_check('#50', 'The recovery marker writer keeps the digest', !empty($report['written']));
+    });
 } finally {
     bms_sec_remove_tree($tree);
 }
+
+bms_sec_section('#49', static function (): void {
+    $export = bms_sec_file('admin/export.php');
+    bms_sec_check('#49', 'Database and Full exports leave out the SMTP password setting', str_contains($export, "return ['mail_smtp_password'];") && str_contains($export, 'in_array((string)($row[\'setting_key\'] ?? \'\'), $secretSettings, true)'));
+    bms_sec_check('#49', 'Admin Mail stores a new SMTP password encrypted', str_contains(bms_sec_file('admin/mail.php'), "bms_set_setting('mail_smtp_password', bms_mail_encrypt_secret(\$smtpPassword));"));
+});
+
+bms_sec_section('L13', static function (): void {
+    $auth = bms_sec_file('_bonumark_stream/app/auth.php');
+    bms_sec_check('L13', 'Resetting your own password in Admin verifies the current password', str_contains($auth, 'function bms_admin_reset_user_password(int $id, string $password, string $confirmPassword, string $currentPassword = \'\'): void') && str_contains($auth, 'Enter your current password to reset your own password.'));
+    bms_sec_check('L13', 'Admin → Accounts asks for it on your own account', str_contains(bms_sec_file('admin/user-edit.php'), 'name="reset_current_password"'));
+});
+
+bms_sec_section('L14', static function (): void {
+    $routes = bms_sec_file('_bonumark_stream/app/routes.php');
+    $login = substr($routes, (int)strpos($routes, "if (\$action === 'login') {"), 900);
+    bms_sec_check('L14', 'Public sign-in checks no account state before the password', !str_contains($login, 'bms_find_user_by_username_any') && !str_contains($login, 'That account') && str_contains($login, 'bms_public_sign_in_failure_message()'));
+    bms_sec_check('L14', 'Public sign-in shows one message that depends only on site settings', function_exists('bms_public_sign_in_failure_message') || str_contains(bms_sec_file('_bonumark_stream/app/registration.php'), 'function bms_public_sign_in_failure_message(): string'));
+    bms_sec_check('L14', 'An unmatched username costs the same hashing work as a wrong password', str_contains(bms_sec_file('_bonumark_stream/app/auth.php'), "if (!\$user || \$hash === '') {\n        // No active account matched."));
+});
+
+bms_sec_section('L2', static function (): void {
+    bms_sec_check('L2', 'Admin Mail no longer has the unreachable stored Sendmail path notice', !function_exists('bms_mail_legacy_sendmail_setting') && !str_contains(bms_sec_file('admin/mail.php'), 'An earlier version saved'));
+});
 
 bms_sec_section('#51', static function (): void {
     $upgrade = bms_sec_file('admin/upgrade.php');

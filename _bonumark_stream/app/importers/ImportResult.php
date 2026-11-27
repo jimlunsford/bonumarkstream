@@ -9,6 +9,13 @@ class BMS_ImportResult
     public array $warnings = [];
     /** @var list<string> */
     public array $errors = [];
+    /**
+     * Media library files an importer staged for restore: the staging token
+     * and one entry per file. Empty for importers that restore no library.
+     *
+     * @var array{token?:string,items?:list<array<string,mixed>>}
+     */
+    public array $mediaLibrary = [];
 
     public function __construct(string $importerName)
     {
@@ -49,6 +56,7 @@ class BMS_ImportResult
             'items' => array_map(static fn(BMS_ImportItem $item): array => $item->toArray(), $this->items),
             'warnings' => $this->warnings,
             'errors' => $this->errors,
+            'media_library' => $this->mediaLibrary,
         ];
     }
 }

@@ -5,7 +5,7 @@ Bonumark Stream is a database-first, self-hosted microblog CMS designed for port
 ## Project rules
 
 - Database is the source of truth.
-- Markdown is import, export, backup, and portability only.
+- Markdown is import, export, and portability only. Export is content-only and is not a backup.
 - Core owns application logic.
 - Themes are presentation-only and code-free.
 - Shared-hosting compatibility matters.

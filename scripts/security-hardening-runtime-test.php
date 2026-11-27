@@ -236,7 +236,8 @@ try {
         return $value === false ? null : (string)$value;
     };
 
-    $process = proc_open([PHP_BINARY, '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=9M', '-d', 'session.save_path=' . $temporary . '/sessions', '-S', $address, '-t', $temporary], [0 => ['pipe', 'r'], 1 => ['file', $temporary . '/http.log', 'a'], 2 => ['file', $temporary . '/http.log', 'a']], $pipes, $temporary);
+    // OPcache off: the test rewrites config.php and needs each request to read it.
+    $process = proc_open([PHP_BINARY, '-d', 'opcache.enable=0', '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=9M', '-d', 'session.save_path=' . $temporary . '/sessions', '-S', $address, '-t', $temporary], [0 => ['pipe', 'r'], 1 => ['file', $temporary . '/http.log', 'a'], 2 => ['file', $temporary . '/http.log', 'a']], $pipes, $temporary);
     if (!is_resource($process)) {
         throw new RuntimeException('Could not start the isolated PHP HTTP server.');
     }
@@ -328,12 +329,64 @@ try {
     bms_security_runtime_expect($adminRuns === [], 'The Admin-submitted Sendmail program never runs');
     bms_security_runtime_expect(str_contains($testMessage, 'Subject: Bonumark Stream Test Email') && str_contains($testMessage, 'Bonumark Stream can send mail'), 'The config.php Sendmail program receives the complete test message');
 
-    // An earlier version could store a path in settings. It is reported, not used.
+    // Migration 0029 deletes a path an earlier version stored in settings.
+    // Should one remain, it is neither shown nor used.
     $insertSetting->execute(['mail_sendmail_path', $adminSendmail]);
     $mailPage = bms_security_runtime_request($base, '/admin/mail.php', $owner);
-    bms_security_runtime_expect(str_contains($mailPage['body'], 'An earlier version saved') && str_contains($mailPage['body'], htmlspecialchars($adminSendmail, ENT_QUOTES, 'UTF-8')), 'Admin Mail names a legacy stored Sendmail path without using it');
+    bms_security_runtime_expect(!str_contains($mailPage['body'], 'An earlier version saved') && !str_contains($mailPage['body'], htmlspecialchars($adminSendmail, ENT_QUOTES, 'UTF-8')), 'Admin Mail shows no notice for a stored Sendmail path');
     bms_security_runtime_request($base, '/admin/mail.php', $owner, ['csrf_token' => bms_security_runtime_token($mailPage['body']), 'mail_action' => 'test', 'test_recipient' => 'recipient@example.test']);
     bms_security_runtime_expect((glob($temporary . '/mail/admin-*.argv') ?: []) === [], 'A legacy stored Sendmail path never runs');
+
+    // #49: the SMTP password is stored encrypted with a key derived from the
+    // security salt in config.php, and no export includes it. A password an
+    // earlier version stored without encryption keeps working and is
+    // encrypted when Mail reads it.
+    $legacySecret = 'legacy-smtp-' . bin2hex(random_bytes(8));
+    $insertSetting->execute(['mail_smtp_password', $legacySecret]);
+    $mailPage = bms_security_runtime_request($base, '/admin/mail.php', $owner);
+    $stored = (string)$setting('mail_smtp_password');
+    bms_security_runtime_expect(str_starts_with($stored, 'bms-enc:v1:') && !str_contains($stored, $legacySecret), 'A plaintext SMTP password from an earlier version is encrypted when Admin Mail reads it');
+    bms_security_runtime_expect(str_contains($mailPage['body'], 'A password is stored encrypted'), 'Admin Mail reports the SMTP password as stored encrypted');
+    require_once $temporary . '/_bonumark_stream/app/mail.php';
+    bms_security_runtime_expect(function_exists('bms_mail_decrypt_secret') && bms_mail_decrypt_secret($stored) === $legacySecret, 'The encrypted legacy password decrypts to the original for the SMTP transport');
+    $freshSecret = 'fresh-smtp-' . bin2hex(random_bytes(8));
+    $mailForm = ['csrf_token' => bms_security_runtime_token($mailPage['body']), 'mail_action' => 'save', 'mail_transport' => 'sendmail', 'mail_from_name' => 'Security Fixture', 'mail_from_email' => 'sender@example.test', 'mail_reply_to' => '', 'mail_smtp_host' => 'smtp.example.test', 'mail_smtp_port' => 587, 'mail_smtp_encryption' => 'tls', 'mail_smtp_username' => 'fixture'];
+    bms_security_runtime_request($base, '/admin/mail.php', $owner, $mailForm + ['mail_smtp_password' => $freshSecret]);
+    $stored = (string)$setting('mail_smtp_password');
+    bms_security_runtime_expect(str_starts_with($stored, 'bms-enc:v1:') && !str_contains($stored, $freshSecret) && bms_mail_decrypt_secret($stored) === $freshSecret, 'Saving a new SMTP password in Admin Mail stores it encrypted');
+    $exportPage = bms_security_runtime_request($base, '/admin/export.php', $owner);
+    foreach (['database', 'full'] as $kind) {
+        $export = bms_security_runtime_request($base, '/admin/export.php', $owner, ['csrf_token' => bms_security_runtime_token($exportPage['body']), 'export_kind' => $kind]);
+        $zipFile = $temporary . '/export-' . $kind . '.zip';
+        file_put_contents($zipFile, $export['body']);
+        $archive = new ZipArchive();
+        $contents = '';
+        if ($archive->open($zipFile) === true) {
+            for ($index = 0; $index < $archive->numFiles; $index++) {
+                $contents .= (string)$archive->getFromIndex($index);
+            }
+            $archive->close();
+        }
+        unlink($zipFile);
+        bms_security_runtime_expect($contents !== '' && str_contains($contents, 'mail_smtp_host') && !str_contains($contents, "'mail_smtp_password'") && !str_contains($contents, $freshSecret) && !str_contains($contents, substr($stored, 11, 40)), ucfirst($kind) . ' export never includes the SMTP password, encrypted or plain');
+    }
+    // A password encrypted with another security salt cannot be read. Admin
+    // Mail and System Check say so; nothing is sent with a wrong password.
+    $configPath = $temporary . '/_bonumark_stream/config.php';
+    file_put_contents($configPath, "<?php\nreturn " . var_export(['security_salt' => bin2hex(random_bytes(24))] + $config, true) . ";\n");
+    $mailPage = bms_security_runtime_request($base, '/admin/mail.php', $owner);
+    $checkPage = bms_security_runtime_request($base, '/admin/system-check.php', $owner);
+    bms_security_runtime_expect(str_contains($mailPage['body'], 'Enter the SMTP password again.') && str_contains($checkPage['body'], 'SMTP password storage') && str_contains($checkPage['body'], 'cannot be decrypted'), 'A password encrypted with another security salt is reported in Admin Mail and System Check');
+    // Without a usable salt the password is not stored at all.
+    file_put_contents($configPath, "<?php\nreturn " . var_export(['security_salt' => 'too-short-salt'] + $config, true) . ";\n");
+    $mailPage = bms_security_runtime_request($base, '/admin/mail.php', $owner);
+    $before = (string)$setting('mail_smtp_password');
+    bms_security_runtime_request($base, '/admin/mail.php', $owner, ['csrf_token' => bms_security_runtime_token($mailPage['body'])] + $mailForm + ['mail_smtp_password' => 'weak-salt-secret']);
+    $after = bms_security_runtime_request($base, '/admin/mail.php', $owner);
+    bms_security_runtime_expect((string)$setting('mail_smtp_password') === $before && str_contains($after['body'], 'The SMTP password was not saved.'), 'Without a security salt of 32+ characters a new SMTP password is refused, not stored in plain text');
+    file_put_contents($configPath, "<?php\nreturn " . var_export($config, true) . ";\n");
+    $checkPage = bms_security_runtime_request($base, '/admin/system-check.php', $owner);
+    bms_security_runtime_expect(str_contains($checkPage['body'], 'The saved SMTP password is stored encrypted.'), 'System Check reports the encrypted password once the original salt is back');
 
     // #57: verification emails carry an absolute link from the stored base URL.
     foreach (['registration_mode' => 'open', 'registration_require_email_verification' => '1', 'registration_require_admin_approval' => '0', 'registration_honeypot_enabled' => '1'] as $key => $value) {

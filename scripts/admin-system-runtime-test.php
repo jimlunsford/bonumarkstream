@@ -474,7 +474,27 @@ FIXTURE;
     file_put_contents($temporary.'/_bonumark_stream/data/upgrade-recovery.json',json_encode($recovery));
     $html=$get('upgrade')['body'];bms_system_test_expect(str_contains($html,'role="alert"') && strpos($html,'upgrade-recovery-panel')<strpos($html,'upgrade-upload-panel') && str_contains($html,'Do not use another package'),'Recovery warning is prominent before upload and preserves same-package instruction');
     bms_system_test_expect(str_contains($html,'fixture-backup') && !str_contains($html,'/private/synthetic/'),'Recovery backup reference uses basename only');
-    $response=$uploadUpgrade($package);bms_system_test_expect($response['status']===200 && str_contains($response['body'],'This package matches the recorded recovery target'),'Recovery accepts matching target precheck');
+    // A recovery record without a package digest (an earlier version wrote it)
+    // cannot prove the package is the same, so resuming needs acknowledgement.
+    $barrierFile=$temporary.'/_bonumark_stream/data/install-barrier.txt';
+    $response=$uploadUpgrade($package);
+    bms_system_test_expect($response['status']===200 && str_contains($response['body'],'This is not the package that started the interrupted upgrade') && str_contains($response['body'],'name="acknowledge_different_package"') && !str_contains($response['body'],'This package matches the recorded recovery target'),'A recovery record without a package digest asks for acknowledgement');
+    $post('upgrade',['confirm_upgrade'=>'1']);$html=$get('upgrade')['body'];
+    bms_system_test_expect(!file_exists($barrierFile) && str_contains($html,'not the package that started the interrupted upgrade') && str_contains($html,'name="confirm_upgrade"'),'Resuming without acknowledgement is refused before any change and keeps the package staged');
+    $post('upgrade',['confirm_upgrade'=>'1','acknowledge_different_package'=>'1']);
+    bms_system_test_expect(file_exists($barrierFile),'An explicitly acknowledged package resumes recovery');
+    @unlink($barrierFile);$post('upgrade',['cancel_upgrade'=>'1']);
+    // A record with the package digest resumes with that exact ZIP only.
+    file_put_contents($temporary.'/_bonumark_stream/data/upgrade-recovery.json',json_encode($recovery+['package_sha256'=>hash('sha256',$package)]));
+    $html=$get('upgrade')['body'];bms_system_test_expect(str_contains($html,hash('sha256',$package)),'Recovery panel shows the recorded package digest');
+    $response=$uploadUpgrade($package);bms_system_test_expect($response['status']===200 && str_contains($response['body'],'This package matches the recorded recovery target') && !str_contains($response['body'],'name="acknowledge_different_package"'),'Recovery accepts the exact recorded package without acknowledgement');
+    $post('upgrade',['confirm_upgrade'=>'1']);bms_system_test_expect(file_exists($barrierFile),'The exact recorded package resumes recovery');
+    @unlink($barrierFile);$post('upgrade',['cancel_upgrade'=>'1']);
+    $sameVersion=$packageEntries;$sameVersion['_bonumark_stream/PACKAGE.json']=json_encode(['name'=>'bonumark-stream','version'=>'99.0.0','release_name'=>'Different bytes, same version']);unset($sameVersion['_bonumark_stream/RELEASE-MANIFEST.json']);$manifest=[];foreach($sameVersion as $path=>$bytes){$manifest[]=['path'=>$path,'sha256'=>hash('sha256',$bytes)];}$sameVersion['_bonumark_stream/RELEASE-MANIFEST.json']=json_encode(['name'=>'bonumark-stream','version'=>'99.0.0','files'=>$manifest]);
+    $otherPackage=bms_system_test_zip($sameVersion);
+    $response=$uploadUpgrade($otherPackage);bms_system_test_expect($response['status']===200 && str_contains($response['body'],'This is not the package that started the interrupted upgrade') && str_contains($response['body'],hash('sha256',$package)) && str_contains($response['body'],hash('sha256',$otherPackage)),'A different package with the recovery version shows both digests');
+    $post('upgrade',['confirm_upgrade'=>'1']);bms_system_test_expect(!file_exists($barrierFile),'A different package with the recovery version never resumes without acknowledgement');
+    $post('upgrade',['cancel_upgrade'=>'1']);
     $different=$packageEntries;$different['_bonumark_stream/PACKAGE.json']=json_encode(['name'=>'bonumark-stream','version'=>'99.0.1']);$different['_bonumark_stream/VERSION']="99.0.1\n";$different['VERSION']="99.0.1\n";unset($different['_bonumark_stream/RELEASE-MANIFEST.json']);$manifest=[];foreach($different as $path=>$bytes){$manifest[]=['path'=>$path,'sha256'=>hash('sha256',$bytes)];}$different['_bonumark_stream/RELEASE-MANIFEST.json']=json_encode(['name'=>'bonumark-stream','version'=>'99.0.1','files'=>$manifest]);
     $response=$uploadUpgrade(bms_system_test_zip($different));bms_system_test_expect($response['status']===302 && !str_contains($get('upgrade')['body'],'name="confirm_upgrade"'),'Recovery rejects a different target package');
     unlink($temporary.'/_bonumark_stream/data/upgrade-recovery.json');$uploadUpgrade($package);$post('upgrade',['confirm_upgrade'=>'1']);

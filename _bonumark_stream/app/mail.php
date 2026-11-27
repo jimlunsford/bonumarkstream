@@ -32,20 +32,152 @@ function bms_mail_sendmail_path(): string
 }
 
 /**
- * Return a Sendmail path stored in settings by an earlier version, when it
- * differs from the config.php path. It is reported in Admin and never used.
+ * The SMTP password is stored encrypted, the same way ActivityPub signing keys
+ * are: AES-256-GCM with a key derived from the installation security salt in
+ * config.php. The settings value carries a prefix, so a password an earlier
+ * version saved without encryption still works; it is encrypted the next time
+ * it is read. Exports never include it.
  */
-function bms_mail_legacy_sendmail_setting(): string
+function bms_mail_secret_prefix(): string
+{
+    return 'bms-enc:v1:';
+}
+
+function bms_mail_secret_key(): string
+{
+    $salt = trim((string)(bms_config()['security_salt'] ?? ''));
+    if (strlen($salt) < 32) {
+        throw new RuntimeException('Bonumark Stream stores the SMTP password only when _bonumark_stream/config.php has a security_salt of at least 32 characters.');
+    }
+    if (!function_exists('openssl_encrypt') || !function_exists('openssl_decrypt')) {
+        throw new RuntimeException('Bonumark Stream needs the PHP OpenSSL extension to store the SMTP password.');
+    }
+    return hash_hkdf('sha256', $salt, 32, 'bonumark-stream-smtp-password-v1');
+}
+
+function bms_mail_secret_storage_available(): bool
+{
+    try {
+        bms_mail_secret_key();
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function bms_mail_is_encrypted_secret(string $stored): bool
+{
+    return str_starts_with($stored, bms_mail_secret_prefix());
+}
+
+function bms_mail_encrypt_secret(string $plain): string
+{
+    if ($plain === '') {
+        return '';
+    }
+    $key = bms_mail_secret_key();
+    $iv = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, 'bonumark-stream-smtp-password-v1', 16);
+    if (!is_string($ciphertext) || strlen($tag) !== 16) {
+        throw new RuntimeException('The SMTP password could not be encrypted.');
+    }
+    $payload = json_encode([
+        'version' => 1,
+        'cipher' => 'aes-256-gcm',
+        'iv' => base64_encode($iv),
+        'tag' => base64_encode($tag),
+        'ciphertext' => base64_encode($ciphertext),
+    ], JSON_UNESCAPED_SLASHES);
+    if (!is_string($payload)) {
+        throw new RuntimeException('The encrypted SMTP password could not be encoded.');
+    }
+    return bms_mail_secret_prefix() . $payload;
+}
+
+/** The plain SMTP password for a stored value. A value without the prefix is returned as it is. */
+function bms_mail_decrypt_secret(string $stored): string
+{
+    if (!bms_mail_is_encrypted_secret($stored)) {
+        return $stored;
+    }
+    $decoded = json_decode(substr($stored, strlen(bms_mail_secret_prefix())), true);
+    if (!is_array($decoded) || (int)($decoded['version'] ?? 0) !== 1 || (string)($decoded['cipher'] ?? '') !== 'aes-256-gcm') {
+        throw new RuntimeException('The saved SMTP password has an unknown format.');
+    }
+    $iv = base64_decode((string)($decoded['iv'] ?? ''), true);
+    $tag = base64_decode((string)($decoded['tag'] ?? ''), true);
+    $ciphertext = base64_decode((string)($decoded['ciphertext'] ?? ''), true);
+    if (!is_string($iv) || strlen($iv) !== 12 || !is_string($tag) || strlen($tag) !== 16 || !is_string($ciphertext)) {
+        throw new RuntimeException('The saved SMTP password is damaged.');
+    }
+    $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', bms_mail_secret_key(), OPENSSL_RAW_DATA, $iv, $tag, 'bonumark-stream-smtp-password-v1');
+    if (!is_string($plain)) {
+        throw new RuntimeException('The saved SMTP password could not be decrypted with this installation\'s security salt.');
+    }
+    return $plain;
+}
+
+/** The SMTP password exactly as stored in settings, or '' when none is saved there. */
+function bms_mail_stored_smtp_password(): string
 {
     if (!function_exists('bms_setting') || !bms_is_installed() || !bms_has_database_config()) {
         return '';
     }
     try {
-        $stored = trim((string)bms_setting('mail_sendmail_path', ''));
+        $stmt = bms_db()->prepare('SELECT setting_value FROM ' . bms_table('settings') . ' WHERE setting_key = :setting_key LIMIT 1');
+        $stmt->execute(['setting_key' => 'mail_smtp_password']);
+        $value = $stmt->fetchColumn();
+        return $value === false || $value === null ? '' : (string)$value;
     } catch (Throwable $e) {
         return '';
     }
-    return $stored !== '' && $stored !== bms_mail_sendmail_path() ? $stored : '';
+}
+
+/**
+ * How the saved SMTP password is stored: 'none', 'encrypted', 'plaintext'
+ * (saved by an earlier version and not yet encrypted), or 'unreadable'
+ * (encrypted with another security salt, or damaged).
+ */
+function bms_mail_smtp_password_state(): string
+{
+    $stored = bms_mail_stored_smtp_password();
+    if ($stored === '') {
+        return 'none';
+    }
+    if (!bms_mail_is_encrypted_secret($stored)) {
+        return 'plaintext';
+    }
+    try {
+        bms_mail_decrypt_secret($stored);
+        return 'encrypted';
+    } catch (Throwable $e) {
+        return 'unreadable';
+    }
+}
+
+/**
+ * Encrypt an SMTP password an earlier version saved without encryption. Safe
+ * to repeat; only the exact value read is replaced. Returns the resulting
+ * state, as bms_mail_smtp_password_state() reports it.
+ */
+function bms_mail_protect_stored_smtp_password(): string
+{
+    $stored = bms_mail_stored_smtp_password();
+    if ($stored === '' || bms_mail_is_encrypted_secret($stored)) {
+        return bms_mail_smtp_password_state();
+    }
+    if (!bms_mail_secret_storage_available()) {
+        return 'plaintext';
+    }
+    try {
+        $stmt = bms_db()->prepare('UPDATE ' . bms_table('settings') . ' SET setting_value = :encrypted, updated_at = NOW() WHERE setting_key = :setting_key AND setting_value = :stored');
+        $stmt->execute(['encrypted' => bms_mail_encrypt_secret($stored), 'setting_key' => 'mail_smtp_password', 'stored' => $stored]);
+    } catch (Throwable $e) {
+        error_log('Bonumark Stream could not encrypt the stored SMTP password: ' . $e->getMessage());
+        return 'plaintext';
+    }
+    return bms_mail_smtp_password_state();
 }
 
 function bms_mail_settings(): array
@@ -56,6 +188,20 @@ function bms_mail_settings(): array
         $settings[$key] = (string)bms_setting_or_config($key, $default);
     }
     $settings['mail_sendmail_path'] = bms_mail_sendmail_path();
+
+    // Transports receive the plain password. A value saved by an earlier
+    // version without encryption keeps working and is encrypted now.
+    $storedPassword = $settings['mail_smtp_password'];
+    if (bms_mail_is_encrypted_secret($storedPassword)) {
+        try {
+            $settings['mail_smtp_password'] = bms_mail_decrypt_secret($storedPassword);
+        } catch (Throwable $e) {
+            $settings['mail_smtp_password'] = '';
+            $settings['mail_smtp_password_unreadable'] = '1';
+        }
+    } elseif ($storedPassword !== '' && bms_mail_stored_smtp_password() === $storedPassword) {
+        bms_mail_protect_stored_smtp_password();
+    }
 
     if ($settings['mail_from_name'] === '') {
         $settings['mail_from_name'] = (string)bms_setting_or_config('site_name', 'Bonumark Stream');

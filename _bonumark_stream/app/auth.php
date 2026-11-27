@@ -1079,12 +1079,20 @@ function bms_admin_update_user_account(int $id, string $username, string $displa
     return bms_find_user_by_id_any($id) ?? [];
 }
 
-function bms_admin_reset_user_password(int $id, string $password, string $confirmPassword): void
+function bms_admin_reset_user_password(int $id, string $password, string $confirmPassword, string $currentPassword = ''): void
 {
     bms_require_capability('manage_users');
     $user = bms_find_user_by_id_any($id);
     if (!$user) {
         throw new RuntimeException('User was not found.');
+    }
+    // Resetting your own password needs your current password, as changing
+    // it from Account does. Resetting another account's password does not.
+    if ($id === (int)(bms_current_user()['id'] ?? 0)) {
+        $hash = (string)($user['password_hash'] ?? '');
+        if ($hash === '' || !password_verify($currentPassword, $hash)) {
+            throw new RuntimeException('Enter your current password to reset your own password.');
+        }
     }
     if ($password !== $confirmPassword) {
         throw new RuntimeException('Password and confirmation do not match.');
@@ -1654,6 +1662,12 @@ function bms_attempt_login(string $username, string $password, bool $remember = 
         return true;
     }
 
+    if (!$user || $hash === '') {
+        // No active account matched. Do the same password-hashing work a wrong
+        // password costs, so the response time does not tell an unknown,
+        // pending, or inactive username from an active one.
+        password_hash($password, PASSWORD_DEFAULT);
+    }
     bms_record_login_attempt($username, false);
     return false;
 }

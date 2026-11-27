@@ -46,6 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bms_flash('SMTP port must be between 1 and 65535.', 'error');
             bms_redirect(bms_admin_url('mail.php'));
         }
+        if (!$clearPassword && $smtpPassword !== '' && !bms_mail_secret_storage_available()) {
+            bms_flash('The SMTP password was not saved. Bonumark Stream stores it encrypted, which needs the PHP OpenSSL extension and a security_salt of at least 32 characters in _bonumark_stream/config.php. Nothing was changed.', 'error');
+            bms_redirect(bms_admin_url('mail.php'));
+        }
         try {
             bms_set_setting('mail_transport', $transport);
             bms_set_setting('mail_from_name', $fromName);
@@ -58,7 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($clearPassword) {
                 bms_set_setting('mail_smtp_password', '');
             } elseif ($smtpPassword !== '') {
-                bms_set_setting('mail_smtp_password', $smtpPassword);
+                // Stored encrypted; see bms_mail_encrypt_secret().
+                bms_set_setting('mail_smtp_password', bms_mail_encrypt_secret($smtpPassword));
             }
             bms_flash('Mail settings saved.', 'success');
             bms_redirect(bms_admin_url('mail.php'));
@@ -105,9 +110,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $settings = bms_mail_settings();
 $transport = (string)($settings['mail_transport'] ?? 'disabled');
 $encryption = (string)($settings['mail_smtp_encryption'] ?? 'tls');
-$hasPassword = trim((string)($settings['mail_smtp_password'] ?? '')) !== '';
+$passwordState = bms_mail_smtp_password_state();
+$hasPassword = $passwordState !== 'none';
 $sendmailPath = bms_mail_sendmail_path();
-$legacySendmailPath = bms_mail_legacy_sendmail_setting();
 $recentTests = bms_mail_recent_test_deliveries(8);
 $defaultTestRecipient = (string)(bms_current_user()['email'] ?? '');
 $fromEmail = trim((string)($settings['mail_from_email'] ?? ''));
@@ -125,6 +130,11 @@ bms_admin_header('Mail Settings', [
 
 <?php if ($transport !== 'disabled' && !$mailReady): ?>
 <section class="panel settings-attention-panel"><p class="eyebrow">Needs attention</p><h2>Add a valid From email before relying on Mail.</h2><p class="meta">The selected transport cannot support registration verification or password recovery until a sender address is configured.</p></section>
+<?php endif; ?>
+<?php if ($passwordState === 'unreadable'): ?>
+<section class="panel settings-attention-panel"><p class="eyebrow">Needs attention</p><h2>Enter the SMTP password again.</h2><p class="meta">The saved SMTP password cannot be decrypted with the security salt in <code>_bonumark_stream/config.php</code>, so SMTP sign-in will fail. Enter the password below and save to replace it.</p></section>
+<?php elseif ($passwordState === 'plaintext'): ?>
+<section class="panel settings-attention-panel"><p class="eyebrow">Needs attention</p><h2>The saved SMTP password is not encrypted.</h2><p class="meta">Bonumark Stream encrypts the SMTP password with the security salt in <code>_bonumark_stream/config.php</code>. Add a <code>security_salt</code> of at least 32 characters and make sure PHP OpenSSL is available, then reload this page.</p></section>
 <?php endif; ?>
 
 <div class="settings-workflow-grid">
@@ -165,13 +175,12 @@ bms_admin_header('Mail Settings', [
         <div class="settings-field-card">
           <label for="mail_smtp_password">SMTP password</label>
           <input type="password" id="mail_smtp_password" name="mail_smtp_password" value="" autocomplete="new-password" placeholder="<?= $hasPassword ? 'Password is saved, enter a new value to replace it' : 'No password saved' ?>">
-          <p class="field-help"><?= $hasPassword ? 'A password is stored. Leave this blank to keep it.' : 'No SMTP password is stored.' ?></p>
+          <p class="field-help"><?= $passwordState === 'encrypted' ? 'A password is stored encrypted. Leave this blank to keep it. Exports never include it.' : ($hasPassword ? 'A password is stored. Leave this blank to keep it.' : 'No SMTP password is stored.') ?></p>
         </div>
         <div class="settings-field-card">
           <span class="field-label">Sendmail path</span>
           <code class="settings-technical-value"><?= htmlspecialchars($sendmailPath, ENT_QUOTES, 'UTF-8') ?></code>
           <p class="field-help">Used only when Sendmail is selected. Set <code>mail_sendmail_path</code> in <code>_bonumark_stream/config.php</code> to change it.</p>
-          <?php if ($legacySendmailPath !== ''): ?><p class="field-help">An earlier version saved <code><?= htmlspecialchars($legacySendmailPath, ENT_QUOTES, 'UTF-8') ?></code> here. Admin no longer sets this path, so that value is not used. Add it to config.php if this site needs it.</p><?php endif; ?>
         </div>
       </div>
       <?php if ($hasPassword): ?><label class="settings-option-card"><input type="checkbox" name="clear_smtp_password" value="1"><span class="settings-option-copy"><strong>Clear the saved SMTP password</strong><small>The password is removed when these settings are saved.</small></span></label><?php endif; ?>

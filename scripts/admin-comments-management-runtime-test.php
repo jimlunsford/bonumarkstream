@@ -493,13 +493,21 @@ try {
     $publicAccount = bms_comments_test_request($base, '/account.php', $guest);
     $response = bms_comments_test_request($base, '/account.php', $guest, ['csrf_token' => bms_comments_test_token($publicAccount['body']), 'action' => 'register', 'username' => 'publicsignup', 'display_name' => 'Public Signup', 'email' => 'public@example.test', 'password' => 'public-signup-orchid-73', 'confirm_password' => 'public-signup-orchid-73', 'role' => 'admin']);
     bms_comments_test_expect($response['status'] === 200 && (int)$pdo->query("SELECT COUNT(*) FROM `{$prefix}users` WHERE username='publicsignup'")->fetchColumn() === 0, 'Public registration cannot bypass required verification when delivery is unavailable');
+    // A pending account cannot sign in, and sign-in shows the same message
+    // for it as for a wrong password or an unknown username.
+    $loginNotice = static function (string $html): string {
+        return preg_match('/<div class="account-notice[^"]*"[^>]*>(.*?)<\/div>/s', $html, $match) === 1 ? trim(html_entity_decode(strip_tags($match[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '';
+    };
+    $wrongPage = bms_comments_test_request($base, '/account.php', $guest);
+    $wrong = bms_comments_test_request($base, '/account.php', $guest, ['csrf_token' => bms_comments_test_token($wrongPage['body']), 'action' => 'login', 'username' => 'nosuchaccount', 'password' => 'disposable-password']);
+    $genericNotice = $loginNotice($wrong['body']);
     foreach ([['pendingverify', false], ['pendingapproval', true]] as [$username, $verified]) {
         $userSeed->execute([$username, $username, $username . '@example.test', $verified ? '2026-01-01 12:00:00' : null, password_hash('disposable-password', PASSWORD_DEFAULT), 'pending', null, null]);
         $cookies = [];
         $page = bms_comments_test_request($base, '/account.php', $cookies);
         $response = bms_comments_test_request($base, '/account.php', $cookies, ['csrf_token' => bms_comments_test_token($page['body']), 'action' => 'login', 'username' => $username, 'password' => 'disposable-password']);
         $denied = bms_comments_test_request($base, '/admin/comments.php', $cookies);
-        bms_comments_test_expect($response['status'] === 200 && $denied['status'] === 302 && str_contains($response['body'], $verified ? 'waiting for admin approval' : 'verify the account'), 'Public login enforces ' . ($verified ? 'pending owner approval' : 'pending email verification'));
+        bms_comments_test_expect($response['status'] === 200 && $denied['status'] === 302 && $genericNotice !== '' && $loginNotice($response['body']) === $genericNotice && !str_contains($response['body'], 'waiting for admin approval') && !str_contains($response['body'], 'verify the account'), 'Public login refuses a ' . ($verified ? 'pending-approval' : 'pending-verification') . ' account with the generic sign-in message');
     }
 
     $public = bms_comments_test_request($base, '/', $guest);

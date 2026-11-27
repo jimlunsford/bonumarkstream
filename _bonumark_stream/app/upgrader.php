@@ -442,7 +442,7 @@ function bms_upgrade_cleanup_obsolete_files(string $publicRoot, array $manifestF
     return $removed;
 }
 
-function bms_upgrade_record_history(string $fromVersion, string $toVersion, array $ran, array $removed): void
+function bms_upgrade_record_history(string $fromVersion, string $toVersion, array $ran, array $removed, string $note = ''): void
 {
     if (!function_exists('bms_db')) {
         return;
@@ -455,7 +455,7 @@ function bms_upgrade_record_history(string $fromVersion, string $toVersion, arra
         'from_version' => $fromVersion,
         'to_version' => $toVersion,
         'status' => 'complete',
-        'notes' => 'Migrations: ' . $migrationNotes . '; obsolete software files removed: ' . $cleanupNotes,
+        'notes' => 'Migrations: ' . $migrationNotes . '; obsolete software files removed: ' . $cleanupNotes . ($note !== '' ? '; ' . $note : ''),
     ]);
 }
 
@@ -464,28 +464,102 @@ function bms_upgrade_recovery_state_current(): array
     return function_exists('bms_upgrade_recovery_state') ? bms_upgrade_recovery_state() : [];
 }
 
-function bms_upgrade_recovery_can_resume_package(string $packageVersion): bool
+/** The package digest an interrupted upgrade recorded, or ''. */
+function bms_upgrade_recovery_recorded_sha256(array $recovery): string
 {
-    return function_exists('bms_upgrade_recovery_matches_package')
-        && bms_upgrade_recovery_matches_package($packageVersion);
+    $recorded = strtolower(trim((string)($recovery['package_sha256'] ?? '')));
+    if ($recorded === '' && function_exists('bms_upgrade_recovery_marker_path')) {
+        // An earlier database.php drops fields it does not know; read the
+        // marker itself.
+        $raw = json_decode((string)@file_get_contents(bms_upgrade_recovery_marker_path()), true);
+        $recorded = is_array($raw) ? strtolower(trim((string)($raw['package_sha256'] ?? ''))) : '';
+    }
+    return preg_match('/^[a-f0-9]{64}$/', $recorded) === 1 ? $recorded : '';
 }
 
-function bms_upgrade_assert_recovery_allows_package(string $packageVersion): bool
+/**
+ * How a package relates to an interrupted upgrade:
+ * 'none'      no upgrade needs recovery;
+ * 'match'     the exact package whose migrations started (same version and SHA-256);
+ * 'different' the recovery target version, but not provably the same package,
+ *             so resuming needs the owner's explicit acknowledgement.
+ * A migration still marked in progress, or a different version, throws.
+ */
+function bms_upgrade_recovery_package_status(string $packageVersion, string $packageSha256 = ''): string
 {
     $recovery = bms_upgrade_recovery_state_current();
     if (!$recovery) {
-        return false;
+        return 'none';
     }
 
     if ((string)($recovery['status'] ?? '') === 'migration_in_progress') {
         throw new RuntimeException('A previous upgrade entered the database migration phase and did not report completion. The installation is protected from an unsafe rollback. Review the private upgrade backup and server error log before starting another upgrade.');
     }
 
-    if (bms_upgrade_recovery_can_resume_package($packageVersion)) {
-        return true;
+    if ($packageVersion === '' || !hash_equals((string)($recovery['to_version'] ?? ''), $packageVersion)) {
+        throw new RuntimeException('A previous upgrade requires recovery for v' . (string)($recovery['to_version'] ?? 'unknown') . '. Retry that exact release package before starting another upgrade.');
     }
 
-    throw new RuntimeException('A previous upgrade requires recovery for v' . (string)($recovery['to_version'] ?? 'unknown') . '. Retry that exact release package before starting another upgrade.');
+    $recorded = bms_upgrade_recovery_recorded_sha256($recovery);
+    $packageSha256 = strtolower(trim($packageSha256));
+    return $recorded !== '' && $packageSha256 !== '' && hash_equals($recorded, $packageSha256) ? 'match' : 'different';
+}
+
+function bms_upgrade_recovery_can_resume_package(string $packageVersion, string $packageSha256 = '', bool $acknowledgeDifferentPackage = false): bool
+{
+    try {
+        $status = bms_upgrade_recovery_package_status($packageVersion, $packageSha256);
+    } catch (Throwable $e) {
+        return false;
+    }
+    return $status === 'match' || ($status === 'different' && $acknowledgeDifferentPackage);
+}
+
+/** A recovery that needs the owner's acknowledgement of a different package. */
+class BmsUpgradeRecoveryPackageException extends RuntimeException
+{
+}
+
+function bms_upgrade_recovery_different_package_message(): string
+{
+    return 'This package has the recovery target version, but it is not the package that started the interrupted upgrade. Upload that exact package, or confirm that you want to resume recovery with this one.';
+}
+
+/**
+ * Allow a package only when no upgrade needs recovery, or when it is the
+ * exact package an interrupted upgrade recorded. Another package with the
+ * recovery target version needs the owner's explicit acknowledgement.
+ * Returns true when the package resumes a recovery.
+ */
+function bms_upgrade_assert_recovery_allows_package(string $packageVersion, string $packageSha256 = '', bool $acknowledgeDifferentPackage = false): bool
+{
+    $status = bms_upgrade_recovery_package_status($packageVersion, $packageSha256);
+    if ($status === 'none') {
+        return false;
+    }
+    if ($status === 'match' || $acknowledgeDifferentPackage) {
+        return true;
+    }
+    throw new BmsUpgradeRecoveryPackageException(bms_upgrade_recovery_different_package_message());
+}
+
+/**
+ * Write the recovery marker with the package digest, also when an earlier
+ * database.php, which does not know the digest field, is loaded.
+ */
+function bms_upgrade_write_recovery_marker(array $state): void
+{
+    bms_write_upgrade_recovery_state($state);
+    $digest = strtolower(trim((string)($state['package_sha256'] ?? '')));
+    if (preg_match('/^[a-f0-9]{64}$/', $digest) !== 1 || !function_exists('bms_upgrade_recovery_marker_path')) {
+        return;
+    }
+    $path = bms_upgrade_recovery_marker_path();
+    $current = json_decode((string)@file_get_contents($path), true);
+    if (is_array($current) && (string)($current['package_sha256'] ?? '') !== $digest) {
+        $current['package_sha256'] = $digest;
+        bms_write_file($path, json_encode($current, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    }
 }
 
 function bms_upgrade_record_recovery_required(string $fromVersion, string $toVersion, string $backupRoot): void
@@ -884,7 +958,9 @@ function bms_upgrade_inspect_package(string $zipPath): array
         $packageVersion = bms_upgrade_package_version($packageRoot);
         bms_upgrade_verify_manifest($packageRoot);
         $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
-        $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
+        $zipSha256 = hash_file('sha256', $zipPath) ?: '';
+        $recoveryPackage = bms_upgrade_recovery_package_status($packageVersion, $zipSha256);
+        $recoveryResume = $recoveryPackage !== 'none';
         if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=') && !$recoveryResume) {
             throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
         }
@@ -935,7 +1011,9 @@ function bms_upgrade_inspect_package(string $zipPath): array
             'deployment_capability' => $deploymentCapability,
             'backup_ready' => $backupReady,
             'recovery_resume' => $recoveryResume,
-            'zip_sha256' => hash_file('sha256', $zipPath) ?: '',
+            'recovery_package' => $recoveryResume ? $recoveryPackage : '',
+            'recovery_package_sha256' => $recoveryResume ? bms_upgrade_recovery_recorded_sha256(bms_upgrade_recovery_state_current()) : '',
+            'zip_sha256' => $zipSha256,
         ];
     } finally {
         bms_upgrade_remove_temp($extractRoot);
@@ -988,7 +1066,9 @@ function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName
         $packageMeta = is_file($packageRoot . '/_bonumark_stream/PACKAGE.json') ? json_decode((string)file_get_contents($packageRoot . '/_bonumark_stream/PACKAGE.json'), true) : [];
         $releaseNotes = is_array($packageMeta) ? trim((string)($packageMeta['release_name'] ?? $packageMeta['description'] ?? '')) : '';
 
-        $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
+        $zipSha256 = hash_file('sha256', $pendingZip) ?: '';
+        $recoveryPackage = bms_upgrade_recovery_package_status($packageVersion, $zipSha256);
+        $recoveryResume = $recoveryPackage !== 'none';
         if ($currentVersion !== 'unknown' && version_compare($packageVersion, $currentVersion, '<=') && !$recoveryResume) {
             throw new RuntimeException('This package is not newer than the installed version. Installed: ' . $currentVersion . '. Package: ' . $packageVersion . '.');
         }
@@ -1018,6 +1098,9 @@ function bms_upgrade_precheck_package(string $uploadedPath, string $uploadedName
             'published_count' => $publishedCount,
             'release_notes' => $releaseNotes,
             'recovery_resume' => $recoveryResume,
+            'recovery_package' => $recoveryResume ? $recoveryPackage : '',
+            'recovery_package_sha256' => $recoveryResume ? bms_upgrade_recovery_recorded_sha256(bms_upgrade_recovery_state_current()) : '',
+            'zip_sha256' => $zipSha256,
             'checked_at' => gmdate('c'),
         ];
         $_SESSION['pending_upgrade'] = $precheck;
@@ -1039,7 +1122,13 @@ function bms_upgrade_clear_pending(): void
     unset($_SESSION['pending_upgrade']);
 }
 
-function bms_upgrade_install(string $zipPath): array
+/**
+ * Install a release ZIP. While an interrupted upgrade waits for recovery,
+ * only the exact package it recorded may resume it, unless $options
+ * ['acknowledge_different_recovery_package'] carries the owner's explicit
+ * acknowledgement of a different package with the same target version.
+ */
+function bms_upgrade_install(string $zipPath, array $options = []): array
 {
     if (!class_exists('ZipArchive')) {
         throw new RuntimeException('The PHP ZipArchive extension is not available on this server. Ask the host to enable it before using admin ZIP upgrades.');
@@ -1055,6 +1144,11 @@ function bms_upgrade_install(string $zipPath): array
     if (!is_dir($tmpRoot) && !mkdir($tmpRoot, 0755, true)) {
         throw new RuntimeException('Could not create upgrade temp directory.');
     }
+
+    // The digest of the exact bytes being installed. It is recorded when
+    // migrations start, so a recovery can require the same package.
+    $packageSha256 = is_file($zipPath) ? (hash_file('sha256', $zipPath) ?: '') : '';
+    $acknowledgeDifferentPackage = !empty($options['acknowledge_different_recovery_package']);
 
     $zip = new ZipArchive();
     $opened = $zip->open($zipPath);
@@ -1074,7 +1168,16 @@ function bms_upgrade_install(string $zipPath): array
     bms_upgrade_verify_manifest($packageRoot);
     $manifestFiles = bms_upgrade_manifest_file_set($packageRoot);
     $recovery = bms_upgrade_recovery_state_current();
-    $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion);
+    try {
+        $recoveryPackage = bms_upgrade_recovery_package_status($packageVersion, $packageSha256);
+        $recoveryResume = bms_upgrade_assert_recovery_allows_package($packageVersion, $packageSha256, $acknowledgeDifferentPackage);
+    } catch (Throwable $e) {
+        bms_upgrade_remove_temp($tmpRoot);
+        throw $e;
+    }
+    $historyNote = $recoveryResume && $recoveryPackage === 'different'
+        ? 'recovery resumed with a different package than the one recorded, acknowledged by the owner (SHA-256 ' . $packageSha256 . ')'
+        : '';
     $historyFromVersion = $recoveryResume && trim((string)($recovery['from_version'] ?? '')) !== ''
         ? trim((string)$recovery['from_version'])
         : $currentVersion;
@@ -1141,32 +1244,34 @@ function bms_upgrade_install(string $zipPath): array
 
         if (function_exists('bms_run_migrations')) {
             $migrationStartedAt = gmdate('c');
-            bms_write_upgrade_recovery_state([
+            bms_upgrade_write_recovery_marker([
                 'status' => 'migration_in_progress',
                 'phase' => 'database_migration',
                 'from_version' => $historyFromVersion,
                 'to_version' => $packageVersion,
                 'backup_path' => $backupRoot,
                 'started_at' => $migrationStartedAt,
+                'package_sha256' => $packageSha256,
             ]);
             $migrationPhaseStarted = true;
             $ran = bms_run_migrations($historyFromVersion);
         }
 
-        bms_upgrade_record_history($historyFromVersion, $packageVersion, $ran, $removed);
+        bms_upgrade_record_history($historyFromVersion, $packageVersion, $ran, $removed, $historyNote);
         if (function_exists('bms_clear_upgrade_recovery_state')) {
             bms_clear_upgrade_recovery_state();
         }
     } catch (Throwable $e) {
         if ($migrationPhaseStarted) {
             try {
-                bms_write_upgrade_recovery_state([
+                bms_upgrade_write_recovery_marker([
                     'status' => 'recovery_required',
                     'phase' => 'database_migration',
                     'from_version' => $historyFromVersion,
                     'to_version' => $packageVersion,
                     'backup_path' => $backupRoot,
                     'started_at' => $migrationStartedAt !== '' ? $migrationStartedAt : gmdate('c'),
+                    'package_sha256' => $packageSha256,
                 ]);
                 bms_upgrade_record_recovery_required($historyFromVersion, $packageVersion, $backupRoot);
             } catch (Throwable $recoveryError) {

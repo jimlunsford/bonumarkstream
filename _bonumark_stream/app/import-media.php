@@ -430,6 +430,11 @@ function bms_import_extract_staging_tokens_from_preview(?array $preview): array
             }
         }
     }
+    // A Bonumark export stages its media library under one token.
+    $libraryToken = strtolower(preg_replace('/[^a-f0-9]/i', '', (string)($preview['media_library']['token'] ?? '')) ?? '');
+    if (strlen($libraryToken) === 24) {
+        $tokens[] = $libraryToken;
+    }
     return array_values(array_unique($tokens));
 }
 
